@@ -1,0 +1,40 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+dist/
+build/
+
+# macOS
+.DS_Store
+
+# Testing
+.pytest_cache/
+
+# Runtime outputs
+Outputs/
+heatmaps/
+
+# Model weights (large binary files)
+*.pt
+*.ts
+*.onnx
+Weights/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Visual Prompt files (contain user-specific paths)
+*.vp.json
+
+# Environment
+.env
+venv/
+
+# Embedded venvs (third-party submodules)
+Plugins/GazeTracking/MGaze/gaze-estimation/gaze/
+Plugins/GazeTracking/MGaze/gaze-estimation/gaze-est/
