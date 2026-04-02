@@ -1,0 +1,23 @@
+# MindSight Example Pipeline Configuration
+# Load with: python MindSight.py --project Projects/ExampleProject/
+#
+# CLI flags override values set here.
+
+name: "Example Project"
+
+detection:
+  model: "yolov8n.pt"
+  conf: 0.35
+
+gaze:
+  ray_length: 1.0
+  adaptive_ray: false
+  snap_dist: 150
+
+phenomena:
+  mutual_gaze: false
+  social_ref: false
+  gaze_follow: false
+
+output:
+  save: false

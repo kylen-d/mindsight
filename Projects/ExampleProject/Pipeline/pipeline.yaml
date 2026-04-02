@@ -1,0 +1,48 @@
+# MindSight Pipeline Configuration — Example Project
+#
+# This file configures the MindSight gaze-tracking pipeline for batch
+# processing all videos in Inputs/Videos/.
+#
+# Usage:
+#   python MindSight.py --project Projects/ExampleProject/
+#
+# CLI flags override any values set here.
+
+# Source is set automatically by --project (one run per video in Inputs/Videos/).
+# Uncomment to override with a specific source:
+# source: "path/to/video.mp4"
+
+detection:
+  model: "yolov8n.pt"
+  conf: 0.35
+  detect_scale: 1.0
+  # vp_file: "kitchen_prompts.vp.json"   # Place VP files in Inputs/Prompts/
+
+gaze:
+  ray_length: 1.0
+  adaptive_ray: false
+  snap_dist: 150.0
+  # gaze_cone: 15.0    # Uncomment to use vision cones instead of rays
+
+phenomena:
+  - joint_attention:
+      ja_window: 10
+      ja_quorum: 1.0
+  - mutual_gaze: {}
+  # - social_referencing:
+  #     window: 60
+  # - gaze_following:
+  #     lag: 30
+  # - gaze_aversion:
+  #     aversion_window: 60
+  #     aversion_conf: 0.5
+  # - scanpath:
+  #     dwell: 8
+  # - gaze_leadership: {}
+  # - attention_span: {}
+
+output:
+  save_video: true
+  log_csv: true
+  summary_csv: true
+  # heatmaps: true    # Uncomment to enable per-participant gaze heatmaps
