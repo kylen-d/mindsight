@@ -231,7 +231,8 @@ MindSight/
 │       └── Pipeline/pipeline.yaml
 │
 ├── utils/
-│   └── geometry.py               # Ray geometry, pitch/yaw, bbox ops
+│   ├── geometry.py               # Ray geometry, pitch/yaw, bbox ops
+│   └── device.py                 # Shared device detection for all backends
 │
 ├── tests/                        # pytest test suite
 │   ├── test_geometry.py
