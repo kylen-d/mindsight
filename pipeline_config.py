@@ -14,6 +14,24 @@ See also ``Phenomena/phenomena_config.py`` for phenomena-specific config.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from pathlib import Path
+from typing import Optional
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# Participant-ID display helper
+# ══════════════════════════════════════════════════════════════════════════════
+
+def resolve_display_pid(track_id: int,
+                        pid_map: Optional[dict[int, str]] = None) -> str:
+    """Return the display label for an internal track ID.
+
+    If *pid_map* is provided and contains *track_id*, the custom label is
+    returned.  Otherwise falls back to ``"P{track_id}"``.
+    """
+    if pid_map and track_id in pid_map:
+        return pid_map[track_id]
+    return f"P{track_id}"
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -68,16 +86,22 @@ class GazeConfig:
     """All gaze-estimation and ray-intersection tuning parameters."""
 
     ray_length: float = 1.0
-    adaptive_ray: bool = False
+    adaptive_ray: str = "off"          # "off", "extend", or "snap"
     snap_dist: float = 150.0
-    adaptive_snap_mode: bool = False
+    snap_bbox_scale: float = 0.0      # fraction of bbox half-diag added to snap radius
+    snap_w_dist: float = 1.0          # scoring weight: normalized distance penalty
+    snap_w_size: float = 0.0          # scoring weight: angular size reward (off by default)
+    snap_w_intersect: float = 0.5     # scoring bonus for ray-bbox intersection
     conf_ray: bool = False
     gaze_tips: bool = False
     tip_radius: int = 80
     gaze_cone_angle: float = 0.0
-    ja_conf_gate: float = 0.0
+    hit_conf_gate: float = 0.0
+    detect_extend: float = 0.0            # extra pixels past visual ray (0 = visual parity)
+    detect_extend_scope: str = "objects"   # "objects", "phenomena", or "both"
     ja_quorum: float = 1.0
     gaze_debug: bool = False
+    forward_gaze_threshold: float = 5.0
 
     @classmethod
     def from_namespace(cls, ns) -> GazeConfig:
@@ -86,14 +110,20 @@ class GazeConfig:
             ray_length=ns.ray_length,
             adaptive_ray=ns.adaptive_ray,
             snap_dist=ns.snap_dist,
-            adaptive_snap_mode=ns.adaptive_snap,
+            snap_bbox_scale=getattr(ns, 'snap_bbox_scale', 0.0),
+            snap_w_dist=getattr(ns, 'snap_w_dist', 1.0),
+            snap_w_size=getattr(ns, 'snap_w_size', 0.0),
+            snap_w_intersect=getattr(ns, 'snap_w_intersect', 0.5),
             conf_ray=ns.conf_ray,
             gaze_tips=ns.gaze_tips,
             tip_radius=ns.tip_radius,
             gaze_cone_angle=ns.gaze_cone,
-            ja_conf_gate=ns.ja_conf_gate,
+            hit_conf_gate=getattr(ns, 'hit_conf_gate', 0.0),
+            detect_extend=getattr(ns, 'detect_extend', 0.0),
+            detect_extend_scope=getattr(ns, 'detect_extend_scope', 'objects'),
             ja_quorum=ns.ja_quorum,
             gaze_debug=ns.gaze_debug,
+            forward_gaze_threshold=ns.forward_gaze_threshold,
         )
 
 
@@ -136,6 +166,7 @@ class TrackerConfig:
     obj_persistence: int = 0
     snap_switch_frames: int = 8
     reid_grace_seconds: float = 1.0
+    reid_max_dist: int = 200
 
     @classmethod
     def from_namespace(cls, ns) -> TrackerConfig:
@@ -148,12 +179,29 @@ class TrackerConfig:
             obj_persistence=ns.obj_persistence,
             snap_switch_frames=ns.snap_switch_frames,
             reid_grace_seconds=ns.reid_grace_seconds,
+            reid_max_dist=getattr(ns, 'reid_max_dist', 200),
         )
 
 
 # ══════════════════════════════════════════════════════════════════════════════
 # Output configuration
 # ══════════════════════════════════════════════════════════════════════════════
+
+@dataclass
+class AuxStreamConfig:
+    """Configuration for a single auxiliary video stream mapped to a participant.
+
+    Auxiliary streams are optional per-participant video feeds (e.g. a
+    dedicated eye-tracking camera or a first-person-view camera) that are
+    frame-synchronised with the main source.  They are exposed in
+    ``FrameContext['aux_frames']`` for consumption by plugins but are
+    **not** processed by any built-in pipeline stage.
+    """
+
+    pid: str            # participant label (e.g. "S70")
+    stream_type: str    # purpose tag (e.g. "eye_camera", "first_person_view")
+    source: str         # file path or device index string
+
 
 @dataclass
 class OutputConfig:
@@ -163,6 +211,13 @@ class OutputConfig:
     log_path: str | None = None
     summary_path: str | None = None
     heatmap_path: str | None = None
+    charts_path: bool | str | None = None
+    pid_map: dict[int, str] | None = None
+    aux_streams: list[AuxStreamConfig] | None = None
+    anonymize: str | None = None          # "blur" or "black"; None = disabled
+    anonymize_padding: float = 0.3        # fraction of bbox size added as margin
+    video_name: str | None = None         # source video stem (project mode only)
+    conditions: str | None = None         # pipe-delimited tags (project mode only)
 
     @classmethod
     def from_namespace(cls, ns) -> OutputConfig:
@@ -172,4 +227,42 @@ class OutputConfig:
             log_path=ns.log,
             summary_path=ns.summary,
             heatmap_path=ns.heatmap,
+            charts_path=getattr(ns, 'charts', None),
+            pid_map=getattr(ns, 'pid_map', None),
+            aux_streams=getattr(ns, 'aux_streams', None),
+            anonymize=getattr(ns, 'anonymize', None),
+            anonymize_padding=getattr(ns, 'anonymize_padding', 0.3),
         )
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# Project-level configuration (loaded from project.yaml)
+# ══════════════════════════════════════════════════════════════════════════════
+
+@dataclass
+class ProjectOutputConfig:
+    """Controls where project-level outputs are written."""
+
+    directory: str | None = None          # output root (absolute or relative to project)
+
+    def resolve_root(self, project: Path) -> Path:
+        """Return the resolved output root directory."""
+        if self.directory:
+            out = Path(self.directory)
+            return out if out.is_absolute() else project / out
+        return project / "Outputs"
+
+
+@dataclass
+class ProjectConfig:
+    """Project metadata loaded from ``project.yaml``.
+
+    Stores study-level information (condition tags, participant labels,
+    output settings) that is orthogonal to pipeline processing parameters
+    stored in ``pipeline.yaml``.
+    """
+
+    pipeline_path: str | None = None
+    conditions: dict[str, list[str]] = field(default_factory=dict)
+    participants: dict[str, dict[int, str]] = field(default_factory=dict)
+    output: ProjectOutputConfig = field(default_factory=ProjectOutputConfig)
