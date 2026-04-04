@@ -17,6 +17,7 @@ import cv2
 import numpy as np
 
 from constants import OUTPUTS_ROOT as _OUTPUTS_ROOT, HEATMAP_SIGMA, HEATMAP_ALPHA
+from pipeline_config import resolve_display_pid
 
 
 def resolve_heatmap_path(heatmap_arg, source) -> "str | None":
@@ -105,7 +106,8 @@ def save_heatmaps(heatmap_path: str,
                   bg_frame: np.ndarray,
                   heatmap_gaze: dict,
                   sigma: int = 40,
-                  alpha: float = 0.65) -> None:
+                  alpha: float = 0.65,
+                  pid_map: dict = None) -> None:
     """Generate and save one heatmap PNG per participant.
 
     Parameters
@@ -136,6 +138,7 @@ def save_heatmaps(heatmap_path: str,
         if not pts:
             continue
         img  = generate_participant_heatmap(bg_frame, pts, sigma=sigma, alpha=alpha)
-        name = str(prefix) + f"_P{tid}_heatmap.png"
+        plbl = resolve_display_pid(tid, pid_map)
+        name = str(prefix) + f"_{plbl}_heatmap.png"
         cv2.imwrite(name, img)
         print(f"Heatmap \u2192 {name}  ({len(pts)} gaze samples)")
