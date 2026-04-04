@@ -1,6 +1,6 @@
 # MindSight — Unified Eye-Gaze Intersection Tracker for Behavioural Neuroscience Research
 
-> **Beta Release** — This is a pre-release version (v0.2.0-beta). APIs and features may change. Bug reports and feedback are welcome via [GitHub Issues](https://github.com/kylen-d/mindsight/issues).
+> **Beta Release** — This is a pre-release version (v0.3.0-beta). APIs and features may change. Bug reports and feedback are welcome via [GitHub Issues](https://github.com/kylen-d/mindsight/issues).
 
 [![License: AGPL v3](https://img.shields.io/badge/License-AGPLv3-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
 
@@ -97,18 +97,25 @@ Camera / Video / Image
 
 ### Python packages
 
+All dependencies are listed in `requirements.txt`. Key packages:
+
 ```
-opencv-python
-numpy
-torch
-torchvision
-onnxruntime          # or onnxruntime-gpu for CUDA
-ultralytics          # YOLO / YOLOE
-uniface              # RetinaFace face detector
-PyQt6                # GUI only
+torch / torchvision          # Deep learning
+onnxruntime                  # ONNX inference (or onnxruntime-gpu for CUDA)
+ultralytics                  # YOLO / YOLOE object detection
+clip                         # Ultralytics CLIP fork (visual prompts)
+uniface                      # RetinaFace face detector
+timm                         # PyTorch Image Models (UniGaze backend)
+opencv-python                # Computer vision
+matplotlib                   # Charts and dashboard rendering
+pandas                       # Data output
+PyQt6                        # GUI
+PyYAML                       # Pipeline configuration
+tqdm                         # Progress bars
+Pillow                       # Image handling
 ```
 
-> **Note:** The `gaze-estimation` submodule ships its own virtual environment (`gaze-est/`). You do **not** need to activate it separately — MindSight inserts the `gaze-estimation/` directory into `sys.path` automatically at runtime.
+> **Note:** The UniGaze backend requires `pip install unigaze` separately (non-commercial license, pins `timm==0.3.2`).
 
 ---
 
@@ -117,8 +124,8 @@ PyQt6                # GUI only
 ### 1. Clone the repository
 
 ```bash
-git clone <repo-url>
-cd MindSight
+git clone https://github.com/kylen-d/mindsight.git
+cd mindsight
 ```
 
 ### 2. Create and activate a virtual environment (recommended)
@@ -132,25 +139,31 @@ source .venv/bin/activate        # macOS / Linux
 ### 3. Install dependencies
 
 ```bash
-pip install opencv-python numpy torch torchvision
-pip install onnxruntime           # CPU
-# pip install onnxruntime-gpu     # NVIDIA GPU
-pip install ultralytics
-pip install uniface
-pip install PyQt6                 # GUI only
+pip install -r requirements.txt
 ```
 
-**macOS (Apple Silicon) — CoreML acceleration:**
+**GPU acceleration (optional):** Install PyTorch with CUDA support *before* running the above — see [pytorch.org/get-started](https://pytorch.org/get-started/locally/). For Apple Silicon CoreML, replace `onnxruntime` with `onnxruntime-silicon`.
+
+Alternatively, use the platform-aware helper:
 
 ```bash
-pip install onnxruntime-silicon   # or onnxruntime with CoreML support
+python install_dependencies.py        # auto-detects CUDA / Apple Silicon
 ```
 
 ### 4. Download gaze model weights
 
-The default gaze model is `gaze-estimation/weights/mobileone_s0_gaze.onnx`. Other ONNX and PyTorch weights (`resnet18`, `resnet34`, `resnet50`) are already included in the `gaze-estimation/weights/` directory.
+MGaze weights are stored in `GazeTracking/Backends/MGaze/gaze-estimation/weights/`. Download them with:
 
-To use the Gazelle backend, download a checkpoint separately and pass it via `--gazelle-model`.
+```bash
+cd GazeTracking/Backends/MGaze/gaze-estimation
+bash download.sh
+```
+
+For L2CS-Net, download weights to `GazeTracking/Backends/L2CS/weights/` and pass the path via `--l2cs-model`.
+
+For Gazelle, download a checkpoint separately and pass it via `--gazelle-model`.
+
+For UniGaze, install separately (`pip install unigaze`) and pass the model variant via `--unigaze-model`.
 
 ### 5. YOLO weights
 
@@ -268,13 +281,13 @@ python MindSight.py --source video.mp4 --summary results.csv
 |---|---|---|
 | `--source` | `0` | Input: `0` = webcam, integer = camera index, path to video/image |
 | `--model` | `yolov8n.pt` | YOLO model weights |
-| `--mgaze-model` | `gaze-estimation/weights/mobileone_s0_gaze.onnx` | MGaze: ONNX or `.pt` gaze weights |
+| `--mgaze-model` | `GazeTracking/Backends/MGaze/gaze-estimation/weights/mobileone_s0_gaze.onnx` | MGaze: ONNX or `.pt` gaze weights |
 | `--mgaze-arch` | `None` | MGaze: Required for `.pt` models: `resnet18`, `resnet34`, `resnet50`, `mobilenetv2`, `mobileone_s0`–`s4` |
 | `--mgaze-dataset` | `gaze360` | MGaze: Dataset config used for `.pt` models |
 | `--l2cs-model` | `None` | L2CS-Net: Path to `.pkl` or `.onnx` weights |
 | `--l2cs-arch` | `ResNet50` | L2CS-Net: Architecture (`ResNet18`–`ResNet152`) |
 | `--l2cs-dataset` | `gaze360` | L2CS-Net: Dataset config key |
-| `--unigaze-model` | `None` | UniGaze: Model variant (requires `pip install unigaze timm==0.3.2`) |
+| `--unigaze-model` | `None` | UniGaze: Model variant (requires `pip install unigaze` separately) |
 | `--conf` | `0.35` | YOLO detection confidence threshold |
 | `--classes` | `None` | Filter YOLO to specific class names, e.g. `--classes person knife` |
 | `--blacklist` | `[]` | Suppress specific YOLO classes, e.g. `--blacklist chair` |
@@ -468,7 +481,7 @@ When `--save` is passed, an annotated `.mp4` is written alongside the source, or
 | **MGaze ONNX** (default) | `--mgaze-model` with `.onnx` path | Fastest; uses CoreML on Apple Silicon, CUDA on NVIDIA, CPU otherwise |
 | **MGaze PyTorch** | `--mgaze-model` with `.pt` + `--mgaze-arch` | Requires `--mgaze-arch` to identify the architecture |
 | **L2CS-Net** | `--l2cs-model <weights.pkl>` | ResNet50 with dual classification heads; ~3x more accurate than MGaze on MPIIGaze (3.92 vs ~11 deg MAE) |
-| **UniGaze** (optional) | `--unigaze-model <variant>` | ViT + MAE pre-training; best cross-dataset accuracy (~9.4 deg Gaze360). Requires `pip install unigaze timm==0.3.2` (non-commercial license) |
+| **UniGaze** (optional) | `--unigaze-model <variant>` | ViT + MAE pre-training; best cross-dataset accuracy (~9.4 deg Gaze360). Requires `pip install unigaze` separately (non-commercial license) |
 | **Gazelle** | `--gazelle-model <ckpt.pt>` | Scene-level DINOv2 model; processes all faces in a single forward pass; outputs a gaze heatmap rather than pitch/yaw |
 
 **MGaze architectures** (`--mgaze-arch`):

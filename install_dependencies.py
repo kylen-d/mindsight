@@ -2,9 +2,9 @@
 """
 MindSight dependency installer.
 
-Installs all packages required by:
-  - gaze_tracker.py / ObjectDetection/YOLO/yolo_tracking.py  (the MindSight orchestration layer)
-  - GazeTracking/Backends/MGaze/gaze-estimation/  (the embedded gaze-estimation submodule)
+Installs all packages required by MindSight. Dependencies are also listed
+in requirements.txt — this script adds platform-aware PyTorch installation
+(CUDA, Apple Silicon, or CPU).
 
 Usage:
     python install_dependencies.py

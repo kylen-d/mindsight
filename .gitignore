@@ -35,11 +35,8 @@ Weights/
 .env
 venv/
 
-# Embedded venvs (third-party submodules)
-Plugins/GazeTracking/MGaze/gaze-estimation/gaze/
-Plugins/GazeTracking/MGaze/gaze-estimation/gaze-est/
+# Embedded venvs (gaze-estimation submodule)
 GazeTracking/Backends/MGaze/gaze-estimation/gaze/
-GazeTracking/Backends/MGaze/gaze-estimation/gaze-est/
 GazeTracking/Backends/MGaze/gaze-estimation/weights/
 GazeTracking/Backends/MGaze/gaze-estimation/assets/
 

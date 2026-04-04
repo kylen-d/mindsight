@@ -42,6 +42,6 @@ output:
 # Plugin-specific settings — keys map directly to CLI flags (hyphens or underscores).
 # Any plugin argument works here without needing a hardcoded mapping.
 plugins:
-  mgaze_model: "Plugins/GazeTracking/MGaze/gaze-estimation/weights/resnet50_gaze.onnx"
+  mgaze_model: "GazeTracking/Backends/MGaze/gaze-estimation/weights/resnet50_gaze.onnx"
   mgaze_arch: "resnet50"
   novel_salience: true

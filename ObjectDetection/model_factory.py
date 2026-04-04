@@ -88,7 +88,7 @@ def create_yolo_detector(
 
 def create_face_detector():
     """Create and return a RetinaFace instance."""
-    _GAZE_DIR = Path(__file__).parent.parent / "GazeTracking" / "gaze-estimation"
+    _GAZE_DIR = Path(__file__).parent.parent / "GazeTracking" / "Backends" / "MGaze" / "gaze-estimation"
     if str(_GAZE_DIR) not in sys.path:
         sys.path.insert(0, str(_GAZE_DIR))
     from uniface import RetinaFace

@@ -8,8 +8,8 @@ This file documents their licenses for compliance purposes.
 ### MGaze / gaze-estimation
 - **License:** MIT
 - **Copyright:** (c) 2024 Yakhyokhuja Valikhujaev
-- **Location:** `Plugins/GazeTracking/MGaze/gaze-estimation/`
-- **Full license:** `Plugins/GazeTracking/MGaze/gaze-estimation/LICENSE`
+- **Location:** `GazeTracking/Backends/MGaze/gaze-estimation/`
+- **Full license:** `GazeTracking/Backends/MGaze/gaze-estimation/LICENSE`
 
 ### Gazelle (Gaze-LLE)
 - **License:** MIT

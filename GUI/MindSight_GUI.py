@@ -714,7 +714,7 @@ class GazeTab(QWidget):
         vl.addWidget(rb_row)
 
         self._gaze_model = QLineEdit(
-            str(_HERE / "GazeTracking" / "gaze-estimation" / "weights" / "mobileone_s0_gaze.onnx"))
+            str(_HERE / "GazeTracking" / "Backends" / "MGaze" / "gaze-estimation" / "weights" / "mobileone_s0_gaze.onnx"))
         gm_btn = _browse_btn()
         gm_btn.clicked.connect(lambda: self._browse_to(self._gaze_model, "*.onnx *.pt"))
         model_row = QWidget(); model_lay = QFormLayout(model_row)
