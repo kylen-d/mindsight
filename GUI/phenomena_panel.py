@@ -111,44 +111,38 @@ class PhenomenaPanel(QWidget):
         lay.addWidget(sp_row)
 
         # Gaze Leadership
+        gl_row = QWidget()
+        gl_lay = QHBoxLayout(gl_row)
+        gl_lay.setContentsMargins(0, 0, 0, 0)
         self._gaze_leader = QCheckBox("Gaze Leadership")
         self._gaze_leader.setToolTip("Track who initiates gaze shifts first")
-        lay.addWidget(self._gaze_leader)
+        gl_lay.addWidget(self._gaze_leader)
+        self._gaze_leader_tips = QCheckBox("+ Tips")
+        self._gaze_leader_tips.setToolTip(
+            "Also detect leadership via gaze-tip convergence (requires Gaze Tips)")
+        gl_lay.addWidget(self._gaze_leader_tips)
+        gl_lay.addWidget(QLabel("lag:"))
+        self._gaze_leader_tip_lag = QSpinBox()
+        self._gaze_leader_tip_lag.setRange(1, 120)
+        self._gaze_leader_tip_lag.setValue(15)
+        self._gaze_leader_tip_lag.setToolTip("Lookback frames for tip-arrival priority")
+        self._gaze_leader_tip_lag.setFixedWidth(60)
+        gl_lay.addWidget(self._gaze_leader_tip_lag)
+        gl_lay.addStretch()
+        lay.addWidget(gl_row)
 
         # Attention Span
         self._attn_span = QCheckBox("Attention Span")
         self._attn_span.setToolTip("Track average glance duration per participant per object")
         lay.addWidget(self._attn_span)
 
-        # ── JA Accuracy section (checkable — disabled by default) ────────
-        ja_grp = QGroupBox("Joint Attention Accuracy")
+        # ── Joint Attention (toggleable tracker like the rest) ────────────
+        ja_grp = QGroupBox("Joint Attention")
         ja_grp.setCheckable(True)
         ja_grp.setChecked(False)
-        ja_grp.setToolTip("Enable temporal consistency filtering for joint attention detection")
+        ja_grp.setToolTip("Track when multiple participants look at the same object simultaneously")
         self._ja_grp = ja_grp
         ja_lay = QFormLayout(ja_grp)
-
-        self._ja_window = QSpinBox()
-        self._ja_window.setRange(1, 300)
-        self._ja_window.setValue(30)
-        self._ja_window.setToolTip("Temporal consistency window in frames")
-        ja_lay.addRow("JA window:", self._ja_window)
-
-        self._ja_window_thresh = QDoubleSpinBox()
-        self._ja_window_thresh.setRange(0.0, 1.0)
-        self._ja_window_thresh.setSingleStep(0.05)
-        self._ja_window_thresh.setValue(0.70)
-        self._ja_window_thresh.setDecimals(2)
-        self._ja_window_thresh.setToolTip("Fraction of window frames required for JA confirmation")
-        ja_lay.addRow("Window threshold:", self._ja_window_thresh)
-
-        self._ja_conf_gate = QDoubleSpinBox()
-        self._ja_conf_gate.setRange(0.0, 1.0)
-        self._ja_conf_gate.setSingleStep(0.05)
-        self._ja_conf_gate.setValue(0.0)
-        self._ja_conf_gate.setDecimals(2)
-        self._ja_conf_gate.setToolTip("Minimum per-face gaze confidence for JA (0 = disabled)")
-        ja_lay.addRow("Conf gate:", self._ja_conf_gate)
 
         self._ja_quorum = QDoubleSpinBox()
         self._ja_quorum.setRange(0.0, 1.0)
@@ -157,6 +151,22 @@ class PhenomenaPanel(QWidget):
         self._ja_quorum.setDecimals(2)
         self._ja_quorum.setToolTip("Fraction of faces required for joint attention (1.0 = all)")
         ja_lay.addRow("Quorum:", self._ja_quorum)
+
+        self._ja_window = QSpinBox()
+        self._ja_window.setRange(0, 300)
+        self._ja_window.setValue(30)
+        self._ja_window.setToolTip(
+            "Temporal consistency window in frames (0 = no filtering, "
+            "raw JA only)")
+        ja_lay.addRow("Temporal window:", self._ja_window)
+
+        self._ja_window_thresh = QDoubleSpinBox()
+        self._ja_window_thresh.setRange(0.0, 1.0)
+        self._ja_window_thresh.setSingleStep(0.05)
+        self._ja_window_thresh.setValue(0.70)
+        self._ja_window_thresh.setDecimals(2)
+        self._ja_window_thresh.setToolTip("Fraction of window frames required for JA confirmation")
+        ja_lay.addRow("Window threshold:", self._ja_window_thresh)
 
         lay.addWidget(ja_grp)
 
@@ -175,6 +185,10 @@ class PhenomenaPanel(QWidget):
         """Return a dict of namespace attribute names to values."""
         return {
             "all_phenomena": self._all_cb.isChecked(),
+            "joint_attention": self._ja_grp.isChecked(),
+            "ja_window": self._ja_window.value(),
+            "ja_window_thresh": self._ja_window_thresh.value(),
+            "ja_quorum": self._ja_quorum.value(),
             "mutual_gaze": self._mutual_gaze.isChecked(),
             "social_ref": self._social_ref.isChecked(),
             "social_ref_window": self._social_ref_window.value(),
@@ -186,16 +200,18 @@ class PhenomenaPanel(QWidget):
             "scanpath": self._scanpath.isChecked(),
             "scanpath_dwell": self._scanpath_dwell.value(),
             "gaze_leader": self._gaze_leader.isChecked(),
+            "gaze_leader_tips": self._gaze_leader_tips.isChecked(),
+            "gaze_leader_tip_lag": self._gaze_leader_tip_lag.value(),
             "attn_span": self._attn_span.isChecked(),
-            "ja_window": self._ja_window.value() if self._ja_grp.isChecked() else 0,
-            "ja_window_thresh": self._ja_window_thresh.value(),
-            "ja_conf_gate": self._ja_conf_gate.value(),
-            "ja_quorum": self._ja_quorum.value(),
         }
 
     def apply_values(self, d: dict):
         """Set widget values from a dict (e.g. from a namespace)."""
         self._all_cb.setChecked(d.get("all_phenomena", False))
+        self._ja_grp.setChecked(d.get("joint_attention", False))
+        self._ja_window.setValue(d.get("ja_window", 30))
+        self._ja_window_thresh.setValue(d.get("ja_window_thresh", 0.70))
+        self._ja_quorum.setValue(d.get("ja_quorum", 1.0))
         self._mutual_gaze.setChecked(d.get("mutual_gaze", False))
         self._social_ref.setChecked(d.get("social_ref", False))
         self._social_ref_window.setValue(d.get("social_ref_window", 60))
@@ -207,10 +223,6 @@ class PhenomenaPanel(QWidget):
         self._scanpath.setChecked(d.get("scanpath", False))
         self._scanpath_dwell.setValue(d.get("scanpath_dwell", 8))
         self._gaze_leader.setChecked(d.get("gaze_leader", False))
+        self._gaze_leader_tips.setChecked(d.get("gaze_leader_tips", False))
+        self._gaze_leader_tip_lag.setValue(d.get("gaze_leader_tip_lag", 15))
         self._attn_span.setChecked(d.get("attn_span", False))
-        ja_win = d.get("ja_window", 0)
-        self._ja_grp.setChecked(ja_win > 0)
-        self._ja_window.setValue(ja_win if ja_win > 0 else 30)
-        self._ja_window_thresh.setValue(d.get("ja_window_thresh", 0.70))
-        self._ja_conf_gate.setValue(d.get("ja_conf_gate", 0.0))
-        self._ja_quorum.setValue(d.get("ja_quorum", 1.0))

@@ -188,18 +188,18 @@ class GazeWorker(threading.Thread):
         face_det = create_face_detector()
 
         backend = cfg["backend"]
-        self._log(f"Loading gaze backend: {backend}  ({cfg['gaze_model']})")
+        self._log(f"Loading gaze backend: {backend}  ({cfg['mgaze_model']})")
         backend_kwargs = {}
         if backend == "gazelle":
             backend_kwargs = dict(
                 model_name=cfg["gazelle_name"],
-                ckpt_path=cfg["gaze_model"],
+                ckpt_path=cfg["mgaze_model"],
                 inout_threshold=float(cfg.get("gazelle_inout_threshold", 0.5)),
             )
         gaze_engine = create_gaze_engine(
-            gaze_model=cfg["gaze_model"],
-            gaze_arch=cfg.get("gaze_arch"),
-            gaze_dataset=cfg.get("gaze_dataset", "gaze360"),
+            mgaze_model=cfg["mgaze_model"],
+            mgaze_arch=cfg.get("mgaze_arch"),
+            mgaze_dataset=cfg.get("mgaze_dataset", "gaze360"),
             backend=backend,
             **backend_kwargs,
         )
@@ -243,6 +243,10 @@ class GazeWorker(threading.Thread):
                 ray_length=cfg["ray_length"],
                 adaptive_ray=cfg["adaptive_ray"],
                 snap_dist=cfg["snap_dist"],
+                snap_bbox_scale=cfg.get("snap_bbox_scale", 0.5),
+                snap_w_dist=cfg.get("snap_w_dist", 1.0),
+                snap_w_size=cfg.get("snap_w_size", 0.3),
+                snap_w_intersect=cfg.get("snap_w_intersect", 0.5),
                 conf_ray=cfg["conf_ray"],
                 gaze_tips=cfg["gaze_tips"],
                 tip_radius=cfg["tip_radius"],
@@ -674,12 +678,10 @@ class GazeTab(QWidget):
         g = QGroupBox("Gaze Backend")
         vl = QVBoxLayout(g)
         rb_row = _hrow()
-        self._rb_onnx    = QRadioButton("ONNX")
-        self._rb_pytorch = QRadioButton("PyTorch")
+        self._rb_mgaze   = QRadioButton("MGaze")
         self._rb_gazelle = QRadioButton("Gazelle")
-        self._rb_onnx.setChecked(True)
-        rb_row.layout().addWidget(self._rb_onnx)
-        rb_row.layout().addWidget(self._rb_pytorch)
+        self._rb_mgaze.setChecked(True)
+        rb_row.layout().addWidget(self._rb_mgaze)
         rb_row.layout().addWidget(self._rb_gazelle)
         rb_row.layout().addStretch(1)
         vl.addWidget(rb_row)
@@ -691,6 +693,7 @@ class GazeTab(QWidget):
         model_row = QWidget(); model_lay = QFormLayout(model_row)
         model_lay.setContentsMargins(0, 0, 0, 0)
         model_lay.addRow("Model:", _hrow(self._gaze_model, gm_btn))
+        self._gaze_model.textChanged.connect(self._refresh_backend)
         vl.addWidget(model_row)
 
         self._arch_widget = QWidget()
@@ -720,8 +723,7 @@ class GazeTab(QWidget):
         self._gazelle_widget.setVisible(False)
         vl.addWidget(self._gazelle_widget)
 
-        self._rb_onnx.toggled.connect(self._refresh_backend)
-        self._rb_pytorch.toggled.connect(self._refresh_backend)
+        self._rb_mgaze.toggled.connect(self._refresh_backend)
         self._rb_gazelle.toggled.connect(self._refresh_backend)
         lay.addWidget(g)
 
@@ -759,12 +761,26 @@ class GazeTab(QWidget):
         ft.addRow("Tip radius:", self._tip_radius)
         lay.addWidget(self._gaze_tips_group)
 
-        # ── Adaptive ray snap ─────────────────────────────────────────────────
-        self._adaptive_group = QGroupBox("Adaptive ray snap")
-        self._adaptive_group.setCheckable(True); self._adaptive_group.setChecked(False)
+        # ── Adaptive ray ──────────────────────────────────────────────────────
+        self._adaptive_group = QGroupBox("Adaptive ray")
         fa = QFormLayout(self._adaptive_group)
+        self._adaptive_ray_combo = QComboBox()
+        self._adaptive_ray_combo.addItems(["Off", "Extend", "Snap"])
+        fa.addRow("Mode:", self._adaptive_ray_combo)
         self._snap_dist = QSpinBox(); self._snap_dist.setRange(20, 500); self._snap_dist.setValue(150)
         fa.addRow("Snap dist:", self._snap_dist)
+        self._snap_bbox_scale = QDoubleSpinBox(); self._snap_bbox_scale.setRange(0.0, 2.0)
+        self._snap_bbox_scale.setSingleStep(0.1); self._snap_bbox_scale.setValue(0.0)
+        fa.addRow("Bbox scale:", self._snap_bbox_scale)
+        self._snap_w_dist = QDoubleSpinBox(); self._snap_w_dist.setRange(0.0, 3.0)
+        self._snap_w_dist.setSingleStep(0.1); self._snap_w_dist.setValue(1.0)
+        fa.addRow("W dist:", self._snap_w_dist)
+        self._snap_w_size = QDoubleSpinBox(); self._snap_w_size.setRange(0.0, 3.0)
+        self._snap_w_size.setSingleStep(0.1); self._snap_w_size.setValue(0.0)
+        fa.addRow("W size:", self._snap_w_size)
+        self._snap_w_intersect = QDoubleSpinBox(); self._snap_w_intersect.setRange(0.0, 3.0)
+        self._snap_w_intersect.setSingleStep(0.1); self._snap_w_intersect.setValue(0.5)
+        fa.addRow("W intersect:", self._snap_w_intersect)
         lay.addWidget(self._adaptive_group)
 
         # ── Lock-on ───────────────────────────────────────────────────────────
@@ -816,7 +832,9 @@ class GazeTab(QWidget):
         self._vp_det_panel.setVisible(vp)
 
     def _refresh_backend(self):
-        self._arch_widget.setVisible(self._rb_pytorch.isChecked())
+        is_mgaze = self._rb_mgaze.isChecked()
+        mgaze_path = self._gaze_model.text().strip().lower()
+        self._arch_widget.setVisible(is_mgaze and mgaze_path.endswith('.pt'))
         self._gazelle_widget.setVisible(self._rb_gazelle.isChecked())
 
     # ── Browse helpers ────────────────────────────────────────────────────────
@@ -850,8 +868,7 @@ class GazeTab(QWidget):
 
     def _build_cfg(self) -> dict:
         use_vp  = self._rb_det_vp.isChecked()
-        backend = ("gazelle" if self._rb_gazelle.isChecked()
-                   else "pytorch" if self._rb_pytorch.isChecked() else "onnx")
+        backend = ("gazelle" if self._rb_gazelle.isChecked() else "mgaze")
         gaze_model = (self._gazelle_ckpt.text() if backend == "gazelle"
                       else self._gaze_model.text())
         cls_raw = self._classes.text().strip()
@@ -868,9 +885,9 @@ class GazeTab(QWidget):
             "blacklist":      [c.strip() for c in bl_raw.split(",") if c.strip()],
             # gaze
             "backend":        backend,
-            "gaze_model":     gaze_model.strip(),
-            "gaze_arch":      self._gaze_arch.currentText(),
-            "gaze_dataset":   self._gaze_dataset.currentText(),
+            "mgaze_model":    gaze_model.strip(),
+            "mgaze_arch":     self._gaze_arch.currentText(),
+            "mgaze_dataset":  self._gaze_dataset.currentText(),
             "gazelle_name":   self._gazelle_name.currentText(),
             "gazelle_inout_threshold": self._gazelle_inout.value(),
             # ray
@@ -879,13 +896,17 @@ class GazeTab(QWidget):
             "detect_scale":   self._detect_scale.value(),
             "tip_radius":     self._tip_radius.value(),
             "snap_dist":      self._snap_dist.value(),
+            "snap_bbox_scale": self._snap_bbox_scale.value(),
+            "snap_w_dist":    self._snap_w_dist.value(),
+            "snap_w_size":    self._snap_w_size.value(),
+            "snap_w_intersect": self._snap_w_intersect.value(),
             "dwell_frames":   self._dwell_frames.value(),
             "lock_dist":      self._lock_dist.value(),
             # flags
             "gaze_debug":     self._cb_gaze_debug.isChecked(),
             "conf_ray":       self._cb_conf_ray.isChecked(),
             "gaze_tips":      self._gaze_tips_group.isChecked(),
-            "adaptive_ray":   self._adaptive_group.isChecked(),
+            "adaptive_ray":   self._adaptive_ray_combo.currentText().lower(),
             "no_lock":        not self._lock_group.isChecked(),
             "save":           self._cb_save.isChecked(),
             "log":            self._log_path.text().strip() or None,
@@ -900,7 +921,7 @@ class GazeTab(QWidget):
         cfg = self._build_cfg()
         if not cfg["source"]:
             QMessageBox.critical(self, "Error", "Source is required."); return
-        if not cfg["gaze_model"]:
+        if not cfg["mgaze_model"]:
             QMessageBox.critical(self, "Error", "Gaze model path is required."); return
         if cfg["detection_mode"] == "yoloe_vp":
             if not cfg["vp_file"]:

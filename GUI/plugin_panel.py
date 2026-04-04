@@ -19,23 +19,32 @@ from .arg_introspector import ArgSpec, introspect_plugin
 # Argument dest names already handled by hardcoded widgets in gaze_tab.py
 # and phenomena_panel.py — these are excluded from the dynamic plugin panel.
 _HANDLED_DESTS = {
+    # Global
+    "device",
     # Detection
     "model", "conf", "classes", "blacklist", "detect_scale", "vp_file",
     "vp_model", "skip_frames", "obj_persistence",
     # Gaze
-    "gaze_model", "gaze_arch", "gaze_dataset", "ray_length", "adaptive_ray",
-    "adaptive_snap", "snap_dist", "conf_ray", "gaze_tips", "tip_radius",
+    "mgaze_model", "mgaze_arch", "mgaze_dataset", "ray_length", "adaptive_ray",
+    "snap_dist", "snap_bbox_scale", "snap_w_dist", "snap_w_size", "snap_w_intersect",
+    "conf_ray", "gaze_tips", "tip_radius",
     "gaze_cone", "gaze_lock", "dwell_frames", "lock_dist", "gaze_debug",
     "snap_switch_frames", "reid_grace_seconds",
+    # L2CS-Net
+    "l2cs_model", "l2cs_arch", "l2cs_dataset",
+    # UniGaze
+    "unigaze_model",
     # Gazelle
     "gazelle_model", "gazelle_name", "gazelle_inout_threshold",
+    "gazelle_device", "gazelle_skip_frames", "gazelle_fp16", "gazelle_compile",
     # Output
     "source", "save", "log", "summary", "heatmap", "pipeline", "project",
     # Phenomena (handled by phenomena_panel)
     "mutual_gaze", "social_ref", "social_ref_window", "gaze_follow",
     "gaze_follow_lag", "gaze_aversion", "aversion_window", "aversion_conf",
     "scanpath", "scanpath_dwell", "gaze_leader", "attn_span", "all_phenomena",
-    "ja_window", "ja_window_thresh", "ja_conf_gate", "ja_quorum",
+    "ja_window", "ja_window_thresh", "ja_quorum", "hit_conf_gate",
+    "detect_extend", "detect_extend_scope",
 }
 
 

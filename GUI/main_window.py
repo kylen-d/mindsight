@@ -50,13 +50,11 @@ class MainWindow(QMainWindow):
         # ── Menu bar ──────────────────────────────────────────────────────────
         self._build_menu_bar()
 
-        # ── Status bar: "Use VP in Gaze Tracker" button ──────────────────────
-        self._use_vp_btn = QPushButton("Use saved VP in Gaze Tracker")
-        self._use_vp_btn.setStyleSheet(
-            "QPushButton{background:#5a2a7a;color:white;font-weight:bold;"
-            "padding:4px 10px;}")
-        self._use_vp_btn.clicked.connect(self._push_vp_to_gaze)
-        self.statusBar().addPermanentWidget(self._use_vp_btn)
+        # ── Status-bar action buttons (per-tab visibility) ────────────────────
+        self._build_statusbar_buttons()
+        self._tabs = tabs
+        tabs.currentChanged.connect(self._on_tab_changed)
+        self._on_tab_changed(0)  # set initial visibility
 
         # ── Initialise plugin panels ─────────────────────────────────────────
         self._init_plugin_panels()
@@ -106,6 +104,78 @@ class MainWindow(QMainWindow):
         except (ImportError, Exception):
             pass  # Settings manager not yet created or no saved session
 
+    # ── Status-bar buttons ─────────────────────────────────────────────────────
+
+    _BTN_GREEN = ("QPushButton{background:#2a7a2a;color:white;"
+                  "font-weight:bold;padding:6px 16px;}")
+    _BTN_RED   = ("QPushButton{background:#7a2a2a;color:white;"
+                  "font-weight:bold;padding:6px 16px;}")
+    _BTN_VP    = ("QPushButton{background:#5a2a7a;color:white;"
+                  "font-weight:bold;padding:6px 14px;}")
+
+    def _build_statusbar_buttons(self):
+        """Create Start/Stop and Run/Stop buttons in the status bar.
+
+        Preset and pipeline buttons remain in the Gaze tab settings panel.
+        Each button set is shown/hidden by _on_tab_changed.
+        """
+        sb = self.statusBar()
+        sb.setStyleSheet("QStatusBar{padding:6px 4px;}")
+
+        # Wire the preset/pipeline buttons that live in the gaze tab
+        self._gaze_tab._load_preset_btn.clicked.connect(self._load_preset)
+        self._gaze_tab._save_preset_btn.clicked.connect(self._save_preset)
+        self._gaze_tab._import_pipeline_btn.clicked.connect(self._import_pipeline)
+        self._gaze_tab._export_pipeline_btn.clicked.connect(self._export_pipeline)
+
+        # -- Gaze tab: Start / Stop (tab 0) -----------------------------------
+        self._gaze_tab._start_btn = QPushButton("\u25b6  Start")
+        self._gaze_tab._start_btn.setStyleSheet(self._BTN_GREEN)
+        self._gaze_tab._stop_btn = QPushButton("\u25a0  Stop")
+        self._gaze_tab._stop_btn.setStyleSheet(self._BTN_RED)
+        self._gaze_tab._stop_btn.setEnabled(False)
+        self._gaze_tab._start_btn.clicked.connect(self._gaze_tab._start)
+        self._gaze_tab._stop_btn.clicked.connect(self._gaze_tab._stop)
+
+        self._gaze_buttons = [
+            self._gaze_tab._start_btn,
+            self._gaze_tab._stop_btn,
+        ]
+        for btn in self._gaze_buttons:
+            sb.addPermanentWidget(btn)
+
+        # -- VP Builder button (tab 1) ----------------------------------------
+        self._use_vp_btn = QPushButton("Use saved VP in Gaze Tracker")
+        self._use_vp_btn.setStyleSheet(self._BTN_VP)
+        self._use_vp_btn.clicked.connect(self._push_vp_to_gaze)
+        sb.addPermanentWidget(self._use_vp_btn)
+        self._vp_buttons = [self._use_vp_btn]
+
+        # -- Project tab: Run / Stop (tab 2) ----------------------------------
+        self._project_tab._run_btn = QPushButton("\u25b6  Run Project")
+        self._project_tab._run_btn.setStyleSheet(self._BTN_GREEN)
+        self._project_tab._stop_btn = QPushButton("\u25a0  Stop")
+        self._project_tab._stop_btn.setStyleSheet(self._BTN_RED)
+        self._project_tab._stop_btn.setEnabled(False)
+        self._project_tab._run_btn.clicked.connect(self._project_tab._start)
+        self._project_tab._stop_btn.clicked.connect(self._project_tab._stop)
+
+        self._project_buttons = [
+            self._project_tab._run_btn,
+            self._project_tab._stop_btn,
+        ]
+        for btn in self._project_buttons:
+            sb.addPermanentWidget(btn)
+
+    def _on_tab_changed(self, index: int):
+        """Show only the buttons relevant to the active tab."""
+        for btn in self._gaze_buttons:
+            btn.setVisible(index == 0)
+        for btn in self._vp_buttons:
+            btn.setVisible(index == 1)
+        for btn in self._project_buttons:
+            btn.setVisible(index == 2)
+
     # ── VP transfer ───────────────────────────────────────────────────────────
 
     def _push_vp_to_gaze(self):
@@ -117,7 +187,7 @@ class MainWindow(QMainWindow):
                 "Save a VP file in the VP Builder tab first.")
             return
         self._gaze_tab.set_vp_file(path)
-        self.centralWidget().setCurrentIndex(0)
+        self._tabs.setCurrentIndex(0)
 
     # ── Preset / pipeline stubs ───────────────────────────────────────────────
 

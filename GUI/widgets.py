@@ -61,7 +61,7 @@ def _bgr_to_pixmap(bgr, max_w: int = 0, max_h: int = 0) -> QPixmap:
     if max_w > 0 and max_h > 0:
         px = px.scaled(max_w, max_h,
                        Qt.AspectRatioMode.KeepAspectRatio,
-                       Qt.TransformationMode.SmoothTransformation)
+                       Qt.TransformationMode.FastTransformation)
     return px
 
 
@@ -130,9 +130,10 @@ def _hrow(*widgets):
 
 
 def _browse_btn(text="Browse"):
-    """Return a small 64 px-wide browse button."""
+    """Return a small browse button with a minimum width."""
     btn = QPushButton(text)
-    btn.setFixedWidth(64)
+    btn.setMinimumWidth(50)
+    btn.setSizePolicy(QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Fixed)
     return btn
 
 
