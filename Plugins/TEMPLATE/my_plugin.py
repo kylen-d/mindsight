@@ -69,9 +69,9 @@ class MyTracker(PhenomenaPlugin):
 
     def update(self, **kwargs) -> dict:
         """Process one frame.  Pull only the kwargs you need."""
-        frame_no = kwargs['frame_no']
-        persons_gaze = kwargs.get('persons_gaze', [])
-        hits = kwargs.get('hits', set())
+        frame_no = kwargs['frame_no']  # noqa: F841
+        persons_gaze = kwargs.get('persons_gaze', [])  # noqa: F841
+        hits = kwargs.get('hits', set())  # noqa: F841
 
         # Access auxiliary video streams (if configured):
         # aux = kwargs.get('aux_frames', {})
@@ -91,7 +91,7 @@ class MyTracker(PhenomenaPlugin):
 
     def dashboard_section(self, panel, y: int, line_h: int) -> int:
         """Draw a section in the side panel.  Return new y after the section."""
-        from DataCollection.dashboard_output import _draw_panel_section, _DASH_DIM
+        from DataCollection.dashboard_output import _DASH_DIM, _draw_panel_section
         rows = [("--", _DASH_DIM)]
         return _draw_panel_section(
             panel, y, "MY TRACKER", (200, 200, 200), rows, line_h)

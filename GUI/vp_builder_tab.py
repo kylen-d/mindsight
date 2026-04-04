@@ -28,26 +28,37 @@ from pathlib import Path
 from PyQt6.QtCore import Qt, QTimer
 from PyQt6.QtGui import QColor
 from PyQt6.QtWidgets import (
-    QComboBox, QDoubleSpinBox, QFileDialog, QFrame, QGroupBox,
-    QHBoxLayout, QInputDialog, QLabel, QLineEdit, QListWidget,
-    QListWidgetItem, QMessageBox, QPushButton, QScrollArea,
-    QSplitter, QVBoxLayout, QWidget,
+    QComboBox,
+    QDoubleSpinBox,
+    QFileDialog,
+    QFrame,
+    QGroupBox,
+    QHBoxLayout,
+    QInputDialog,
+    QLabel,
+    QLineEdit,
+    QListWidget,
+    QListWidgetItem,
+    QMessageBox,
+    QPushButton,
+    QScrollArea,
+    QSplitter,
+    QVBoxLayout,
+    QWidget,
 )
 
+from constants import IMAGE_EXTS
+
 from .widgets import (
+    _HERE,
+    VP_EXT,
     ImageCanvas,
     _hrow,
-    _browse_btn,
-    _bgr_to_pixmap,
     _palette_hex,
-    VP_EXT,
-    _VP_PALETTE_BGR,
-    save_vp_file,
     load_vp_file,
-    _HERE,
+    save_vp_file,
 )
 from .workers import VPInferenceWorker
-from constants import IMAGE_EXTS
 
 
 class VisualPromptBuilderTab(QWidget):
@@ -369,7 +380,6 @@ class VisualPromptBuilderTab(QWidget):
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
         if reply != QMessageBox.StandardButton.Yes:
             return
-        removed_id = cls["id"]
         self._classes.pop(row)
         # Re-assign sequential IDs
         for i, c in enumerate(self._classes):
