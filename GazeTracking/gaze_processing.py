@@ -26,7 +26,7 @@ import numpy as np
 
 from utils.geometry import (
     pitch_yaw_to_2d, ray_hits_box, ray_hits_cone,
-    bbox_center,
+    bbox_center, bbox_diagonal,
 )
 from constants import SMOOTH_ALPHA
 
@@ -80,7 +80,7 @@ class GazeSmootherReID:
     new one.  This keeps person IDs stable across brief face occlusions.
     """
 
-    def __init__(self, alpha=SMOOTH_ALPHA, max_dist=120, hist_weight=0.35,
+    def __init__(self, alpha=SMOOTH_ALPHA, max_dist=200, hist_weight=0.35,
                  hist_bins=16, grace_frames=0):
         self.alpha, self.max_dist = alpha, max_dist
         self.hist_weight          = hist_weight
@@ -135,6 +135,28 @@ class GazeSmootherReID:
         return dict(c=center, p=pitch, y=yaw,
                     h=self._histogram(crop, self.hist_bins))
 
+    # -- Global-motion compensation -------------------------------------------
+
+    def _estimate_global_shift(self, current_centers):
+        """Median displacement between current detections and live tracks.
+
+        When the camera moves, all faces shift by roughly the same amount.
+        Subtracting this from current centers before matching prevents the
+        positional distance from exceeding max_dist due to camera jitter.
+        """
+        if len(current_centers) < 2 or len(self._tracks) < 2:
+            return np.zeros(2)
+        disps = []
+        for cc in current_centers:
+            best_d, best_disp = float('inf'), np.zeros(2)
+            for t in self._tracks.values():
+                disp = cc - t['c']
+                d = float(np.linalg.norm(disp))
+                if d < best_d:
+                    best_d, best_disp = d, disp
+            disps.append(best_disp)
+        return np.median(disps, axis=0)
+
     # -- Main update loop -----------------------------------------------------
 
     def _best_match(self, center, crop, pool):
@@ -160,33 +182,38 @@ class GazeSmootherReID:
             for tid in expired:
                 del self._dead[tid]
 
+        # Compensate for global camera motion before matching
+        raw_centers = [np.asarray(entry[0], float) for entry in faces]
+        shift = self._estimate_global_shift(raw_centers)
+
         unmatched, result = set(self._tracks), []
         for entry in faces:
             center, pitch, yaw = entry[0], entry[1], entry[2]
             crop = entry[3] if len(entry) > 3 else None
-            c    = np.asarray(center, float)
+            c_raw = np.asarray(center, float)
+            c_match = c_raw - shift  # shift-compensated for matching only
 
             # 1. Try to match a live track
-            bid = self._best_match(c, crop, self._tracks)
+            bid = self._best_match(c_match, crop, self._tracks)
             if bid is not None:
-                sp, sy = self._update_track(self._tracks[bid], c, pitch, yaw, crop)
+                sp, sy = self._update_track(self._tracks[bid], c_raw, pitch, yaw, crop)
                 unmatched.discard(bid)
                 result.append((sp, sy, bid))
                 continue
 
             # 2. No live match — try to revive a dead track (grace period)
             if self.grace_frames > 0 and self._dead:
-                did = self._best_match(c, crop, self._dead)
+                did = self._best_match(c_match, crop, self._dead)
                 if did is not None:
                     revived = self._dead.pop(did)
-                    sp, sy = self._update_track(revived, c, pitch, yaw, crop)
+                    sp, sy = self._update_track(revived, c_raw, pitch, yaw, crop)
                     self._tracks[did] = revived
                     result.append((sp, sy, did))
                     continue
 
             # 3. Genuinely new face — allocate a fresh ID
             nid = self._nid; self._nid += 1
-            self._tracks[nid] = self._new_track(c, pitch, yaw, crop)
+            self._tracks[nid] = self._new_track(c_raw, pitch, yaw, crop)
             result.append((pitch, yaw, nid))
 
         # Move unmatched live tracks to the dead-track buffer (or drop immediately)
@@ -377,27 +404,69 @@ def _faces_as_objects(face_bboxes_list):
 
 
 def adaptive_snap(origin, direction, objects, fallback, snap_dist=150,
-                  gaze_conf=None):
-    """Find the nearest object whose centre is within snap_dist of the gaze ray.
+                  gaze_conf=None, bbox_scale=0.0,
+                  w_dist=1.0, w_size=0.0, w_intersect=0.5):
+    """Find the best-matching object for the gaze ray.
 
-    When *gaze_conf* (0-1) is provided the effective snap radius is scaled by
-    confidence so that high-confidence gaze snaps more readily and
-    low-confidence gaze requires the ray to pass much closer to an object.
+    Uses a two-tier selection:
 
-    Returns (object_centre, found_bool, matched_obj_or_None).  The object centre
-    is always returned (not the projected point) so SnapHysteresisTracker has a
-    stable coordinate to key on.
+    **Tier 1 — Intersected objects** (ray passes through the bounding box):
+    These always beat non-intersected objects.  Among intersected objects the
+    closest along the ray direction (minimum *t*) wins — the participant is
+    most likely looking at the first thing in their line of sight.
+
+    **Tier 2 — Nearby objects** (ray passes within *snap_dist* of the bbox
+    boundary): ranked by perpendicular distance to the bbox boundary.
+
+    When *gaze_conf* (0-1) is provided the base snap radius is scaled by
+    confidence so high-confidence gaze snaps more readily.
+
+    Returns (object_centre, found_bool, matched_obj_or_None).  The object
+    centre is always returned (not the projected point) so
+    SnapHysteresisTracker has a stable coordinate to key on.
     """
     if gaze_conf is not None:
         # Scale: conf 1.0 → full snap_dist, conf 0.0 → 20% of snap_dist
         snap_dist = snap_dist * (0.2 + 0.8 * max(0.0, min(1.0, gaze_conf)))
 
-    best_t, best_ctr, best_obj = float('inf'), None, None
+    best_score, best_ctr, best_obj = float('inf'), None, None
     for obj in objects:
-        ctr = bbox_center(obj)
-        t   = float(np.dot(ctr - origin, direction))
-        if t > 0 and np.linalg.norm(ctr - (origin + t * direction)) < snap_dist and t < best_t:
-            best_t, best_ctr, best_obj = t, ctr, obj
+        ctr  = bbox_center(obj)
+        diag = bbox_diagonal(obj)
+        half_diag = diag / 2.0
+
+        # Parametric projection onto ray
+        t = float(np.dot(ctr - origin, direction))
+        if t <= 0:
+            continue
+
+        # Perpendicular distance from ray to centre
+        perp = float(np.linalg.norm(ctr - (origin + t * direction)))
+
+        # Does the ray intersect the bounding box?
+        far_end = origin + direction * (t + diag)
+        hits = ray_hits_box(origin, far_end,
+                            obj['x1'], obj['y1'], obj['x2'], obj['y2'])
+
+        # Distance from ray to bbox boundary (0 when ray intersects)
+        min_dist = 0.0 if hits else max(0.0, perp - half_diag)
+
+        # Eligibility gate
+        eff_snap = snap_dist + half_diag * bbox_scale
+        if min_dist > eff_snap:
+            continue
+
+        # Two-tier scoring (lower is better):
+        #   Tier 1 (hits):     score in [-1e6, 0)  — sorted by t (closest first)
+        #   Tier 2 (no hits):  score in [0, +inf)   — sorted by min_dist
+        if hits:
+            score = -1e6 + t
+        else:
+            score = min_dist
+
+        if score < best_score:
+            best_score, best_ctr, best_obj = score, ctr, obj
+
     if best_ctr is not None:
         return best_ctr, True, best_obj
     return np.asarray(fallback, float), False, None
@@ -419,8 +488,7 @@ def apply_tip_snapping(persons_gaze, ray_snapped, ray_extended, gaze_eng, gaze_c
     ray_snapped   : list[bool] per-person snap flag
     ray_extended  : list[bool] per-person extension flag
     gaze_eng      : active gaze backend (checked for ``mode`` attribute)
-    gaze_cfg      : GazeConfig with gaze_tips, adaptive_ray, tip_radius, snap_dist,
-                    adaptive_snap_mode
+    gaze_cfg      : GazeConfig with gaze_tips, adaptive_ray, tip_radius, snap_dist
 
     Returns
     -------
@@ -428,7 +496,7 @@ def apply_tip_snapping(persons_gaze, ray_snapped, ray_extended, gaze_eng, gaze_c
     """
     is_per_face = getattr(gaze_eng, "mode", "per_face") == "per_face"
     tip_radius  = gaze_cfg.tip_radius
-    if not (gaze_cfg.gaze_tips and gaze_cfg.adaptive_ray
+    if not (gaze_cfg.gaze_tips and gaze_cfg.adaptive_ray != "off"
             and is_per_face and len(persons_gaze) > 1):
         return persons_gaze, ray_snapped, ray_extended
 
@@ -444,9 +512,14 @@ def apply_tip_snapping(persons_gaze, ray_snapped, ray_extended, gaze_eng, gaze_c
             continue
         d = pitch_yaw_to_2d(*ang)
         tip_ctr, sn, _ = adaptive_snap(
-            ori, d, [t for t in tips if t['_owner'] != fi], re, gaze_cfg.snap_dist)
+            ori, d, [t for t in tips if t['_owner'] != fi], re,
+            gaze_cfg.snap_dist,
+            bbox_scale=gaze_cfg.snap_bbox_scale,
+            w_dist=gaze_cfg.snap_w_dist,
+            w_size=gaze_cfg.snap_w_size,
+            w_intersect=gaze_cfg.snap_w_intersect)
         if sn:
-            if gaze_cfg.adaptive_snap_mode:
+            if gaze_cfg.adaptive_ray == "snap":
                 ne, s, e = tip_ctr, True, False
             else:
                 t_proj = float(np.dot(tip_ctr - ori, d))
@@ -492,7 +565,7 @@ def compute_ray_intersections(persons_gaze, face_confs, face_track_ids,
     face_track_ids  : list[int] stable track IDs (used in hit_events)
     face_objs       : list[Detection] face-as-object targets
     objects         : non-person detection list
-    gaze_cfg        : GazeConfig with ja_conf_gate, gaze_cone_angle
+    gaze_cfg        : GazeConfig with hit_conf_gate, detect_extend, gaze_cone_angle
 
     Returns
     -------
@@ -500,26 +573,50 @@ def compute_ray_intersections(persons_gaze, face_confs, face_track_ids,
     hits        : set of (face_list_idx, target_idx) pairs
     hit_events  : list[dict] per-hit records with face_idx = track ID
     """
-    ja_conf_gate    = gaze_cfg.ja_conf_gate
+    hit_conf_gate   = gaze_cfg.hit_conf_gate
+    scope           = gaze_cfg.detect_extend_scope
+    detect_extend   = gaze_cfg.detect_extend if scope in ('objects', 'both') else 0.0
     gaze_cone_angle = gaze_cfg.gaze_cone_angle
+    gaze_tips       = gaze_cfg.gaze_tips
+    tip_radius      = gaze_cfg.tip_radius
+    fwd_thresh_rad  = np.radians(gaze_cfg.forward_gaze_threshold)
     all_targets = objects + face_objs
     hits, hit_events = set(), []
-    for fi, (origin, ray_end, _) in enumerate(persons_gaze):
-        if ja_conf_gate > 0.0 and fi < len(face_confs) and face_confs[fi] < ja_conf_gate:
+    for fi, (origin, ray_end, angles) in enumerate(persons_gaze):
+        if hit_conf_gate > 0.0 and fi < len(face_confs) and face_confs[fi] < hit_conf_gate:
             continue
+        # Skip hit-detection for forward-gaze stub rays
+        if fwd_thresh_rad > 0 and angles:
+            if abs(angles[0]) < fwd_thresh_rad and abs(angles[1]) < fwd_thresh_rad:
+                continue
+        o_arr  = np.asarray(origin, float)
+        re_arr = np.asarray(ray_end, float)
+        dv     = re_arr - o_arr
+        dl     = np.linalg.norm(dv)
+        udir   = dv / dl if dl > 1e-6 else np.array([0., 1.])
+        detect_range = dl + detect_extend          # visual length + optional extension
+
+        # Detection endpoint for ray mode
+        if detect_extend > 0:
+            det_end = o_arr + udir * detect_range
+        else:
+            det_end = re_arr                       # exact visual endpoint
+
         for oi, obj in enumerate(all_targets):
             if obj.get('_face_idx') == fi:
                 continue
             if gaze_cone_angle > 0.0:
-                dv   = np.asarray(ray_end, float) - np.asarray(origin, float)
-                dl   = np.linalg.norm(dv)
-                udir = dv / dl if dl > 1e-6 else np.array([0., 1.])
-                hit  = ray_hits_cone(origin, udir,
-                                     obj['x1'], obj['y1'], obj['x2'], obj['y2'],
-                                     gaze_cone_angle)
+                hit = ray_hits_cone(o_arr, udir,
+                                    obj['x1'], obj['y1'], obj['x2'], obj['y2'],
+                                    gaze_cone_angle, ray_length=detect_range)
             else:
-                hit = ray_hits_box(origin, ray_end,
+                hit = ray_hits_box(o_arr, det_end,
                                    obj['x1'], obj['y1'], obj['x2'], obj['y2'])
+            # Gaze-tip hit: object overlaps the tip circle at the ray endpoint
+            if not hit and gaze_tips:
+                cx = np.clip(re_arr[0], obj['x1'], obj['x2'])
+                cy = np.clip(re_arr[1], obj['y1'], obj['y2'])
+                hit = (cx - re_arr[0])**2 + (cy - re_arr[1])**2 <= tip_radius**2
             if hit:
                 hits.add((fi, oi))
                 hit_events.append(dict(
@@ -572,10 +669,10 @@ class GazeToolkit:
         return _get_eye_center(face_dict, inv_scale)
 
     def compute_adaptive_snap(self, origin, direction, objects, fallback,
-                              snap_dist=150, gaze_conf=None):
+                              snap_dist=150, gaze_conf=None, **kwargs):
         """Compute adaptive snap (overridable)."""
         return adaptive_snap(origin, direction, objects, fallback,
-                             snap_dist, gaze_conf)
+                             snap_dist, gaze_conf, **kwargs)
 
     def faces_as_objects(self, face_bboxes_list):
         """Convert face bboxes to Detection objects (overridable)."""
@@ -589,7 +686,7 @@ class GazeToolkit:
 def add_arguments(parser) -> None:
     """Register generic gaze-tracking CLI flags onto *parser*.
 
-    Backend-specific flags (e.g. ``--gaze-model``, ``--gaze-arch``) are
+    Backend-specific flags (e.g. ``--mgaze-model``, ``--mgaze-arch``) are
     registered by each plugin's ``add_arguments()`` method.
     """
     parser.add_argument("--ray-length", type=float, default=1.0,
@@ -601,13 +698,33 @@ def add_arguments(parser) -> None:
                              "intersection between gaze-rays. Set radius with --tip-radius (default 80).")
     parser.add_argument("--tip-radius", type=int, default=80,
                         help="Pixel radius for --gaze-tips (default 80)")
-    parser.add_argument("--adaptive-ray", action="store_true",
-                        help="Dynamically extends gaze-rays to the length of the nearest object "
-                             "in direct line-of-sight of the ray.")
-    parser.add_argument("--adaptive-snap", action="store_true",
-                        help="With --adaptive-ray: snap the ray endpoint to the object centre "
-                             "rather than simply adjusting the ray-length.")
+    parser.add_argument("--adaptive-ray", type=str, default="off",
+                        choices=["off", "extend", "snap"],
+                        help="Adaptive ray mode: 'off' disables, 'extend' freely extends "
+                             "the ray toward the nearest object, 'snap' locks the endpoint "
+                             "to the object centre (default: off).")
     parser.add_argument("--snap-dist", type=float, default=150.0)
+    parser.add_argument("--snap-bbox-scale", type=float, default=0.0,
+                        help="Fraction of bbox half-diagonal added to snap radius (default 0.0)")
+    parser.add_argument("--snap-w-dist", type=float, default=1.0,
+                        help="Snap scoring weight for normalized distance (default 1.0)")
+    parser.add_argument("--snap-w-size", type=float, default=0.0,
+                        help="Snap scoring weight for angular size reward (default 0.0)")
+    parser.add_argument("--snap-w-intersect", type=float, default=0.5,
+                        help="Snap scoring bonus for ray-bbox intersection (default 0.5)")
+    parser.add_argument("--hit-conf-gate", type=float, default=0.0, metavar="F",
+                        help="Minimum per-face gaze confidence for ray-object hit detection. "
+                             "0.0 = disabled (default).")
+    parser.add_argument("--detect-extend", type=float, default=0.0, metavar="PX",
+                        help="Extend gaze-object detection N pixels past the visual "
+                             "ray/cone endpoint. 0 = detection matches visual exactly "
+                             "(default: %(default)s).")
+    parser.add_argument("--detect-extend-scope", type=str, default="objects",
+                        choices=["objects", "phenomena", "both"],
+                        help="Scope for --detect-extend: 'objects' extends only "
+                             "ray-object hit detection, 'phenomena' extends only "
+                             "phenomena tracking (mutual gaze, social ref), 'both' "
+                             "extends both (default: objects).")
     parser.add_argument("--gaze-cone", type=float, default=0.0, metavar="DEGREES",
                         help="Replaces standard gaze vectors with vision cones of a specified "
                              "angle in degrees (disabled by default).")
@@ -620,3 +737,6 @@ def add_arguments(parser) -> None:
                         help="Frames before adaptive-snap hysteresis switches target (default 8).")
     parser.add_argument("--reid-grace-seconds", type=float, default=1.0, metavar="S",
                         help="Seconds a lost face track stays in the re-ID buffer (default 1.0).")
+    parser.add_argument("--forward-gaze-threshold", type=float, default=5.0, metavar="DEG",
+                        help="Pitch/yaw angles below this (degrees) are treated as looking "
+                             "forward at the camera. Set to 0 to disable (default 5.0).")

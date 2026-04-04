@@ -33,40 +33,64 @@ def ray_hits_box(start, end, x1, y1, x2, y2):
     return t0 <= t1
 
 
-def ray_hits_cone(origin, direction, x1, y1, x2, y2, cone_half_angle_deg: float) -> bool:
+_cone_trig_cache: dict = {}
+
+def _cone_trig(angle_deg):
+    """Return (half_rad, cos_thresh, cos_half, sin_half) cached by angle."""
+    cached = _cone_trig_cache.get(angle_deg)
+    if cached is not None:
+        return cached
+    half_rad = float(np.radians(angle_deg))
+    cos_thresh = float(np.cos(half_rad))
+    sin_half = float(np.sin(half_rad))
+    _cone_trig_cache[angle_deg] = (half_rad, cos_thresh, cos_thresh, sin_half)
+    return _cone_trig_cache[angle_deg]
+
+
+def ray_hits_cone(origin, direction, x1, y1, x2, y2, cone_half_angle_deg: float,
+                  ray_length: float = None) -> bool:
     """
     Return True if any part of the bounding box intersects the gaze cone
     defined by `origin`, unit `direction`, and the given half-angle.
 
+    When *ray_length* is provided the cone is bounded to that distance
+    from the origin (matching visual rendering).  When ``None`` the cone
+    extends to ``RAY_EXT_LENGTH`` (backward-compatible default).
+
     Three exhaustive cases cover all bbox-cone intersections:
       1. The gaze origin is inside the bbox.
-      2. Any corner of the bbox lies inside the cone.
+      2. Any corner of the bbox lies inside the cone (and within range).
       3. Either boundary ray of the cone intersects the bbox
          (catches the case where the cone straddles the bbox without any
          corner falling inside the cone).
     """
-    half_rad   = np.radians(cone_half_angle_deg)
-    cos_thresh = np.cos(half_rad)
+    _hr, cos_thresh, c, s = _cone_trig(cone_half_angle_deg)
+    far = ray_length if ray_length is not None else _RAY_EXT_LENGTH
 
-    def _in_cone(px, py):
-        tx, ty = px - origin[0], py - origin[1]
-        dist   = np.sqrt(tx * tx + ty * ty)
-        if dist < 1e-6:
+    ox, oy = origin[0], origin[1]
+    dx_dir, dy_dir = direction[0], direction[1]
+
+    if x1 <= ox <= x2 and y1 <= oy <= y2:
+        return True
+
+    # Check if any corner of the bbox lies inside the cone
+    for px, py in ((x1, y1), (x2, y1), (x2, y2), (x1, y2)):
+        tx, ty = px - ox, py - oy
+        dist_sq = tx * tx + ty * ty
+        if dist_sq < 1e-12:
             return True
-        dot = tx * direction[0] + ty * direction[1]
+        if dist_sq > far * far:
+            continue
+        dot = tx * dx_dir + ty * dy_dir
         if dot <= 0:
-            return False
-        return (dot / dist) >= cos_thresh
+            continue
+        # Compare dot/dist >= cos_thresh  =>  dot^2 >= cos_thresh^2 * dist_sq
+        if dot * dot >= cos_thresh * cos_thresh * dist_sq:
+            return True
 
-    if x1 <= origin[0] <= x2 and y1 <= origin[1] <= y2:
-        return True
-    if any(_in_cone(px, py) for px, py in ((x1, y1), (x2, y1), (x2, y2), (x1, y2))):
-        return True
-    c, s   = np.cos(half_rad), np.sin(half_rad)
-    dx, dy = direction[0], direction[1]
-    left_dir  = np.array([ c * dx - s * dy,  s * dx + c * dy])
-    right_dir = np.array([ c * dx + s * dy, -s * dx + c * dy])
-    far = (x2 - x1 + y2 - y1) * 100.0
+    # Check if either boundary ray of the cone intersects the bbox
+    left_dir  = np.array([ c * dx_dir - s * dy_dir,  s * dx_dir + c * dy_dir])
+    right_dir = np.array([ c * dx_dir + s * dy_dir, -s * dx_dir + c * dy_dir])
     return (ray_hits_box(origin, origin + left_dir  * far, x1, y1, x2, y2) or
             ray_hits_box(origin, origin + right_dir * far, x1, y1, x2, y2))
 
@@ -84,3 +108,9 @@ def bbox_center(obj) -> np.ndarray:
     """Return the centre of a detection bounding-box as a float numpy array."""
     return np.array([(obj['x1'] + obj['x2']) / 2,
                      (obj['y1'] + obj['y2']) / 2], float)
+
+
+def bbox_diagonal(obj) -> float:
+    """Diagonal length of a detection bounding-box in pixels."""
+    return float(np.sqrt((obj['x2'] - obj['x1'])**2 +
+                         (obj['y2'] - obj['y1'])**2))

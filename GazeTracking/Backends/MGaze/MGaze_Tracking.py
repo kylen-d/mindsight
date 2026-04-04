@@ -1,5 +1,5 @@
 """
-Plugins/GazeTracking/MGaze/MGaze_Tracking.py — MGaze estimation backends (ONNX + PyTorch).
+GazeTracking/Backends/MGaze/MGaze_Tracking.py — MGaze estimation backends (ONNX + PyTorch).
 
 Wraps the gaze-estimation library to provide per-face gaze estimation
 with confidence scoring.  Registers as the ``"mgaze"`` gaze plugin and
@@ -7,8 +7,8 @@ serves as the default/fallback backend when no other plugin is activated.
 
 Activation
 ----------
-Activated automatically via the default ``--gaze-model`` flag (ONNX), or
-explicitly with ``--gaze-model /path/to/model.pt --gaze-arch <arch>``.
+Activated automatically via the default ``--mgaze-model`` flag (ONNX), or
+explicitly with ``--mgaze-model /path/to/model.pt --mgaze-arch <arch>``.
 """
 from __future__ import annotations
 
@@ -58,10 +58,11 @@ def _softmax_confidence(pitch_probs_max, yaw_probs_max, n_bins):
 class GazeEstimationTorch:
     """PyTorch gaze estimator -> (pitch_rad, yaw_rad, confidence)."""
 
-    def __init__(self, weight_path, arch, dataset="gaze360"):
+    def __init__(self, weight_path, arch, dataset="gaze360", device="auto"):
+        from utils.device import resolve_device
         cfg = DATA_CONFIG[dataset]
         self._bins, self._binwidth, self._angle = cfg["bins"], cfg["binwidth"], cfg["angle"]
-        self.device     = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.device     = resolve_device(device)
         self.idx_tensor = torch.arange(self._bins, dtype=torch.float32, device=self.device)
         model = utils_gaze.helpers.get_model(arch, self._bins, inference_mode=True)
         model.load_state_dict(torch.load(weight_path, map_location=self.device, weights_only=False))
@@ -120,9 +121,9 @@ class MGazePlugin(GazePlugin):
         return self._engine.estimate(face_bgr)
 
     def run_pipeline(self, **kwargs):
-        """Delegate to the MGaze per-face pipeline."""
-        from .Gaze_Pipeline import run_mgaze_pipeline
-        return run_mgaze_pipeline(gaze_eng=self, **kwargs)
+        """Delegate to the generic pitch/yaw per-face pipeline."""
+        from GazeTracking.pitchyaw_pipeline import run_pitchyaw_pipeline
+        return run_pitchyaw_pipeline(gaze_eng=self, **kwargs)
 
     # ── CLI protocol ─────────────────────────────────────────────────────────
 
@@ -130,31 +131,32 @@ class MGazePlugin(GazePlugin):
     def add_arguments(cls, parser):
         """Register MGaze-specific CLI flags."""
         g = parser.add_argument_group("MGaze backend")
-        g.add_argument("--gaze-model", default=DEFAULT_ONNX_MODEL,
-                        help="Path to gaze model weights (.onnx or .pt)")
-        g.add_argument("--gaze-arch", default=None, choices=ARCH_CHOICES,
+        g.add_argument("--mgaze-model", default=DEFAULT_ONNX_MODEL,
+                        help="Path to MGaze model weights (.onnx or .pt)")
+        g.add_argument("--mgaze-arch", default=None, choices=ARCH_CHOICES,
                         help="Architecture name (required for .pt models)")
-        g.add_argument("--gaze-dataset", default="gaze360",
+        g.add_argument("--mgaze-dataset", default="gaze360",
                         help="Dataset config key (default: gaze360)")
 
     @classmethod
     def from_args(cls, args):
         """Create an MGaze engine from parsed CLI args."""
-        model = getattr(args, "gaze_model", None)
+        model = getattr(args, "mgaze_model", None)
         if not model:
             return None
         model = Path(model)
         if not model.exists():
-            raise FileNotFoundError(f"Gaze model not found: {model}")
+            raise FileNotFoundError(f"MGaze model not found: {model}")
 
-        arch    = getattr(args, "gaze_arch", None)
-        dataset = getattr(args, "gaze_dataset", "gaze360")
+        arch    = getattr(args, "mgaze_arch", None)
+        dataset = getattr(args, "mgaze_dataset", "gaze360")
 
         if model.suffix.lower() == ".pt":
             if not arch:
-                raise ValueError("--gaze-arch is required for .pt models")
+                raise ValueError("--mgaze-arch is required for .pt models")
+            device = getattr(args, "device", "auto")
             print(f"Backend: MGaze PyTorch  {arch}/{dataset}")
-            engine = GazeEstimationTorch(str(model), arch, dataset)
+            engine = GazeEstimationTorch(str(model), arch, dataset, device=device)
         else:
             import onnxruntime as ort
             avail = ort.get_available_providers()

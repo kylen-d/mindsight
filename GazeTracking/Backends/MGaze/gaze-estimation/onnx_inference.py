@@ -31,7 +31,11 @@ class GazeEstimationONNX:
         self.session = session
         if self.session is None:
             assert model_path is not None, "Model path is required for the first time initialization."
-            self.session = ort.InferenceSession(model_path, providers=["CPUExecutionProvider", "CUDAExecutionProvider"])
+            self.session = ort.InferenceSession(
+                model_path,
+                providers=["CoreMLExecutionProvider", "CUDAExecutionProvider",
+                           "DirectMLExecutionProvider", "CPUExecutionProvider"],
+            )
 
         self._bins = 90
         self._binwidth = 4

@@ -24,6 +24,7 @@ from GazeTracking.gaze_processing import (
     apply_tip_snapping, apply_lock_on, compute_ray_intersections,
 )
 from constants import EYE_CONF_THRESH
+from Plugins import GazePlugin
 from pipeline_config import GazeConfig
 
 
@@ -47,6 +48,13 @@ def _default_scene_pipeline(frame, faces, gaze_eng):
             bboxes_raw.append((x1, y1, x2, y2))
             valid_faces.append(f)
     gz = gaze_eng.estimate_frame(frame, bboxes_raw)
+
+    # Sort detections left-to-right for deterministic track-ID assignment
+    if bboxes_raw:
+        ltr = sorted(range(len(bboxes_raw)), key=lambda i: bboxes_raw[i][0])
+        bboxes_raw  = [bboxes_raw[i]  for i in ltr]
+        valid_faces = [valid_faces[i] for i in ltr]
+        gz          = [gz[i]          for i in ltr]
 
     persons_gaze = []
     for f, (x1, y1, x2, y2), (xy, gc) in zip(valid_faces, bboxes_raw, gz):
@@ -120,7 +128,9 @@ def run_gaze_step(ctx, *, face_det, gaze_eng, gaze_cfg: GazeConfig, **kwargs):
         ctx['faces'] = faces
 
     # ── Delegate to plugin pipeline or use default ───────────────────────────
-    has_pipeline = hasattr(gaze_eng, 'run_pipeline') and callable(gaze_eng.run_pipeline)
+    has_pipeline = (hasattr(gaze_eng, 'run_pipeline')
+                     and callable(gaze_eng.run_pipeline)
+                     and type(gaze_eng).run_pipeline is not GazePlugin.run_pipeline)
 
     if has_pipeline:
         (persons_gaze, face_confs, face_bboxes, face_track_ids,

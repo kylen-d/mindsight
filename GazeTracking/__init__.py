@@ -13,9 +13,11 @@ from .gaze_processing import (
     GazeToolkit,
 )
 from .gaze_factory import create_gaze_engine
+from .pitchyaw_pipeline import run_pitchyaw_pipeline
 
 __all__ = [
     "run_gaze_step",
+    "run_pitchyaw_pipeline",
     "GazeSmootherReID",
     "GazeLockTracker",
     "SnapHysteresisTracker",
