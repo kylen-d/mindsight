@@ -29,6 +29,9 @@ Every frame, your ``update(**kwargs)`` receives:
     n_faces        : int — number of visible faces
     face_track_ids : list[int] stable re-ID track IDs
     hits           : set of (face_idx, obj_idx) intersection pairs
+    aux_frames     : dict[(pid, stream_type), ndarray | None] — auxiliary
+                     per-participant video frames (e.g. eye cameras).
+                     Empty dict when no auxiliary streams are configured.
 
 Pull only what you need — your plugin doesn't break if new keys are added.
 
@@ -69,6 +72,10 @@ class MyTracker(PhenomenaPlugin):
         frame_no = kwargs['frame_no']
         persons_gaze = kwargs.get('persons_gaze', [])
         hits = kwargs.get('hits', set())
+
+        # Access auxiliary video streams (if configured):
+        # aux = kwargs.get('aux_frames', {})
+        # eye_frame = aux.get(('S70', 'eye_camera'))  # ndarray or None
 
         # ... your tracking logic here ...
 

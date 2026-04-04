@@ -222,6 +222,9 @@ class GazePlugin(ABC):
         gaze_cfg        : GazeConfig with ray parameters.
         smoother        : Optional GazeSmootherReID instance.
         snap_hysteresis : Optional SnapHysteresisTracker instance.
+        aux_frames      : dict[(pid_label, stream_type), ndarray | None] —
+                          per-participant auxiliary video frames.  Empty dict
+                          when no auxiliary streams are configured.
 
         Returns
         -------
@@ -347,6 +350,10 @@ class PhenomenaPlugin(ABC):
                          the smoother is disabled.
         hits           : set of (face_list_idx, obj_list_idx) pairs — pre-computed
                          gaze-object intersections.
+        aux_frames     : dict[(pid_label, stream_type), ndarray | None] —
+                         per-participant auxiliary video frames (e.g. eye-tracking
+                         cameras, first-person views).  Empty dict when no
+                         auxiliary streams are configured.
 
         Returns
         -------
@@ -362,32 +369,121 @@ class PhenomenaPlugin(ABC):
         plugin's latest state is available.  ``frame`` is a BGR numpy array.
         """
 
-    def dashboard_section(self, panel, y: int, line_h: int) -> int:
+    def dashboard_section(self, panel, y: int, line_h: int, *,
+                          pid_map=None) -> int:
         """
         *Optional.*  Draw one section into a dashboard side-panel.
 
         ``panel`` is a numpy view of the canvas for the relevant side panel
         (determined by ``self.dashboard_panel``).  Modify it in-place and
         return the new y coordinate after the section.
+
+        *pid_map* maps internal track IDs to custom participant labels.
+
+        .. deprecated:: 0.2.1
+            Use :meth:`dashboard_data` instead.  The matplotlib dashboard
+            calls ``dashboard_data()`` and renders it uniformly.
         """
         return y
 
-    def csv_rows(self, total_frames: int) -> list:
+    def dashboard_data(self, *, pid_map=None) -> dict:
+        """Return structured data for the matplotlib dashboard renderer.
+
+        Returns
+        -------
+        dict with keys:
+            title : str — section heading (e.g. "MUTUAL GAZE")
+            colour : tuple[int,int,int] — BGR accent colour
+            rows : list[dict] — each dict has 'label' (str) and optionally
+                   'value' (str|float) and 'pct' (float 0–1 for bar rendering)
+            empty_text : str — placeholder when rows is empty (default "--")
+        """
+        return {'title': self.name.upper().replace('_', ' '),
+                'colour': (180, 180, 180),
+                'rows': [],
+                'empty_text': '--'}
+
+    def csv_rows(self, total_frames: int, *, pid_map=None) -> list:
         """
         *Optional.*  Return rows to append to the post-run summary CSV.
 
         Each row is a list of values (strings or numbers).  Include a blank
         row and a header row before data rows for readability.
+
+        *pid_map* maps internal track IDs to custom participant labels.
         """
         return []
 
-    def console_summary(self, total_frames: int) -> str | None:
+    def console_summary(self, total_frames: int, *, pid_map=None) -> str | None:
         """
         *Optional.*  Return a multi-line string for post-run stdout summary.
 
         Return ``None`` (the default) to skip.
+
+        *pid_map* maps internal track IDs to custom participant labels.
         """
         return None
+
+    # ── Time-series / charting protocol ──────────────────────────────────────
+
+    def time_series_data(self) -> dict:
+        """Return accumulated time-series data for post-run chart generation.
+
+        Returns
+        -------
+        dict mapping series_name -> dict with keys:
+            x     : list[int]   — frame numbers
+            y     : list[float] — metric values
+            label : str         — human-readable label for the series
+            chart_type : str    — 'line', 'area', or 'step' (default 'line')
+            color : tuple       — BGR accent colour (optional, falls back to
+                                  the tracker's accent)
+        Return an empty dict to skip chart generation for this tracker.
+        """
+        return {}
+
+    def latest_metric(self) -> float | None:
+        """Return the current-frame scalar metric value for live charting.
+
+        Called each frame by the live dashboard bridge (GUI mode only).
+        Return ``None`` to indicate no metric is available this frame.
+        """
+        return None
+
+    def latest_metrics(self) -> dict | None:
+        """Return per-series metric values for the live dashboard.
+
+        Returns dict mapping series_key -> dict with keys:
+            value   : float — current value for this series
+            label   : str   — human-readable series label (e.g. "P0 ↔ P1")
+            y_label : str   — y-axis unit description (e.g. "pairs", "frames", "%")
+
+        Return ``None`` to fall back to :meth:`latest_metric` as a single
+        aggregate scalar.
+        """
+        return None
+
+    # ── Custom Qt dashboard widget (optional, GUI mode only) ─────────────────
+
+    def dashboard_widget(self):
+        """Return a custom QWidget for the live Qt dashboard, or ``None``.
+
+        When ``None`` is returned (the default), the live dashboard uses a
+        standard rolling line-chart widget driven by :meth:`latest_metric`.
+
+        The returned widget must be safe to call from the Qt main thread.
+        Guard PyQt6 imports with ``try/except ImportError`` so CLI mode
+        does not break.
+        """
+        return None
+
+    def dashboard_widget_update(self, data: dict) -> None:
+        """Push new frame data to the custom dashboard widget.
+
+        Only called if :meth:`dashboard_widget` returned a non-``None``
+        widget.  *data* contains the same keys as the dashboard snapshot
+        (frame_no, fps, n_faces, tracker_metrics, etc.).
+        """
 
     # ── CLI protocol ──────────────────────────────────────────────────────────
 
@@ -440,6 +536,17 @@ class DataCollectionPlugin(ABC):
         total_hits, look_counts, source, all_trackers, etc.
         """
 
+    def generate_charts(self, output_dir: str, **kwargs) -> list[str]:
+        """Generate custom post-run charts and return saved file paths.
+
+        Called during ``finalize_run`` when ``--charts`` is enabled.
+        *output_dir* is the directory where chart files should be saved.
+        *kwargs* contains the same summary data as ``on_run_complete``.
+
+        Return a list of file paths that were created (for logging).
+        """
+        return []
+
     @classmethod
     def add_arguments(cls, parser) -> None:
         """*Optional.*  Add plugin-specific flags to an argparse parser."""
@@ -459,6 +566,12 @@ _PLUGINS_ROOT = Path(__file__).parent
 #: Registry for :class:`GazePlugin` backends (``Plugins/GazeTracking/``).
 gaze_registry = PluginRegistry()
 gaze_registry.discover(_PLUGINS_ROOT / "GazeTracking", namespace="Plugins.GazeTracking")
+
+#: Built-in backends under ``GazeTracking/Backends/``.
+gaze_registry.discover(
+    _PLUGINS_ROOT.parent / "GazeTracking" / "Backends",
+    namespace="GazeTracking.Backends",
+)
 
 #: Registry for :class:`ObjectDetectionPlugin` backends (``Plugins/ObjectDetection/``).
 object_detection_registry = PluginRegistry()
