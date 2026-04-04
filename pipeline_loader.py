@@ -46,8 +46,11 @@ _YAML_MAP: dict[str, str] = {
     # Gaze
     'gaze.ray_length':     'ray_length',
     'gaze.adaptive_ray':   'adaptive_ray',
-    'gaze.adaptive_snap':  'adaptive_snap',
     'gaze.snap_dist':      'snap_dist',
+    'gaze.snap_bbox_scale': 'snap_bbox_scale',
+    'gaze.snap_w_dist':    'snap_w_dist',
+    'gaze.snap_w_size':    'snap_w_size',
+    'gaze.snap_w_intersect': 'snap_w_intersect',
     'gaze.conf_ray':       'conf_ray',
     'gaze.gaze_tips':      'gaze_tips',
     'gaze.tip_radius':     'tip_radius',
@@ -58,17 +61,32 @@ _YAML_MAP: dict[str, str] = {
     'gaze.gaze_debug':     'gaze_debug',
     'gaze.snap_switch_frames': 'snap_switch_frames',
     'gaze.reid_grace_seconds': 'reid_grace_seconds',
+    'gaze.hit_conf_gate':      'hit_conf_gate',
+    'gaze.detect_extend':      'detect_extend',
+    'gaze.detect_extend_scope': 'detect_extend_scope',
 
     # Output
-    'output.save_video':   'save',
-    'output.log_csv':      'log',
-    'output.summary_csv':  'summary',
-    'output.heatmaps':     'heatmap',
+    'output.save_video':       'save',
+    'output.log_csv':          'log',
+    'output.summary_csv':      'summary',
+    'output.heatmaps':         'heatmap',
+    'output.anonymize':        'anonymize',
+    'output.anonymize_padding': 'anonymize_padding',
+
+    # Participants
+    'participants.csv':    'participant_csv',
+    'participants.ids':    'participant_ids',
+
+    # Performance
+    'performance.fast':             'fast',
+    'performance.skip_phenomena':   'skip_phenomena',
+    'performance.lite_overlay':     'lite_overlay',
+    'performance.no_dashboard':     'no_dashboard',
+    'performance.profile':          'profile',
 
     # Joint attention (top-level phenomena keys)
     'phenomena.ja_window':       'ja_window',
     'phenomena.ja_window_thresh': 'ja_window_thresh',
-    'phenomena.ja_conf_gate':    'ja_conf_gate',
     'phenomena.ja_quorum':       'ja_quorum',
 }
 
@@ -89,7 +107,6 @@ _PHENOMENA_PARAMS: dict[str, str] = {
     'ja_window':         'ja_window',
     'ja_quorum':         'ja_quorum',
     'ja_window_thresh':  'ja_window_thresh',
-    'ja_conf_gate':      'ja_conf_gate',
     'window':            'social_ref_window',
     'lag':               'gaze_follow_lag',
     'aversion_window':   'aversion_window',
@@ -166,6 +183,34 @@ def load_pipeline(path: str | Path, ns: Namespace | None = None) -> Namespace:
             attr = key.replace('-', '_')
             if not hasattr(ns, attr) or _is_default(ns, attr):
                 setattr(ns, attr, val)
+
+    # 4. Process aux_streams section (optional per-participant video feeds)
+    aux_list = cfg.get('aux_streams', [])
+    if isinstance(aux_list, list) and aux_list:
+        if not hasattr(ns, 'aux_streams') or _is_default(ns, 'aux_streams'):
+            from pipeline_config import AuxStreamConfig
+            parsed = []
+            for item in aux_list:
+                if isinstance(item, dict):
+                    pid = item.get('pid', '')
+                    stype = item.get('stream_type', '')
+                    source = item.get('source', '')
+                    if pid and stype and source:
+                        parsed.append(AuxStreamConfig(pid=pid,
+                                                      stream_type=stype,
+                                                      source=source))
+            if parsed:
+                setattr(ns, 'aux_streams', parsed)
+
+    # ── Backward compat: old adaptive_ray (bool) + adaptive_snap (bool) ──
+    ar = getattr(ns, 'adaptive_ray', 'off')
+    if isinstance(ar, bool):
+        # Old YAML had adaptive_ray: true/false
+        adaptive_snap = flat.get('gaze.adaptive_snap', False)
+        if ar:
+            setattr(ns, 'adaptive_ray', 'snap' if adaptive_snap else 'extend')
+        else:
+            setattr(ns, 'adaptive_ray', 'off')
 
     return ns
 

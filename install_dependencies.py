@@ -4,7 +4,7 @@ MindSight dependency installer.
 
 Installs all packages required by:
   - gaze_tracker.py / ObjectDetection/YOLO/yolo_tracking.py  (the MindSight orchestration layer)
-  - Plugins/GazeTracking/MGaze/gaze-estimation/  (the embedded gaze-estimation submodule)
+  - GazeTracking/Backends/MGaze/gaze-estimation/  (the embedded gaze-estimation submodule)
 
 Usage:
     python install_dependencies.py
@@ -28,7 +28,7 @@ MINDSIGHT_PACKAGES = [
     "ultralytics",          # YOLOv8 — used by gaze_tracker.py and yolo_tracking.py
 ]
 
-# Packages from Plugins/GazeTracking/MGaze/gaze-estimation/requirements.txt (pinned versions kept
+# Packages from GazeTracking/Backends/MGaze/gaze-estimation/requirements.txt (pinned versions kept
 # to match the embedded venv that ships with the submodule).
 GAZE_ESTIMATION_PACKAGES = [
     "onnxruntime==1.19.0",
