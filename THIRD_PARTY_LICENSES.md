@@ -58,8 +58,8 @@ This file documents their licenses for compliance purposes.
 
 ## AGPL-3.0 Notice
 
-This project uses [ultralytics](https://github.com/ultralytics/ultralytics) (AGPL-3.0)
-for object detection. Under the terms of the AGPL-3.0, if you distribute or provide
-network access to this software, you must make the complete corresponding source code
-available. See the [AGPL-3.0 license](https://www.gnu.org/licenses/agpl-3.0.html) for
-full details.
+MindSight is licensed under AGPL-3.0, consistent with its dependency on
+[ultralytics](https://github.com/ultralytics/ultralytics) (AGPL-3.0). If you distribute
+or provide network access to this software, you must make the complete corresponding
+source code available under the same license. See the
+[AGPL-3.0 license](https://www.gnu.org/licenses/agpl-3.0.html) for full details.

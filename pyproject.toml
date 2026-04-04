@@ -3,12 +3,12 @@ name = "mindsight"
 version = "0.2.0b1"
 description = "Real-time multi-person gaze tracking and attention analysis platform"
 requires-python = ">=3.10"
-license = "GPL-3.0-or-later"
+license = "AGPL-3.0-or-later"
 authors = [{name = "MindSight Contributors"}]
 keywords = ["gaze-tracking", "eye-tracking", "attention-analysis", "computer-vision"]
 classifiers = [
     "Development Status :: 4 - Beta",
-    "License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)",
+    "License :: OSI Approved :: GNU Affero General Public License v3 or later (AGPLv3+)",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",

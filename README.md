@@ -2,7 +2,7 @@
 
 > **Beta Release** — This is a pre-release version (v0.2.0-beta). APIs and features may change. Bug reports and feedback are welcome via [GitHub Issues](https://github.com/kylen-d/mindsight/issues).
 
-[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
+[![License: AGPL v3](https://img.shields.io/badge/License-AGPLv3-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
 
 Gaze estimation combined with YOLO object detection for the studying of various gaze and attention-based psychological phenomena. MindSight determines what participants are looking at in real time, and provides a framework to use this information to study a wide-range of gaze-based behaviour, such as Joint-Attention.
 ---
@@ -518,9 +518,9 @@ The `_inout` variants add an in-frame / out-of-frame confidence score that modul
 
 ## License
 
-MindSight is licensed under the [GNU General Public License v3.0](LICENSE).
+MindSight is licensed under the [GNU Affero General Public License v3.0](LICENSE) (AGPL-3.0).
 
-This project depends on [ultralytics](https://github.com/ultralytics/ultralytics) (AGPL-3.0) for YOLO-based object detection. When distributing or providing network access to the combined work, you must also comply with the AGPL-3.0 network-use provisions. See [THIRD_PARTY_LICENSES.md](THIRD_PARTY_LICENSES.md) for a full list of third-party dependencies and their licenses.
+This project uses [ultralytics](https://github.com/ultralytics/ultralytics) (AGPL-3.0) for YOLO-based object detection. If you distribute or provide network access to this software, you must make the complete corresponding source code available under the same license. See [THIRD_PARTY_LICENSES.md](THIRD_PARTY_LICENSES.md) for a full list of third-party dependencies and their licenses.
 
 ---
 

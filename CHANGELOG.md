@@ -71,4 +71,4 @@
 - Project mode for batch video processing
 - YAML pipeline configuration
 - CSV, heatmap, and video overlay outputs
-- GPLv3 license
+- AGPL-3.0 license
