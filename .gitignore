@@ -38,3 +38,17 @@ venv/
 # Embedded venvs (third-party submodules)
 Plugins/GazeTracking/MGaze/gaze-estimation/gaze/
 Plugins/GazeTracking/MGaze/gaze-estimation/gaze-est/
+GazeTracking/Backends/MGaze/gaze-estimation/gaze/
+GazeTracking/Backends/MGaze/gaze-estimation/gaze-est/
+GazeTracking/Backends/MGaze/gaze-estimation/weights/
+GazeTracking/Backends/MGaze/gaze-estimation/assets/
+
+# Backend model weights
+GazeTracking/Backends/L2CS/weights/
+*.pkl
+
+# Test data (large video files)
+test_data/
+
+# Project input videos
+Projects/*/Inputs/Videos/
