@@ -43,6 +43,7 @@ from Phenomena.Default import (
     ScanpathTracker,
     SocialReferenceTracker,
 )
+from Phenomena.helpers import gaze_convergence, joint_attention  # noqa: F401 — re-exported
 from Phenomena.phenomena_config import PhenomenaConfig
 
 
