@@ -323,6 +323,7 @@ def run(source, yolo, face_det, gaze_eng,
         anonymize=output_cfg.anonymize,
         anonymize_padding=output_cfg.anonymize_padding,
         anon_smoother=(AnonSmoother() if output_cfg.anonymize else None),
+        face_det=face_det,
         video_name=output_cfg.video_name,
         conditions=output_cfg.conditions,
     )

@@ -21,6 +21,7 @@ Usage
 
 from DataCollection.chart_output import generate_run_charts, resolve_chart_path
 from DataCollection.csv_output import resolve_summary_path, write_summary_csv
+from DataCollection.dashboard_output import apply_face_anonymization
 from DataCollection.heatmap_output import extract_mid_frame, resolve_heatmap_path, save_heatmaps
 from pipeline_config import resolve_display_pid
 
@@ -111,6 +112,16 @@ def finalize_run(ctx, **kwargs) -> None:
         if bg is None:
             print("Warning: could not extract background frame for heatmap.")
         else:
+            anon_mode = ctx.get('anonymize')
+            if anon_mode:
+                face_det = ctx.get('face_det')
+                if face_det is not None:
+                    raw_faces = face_det.detect(bg)
+                    bboxes = [tuple(int(c) for c in f["bbox"][:4])
+                              for f in raw_faces]
+                    apply_face_anonymization(
+                        bg, bboxes, anon_mode,
+                        ctx.get('anonymize_padding', 0.3))
             save_heatmaps(resolved_heatmap, source, bg, heatmap_gaze,
                           pid_map=pid_map)
 
