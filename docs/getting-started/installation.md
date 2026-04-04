@@ -18,7 +18,7 @@ This guide walks you through setting up MindSight on your local machine.
 ## Clone the Repository
 
 ```bash
-git clone https://github.com/your-org/MindSight.git
+git clone https://github.com/kylen-d/mindsight.git
 cd MindSight
 ```
 

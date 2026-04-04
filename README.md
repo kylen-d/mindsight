@@ -1,6 +1,6 @@
 # MindSight — Unified Eye-Gaze Intersection Tracker for Behavioural Neuroscience Research
 
-> **Beta Release** — This is a pre-release version (v0.2.0-beta). APIs and features may change. Bug reports and feedback are welcome via [GitHub Issues](https://github.com/OWNER/mindsight/issues).
+> **Beta Release** — This is a pre-release version (v0.2.0-beta). APIs and features may change. Bug reports and feedback are welcome via [GitHub Issues](https://github.com/kylen-d/mindsight/issues).
 
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
 
@@ -526,6 +526,6 @@ This project depends on [ultralytics](https://github.com/ultralytics/ultralytics
 
 ## Contributing
 
-Contributions are welcome! Please open an issue or submit a pull request on [GitHub](https://github.com/OWNER/mindsight).
+Contributions are welcome! Please open an issue or submit a pull request on [GitHub](https://github.com/kylen-d/mindsight).
 
-For bug reports and feature requests, use [GitHub Issues](https://github.com/OWNER/mindsight/issues).
+For bug reports and feature requests, use [GitHub Issues](https://github.com/kylen-d/mindsight/issues).

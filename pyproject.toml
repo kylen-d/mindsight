@@ -17,9 +17,9 @@ classifiers = [
 ]
 
 [project.urls]
-Repository = "https://github.com/OWNER/mindsight"
-Issues = "https://github.com/OWNER/mindsight/issues"
-Changelog = "https://github.com/OWNER/mindsight/blob/main/CHANGELOG.md"
+Repository = "https://github.com/kylen-d/mindsight"
+Issues = "https://github.com/kylen-d/mindsight/issues"
+Changelog = "https://github.com/kylen-d/mindsight/blob/main/CHANGELOG.md"
 
 [tool.black]
 line-length = 99
