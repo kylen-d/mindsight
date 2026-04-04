@@ -14,8 +14,9 @@ clip @ git+https://github.com/ultralytics/CLIP.git@88ade288431a46233f1556d1e1419
 
 # Gaze estimation
 uniface>=1.0                    # RetinaFace face detector
-timm>=1.0                       # PyTorch Image Models (UniGaze)
-unigaze                         # UniGaze backend (optional, non-commercial license)
+timm>=0.3.2                     # PyTorch Image Models (required by UniGaze)
+# unigaze                       # UniGaze backend — install separately if needed
+                                # (non-commercial license, pins timm==0.3.2)
 
 # Computer vision
 opencv-python>=4.8
