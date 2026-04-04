@@ -268,9 +268,13 @@ python MindSight.py --source video.mp4 --summary results.csv
 |---|---|---|
 | `--source` | `0` | Input: `0` = webcam, integer = camera index, path to video/image |
 | `--model` | `yolov8n.pt` | YOLO model weights |
-| `--gaze-model` | `gaze-estimation/weights/mobileone_s0_gaze.onnx` | ONNX or `.pt` gaze weights |
-| `--gaze-arch` | `None` | Required for `.pt` models: `resnet18`, `resnet34`, `resnet50`, `mobilenetv2`, `mobileone_s0`–`s4` |
-| `--gaze-dataset` | `gaze360` | Dataset config used for `.pt` models |
+| `--mgaze-model` | `gaze-estimation/weights/mobileone_s0_gaze.onnx` | MGaze: ONNX or `.pt` gaze weights |
+| `--mgaze-arch` | `None` | MGaze: Required for `.pt` models: `resnet18`, `resnet34`, `resnet50`, `mobilenetv2`, `mobileone_s0`–`s4` |
+| `--mgaze-dataset` | `gaze360` | MGaze: Dataset config used for `.pt` models |
+| `--l2cs-model` | `None` | L2CS-Net: Path to `.pkl` or `.onnx` weights |
+| `--l2cs-arch` | `ResNet50` | L2CS-Net: Architecture (`ResNet18`–`ResNet152`) |
+| `--l2cs-dataset` | `gaze360` | L2CS-Net: Dataset config key |
+| `--unigaze-model` | `None` | UniGaze: Model variant (requires `pip install unigaze timm==0.3.2`) |
 | `--conf` | `0.35` | YOLO detection confidence threshold |
 | `--classes` | `None` | Filter YOLO to specific class names, e.g. `--classes person knife` |
 | `--blacklist` | `[]` | Suppress specific YOLO classes, e.g. `--blacklist chair` |
@@ -461,13 +465,23 @@ When `--save` is passed, an annotated `.mp4` is written alongside the source, or
 
 | Backend | Trigger | Notes |
 |---|---|---|
-| **ONNX** (default) | `.onnx` model path | Fastest; uses CoreML on Apple Silicon, CUDA on NVIDIA, CPU otherwise |
-| **PyTorch** | `.pt` model + `--gaze-arch` | Requires `--gaze-arch` to identify the architecture |
+| **MGaze ONNX** (default) | `--mgaze-model` with `.onnx` path | Fastest; uses CoreML on Apple Silicon, CUDA on NVIDIA, CPU otherwise |
+| **MGaze PyTorch** | `--mgaze-model` with `.pt` + `--mgaze-arch` | Requires `--mgaze-arch` to identify the architecture |
+| **L2CS-Net** | `--l2cs-model <weights.pkl>` | ResNet50 with dual classification heads; ~3x more accurate than MGaze on MPIIGaze (3.92 vs ~11 deg MAE) |
+| **UniGaze** (optional) | `--unigaze-model <variant>` | ViT + MAE pre-training; best cross-dataset accuracy (~9.4 deg Gaze360). Requires `pip install unigaze timm==0.3.2` (non-commercial license) |
 | **Gazelle** | `--gazelle-model <ckpt.pt>` | Scene-level DINOv2 model; processes all faces in a single forward pass; outputs a gaze heatmap rather than pitch/yaw |
 
-**Available ONNX / PyTorch architectures** (`--gaze-arch`):
+**MGaze architectures** (`--mgaze-arch`):
 
 `resnet18`, `resnet34`, `resnet50`, `mobilenetv2`, `mobileone_s0`, `mobileone_s1`, `mobileone_s2`, `mobileone_s3`, `mobileone_s4`
+
+**L2CS-Net architectures** (`--l2cs-arch`):
+
+`ResNet18`, `ResNet34`, `ResNet50` (default), `ResNet101`, `ResNet152`
+
+**UniGaze model variants** (`--unigaze-model`):
+
+`unigaze_b16_joint` (ViT-Base), `unigaze_l16_joint` (ViT-Large), `unigaze_h14_joint` (ViT-Huge, best accuracy)
 
 **Gazelle model variants** (`--gazelle-name`):
 

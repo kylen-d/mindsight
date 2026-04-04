@@ -1,0 +1,104 @@
+site_name: MindSight
+site_description: Eye-Gaze Intersection Tracker for Behavioral Neuroscience Research
+
+theme:
+  name: material
+  palette:
+    - scheme: default
+      primary: indigo
+      accent: cyan
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - scheme: slate
+      primary: indigo
+      accent: cyan
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - navigation.expand
+    - navigation.indexes
+    - search.suggest
+    - search.highlight
+    - content.code.copy
+    - content.tabs.link
+
+plugins:
+  - search
+
+markdown_extensions:
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_mermaid
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - attr_list
+  - md_in_html
+  - toc:
+      permalink: true
+
+nav:
+  - Home: index.md
+  - Getting Started:
+      - getting-started/index.md
+      - Installation: getting-started/installation.md
+      - Quickstart (CLI): getting-started/quickstart-cli.md
+      - Quickstart (GUI): getting-started/quickstart-gui.md
+      - Your First Project: getting-started/first-project.md
+  - User Guide:
+      - user-guide/index.md
+      - Pipeline Overview: user-guide/pipeline-overview.md
+      - Object Detection: user-guide/object-detection.md
+      - Gaze Estimation: user-guide/gaze-estimation.md
+      - Visual Prompts: user-guide/visual-prompts.md
+      - Phenomena Tracking: user-guide/phenomena-overview.md
+      - Data & Output: user-guide/data-output.md
+      - Project Mode: user-guide/project-mode.md
+      - GUI Guide: user-guide/gui-guide.md
+  - Phenomena:
+      - phenomena/index.md
+      - Joint Attention: phenomena/joint-attention.md
+      - Mutual Gaze: phenomena/mutual-gaze.md
+      - Social Referencing: phenomena/social-referencing.md
+      - Gaze Following: phenomena/gaze-following.md
+      - Gaze Aversion: phenomena/gaze-aversion.md
+      - Scanpath Analysis: phenomena/scanpath.md
+      - Gaze Leadership: phenomena/gaze-leadership.md
+      - Attention Span: phenomena/attention-span.md
+  - Developer Guide:
+      - developer/index.md
+      - Architecture Deep Dive: developer/architecture.md
+      - FrameContext Reference: developer/frame-context.md
+      - Object Detection Module: developer/object-detection-module.md
+      - Gaze Processing Module: developer/gaze-processing-module.md
+      - Phenomena Engine: developer/phenomena-engine.md
+      - Data Collection Module: developer/data-collection-module.md
+      - Plugin System: developer/plugin-system.md
+      - Writing a Plugin: developer/writing-a-plugin.md
+      - Plugin Tutorials: developer/plugin-tutorial.md
+      - "Phenomena Plugin Tutorial: Novel Salience": developer/phenomena-plugin-tutorial.md
+      - "Gaze Plugin Tutorial: Gazelle": developer/gaze-plugin-tutorial.md
+      - "Object Detection Plugin Tutorial": developer/object-detection-plugin-tutorial.md
+      - "Data Collection Plugin Tutorial": developer/data-collection-plugin-tutorial.md
+      - Pipeline Configuration (YAML): developer/pipeline-yaml.md
+      - Testing: developer/testing.md
+  - Reference:
+      - reference/index.md
+      - CLI Flags: reference/cli-flags.md
+      - pipeline.yaml Schema: reference/pipeline-yaml-schema.md
+      - FrameContext Keys: reference/frame-context-keys.md
+      - Configuration Dataclasses: reference/config-dataclasses.md
+      - Detection Dataclass: reference/detection-dataclass.md
+      - Plugin Base Classes: reference/plugin-base-classes.md
+      - Keyboard Shortcuts: reference/keyboard-shortcuts.md
+  - Changelog: changelog.md
