@@ -17,15 +17,20 @@ from __future__ import annotations
 import queue
 from collections import deque
 
+import matplotlib
+import numpy as np
 from PyQt6.QtCore import Qt, QTimer
 from PyQt6.QtGui import QFont
 from PyQt6.QtWidgets import (
-    QGridLayout, QGroupBox, QHBoxLayout, QLabel, QScrollArea,
-    QSizePolicy, QVBoxLayout, QWidget,
+    QGridLayout,
+    QHBoxLayout,
+    QLabel,
+    QScrollArea,
+    QSizePolicy,
+    QVBoxLayout,
+    QWidget,
 )
 
-import numpy as np
-import matplotlib
 if matplotlib.get_backend().lower() != 'qtagg':
     try:
         matplotlib.use('QtAgg')

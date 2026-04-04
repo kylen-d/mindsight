@@ -24,12 +24,14 @@ from __future__ import annotations
 import cv2
 import numpy as np
 
-from utils.geometry import (
-    pitch_yaw_to_2d, ray_hits_box, ray_hits_cone,
-    bbox_center, bbox_diagonal,
-)
 from constants import SMOOTH_ALPHA
-
+from utils.geometry import (
+    bbox_center,
+    bbox_diagonal,
+    pitch_yaw_to_2d,
+    ray_hits_box,
+    ray_hits_cone,
+)
 
 # ══════════════════════════════════════════════════════════════════════════════
 # Eye-landmark helper

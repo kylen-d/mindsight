@@ -32,11 +32,14 @@ _REPO_ROOT = Path(__file__).parent.parent.parent.parent
 if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
 
-from Plugins import GazePlugin                                   # noqa: E402
-from .L2CS_Config import (                                        # noqa: E402
-    ARCH_CHOICES, ARCH_CONFIGS, DATA_CONFIG, DEFAULT_MODEL, INPUT_SIZE,
-)
+from Plugins import GazePlugin  # noqa: E402
 
+from .L2CS_Config import (  # noqa: E402
+    ARCH_CHOICES,
+    ARCH_CONFIGS,
+    DATA_CONFIG,
+    INPUT_SIZE,
+)
 
 # ==============================================================================
 # Shared confidence helper

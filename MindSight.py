@@ -33,47 +33,63 @@ Base pipeline: YOLO objects -> RetinaFace faces -> gaze estimation ->
                ray-bbox (or cone) intersection -> joint attention + phenomena
 """
 
-import argparse, csv, time
+import argparse
+import csv
+import time
 from pathlib import Path
 
 import cv2
 
-
-# ── Pipeline stage imports ────────────────────────────────────────────────────
-from ObjectDetection.detection_pipeline import run_detection_step
-from GazeTracking.gaze_pipeline import run_gaze_step
-from Phenomena.phenomena_pipeline import (
-    init_phenomena_trackers, update_phenomena_step, post_run_summary,
-    joint_attention, gaze_convergence,
+# ── Constants & config ────────────────────────────────────────────────────────
+from constants import IMAGE_EXTS
+from DataCollection.dashboard_output import (
+    AnonSmoother,
+    apply_face_anonymization,
+    compose_dashboard,
+    draw_overlay,
+    finalize_video,
+    open_video_writer,
 )
 from DataCollection.data_pipeline import collect_frame_data, finalize_run
+from GazeTracking.gaze_factory import create_gaze_engine
+from GazeTracking.gaze_pipeline import run_gaze_step
 
 # ── Sub-module imports ────────────────────────────────────────────────────────
 from GazeTracking.gaze_processing import (
-    GazeSmootherReID, GazeLockTracker, SnapHysteresisTracker,
+    GazeLockTracker,
+    GazeSmootherReID,
+    SnapHysteresisTracker,
 )
-from GazeTracking.gaze_factory import create_gaze_engine
-from Plugins import (
-    gaze_registry             as _gaze_registry,
-    object_detection_registry as _od_registry,
-    phenomena_registry        as _phenomena_registry,
+
+# ── Pipeline stage imports ────────────────────────────────────────────────────
+from ObjectDetection.detection_pipeline import run_detection_step
+from ObjectDetection.model_factory import create_face_detector, create_yolo_detector
+from ObjectDetection.object_detection import ObjectPersistenceCache
+from Phenomena.phenomena_pipeline import (
+    gaze_convergence,
+    init_phenomena_trackers,
+    joint_attention,
+    post_run_summary,
+    update_phenomena_step,
 )
 from Phenomena.phenomena_tracking import add_arguments as _add_phenomena_arguments
-from ObjectDetection.object_detection import ObjectPersistenceCache
-from ObjectDetection.model_factory import create_yolo_detector, create_face_detector
-from DataCollection.dashboard_output import (draw_overlay, compose_dashboard,
-                                              open_video_writer,
-                                              finalize_video,
-                                              apply_face_anonymization,
-                                              AnonSmoother)
-
-# ── Constants & config ────────────────────────────────────────────────────────
-from constants import IMAGE_EXTS
 from pipeline_config import (
-    GazeConfig, DetectionConfig, TrackerConfig, OutputConfig, FrameContext,
+    DetectionConfig,
+    FrameContext,
+    GazeConfig,
+    OutputConfig,
+    TrackerConfig,
     resolve_display_pid,
 )
-
+from Plugins import (
+    gaze_registry as _gaze_registry,
+)
+from Plugins import (
+    object_detection_registry as _od_registry,
+)
+from Plugins import (
+    phenomena_registry as _phenomena_registry,
+)
 
 # ══════════════════════════════════════════════════════════════════════════════
 # Core per-frame processing  (thin orchestrator -> logic lives in pipeline files)
@@ -672,7 +688,7 @@ def _build_from_args(args):
     # Build pid_map from inline IDs or CSV (single-video; project mode handles its own)
     pid_map = getattr(args, 'pid_map', None)
     if pid_map is None:
-        from participant_ids import parse_inline_ids, load_participant_csv
+        from participant_ids import load_participant_csv, parse_inline_ids
         inline = getattr(args, 'participant_ids', None)
         csv_path = getattr(args, 'participant_csv', None)
         if inline:

@@ -16,14 +16,24 @@ from pathlib import Path
 import cv2
 import numpy as np
 
+from constants import (
+    BOX_THICKNESS,
+    DASH_FONT_SCALE,
+    DASH_PADDING,
+    DASH_WIDTH,
+    DWELL_INDICATOR_RADIUS,
+    DWELL_MIN_FRACTION,
+    OVERLAY_BLEND_ALPHA,
+    OVERLAY_BLEND_BETA,
+    UI_ARROW_LEFT,
+    UI_LABEL_CONVERGE,
+    UI_LABEL_GHOST,
+    UI_LABEL_JOINT,
+    UI_LABEL_LOCKED,
+    get_colour,
+)
+from constants import OUTPUTS_ROOT as _OUTPUTS_ROOT
 from pipeline_config import resolve_display_pid
-from constants import (get_colour, OUTPUTS_ROOT as _OUTPUTS_ROOT,
-                       DASH_WIDTH, DASH_FONT_SCALE, DASH_PADDING,
-                       OVERLAY_BLEND_ALPHA, OVERLAY_BLEND_BETA,
-                       DWELL_INDICATOR_RADIUS, DWELL_MIN_FRACTION,
-                       BOX_THICKNESS,
-                       UI_ARROW_LEFT, UI_LABEL_JOINT, UI_LABEL_LOCKED,
-                       UI_LABEL_GHOST, UI_LABEL_CONVERGE)
 
 # ── Shared colour / font constants ────────────────────────────────────────────
 _FACE_COLS  = [(100,100,255),(100,255,100),(255,100,100),(255,220,50),(255,80,255),(80,255,255)]
@@ -89,7 +99,6 @@ def finalize_video(path):
         return
     import shutil
     import subprocess
-    import tempfile
 
     if shutil.which("ffmpeg") is None:
         print("Note: ffmpeg not found; video saved as MPEG-4 Part 2 (mp4v).\n"

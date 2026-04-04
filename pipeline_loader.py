@@ -23,7 +23,6 @@ from pathlib import Path
 
 import yaml
 
-
 # ── YAML key → argparse attribute mapping ────────────────────────────────────
 # Nested YAML sections are flattened: 'detection.conf' → 'conf'.
 # Keys not in this table are ignored (with a warning).

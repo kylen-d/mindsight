@@ -55,9 +55,9 @@ correct regardless of gaze backend.
 from __future__ import annotations
 
 import collections
+import math
 import sys
 from pathlib import Path
-import math
 
 import cv2
 import numpy as np
@@ -68,8 +68,8 @@ _REPO_ROOT = Path(__file__).parent.parent.parent.parent  # Plugins/Phenomena/Nov
 if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
 
-from Plugins import PhenomenaPlugin  # noqa: E402
 from pipeline_config import resolve_display_pid  # noqa: E402
+from Plugins import PhenomenaPlugin  # noqa: E402
 
 
 # ── Dashboard drawing helpers ─────────────────────────────────────────────────
@@ -77,7 +77,9 @@ from pipeline_config import resolve_display_pid  # noqa: E402
 # the DataCollection package has not been fully initialized yet.
 def _dash():
     from DataCollection.dashboard_output import (
-        _draw_panel_section, _dash_line_h, _DASH_DIM,
+        _DASH_DIM,
+        _dash_line_h,
+        _draw_panel_section,
     )
     return _draw_panel_section, _dash_line_h, _DASH_DIM
 

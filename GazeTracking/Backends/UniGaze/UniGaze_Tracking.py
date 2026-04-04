@@ -30,21 +30,21 @@ import warnings
 from pathlib import Path
 
 import cv2
-import numpy as np
 import torch
-from torchvision import transforms
-
 import unigaze  # raises ImportError if not installed (caught by __init__.py)
+from torchvision import transforms
 
 _REPO_ROOT = Path(__file__).parent.parent.parent.parent
 if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
 
-from Plugins import GazePlugin                          # noqa: E402
-from .UniGaze_Config import (                            # noqa: E402
-    DEFAULT_VARIANT, INPUT_SIZE, MODEL_VARIANTS,
-)
+from Plugins import GazePlugin  # noqa: E402
 
+from .UniGaze_Config import (  # noqa: E402
+    DEFAULT_VARIANT,
+    INPUT_SIZE,
+    MODEL_VARIANTS,
+)
 
 # ==============================================================================
 # Estimation backend

@@ -19,7 +19,6 @@ import collections
 import math
 
 from Plugins import PhenomenaPlugin
-from pipeline_config import resolve_display_pid
 
 
 class JointAttentionTracker(PhenomenaPlugin):

@@ -1,8 +1,9 @@
-import os
-import pandas as pd
-import json
-from PIL import Image
 import argparse
+import json
+import os
+
+import pandas as pd
+from PIL import Image
 
 # preprocessing adapted from https://github.com/ejcgt/attention-target-detection/blob/master/dataset.py
 
@@ -108,7 +109,7 @@ def main(DATA_PATH):
             row = item[i]
             assert(row['bbox_x_min'].count(row['bbox_x_min'][0]) == len(row['bbox_x_min'])) # quick check that all bboxes are equivalent
             xmin, ymin, xmax, ymax = row['bbox_x_min'][0], row['bbox_y_min'][0], row['bbox_x_max'][0], row['bbox_y_max'][0]
-            
+
             if xmin > xmax:
                 temp = xmin
                 xmin = xmax
@@ -117,7 +118,7 @@ def main(DATA_PATH):
                 temp = ymin
                 ymin = ymax
                 ymax = temp
-            
+
             # move in out of frame bbox annotations
             xmin = max(xmin, 0)
             ymin = max(ymin, 0)
@@ -140,7 +141,7 @@ def main(DATA_PATH):
                 'num_annot': len(gazex),
                 'head_id': i
             })
-        
+
         TEST_FRAMES.append({
             'path': path,
             'heads': heads,

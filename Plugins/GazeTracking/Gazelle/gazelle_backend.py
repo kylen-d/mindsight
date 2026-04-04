@@ -22,7 +22,6 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
-import cv2
 import numpy as np
 import torch
 
@@ -35,7 +34,6 @@ if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
 
 from Plugins import GazePlugin  # noqa: E402
-
 
 # ══════════════════════════════════════════════════════════════════════════════
 # Plugin class
@@ -82,8 +80,8 @@ class GazeEstimationGazelle(GazePlugin):
             sys.path.insert(0, str(_GAZELLE_DIR))
 
         from gazelle.model import get_gazelle_model  # noqa: E402
-        from PIL import Image as _PIL                # noqa: E402
-        from torchvision import transforms           # noqa: E402
+        from PIL import Image as _PIL  # noqa: E402
+        from torchvision import transforms  # noqa: E402
 
         self._PIL       = _PIL
         self._inout_thr = inout_threshold

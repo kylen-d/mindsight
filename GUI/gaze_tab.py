@@ -17,23 +17,46 @@ from pathlib import Path
 from PyQt6.QtCore import Qt, QTimer
 from PyQt6.QtGui import QFont
 from PyQt6.QtWidgets import (
-    QButtonGroup, QCheckBox, QComboBox, QDoubleSpinBox, QFileDialog,
-    QFormLayout, QGroupBox, QHBoxLayout, QHeaderView, QLabel, QLineEdit,
-    QMessageBox, QPushButton, QRadioButton, QScrollArea, QSizePolicy,
-    QSpinBox, QTableWidget, QTableWidgetItem, QTextEdit, QVBoxLayout,
+    QButtonGroup,
+    QCheckBox,
+    QComboBox,
+    QDoubleSpinBox,
+    QFileDialog,
+    QFormLayout,
+    QGroupBox,
+    QHBoxLayout,
+    QLabel,
+    QLineEdit,
+    QMessageBox,
+    QPushButton,
+    QRadioButton,
+    QScrollArea,
+    QSizePolicy,
+    QSpinBox,
+    QTableWidget,
+    QTableWidgetItem,
+    QTextEdit,
+    QVBoxLayout,
     QWidget,
 )
 
-from .widgets import _hrow, _browse_btn, _bgr_to_pixmap, VP_EXT, _HERE
-from GazeTracking.Backends.MGaze.MGaze_Config import DEFAULT_ONNX_MODEL
 from GazeTracking.Backends.L2CS.L2CS_Config import (
-    ARCH_CHOICES as L2CS_ARCHS, DEFAULT_MODEL as L2CS_DEFAULT_MODEL,
+    ARCH_CHOICES as L2CS_ARCHS,
 )
+from GazeTracking.Backends.L2CS.L2CS_Config import (
+    DEFAULT_MODEL as L2CS_DEFAULT_MODEL,
+)
+from GazeTracking.Backends.MGaze.MGaze_Config import DEFAULT_ONNX_MODEL
+
+from .widgets import VP_EXT, _bgr_to_pixmap, _browse_btn, _hrow
 
 # Check if UniGaze is available (optional dependency)
 try:
     from GazeTracking.Backends.UniGaze.UniGaze_Config import (
-        MODEL_VARIANTS as UNIGAZE_VARIANTS, DEFAULT_VARIANT as UNIGAZE_DEFAULT,
+        DEFAULT_VARIANT as UNIGAZE_DEFAULT,
+    )
+    from GazeTracking.Backends.UniGaze.UniGaze_Config import (
+        MODEL_VARIANTS as UNIGAZE_VARIANTS,
     )
     _UNIGAZE_AVAILABLE = True
 except ImportError:

@@ -11,23 +11,22 @@ MindSight.py imports it from this module.
 """
 
 # ── Re-exports from Default pack ─────────────────────────────────────────────
-from Phenomena.Default import (                        # noqa: F401
+from Phenomena.Default import (  # noqa: F401
+    AttentionSpanTracker,
+    GazeAversionTracker,
+    GazeFollowingTracker,
+    GazeLeadershipTracker,
     JointAttentionTemporalTracker,
     MutualGazeTracker,
-    SocialReferenceTracker,
-    GazeFollowingTracker,
-    GazeAversionTracker,
     ScanpathTracker,
-    GazeLeadershipTracker,
-    AttentionSpanTracker,
+    SocialReferenceTracker,
 )
 
 # ── Re-exports from helpers ──────────────────────────────────────────────────
-from Phenomena.helpers import (                        # noqa: F401
-    joint_attention,
+from Phenomena.helpers import (  # noqa: F401
     gaze_convergence,
+    joint_attention,
 )
-
 
 # ══════════════════════════════════════════════════════════════════════════════
 # CLI argument registration

@@ -7,14 +7,20 @@ New plugins get UI controls automatically without any GUI code changes.
 """
 from __future__ import annotations
 
-from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import (
-    QCheckBox, QComboBox, QDoubleSpinBox, QFormLayout,
-    QGroupBox, QLabel, QLineEdit, QSpinBox, QVBoxLayout, QWidget,
+    QCheckBox,
+    QComboBox,
+    QDoubleSpinBox,
+    QFormLayout,
+    QGroupBox,
+    QLabel,
+    QLineEdit,
+    QSpinBox,
+    QVBoxLayout,
+    QWidget,
 )
 
 from .arg_introspector import ArgSpec, introspect_plugin
-
 
 # Argument dest names already handled by hardcoded widgets in gaze_tab.py
 # and phenomena_panel.py — these are excluded from the dynamic plugin panel.
@@ -111,8 +117,10 @@ class PluginPanel(QWidget):
         plugins_found = False
         try:
             from Plugins import (
-                gaze_registry, object_detection_registry,
-                phenomena_registry, data_collection_registry,
+                data_collection_registry,
+                gaze_registry,
+                object_detection_registry,
+                phenomena_registry,
             )
             registries = [
                 ("Gaze", gaze_registry),

@@ -8,15 +8,16 @@ Exports all default tracker classes so they can be imported as::
 """
 
 from .joint_attention import JointAttentionTracker
+
 # Backward compatibility alias
 JointAttentionTemporalTracker = JointAttentionTracker
-from .mutual_gaze import MutualGazeTracker
-from .social_referencing import SocialReferenceTracker
-from .gaze_following import GazeFollowingTracker
-from .gaze_aversion import GazeAversionTracker
-from .scanpath import ScanpathTracker
-from .gaze_leadership import GazeLeadershipTracker
 from .attention_span import AttentionSpanTracker
+from .gaze_aversion import GazeAversionTracker
+from .gaze_following import GazeFollowingTracker
+from .gaze_leadership import GazeLeadershipTracker
+from .mutual_gaze import MutualGazeTracker
+from .scanpath import ScanpathTracker
+from .social_referencing import SocialReferenceTracker
 
 __all__ = [
     'JointAttentionTracker',

@@ -6,7 +6,8 @@ actually parsing anything.  The GUI uses this to dynamically build Qt widgets
 for any installed plugin's CLI flags.
 """
 from __future__ import annotations
-from dataclasses import dataclass, field
+
+from dataclasses import dataclass
 from typing import Any
 
 

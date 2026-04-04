@@ -11,12 +11,12 @@ clearing and redrawing only when tracker data changes.
 
 from __future__ import annotations
 
-import numpy as np
-
 import matplotlib.pyplot as plt
-from matplotlib.figure import Figure
+import numpy as np
 from matplotlib.backends.backend_agg import FigureCanvasAgg
-from matplotlib.patches import FancyBboxPatch, Rectangle as _Rect
+from matplotlib.figure import Figure
+from matplotlib.patches import FancyBboxPatch
+from matplotlib.patches import Rectangle as _Rect
 
 # BGR face colours matching the overlay (converted to RGB 0–1 for matplotlib)
 _FACE_COLS_BGR = [

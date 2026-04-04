@@ -1,7 +1,7 @@
 """Tests for pipeline_config.FrameContext -- the mutable per-frame data carrier."""
 
-import pytest
 import numpy as np
+import pytest
 
 from pipeline_config import FrameContext
 

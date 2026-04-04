@@ -18,7 +18,6 @@ import numpy as np
 
 from ObjectDetection.detection import Detection
 
-
 # ══════════════════════════════════════════════════════════════════════════════
 # YOLOE Visual-Prompt detector
 # ══════════════════════════════════════════════════════════════════════════════

@@ -12,10 +12,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import numpy as np
 import matplotlib.pyplot as plt
+import numpy as np
 from matplotlib.figure import Figure
-from matplotlib.backends.backend_agg import FigureCanvasAgg
 
 # Theme colours (matching dashboard_matplotlib.py)
 _BG = '#121212'

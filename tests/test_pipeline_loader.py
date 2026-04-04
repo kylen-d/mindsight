@@ -1,11 +1,10 @@
 """Tests for pipeline_loader.py -- YAML pipeline config loading."""
 
-import pytest
 from argparse import Namespace
-from pathlib import Path
 
-from pipeline_loader import load_pipeline, _flatten, _is_default
+import pytest
 
+from pipeline_loader import _flatten, _is_default, load_pipeline
 
 # ── _flatten helper ──────────────────────────────────────────────────────────
 

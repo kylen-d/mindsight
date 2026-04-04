@@ -1,16 +1,16 @@
 import argparse
-from datetime import datetime
-import numpy as np
 import os
 import random
-from sklearn.metrics import average_precision_score
+from datetime import datetime
+
+import numpy as np
 import torch
 import torch.nn as nn
 import wandb
-
 from gazelle.dataloader import GazeDataset, collate_fn
 from gazelle.model import get_gazelle_model
 from gazelle.utils import vat_auc, vat_l2
+from sklearn.metrics import average_precision_score
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--model', type=str, default="gazelle_dinov2_vitb14_inout")

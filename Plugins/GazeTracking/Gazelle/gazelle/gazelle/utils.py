@@ -1,10 +1,12 @@
-import torch
-from PIL import Image, ImageDraw
-import numpy as np
-import matplotlib.pyplot as plt
-import torchvision
 import random
+
+import matplotlib.pyplot as plt
+import numpy as np
+import torch
+import torchvision
+from PIL import Image, ImageDraw
 from sklearn.metrics import roc_auc_score
+
 
 def repeat_tensors(tensor, repeat_counts):
     repeated_tensors = [tensor[i:i+1].repeat(repeat, *[1] * (tensor.ndim - 1)) for i, repeat in enumerate(repeat_counts)]
@@ -140,7 +142,7 @@ def gazefollow_auc(heatmap, gt_gazex, gt_gazey, height, width):
             target_map[y, x] = 1
     resized_heatmap = torch.nn.functional.interpolate(heatmap.unsqueeze(dim=0).unsqueeze(dim=0), (height, width), mode='bilinear').squeeze()
     auc = roc_auc_score(target_map.flatten(), resized_heatmap.cpu().flatten())
-    
+
     return auc
 
 # Reference: https://github.com/ejcgt/attention-target-detection/blob/acd264a3c9e6002b71244dea8c1873e5c5818500/eval_on_gazefollow.py#L81

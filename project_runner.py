@@ -34,7 +34,6 @@ from constants import IMAGE_EXTS
 from participant_ids import load_participant_csv
 from pipeline_config import ProjectConfig, ProjectOutputConfig
 
-
 # Supported video extensions (beyond image extensions in constants.py)
 _VIDEO_EXTS = {'.mp4', '.avi', '.mov', '.mkv', '.wmv', '.flv', '.webm', '.m4v'}
 _ALL_MEDIA = _VIDEO_EXTS | IMAGE_EXTS
@@ -255,8 +254,8 @@ def run_project(project_dir: str | Path, run_fn, build_fn, args_ns) -> None:
     args_ns : Namespace
         The parsed argparse namespace (with pipeline config already merged).
     """
-    from pipeline_loader import load_pipeline
     from pipeline_config import OutputConfig
+    from pipeline_loader import load_pipeline
 
     project = Path(project_dir).resolve()
 
@@ -374,7 +373,7 @@ def run_project(project_dir: str | Path, run_fn, build_fn, args_ns) -> None:
     # ── Post-processing: generate global and per-condition CSVs ──────────
     csv_dir = out_root / "CSV Files"
     print("\nGenerating global CSVs...")
-    from DataCollection.global_csv import generate_global_csv, generate_condition_csvs
+    from DataCollection.global_csv import generate_condition_csvs, generate_global_csv
 
     global_summary = generate_global_csv(csv_dir, "summary")
     global_events = generate_global_csv(csv_dir, "events")

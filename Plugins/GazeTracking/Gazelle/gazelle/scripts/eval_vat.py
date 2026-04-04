@@ -1,14 +1,14 @@
 import argparse
-import torch
-from PIL import Image
 import json
 import os
-import numpy as np
-from sklearn.metrics import average_precision_score
-from tqdm import tqdm
 
+import numpy as np
+import torch
 from gazelle.model import get_gazelle_model
 from gazelle.utils import vat_auc, vat_l2
+from PIL import Image
+from sklearn.metrics import average_precision_score
+from tqdm import tqdm
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--data_path", type=str, default="./data/videoattentiontarget")
@@ -41,7 +41,7 @@ class VideoAttentionTarget(torch.utils.data.Dataset):
 
     def __len__(self):
         return len(self.frames)
-    
+
 def collate(batch):
     images, bboxes, gazex, gazey, inout = zip(*batch)
     return torch.stack(images), list(bboxes), list(gazex), list(gazey), list(inout)
@@ -67,7 +67,7 @@ def main():
 
     for _, (images, bboxes, gazex, gazey, inout) in tqdm(enumerate(dataloader), desc="Evaluating", total=len(dataloader)):
         preds = model.forward({"images": images.to(device), "bboxes": bboxes})
-        
+
         # eval each instance (head)
         for i in range(images.shape[0]): # per image
             for j in range(len(bboxes[i])): # per head
@@ -79,11 +79,11 @@ def main():
                 inout_preds.append(preds['inout'][i][j].item())
                 inout_gts.append(inout[i][j])
 
-    
+
     print("AUC: {}".format(np.array(aucs).mean()))
     print("Avg L2: {}".format(np.array(l2s).mean()))
     print("Inout AP: {}".format(average_precision_score(inout_gts, inout_preds)))
 
-        
+
 if __name__ == "__main__":
     main()

@@ -34,12 +34,15 @@ Usage
 """
 
 from Phenomena.Default import (
-    JointAttentionTracker,
-    MutualGazeTracker, SocialReferenceTracker, GazeFollowingTracker,
-    GazeAversionTracker, ScanpathTracker, GazeLeadershipTracker,
     AttentionSpanTracker,
+    GazeAversionTracker,
+    GazeFollowingTracker,
+    GazeLeadershipTracker,
+    JointAttentionTracker,
+    MutualGazeTracker,
+    ScanpathTracker,
+    SocialReferenceTracker,
 )
-from Phenomena.helpers import joint_attention, gaze_convergence
 from Phenomena.phenomena_config import PhenomenaConfig
 
 

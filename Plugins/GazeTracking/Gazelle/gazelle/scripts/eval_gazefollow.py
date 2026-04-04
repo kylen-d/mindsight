@@ -1,13 +1,13 @@
 import argparse
-import torch
-from PIL import Image
 import json
 import os
-import numpy as np
-from tqdm import tqdm
 
+import numpy as np
+import torch
 from gazelle.model import get_gazelle_model
 from gazelle.utils import gazefollow_auc, gazefollow_l2
+from PIL import Image
+from tqdm import tqdm
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--data_path", type=str, default="./data/gazefollow")
@@ -35,7 +35,7 @@ class GazeFollow(torch.utils.data.Dataset):
 
     def __len__(self):
         return len(self.images)
-    
+
 def collate(batch):
     images, bboxes, gazex, gazey, height, width = zip(*batch)
     return torch.stack(images), list(bboxes), list(gazex), list(gazey), list(height), list(width)
@@ -60,7 +60,7 @@ def main():
 
     for _, (images, bboxes, gazex, gazey, height, width) in tqdm(enumerate(dataloader), desc="Evaluating", total=len(dataloader)):
         preds = model.forward({"images": images.to(device), "bboxes": bboxes})
-        
+
         # eval each instance (head)
         for i in range(images.shape[0]): # per image
             for j in range(len(bboxes[i])): # per head
@@ -69,11 +69,11 @@ def main():
                 aucs.append(auc)
                 avg_l2s.append(avg_l2)
                 min_l2s.append(min_l2)
-    
+
     print("AUC: {}".format(np.array(aucs).mean()))
     print("Avg L2: {}".format(np.array(avg_l2s).mean()))
     print("Min L2: {}".format(np.array(min_l2s).mean()))
 
-        
+
 if __name__ == "__main__":
     main()

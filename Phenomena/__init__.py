@@ -7,13 +7,13 @@ attention span, and joint attention) as well as configuration and helpers
 shared across trackers.
 """
 
+from .helpers import gaze_convergence, joint_attention
+from .phenomena_config import PhenomenaConfig
 from .phenomena_pipeline import (
     init_phenomena_trackers,
-    update_phenomena_step,
     post_run_summary,
+    update_phenomena_step,
 )
-from .helpers import joint_attention, gaze_convergence
-from .phenomena_config import PhenomenaConfig
 
 __all__ = [
     "init_phenomena_trackers",

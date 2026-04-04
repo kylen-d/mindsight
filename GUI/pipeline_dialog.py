@@ -11,7 +11,6 @@ from argparse import Namespace
 from pathlib import Path
 
 import yaml
-
 from PyQt6.QtWidgets import QFileDialog, QMessageBox
 
 

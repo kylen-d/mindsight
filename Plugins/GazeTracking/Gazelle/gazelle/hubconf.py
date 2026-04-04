@@ -3,6 +3,7 @@ dependencies = ['torch', 'timm']
 import torch
 from gazelle.model import get_gazelle_model
 
+
 def gazelle_dinov2_vitb14(pretrained=True):
     model, transform = get_gazelle_model('gazelle_dinov2_vitb14')
     if pretrained:

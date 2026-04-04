@@ -1,9 +1,10 @@
 """Phenomena/Default/mutual_gaze.py — Dyadic mutual gaze (eye contact) detection."""
 import numpy as np
-from Plugins import PhenomenaPlugin
-from utils.geometry import ray_hits_box, extend_ray
-from DataCollection.dashboard_output import _draw_panel_section, _DASH_DIM
+
+from DataCollection.dashboard_output import _DASH_DIM, _draw_panel_section
 from pipeline_config import resolve_display_pid
+from Plugins import PhenomenaPlugin
+from utils.geometry import extend_ray, ray_hits_box
 
 
 class MutualGazeTracker(PhenomenaPlugin):

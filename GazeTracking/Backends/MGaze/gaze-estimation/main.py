@@ -6,7 +6,6 @@ import argparse
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torch.utils.data import DataLoader
 
 from config import data_config
 from utils_gaze.helpers import get_model, get_dataloader

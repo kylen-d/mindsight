@@ -5,14 +5,14 @@ Coordinates face-level gaze estimation (via pluggable backends), temporal
 smoothing with ReID, snap-to-object hysteresis, and dwell-based gaze locking.
 """
 
+from .gaze_factory import create_gaze_engine
 from .gaze_pipeline import run_gaze_step
 from .gaze_processing import (
-    GazeSmootherReID,
     GazeLockTracker,
-    SnapHysteresisTracker,
+    GazeSmootherReID,
     GazeToolkit,
+    SnapHysteresisTracker,
 )
-from .gaze_factory import create_gaze_engine
 from .pitchyaw_pipeline import run_pitchyaw_pipeline
 
 __all__ = [

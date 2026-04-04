@@ -16,7 +16,8 @@ from pathlib import Path
 import cv2
 import numpy as np
 
-from constants import OUTPUTS_ROOT as _OUTPUTS_ROOT, HEATMAP_SIGMA, HEATMAP_ALPHA
+from constants import HEATMAP_ALPHA, HEATMAP_SIGMA
+from constants import OUTPUTS_ROOT as _OUTPUTS_ROOT
 from pipeline_config import resolve_display_pid
 
 

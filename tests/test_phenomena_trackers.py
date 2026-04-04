@@ -3,10 +3,9 @@
 import numpy as np
 import pytest
 
-from Phenomena.Default.mutual_gaze import MutualGazeTracker
-from Phenomena.Default.gaze_aversion import GazeAversionTracker
 from Phenomena.Default.attention_span import AttentionSpanTracker
-
+from Phenomena.Default.gaze_aversion import GazeAversionTracker
+from Phenomena.Default.mutual_gaze import MutualGazeTracker
 
 # ── Helpers ──────────────────────────────────────────────────────────────────
 

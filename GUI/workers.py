@@ -24,7 +24,6 @@ from pathlib import Path
 
 from .widgets import load_vp_file, vp_to_yoloe_args
 
-
 # ══════════════════════════════════════════════════════════════════════════════
 # Background worker: Gaze Tracker (namespace-driven, full CLI parity)
 # ══════════════════════════════════════════════════════════════════════════════
@@ -68,9 +67,11 @@ class GazeWorker(threading.Thread):
             self.frame_q.put(None)  # sentinel: worker is done
 
     def _main(self):
-        import cv2
         import time as _time
-        from MindSight import run, _build_from_args
+
+        import cv2
+
+        from MindSight import _build_from_args, run
 
         self._log("Initializing models...")
 
@@ -189,16 +190,21 @@ class ProjectWorker(threading.Thread):
             self.frame_q.put(None)
 
     def _main(self):
-        import cv2
         import time as _time
-        from MindSight import run, _build_from_args
-        from project_runner import (
-            validate_project, discover_sources, discover_vp_file,
-            project_output_paths, discover_participant_ids,
-            discover_aux_streams,
-        )
-        from pipeline_loader import load_pipeline
+
+        import cv2
+
+        from MindSight import _build_from_args, run
         from pipeline_config import OutputConfig
+        from pipeline_loader import load_pipeline
+        from project_runner import (
+            discover_aux_streams,
+            discover_participant_ids,
+            discover_sources,
+            discover_vp_file,
+            project_output_paths,
+            validate_project,
+        )
 
         pcfg = self.project_cfg  # may be None
 
@@ -338,7 +344,8 @@ class ProjectWorker(threading.Thread):
             csv_dir = out_root / "CSV Files"
             self._log("\nGenerating global CSVs...")
             from DataCollection.global_csv import (
-                generate_global_csv, generate_condition_csvs,
+                generate_condition_csvs,
+                generate_global_csv,
             )
 
             global_summary = generate_global_csv(csv_dir, "summary")

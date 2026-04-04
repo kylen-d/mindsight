@@ -1,12 +1,12 @@
 import argparse
-from datetime import datetime
-import numpy as np
 import os
 import random
+from datetime import datetime
+
+import numpy as np
 import torch
 import torch.nn as nn
 import wandb
-
 from gazelle.dataloader import GazeDataset, collate_fn
 from gazelle.model import get_gazelle_model
 from gazelle.utils import gazefollow_auc, gazefollow_l2

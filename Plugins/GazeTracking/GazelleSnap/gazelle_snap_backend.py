@@ -18,19 +18,19 @@ import sys
 from pathlib import Path
 
 import numpy as np
-import torch
 
 _REPO_ROOT = Path(__file__).parent.parent.parent.parent
 if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
 
-from Plugins import GazePlugin                                  # noqa: E402
-from GazeTracking.gaze_processing import (                      # noqa: E402
-    _get_eye_center, adaptive_snap, _faces_as_objects,
+from constants import CR_MAX, CR_MIN, EYE_CONF_THRESH  # noqa: E402
+from GazeTracking.gaze_processing import (  # noqa: E402
+    _faces_as_objects,
+    _get_eye_center,
+    adaptive_snap,
 )
-from utils.geometry import pitch_yaw_to_2d                       # noqa: E402
-from constants import EYE_CONF_THRESH, CR_MIN, CR_MAX            # noqa: E402
-
+from Plugins import GazePlugin  # noqa: E402
+from utils.geometry import pitch_yaw_to_2d  # noqa: E402
 
 # ══════════════════════════════════════════════════════════════════════════════
 # Heatmap utilities

@@ -1,11 +1,11 @@
-import torch
-import torch.nn as nn
-import torchvision
-from timm.models.vision_transformer import Block
 import math
 
 import gazelle.utils as utils
+import torch
+import torch.nn as nn
+import torchvision
 from gazelle.backbone import DinoV2Backbone
+from timm.models.vision_transformer import Block
 
 
 class GazeLLE(nn.Module):
@@ -25,9 +25,9 @@ class GazeLLE(nn.Module):
         if self.inout: self.inout_token = nn.Embedding(1, self.dim)
         self.transformer = nn.Sequential(*[
             Block(
-                dim=self.dim, 
-                num_heads=8, 
-                mlp_ratio=4, 
+                dim=self.dim,
+                num_heads=8,
+                mlp_ratio=4,
                 drop_path=0.1)
                 for i in range(num_layers)
                 ])
@@ -36,7 +36,7 @@ class GazeLLE(nn.Module):
             nn.Conv2d(dim, 1, kernel_size=1, bias=False),
             nn.Sigmoid()
         )
-        if self.inout: 
+        if self.inout:
             self.inout_head = nn.Sequential(
                 nn.Linear(self.dim, 128),
                 nn.ReLU(),
@@ -65,11 +65,11 @@ class GazeLLE(nn.Module):
         x = self.transformer(x)
 
         if self.inout:
-            inout_tokens = x[:, 0, :] 
+            inout_tokens = x[:, 0, :]
             inout_preds = self.inout_head(inout_tokens).squeeze(dim=-1)
             inout_preds = utils.split_tensors(inout_preds, num_ppl_per_img)
             x = x[:, 1:, :] # slice off inout tokens from scene tokens
-        
+
         x = x.reshape(x.shape[0], self.featmap_h, self.featmap_w, x.shape[2]).permute(0, 3, 1, 2) # b (h w) c -> b c h w
         x = self.heatmap_head(x).squeeze(dim=1)
         x = torchvision.transforms.functional.resize(x, self.out_size)
@@ -97,13 +97,13 @@ class GazeLLE(nn.Module):
                     img_head_maps.append(head_map)
             head_maps.append(torch.stack(img_head_maps))
         return head_maps
-    
+
     def get_gazelle_state_dict(self, include_backbone=False):
         if include_backbone:
             return self.state_dict()
         else:
             return {k: v for k, v in self.state_dict().items() if not k.startswith("backbone")}
-        
+
     def load_gazelle_state_dict(self, ckpt_state_dict, include_backbone=False):
         current_state_dict = self.state_dict()
         keys1 = current_state_dict.keys()
@@ -123,7 +123,7 @@ class GazeLLE(nn.Module):
 
         for k in list(keys1 & keys2):
             current_state_dict[k] = ckpt_state_dict[k]
-        
+
         self.load_state_dict(current_state_dict, strict=False)
 
 
@@ -151,7 +151,7 @@ def positionalencoding2d(d_model, height, width):
     pe[d_model + 1::2, :, :] = torch.cos(pos_h * div_term).transpose(0, 1).unsqueeze(2).repeat(1, 1, width)
 
     return pe
-    
+
 
 # models
 def get_gazelle_model(model_name):

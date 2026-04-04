@@ -9,20 +9,36 @@ tracking.
 from __future__ import annotations
 
 import queue
-import yaml
 from argparse import Namespace
 from pathlib import Path
 
+import yaml
 from PyQt6.QtCore import Qt, QTimer
 from PyQt6.QtGui import QFont
 from PyQt6.QtWidgets import (
-    QAbstractItemView, QComboBox, QFileDialog, QFormLayout, QGroupBox,
-    QHBoxLayout, QHeaderView, QLabel, QLineEdit, QListWidget, QMessageBox,
-    QProgressBar, QPushButton, QSizePolicy, QSplitter, QStyledItemDelegate,
-    QTableWidget, QTableWidgetItem, QTextEdit, QVBoxLayout, QWidget,
+    QAbstractItemView,
+    QComboBox,
+    QFileDialog,
+    QFormLayout,
+    QGroupBox,
+    QHBoxLayout,
+    QHeaderView,
+    QLabel,
+    QLineEdit,
+    QMessageBox,
+    QProgressBar,
+    QPushButton,
+    QSizePolicy,
+    QSplitter,
+    QStyledItemDelegate,
+    QTableWidget,
+    QTableWidgetItem,
+    QTextEdit,
+    QVBoxLayout,
+    QWidget,
 )
 
-from .widgets import _hrow, _browse_btn, _bgr_to_pixmap, CollapsibleGroupBox
+from .widgets import CollapsibleGroupBox, _bgr_to_pixmap
 
 
 class _VideoComboDelegate(QStyledItemDelegate):
@@ -352,8 +368,9 @@ class ProjectTab(QWidget):
         """Validate the project directory and populate all UI panels."""
         try:
             from project_runner import (
-                validate_project, discover_sources, discover_vp_file,
-                discover_aux_streams, load_project_config,
+                discover_sources,
+                load_project_config,
+                validate_project,
             )
 
             project = Path(path_str).resolve()
@@ -463,7 +480,7 @@ class ProjectTab(QWidget):
                 for i, src in enumerate(sources):
                     self._part_table.setItem(i, 0, QTableWidgetItem(src.name))
                     self._part_table.setItem(i, 1, QTableWidgetItem("0"))
-                    self._part_table.setItem(i, 2, QTableWidgetItem(f"P0"))
+                    self._part_table.setItem(i, 2, QTableWidgetItem("P0"))
 
         self._part_table.blockSignals(False)
 

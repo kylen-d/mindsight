@@ -7,10 +7,9 @@ so that detector initialization logic is defined in one place.
 import sys
 from pathlib import Path
 
-from ObjectDetection.object_detection import YOLOEVPDetector
-from ObjectDetection.YOLO.yolo_tracking import resolve_classes, BLACKLISTED_CLASSES
-
 from constants import PROJECT_ROOT
+from ObjectDetection.object_detection import YOLOEVPDetector
+from ObjectDetection.YOLO.yolo_tracking import BLACKLISTED_CLASSES, resolve_classes
 
 # Default directory for YOLO weight files.  Models referenced by bare
 # filename (e.g. "yolov8n.pt") are resolved here first; any models that

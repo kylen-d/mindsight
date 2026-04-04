@@ -5,10 +5,10 @@ Provides the detection pipeline step, object persistence cache, model
 factories for YOLO and RetinaFace backends, and the Detection dataclass.
 """
 
-from .detection_pipeline import run_detection_step
-from .object_detection import YOLOEVPDetector, ObjectPersistenceCache
 from .detection import Detection
-from .model_factory import create_yolo_detector, create_face_detector
+from .detection_pipeline import run_detection_step
+from .model_factory import create_face_detector, create_yolo_detector
+from .object_detection import ObjectPersistenceCache, YOLOEVPDetector
 
 __all__ = [
     "run_detection_step",

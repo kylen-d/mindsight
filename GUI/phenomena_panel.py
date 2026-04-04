@@ -6,10 +6,16 @@ Attention accuracy parameters.  Embedded in the Gaze Tracker tab.
 """
 from __future__ import annotations
 
-from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import (
-    QCheckBox, QDoubleSpinBox, QFormLayout, QGroupBox,
-    QHBoxLayout, QLabel, QSpinBox, QVBoxLayout, QWidget,
+    QCheckBox,
+    QDoubleSpinBox,
+    QFormLayout,
+    QGroupBox,
+    QHBoxLayout,
+    QLabel,
+    QSpinBox,
+    QVBoxLayout,
+    QWidget,
 )
 
 

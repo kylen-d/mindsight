@@ -15,6 +15,7 @@ Not placed in the Plugins/ directory because it is not user-facing.
 from __future__ import annotations
 
 import queue
+
 from Plugins import PhenomenaPlugin
 
 

@@ -17,10 +17,15 @@ import json
 import sys
 from pathlib import Path
 
-from PyQt6.QtCore import Qt, QRect, QPoint, pyqtSignal
+from PyQt6.QtCore import QPoint, QRect, Qt, pyqtSignal
 from PyQt6.QtGui import QColor, QImage, QPainter, QPen, QPixmap
 from PyQt6.QtWidgets import (
-    QGroupBox, QHBoxLayout, QPushButton, QSizePolicy, QVBoxLayout, QWidget,
+    QGroupBox,
+    QHBoxLayout,
+    QPushButton,
+    QSizePolicy,
+    QVBoxLayout,
+    QWidget,
 )
 
 # ── Repo root (project root, one level above GUI/) ──────────────────────────

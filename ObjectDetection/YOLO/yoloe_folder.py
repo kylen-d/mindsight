@@ -27,7 +27,6 @@ from pathlib import Path
 import cv2
 from ultralytics import YOLOE
 
-
 # ── Supported image extensions ────────────────────────────────────────────────
 from constants import IMAGE_EXTS
 

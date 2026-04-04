@@ -13,11 +13,13 @@ can use this pipeline directly via its ``run_pipeline()`` method::
 """
 import numpy as np
 
+from constants import CR_MAX, CR_MIN, EYE_CONF_THRESH
 from GazeTracking.gaze_processing import (
-    _get_eye_center, adaptive_snap, _faces_as_objects,
+    _faces_as_objects,
+    _get_eye_center,
+    adaptive_snap,
 )
 from utils.geometry import pitch_yaw_to_2d
-from constants import EYE_CONF_THRESH, CR_MIN, CR_MAX
 
 
 def run_pitchyaw_pipeline(*, frame, faces, gaze_eng, objects, gaze_cfg,

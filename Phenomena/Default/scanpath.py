@@ -1,7 +1,7 @@
 """Phenomena/Default/scanpath.py — Fixation scanpath recording."""
-from Plugins import PhenomenaPlugin
-from DataCollection.dashboard_output import _draw_panel_section, _DASH_DIM
+from DataCollection.dashboard_output import _DASH_DIM, _draw_panel_section
 from pipeline_config import resolve_display_pid
+from Plugins import PhenomenaPlugin
 
 
 class ScanpathTracker(PhenomenaPlugin):

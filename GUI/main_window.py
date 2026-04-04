@@ -9,10 +9,12 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
-from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import (
-    QApplication, QMainWindow, QMenuBar, QMessageBox,
-    QPushButton, QTabWidget,
+    QApplication,
+    QMainWindow,
+    QMessageBox,
+    QPushButton,
+    QTabWidget,
 )
 
 # Ensure repo root is on sys.path for imports
@@ -194,8 +196,9 @@ class MainWindow(QMainWindow):
     def _load_preset(self):
         """Load a saved preset (placeholder — wired in Phase 4)."""
         try:
-            from .settings_manager import SettingsManager
             from PyQt6.QtWidgets import QInputDialog
+
+            from .settings_manager import SettingsManager
             mgr = SettingsManager()
             presets = mgr.list_presets()
             if not presets:
@@ -213,8 +216,9 @@ class MainWindow(QMainWindow):
     def _save_preset(self):
         """Save current settings as a preset (placeholder — wired in Phase 4)."""
         try:
-            from .settings_manager import SettingsManager
             from PyQt6.QtWidgets import QInputDialog
+
+            from .settings_manager import SettingsManager
             mgr = SettingsManager()
             name, ok = QInputDialog.getText(
                 self, "Save Preset", "Preset name:")

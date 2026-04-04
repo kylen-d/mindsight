@@ -1,5 +1,4 @@
 import os
-import sys
 import time
 import logging
 import argparse
@@ -10,7 +9,6 @@ from sklearn.model_selection import KFold
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torch.utils.data import DataLoader
 
 from config import data_config
 from utils_gaze.helpers import angular_error, gaze_to_3d, get_model, get_dataloader
@@ -309,7 +307,7 @@ def main():
         # Save the best model for the fold
         if avg_error < best_avg_error:
             best_avg_error = avg_error
-            best_model_path = os.path.join(output, f"best_model.pt")
+            best_model_path = os.path.join(output, "best_model.pt")
             torch.save(model.state_dict(), best_model_path)
             logging.info(f"Best model saved for fold {fold + 1} at {best_model_path}")
 

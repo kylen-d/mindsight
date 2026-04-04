@@ -30,12 +30,12 @@ if str(_REPO_ROOT) not in sys.path:
 if str(_GAZE_EST_DIR) not in sys.path:
     sys.path.insert(0, str(_GAZE_EST_DIR))
 
+import utils_gaze.helpers  # noqa: E402
 from onnx_inference import GazeEstimationONNX  # noqa: E402
-import utils_gaze.helpers                       # noqa: E402
 
-from Plugins import GazePlugin                  # noqa: E402
-from .MGaze_Config import DATA_CONFIG, DEFAULT_ONNX_MODEL, ARCH_CHOICES  # noqa: E402
+from Plugins import GazePlugin  # noqa: E402
 
+from .MGaze_Config import ARCH_CHOICES, DATA_CONFIG, DEFAULT_ONNX_MODEL  # noqa: E402
 
 # ══════════════════════════════════════════════════════════════════════════════
 # Shared confidence helper

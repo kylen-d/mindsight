@@ -1,10 +1,11 @@
 import argparse
 import glob
-from functools import reduce
-import os
-import pandas as pd
 import json
+import os
+from functools import reduce
+
 import numpy as np
+import pandas as pd
 from PIL import Image
 
 parser = argparse.ArgumentParser()

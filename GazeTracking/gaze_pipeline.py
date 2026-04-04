@@ -19,14 +19,16 @@ Usage
 
 import numpy as np
 
-from GazeTracking.gaze_processing import (
-    _get_eye_center, _faces_as_objects,
-    apply_tip_snapping, apply_lock_on, compute_ray_intersections,
-)
 from constants import EYE_CONF_THRESH
-from Plugins import GazePlugin
+from GazeTracking.gaze_processing import (
+    _faces_as_objects,
+    _get_eye_center,
+    apply_lock_on,
+    apply_tip_snapping,
+    compute_ray_intersections,
+)
 from pipeline_config import GazeConfig
-
+from Plugins import GazePlugin
 
 # ══════════════════════════════════════════════════════════════════════════════
 # Default scene-level pipeline (for plugins without run_pipeline)

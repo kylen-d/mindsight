@@ -13,7 +13,6 @@ adjustments only need to be made in one place.  Organized by domain:
 """
 from pathlib import Path
 
-
 # ═══════════════════════════════════════════════════════════════════════════════
 # Paths & file types
 # ═══════════════════════════════════════════════════════════════════════════════
