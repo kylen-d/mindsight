@@ -109,12 +109,19 @@ def _namespace_to_yaml_dict(ns: Namespace) -> dict:
     gaze = {}
     if d.get("ray_length") and d["ray_length"] != 1.0:
         gaze["ray_length"] = d["ray_length"]
-    if d.get("adaptive_ray"):
-        gaze["adaptive_ray"] = True
-    if d.get("adaptive_snap"):
-        gaze["adaptive_snap"] = True
+    ar = d.get("adaptive_ray", "off")
+    if ar and ar != "off":
+        gaze["adaptive_ray"] = ar
     if d.get("snap_dist") and d["snap_dist"] != 150.0:
         gaze["snap_dist"] = d["snap_dist"]
+    if d.get("snap_bbox_scale") is not None and d["snap_bbox_scale"] != 0.0:
+        gaze["snap_bbox_scale"] = d["snap_bbox_scale"]
+    if d.get("snap_w_dist") is not None and d["snap_w_dist"] != 1.0:
+        gaze["snap_w_dist"] = d["snap_w_dist"]
+    if d.get("snap_w_size") is not None and d["snap_w_size"] != 0.0:
+        gaze["snap_w_size"] = d["snap_w_size"]
+    if d.get("snap_w_intersect") is not None and d["snap_w_intersect"] != 0.5:
+        gaze["snap_w_intersect"] = d["snap_w_intersect"]
     if d.get("conf_ray"):
         gaze["conf_ray"] = True
     if d.get("gaze_tips"):
@@ -148,6 +155,11 @@ def _namespace_to_yaml_dict(ns: Namespace) -> dict:
         output["summary_csv"] = d["summary"] if isinstance(d["summary"], str) else True
     if d.get("heatmap"):
         output["heatmaps"] = d["heatmap"] if isinstance(d["heatmap"], str) else True
+    if d.get("anonymize"):
+        output["anonymize"] = d["anonymize"]
+        padding = d.get("anonymize_padding", 0.3)
+        if padding != 0.3:
+            output["anonymize_padding"] = padding
     if output:
         cfg["output"] = output
 
@@ -166,7 +178,7 @@ def _namespace_to_yaml_dict(ns: Namespace) -> dict:
     }
     _param_map = {
         "joint_attention": {"ja_window": "ja_window", "ja_quorum": "ja_quorum",
-                           "ja_window_thresh": "ja_window_thresh", "ja_conf_gate": "ja_conf_gate"},
+                           "ja_window_thresh": "ja_window_thresh"},
         "social_referencing": {"social_ref_window": "window"},
         "gaze_following": {"gaze_follow_lag": "lag"},
         "gaze_aversion": {"aversion_window": "aversion_window", "aversion_conf": "aversion_conf"},
@@ -186,5 +198,20 @@ def _namespace_to_yaml_dict(ns: Namespace) -> dict:
 
     if phenomena:
         cfg["phenomena"] = phenomena
+
+    # Performance section
+    performance = {}
+    if d.get("fast"):
+        performance["fast"] = True
+    if d.get("skip_phenomena") and d["skip_phenomena"] > 0:
+        performance["skip_phenomena"] = d["skip_phenomena"]
+    if d.get("lite_overlay"):
+        performance["lite_overlay"] = True
+    if d.get("no_dashboard"):
+        performance["no_dashboard"] = True
+    if d.get("profile"):
+        performance["profile"] = True
+    if performance:
+        cfg["performance"] = performance
 
     return cfg

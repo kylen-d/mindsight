@@ -128,7 +128,7 @@ class VisualPromptBuilderTab(QWidget):
         left_grp = QGroupBox("Reference Images")
         left_lay = QVBoxLayout(left_grp)
         self._file_list = QListWidget()
-        self._file_list.setFixedWidth(190)
+        self._file_list.setMinimumWidth(140)
         self._file_list.currentRowChanged.connect(self._on_file_select)
         left_lay.addWidget(self._file_list)
         rm_img_btn = QPushButton("Remove Selected")
@@ -154,12 +154,12 @@ class VisualPromptBuilderTab(QWidget):
         right_vlay = QVBoxLayout(right_vbox)
         right_vlay.setContentsMargins(0, 0, 0, 0)
         right_vlay.setSpacing(4)
-        right_vbox.setFixedWidth(230)
+        right_vbox.setMinimumWidth(180)
 
         cls_grp = QGroupBox("Classes  (select before drawing)")
         cls_lay = QVBoxLayout(cls_grp)
         self._class_list = QListWidget()
-        self._class_list.setFixedHeight(140)
+        self._class_list.setMinimumHeight(100)
         cls_lay.addWidget(self._class_list)
         cls_btn_row = _hrow()
         add_cls_btn = QPushButton("+ Add")
@@ -192,7 +192,9 @@ class VisualPromptBuilderTab(QWidget):
         right_vlay.addWidget(ann_grp, stretch=1)
         splitter.addWidget(right_vbox)
 
-        splitter.setSizes([190, 700, 230])
+        splitter.setStretchFactor(0, 0)
+        splitter.setStretchFactor(1, 1)
+        splitter.setStretchFactor(2, 0)
 
         # -- Test Inference section ----------------------------------------
         test_grp = QGroupBox("Test Inference  (optional \u2014 verify your VP file)")
