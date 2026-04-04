@@ -1,4 +1,4 @@
-# MindSight — Unified Eye-Gaze Intersection Tracker for Behavioural Neuroscience Research
+# MindSight — Unified Object Detection and Gaze Intersection Tracker for Cognitive Sciences Research
 
 > **Beta Release** — This is a pre-release version (v0.3.0-beta). APIs and features may change. Bug reports and feedback are welcome via [GitHub Issues](https://github.com/kylen-d/mindsight/issues).
 
