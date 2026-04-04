@@ -44,58 +44,24 @@ cd MindSight
 
 ## Install Dependencies
 
-### Core packages
+Install all dependencies at once:
 
 ```bash
-pip install opencv-python numpy torch torchvision
+pip install -r requirements.txt
 ```
 
-### ONNX Runtime
+!!! note "PyTorch GPU support"
+    The `requirements.txt` installs CPU-only PyTorch by default. For GPU acceleration, install PyTorch **first** using the appropriate command from [pytorch.org/get-started](https://pytorch.org/get-started/locally/), then run `pip install -r requirements.txt`.
 
-Install **one** of the following, depending on your hardware:
+!!! note "ONNX Runtime variants"
+    For NVIDIA GPU inference, replace `onnxruntime` with `onnxruntime-gpu`. For Apple Silicon CoreML, use `onnxruntime-silicon`.
 
-=== "CPU (any platform)"
-
-    ```bash
-    pip install onnxruntime
-    ```
-
-=== "NVIDIA GPU (CUDA)"
-
-    ```bash
-    pip install onnxruntime-gpu
-    ```
-
-=== "Apple Silicon (CoreML)"
-
-    ```bash
-    pip install onnxruntime-silicon
-    ```
-
-### Object Detection
+Alternatively, use the helper script for platform-aware installation:
 
 ```bash
-pip install ultralytics   # YOLO / YOLOE
-pip install uniface        # RetinaFace face detection
+python install_dependencies.py          # auto-detects CUDA / Apple Silicon
+python install_dependencies.py --dry-run  # preview without installing
 ```
-
-### GUI (optional)
-
-```bash
-pip install PyQt6
-```
-
-### Data Output
-
-```bash
-pip install matplotlib pandas scipy
-```
-
-!!! tip "One-liner"
-    If a `requirements.txt` is provided in the repository root, you can install everything at once:
-    ```bash
-    pip install -r requirements.txt
-    ```
 
 ---
 
@@ -103,15 +69,20 @@ pip install matplotlib pandas scipy
 
 MindSight supports multiple gaze-estimation backends. Each requires its own model weights.
 
-### Default (MobileOne)
+### MGaze (default)
 
-The default weights ship with the repository:
+Download ONNX or PyTorch weights and place them in:
 
 ```
-gaze-estimation/weights/mobileone_s0_gaze.onnx
+GazeTracking/Backends/MGaze/gaze-estimation/weights/
 ```
 
-Other ONNX and PyTorch weight files can also be placed in `gaze-estimation/weights/`.
+You can download weights using the included script:
+
+```bash
+cd GazeTracking/Backends/MGaze/gaze-estimation
+bash download.sh
+```
 
 ### Gazelle
 
@@ -134,8 +105,10 @@ python MindSight.py --l2cs-model /path/to/l2cs_weights.pkl
 !!! warning "Non-commercial license"
     UniGaze is released under a non-commercial license. Review its terms before use.
 
+UniGaze dependencies (`timm`) are included in `requirements.txt`. Download the UniGaze model weights and pass the path at launch:
+
 ```bash
-pip install unigaze timm==0.3.2
+python MindSight.py --unigaze-model /path/to/unigaze_weights.pth
 ```
 
 ---
@@ -176,8 +149,8 @@ RuntimeError: CUDA not available
 FileNotFoundError: .../mobileone_s0_gaze.onnx
 ```
 
-- Check that the `gaze-estimation/weights/` directory exists and contains the expected `.onnx` file.
-- If you cloned with `--depth 1`, large files tracked by Git LFS may not have been pulled. Run `git lfs pull`.
+- Check that the `GazeTracking/Backends/MGaze/gaze-estimation/weights/` directory exists and contains the expected weight files.
+- Download weights using `bash GazeTracking/Backends/MGaze/gaze-estimation/download.sh`.
 
 ### Import errors
 

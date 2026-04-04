@@ -32,11 +32,20 @@ line_length = 99
 [tool.ruff]
 line-length = 99
 target-version = "py310"
+extend-exclude = [
+    "GazeTracking/Backends/MGaze/gaze-estimation",  # upstream third-party code
+    "Plugins/GazeTracking/Gazelle/gazelle/gazelle",  # upstream third-party code
+]
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I"]
-# F401 = unused imports, E501 = line too long (handled by formatter)
-ignore = ["E501"]
+ignore = [
+    "E501",  # line too long (handled by formatter)
+    "E701",  # multiple statements on one line (colon) — used for compact guards
+    "E702",  # multiple statements on one line (semicolon) — used for compact init
+    "E731",  # lambda assignment — used for short callbacks
+    "E402",  # module-level import not at top — needed for sys.path manipulation
+]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

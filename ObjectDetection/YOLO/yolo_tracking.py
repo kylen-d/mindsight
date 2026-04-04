@@ -42,9 +42,8 @@ from pathlib import Path
 import cv2
 from ultralytics import YOLO
 
-
-from constants import PALETTE_BGR as PALETTE, get_colour  # noqa: F401
-
+from constants import PALETTE_BGR as PALETTE  # noqa: F401
+from constants import get_colour
 
 # ── Blacklist — class names to suppress from detection output ─────────────────
 # Add any COCO class names here that you want permanently ignored.
@@ -59,7 +58,7 @@ BLACKLISTED_CLASSES: set[str] = {
 
 def draw_detections(frame, results, names, conf_threshold: float, blacklist: set[str]):
     """Draw bounding boxes, labels and confidence scores on *frame* in-place.
-    
+
     Returns the annotated frame and the number of visible (non-blacklisted) detections.
     """
     boxes = results[0].boxes

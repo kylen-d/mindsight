@@ -33,23 +33,47 @@ Usage
 """
 
 import json
-import os
-import sys
 import queue
+import sys
 import threading
 from pathlib import Path
 
-from PyQt6.QtCore import Qt, QTimer, QRect, QPoint, pyqtSignal
+from PyQt6.QtCore import QPoint, QRect, Qt, QTimer, pyqtSignal
 from PyQt6.QtGui import (
-    QColor, QFont, QImage, QPainter, QPen, QPixmap,
+    QColor,
+    QFont,
+    QImage,
+    QPainter,
+    QPen,
+    QPixmap,
 )
 from PyQt6.QtWidgets import (
-    QApplication, QCheckBox, QComboBox, QDialog, QDialogButtonBox,
-    QDoubleSpinBox, QFileDialog, QFormLayout, QFrame, QGroupBox,
-    QHBoxLayout, QInputDialog, QLabel, QLineEdit, QListWidget,
-    QListWidgetItem, QMainWindow, QMessageBox, QPushButton,
-    QRadioButton, QScrollArea, QSizePolicy, QSlider, QSpinBox,
-    QSplitter, QTabWidget, QTextEdit, QVBoxLayout, QWidget,
+    QApplication,
+    QCheckBox,
+    QComboBox,
+    QDoubleSpinBox,
+    QFileDialog,
+    QFormLayout,
+    QFrame,
+    QGroupBox,
+    QHBoxLayout,
+    QInputDialog,
+    QLabel,
+    QLineEdit,
+    QListWidget,
+    QListWidgetItem,
+    QMainWindow,
+    QMessageBox,
+    QPushButton,
+    QRadioButton,
+    QScrollArea,
+    QSizePolicy,
+    QSpinBox,
+    QSplitter,
+    QTabWidget,
+    QTextEdit,
+    QVBoxLayout,
+    QWidget,
 )
 
 # ── Repo root ──────────────────────────────────────────────────────────────────
@@ -58,6 +82,7 @@ if str(_HERE) not in sys.path:
     sys.path.insert(0, str(_HERE))
 
 from constants import IMAGE_EXTS
+
 VP_EXT     = ".vp.json"
 
 _VP_PALETTE_BGR = [
@@ -162,16 +187,18 @@ class GazeWorker(threading.Thread):
             self.frame_q.put(None)
 
     def _main(self):
-        import cv2
         import time as _time
-        from MindSight import run
-        from pipeline_config import GazeConfig, DetectionConfig, TrackerConfig, OutputConfig
+
+        import cv2
+
         from GazeTracking.gaze_factory import create_gaze_engine
+        from MindSight import run
+        from pipeline_config import DetectionConfig, GazeConfig, OutputConfig, TrackerConfig
 
         cfg = self.cfg
 
         # ── Object detector ───────────────────────────────────────────────────
-        from ObjectDetection.model_factory import create_yolo_detector, create_face_detector
+        from ObjectDetection.model_factory import create_face_detector, create_yolo_detector
         if cfg.get("detection_mode") == "yoloe_vp":
             self._log(f"Loading YOLOE VP: {cfg['yoloe_model']}  +  {cfg['vp_file']}")
             yolo, class_ids, blacklist = create_yolo_detector(
@@ -1303,7 +1330,6 @@ class VisualPromptBuilderTab(QWidget):
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
         if reply != QMessageBox.StandardButton.Yes:
             return
-        removed_id = cls["id"]
         self._classes.pop(row)
         # Re-assign sequential IDs
         for i, c in enumerate(self._classes):
