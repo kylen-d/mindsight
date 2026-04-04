@@ -43,6 +43,9 @@ GazeTracking/Backends/MGaze/gaze-estimation/gaze-est/
 GazeTracking/Backends/MGaze/gaze-estimation/weights/
 GazeTracking/Backends/MGaze/gaze-estimation/assets/
 
+# Upstream demo assets (large GIFs/images)
+Plugins/GazeTracking/Gazelle/gazelle/assets/
+
 # Backend model weights
 GazeTracking/Backends/L2CS/weights/
 *.pkl
