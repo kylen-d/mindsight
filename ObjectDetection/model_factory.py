@@ -46,6 +46,7 @@ def create_yolo_detector(
     blacklist_names: list | None = None,
     vp_file: str | None = None,
     vp_model: str = "yoloe-26l-seg.pt",
+    device: str = "auto",
 ):
     """
     Create a YOLO (or YOLOE VP) detector and resolve class/blacklist config.
@@ -56,18 +57,26 @@ def create_yolo_detector(
 
     Returns ``(yolo, class_ids, blacklist_set)``.
     """
+    from utils.device import resolve_device
+    resolved_dev = str(resolve_device(device))
+
     if vp_file:
         if not Path(vp_file).exists():
             raise FileNotFoundError(f"VP file not found: {vp_file}")
         resolved_vp_model = _resolve_yolo_path(vp_model)
         print(f"Loading YOLOE VP detector: {resolved_vp_model}  +  {vp_file}")
-        yolo = YOLOEVPDetector(resolved_vp_model, vp_file)
+        yolo = YOLOEVPDetector(resolved_vp_model, vp_file, device=resolved_dev)
         return yolo, None, set()
 
     from ultralytics import YOLO
     resolved = _resolve_yolo_path(model_path)
     print(f"Loading YOLO: {resolved}")
     yolo = YOLO(resolved)
+    if resolved_dev != "cpu":
+        try:
+            yolo.to(resolved_dev)
+        except Exception:
+            pass  # Ultralytics may not support this device; fall back
     try:
         yolo.set_classes(classes)
     except AttributeError:

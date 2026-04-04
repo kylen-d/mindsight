@@ -29,10 +29,11 @@ class YOLOEVPDetector:
     __call__ / .names interface as a YOLO model inside process_frame().
     """
 
-    def __init__(self, model_path: str, vp_file: str):
+    def __init__(self, model_path: str, vp_file: str, device: str | None = None):
         from ultralytics import YOLOE
         from ultralytics.models.yolo.yoloe import YOLOEVPSegPredictor
 
+        self._device = device
         data = json.loads(Path(vp_file).read_text())
         refs  = data.get("references", [])
         if not refs:
@@ -50,6 +51,11 @@ class YOLOEVPDetector:
         self._predictor_cls = YOLOEVPSegPredictor
         self.names = {c["id"]: c["name"] for c in data.get("classes", [])}
         self._model = YOLOE(model_path)
+        if device and device != "cpu":
+            try:
+                self._model.to(device)
+            except Exception:
+                pass
         self._initialized = False
 
     def set_classes(self, classes):

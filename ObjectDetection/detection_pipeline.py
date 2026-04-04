@@ -58,10 +58,19 @@ def run_detection_step(ctx, *, yolo, det_cfg: DetectionConfig,
     if cached_all_dets is not None:
         all_dets = cached_all_dets
     else:
+        # When detection plugins declare a min_conf, lower the YOLO threshold
+        # so sub-threshold candidates are available for boosting.
+        effective_conf = det_cfg.conf
+        if detection_plugins:
+            for p in detection_plugins:
+                mc = getattr(p, 'min_conf', None)
+                if mc is not None:
+                    effective_conf = min(effective_conf, mc)
+
         # Default detection: YOLO
         all_dets = parse_dets(
-            yolo(detection_frame, conf=det_cfg.conf, classes=det_cfg.class_ids, verbose=False),
-            yolo.names, det_cfg.conf, det_cfg.blacklist)
+            yolo(detection_frame, conf=effective_conf, classes=det_cfg.class_ids, verbose=False),
+            yolo.names, effective_conf, det_cfg.blacklist)
         if detect_scale != 1.0:
             for d in all_dets:
                 d.update(x1=int(d['x1'] * inverse_scale), y1=int(d['y1'] * inverse_scale),
@@ -73,7 +82,14 @@ def run_detection_step(ctx, *, yolo, det_cfg: DetectionConfig,
                 all_dets = plugin.detect(
                     frame=frame, detection_frame=detection_frame,
                     all_dets=all_dets, det_cfg=det_cfg,
+                    prev_persons_gaze=ctx.get('prev_persons_gaze', []),
+                    prev_face_track_ids=ctx.get('prev_face_track_ids', []),
                 ) or all_dets
+
+        # Post-plugin confidence gate: discard anything plugins didn't boost
+        # above the user's configured threshold.
+        if effective_conf < det_cfg.conf:
+            all_dets = [d for d in all_dets if d['conf'] >= det_cfg.conf]
 
     persons = [d for d in all_dets if d['class_name'].lower() == 'person']
     objects = [d for d in all_dets if d['class_name'].lower() != 'person']
