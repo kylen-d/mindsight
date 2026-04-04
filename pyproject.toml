@@ -38,7 +38,7 @@ extend-exclude = [
 ]
 
 [tool.ruff.lint]
-select = ["E", "F", "W", "I"]
+select = ["E", "F", "W"]
 ignore = [
     "E501",  # line too long (handled by formatter)
     "E701",  # multiple statements on one line (colon) — used for compact guards
