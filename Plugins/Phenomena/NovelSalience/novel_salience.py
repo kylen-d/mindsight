@@ -69,6 +69,7 @@ if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
 
 from Plugins import PhenomenaPlugin  # noqa: E402
+from pipeline_config import resolve_display_pid  # noqa: E402
 
 
 # ── Dashboard drawing helpers ─────────────────────────────────────────────────
@@ -295,7 +296,8 @@ class NovelSalienceTracker(PhenomenaPlugin):
 
     # ── Dashboard section ─────────────────────────────────────────────────────
 
-    def dashboard_section(self, panel, y: int, line_h: int) -> int:
+    def dashboard_section(self, panel, y: int, line_h: int, *,
+                          pid_map=None) -> int:
         """
         Draw a "NOVEL SALIENCE" section in the side panel showing the 3 most
         recent saccade events and a per-face tally.
@@ -310,8 +312,9 @@ class NovelSalienceTracker(PhenomenaPlugin):
                 speed_str = (f"{ev['speed_deg']:.1f}\u00b0/f"
                              if ev['speed_deg'] is not None
                              else f"{ev['speed_px']:.0f}px/f")
+                plbl = resolve_display_pid(ev['face_id'], pid_map)
                 rows.append((
-                    f"P{ev['face_id']} \u2192{ev['direction']}  "
+                    f"{plbl} \u2192{ev['direction']}  "
                     f"{speed_str}  @f{ev['frame_no']}",
                     self._NS_COL,
                 ))
@@ -319,16 +322,44 @@ class NovelSalienceTracker(PhenomenaPlugin):
             counts: dict[int, int] = {}
             for ev in self.events:
                 counts[ev['face_id']] = counts.get(ev['face_id'], 0) + 1
-            tally = "  ".join(f"P{k}:{v}" for k, v in sorted(counts.items()))
+            tally = "  ".join(
+                f"{resolve_display_pid(k, pid_map)}:{v}"
+                for k, v in sorted(counts.items()))
             rows.append((f"total: {tally}", (160, 160, 160)))
         else:
             rows = [("--", DASH_DIM)]
 
         return draw_section(panel, y, "NOVEL SALIENCE", self._NS_COL, rows, line_h)
 
+    def dashboard_data(self, *, pid_map=None) -> dict:
+        rows = []
+        if self.events:
+            for ev in self.events[-3:]:
+                speed_str = (f"{ev['speed_deg']:.1f}\u00b0/f"
+                             if ev['speed_deg'] is not None
+                             else f"{ev['speed_px']:.0f}px/f")
+                plbl = resolve_display_pid(ev['face_id'], pid_map)
+                rows.append({
+                    'label': f"{plbl} \u2192{ev['direction']}",
+                    'value': f"{speed_str}  @f{ev['frame_no']}",
+                })
+            counts: dict[int, int] = {}
+            for ev in self.events:
+                counts[ev['face_id']] = counts.get(ev['face_id'], 0) + 1
+            tally = "  ".join(
+                f"{resolve_display_pid(k, pid_map)}:{v}"
+                for k, v in sorted(counts.items()))
+            rows.append({'label': f"total: {tally}"})
+        return {
+            'title': 'NOVEL SALIENCE',
+            'colour': self._NS_COL,
+            'rows': rows,
+            'empty_text': '--',
+        }
+
     # ── CSV output ────────────────────────────────────────────────────────────
 
-    def csv_rows(self, total_frames: int) -> list:
+    def csv_rows(self, total_frames: int, *, pid_map=None) -> list:
         """
         Return one CSV section with all recorded novel-salience events.
 
@@ -348,7 +379,7 @@ class NovelSalienceTracker(PhenomenaPlugin):
             rows.append([
                 "novel_salience",
                 ev['frame_no'],
-                f"P{ev['face_id']}",
+                resolve_display_pid(ev['face_id'], pid_map),
                 ev['direction'],
                 f"{ev['speed_px']:.2f}",
                 f"{ev['speed_deg']:.2f}" if ev['speed_deg'] is not None else "",
@@ -366,7 +397,8 @@ class NovelSalienceTracker(PhenomenaPlugin):
         for fid, cnt in sorted(counts.items()):
             rate = cnt / total_frames * 100 if total_frames else 0.0
             rows.append(["novel_salience_summary",
-                         f"P{fid}", cnt, total_frames, f"{rate:.4f}"])
+                         resolve_display_pid(fid, pid_map), cnt,
+                         total_frames, f"{rate:.4f}"])
         return rows
 
     # ── CLI protocol ──────────────────────────────────────────────────────────

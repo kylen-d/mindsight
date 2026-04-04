@@ -17,7 +17,6 @@ class PhenomenaConfig:
     joint_attention: bool = False
     ja_window: int = 0
     ja_window_thresh: float = 0.70
-    ja_conf_gate: float = 0.0
     ja_quorum: float = 1.0
 
     # Gaze phenomena toggles + parameters
@@ -32,6 +31,8 @@ class PhenomenaConfig:
     scanpath: bool = False
     scanpath_dwell: int = 8
     gaze_leader: bool = False
+    gaze_leader_tips: bool = False
+    gaze_leader_tip_lag: int = 15
     attn_span: bool = False
 
     @classmethod
@@ -42,7 +43,6 @@ class PhenomenaConfig:
             joint_attention=ns.joint_attention or all_on,
             ja_window=ns.ja_window,
             ja_window_thresh=ns.ja_window_thresh,
-            ja_conf_gate=ns.ja_conf_gate,
             ja_quorum=ns.ja_quorum,
             mutual_gaze=ns.mutual_gaze or all_on,
             social_ref=ns.social_ref or all_on,
@@ -55,5 +55,7 @@ class PhenomenaConfig:
             scanpath=ns.scanpath or all_on,
             scanpath_dwell=ns.scanpath_dwell,
             gaze_leader=ns.gaze_leader or all_on,
+            gaze_leader_tips=getattr(ns, "gaze_leader_tips", False),
+            gaze_leader_tip_lag=getattr(ns, "gaze_leader_tip_lag", 15),
             attn_span=ns.attn_span or all_on,
         )

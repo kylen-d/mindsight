@@ -3,6 +3,7 @@ import numpy as np
 
 from Plugins import PhenomenaPlugin
 from DataCollection.dashboard_output import _draw_panel_section, _DASH_DIM
+from pipeline_config import resolve_display_pid
 
 
 class GazeFollowingTracker(PhenomenaPlugin):
@@ -23,6 +24,7 @@ class GazeFollowingTracker(PhenomenaPlugin):
         self._shifts:       list = []   # pending gaze-shift records
         self.event_log:     list = []
         self._current_events: list = []
+        self._history:      list = []   # [(frame_no, cumulative_event_count)]
 
     def update(self, **kwargs):
         frame_no = kwargs['frame_no']
@@ -54,18 +56,33 @@ class GazeFollowingTracker(PhenomenaPlugin):
 
         self._prev_targets = current
         self._current_events = events
+        self._history.append((frame_no, len(self.event_log)))
         return {'events': events}
 
-    def dashboard_section(self, panel, y, line_h):
+    def dashboard_section(self, panel, y, line_h, *, pid_map=None):
         rows = []
         for ev in self.event_log[-3:]:
-            rows.append((f"P{ev['follower']}\u2190P{ev['leader']}  "
-                         f"lag={ev['lag_frames']}f", self._COLOUR))
+            fl = resolve_display_pid(ev['follower'], pid_map)
+            ld = resolve_display_pid(ev['leader'], pid_map)
+            rows.append((f"{fl}\u2190{ld}  lag={ev['lag_frames']}f", self._COLOUR))
         if not rows:
             rows = [("--", _DASH_DIM)]
         return _draw_panel_section(panel, y, "GAZE FOLLOWING", self._COLOUR, rows, line_h)
 
-    def csv_rows(self, total_frames):
+    def dashboard_data(self, *, pid_map=None) -> dict:
+        rows = []
+        for ev in self.event_log[-3:]:
+            fl = resolve_display_pid(ev['follower'], pid_map)
+            ld = resolve_display_pid(ev['leader'], pid_map)
+            rows.append({"label": f"{fl}\u2190{ld}  lag={ev['lag_frames']}f"})
+        return {
+            "title": "GAZE FOLLOWING",
+            "colour": self._COLOUR,
+            "rows": rows,
+            "empty_text": "--",
+        }
+
+    def csv_rows(self, total_frames, *, pid_map=None):
         if not self.event_log:
             return []
         rows = [["category", "leader", "follower",
@@ -75,14 +92,37 @@ class GazeFollowingTracker(PhenomenaPlugin):
             k = (ev['leader'], ev['follower'])
             pair_evts.setdefault(k, []).append(ev['lag_frames'])
         for (leader, follower), lags in sorted(pair_evts.items()):
-            rows.append(["gaze_following", f"P{leader}", f"P{follower}",
+            rows.append(["gaze_following",
+                         resolve_display_pid(leader, pid_map),
+                         resolve_display_pid(follower, pid_map),
                          len(lags), total_frames, f"{np.mean(lags):.1f}"])
         return rows
 
-    def console_summary(self, total_frames):
+    def console_summary(self, total_frames, *, pid_map=None):
         if not self.event_log:
             return None
         return f"Gaze following events: {len(self.event_log)}"
+
+    def time_series_data(self):
+        if not self._history:
+            return {}
+        return {'gaze_follow_events': {
+            'x': [f for f, _ in self._history],
+            'y': [v for _, v in self._history],
+            'label': 'Cumulative follow events',
+            'chart_type': 'step',
+            'color': self._COLOUR,
+        }}
+
+    def latest_metric(self):
+        return float(len(self.event_log))
+
+    def latest_metrics(self):
+        return {'events': {
+            'value': float(len(self.event_log)),
+            'label': 'Cumulative follow events',
+            'y_label': 'events',
+        }}
 
     # ── CLI protocol ──────────────────────────────────────────────────────────
 

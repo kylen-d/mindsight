@@ -7,7 +7,9 @@ Exports all default tracker classes so they can be imported as::
     from Phenomena.Default import JointAttentionTemporalTracker
 """
 
-from .joint_attention import JointAttentionTemporalTracker
+from .joint_attention import JointAttentionTracker
+# Backward compatibility alias
+JointAttentionTemporalTracker = JointAttentionTracker
 from .mutual_gaze import MutualGazeTracker
 from .social_referencing import SocialReferenceTracker
 from .gaze_following import GazeFollowingTracker
@@ -17,6 +19,7 @@ from .gaze_leadership import GazeLeadershipTracker
 from .attention_span import AttentionSpanTracker
 
 __all__ = [
+    'JointAttentionTracker',
     'JointAttentionTemporalTracker',
     'MutualGazeTracker',
     'SocialReferenceTracker',

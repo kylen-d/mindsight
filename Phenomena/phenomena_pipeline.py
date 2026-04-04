@@ -9,6 +9,9 @@ All built-in trackers are PhenomenaPlugin subclasses, so they are treated
 identically to external plugins.  The pipeline simply iterates a flat list
 of tracker instances.
 
+JointAttentionTracker is always first in the list because subsequent
+trackers depend on ``confirmed_objs`` that JA computes.
+
 Usage
 -----
     from Phenomena.phenomena_pipeline import (
@@ -18,11 +21,9 @@ Usage
         joint_attention, gaze_convergence,
     )
 
-    ja_tracker, builtin_trackers = init_phenomena_trackers(phenomena_cfg)
+    builtin_trackers = init_phenomena_trackers(phenomena_cfg)
     all_trackers = builtin_trackers + active_plugins
 
-    ctx['ja_tracker'] = ja_tracker
-    ctx['ja_mode_str'] = ja_mode_str
     ctx['all_trackers'] = all_trackers
 
     # inside the frame loop:
@@ -33,7 +34,7 @@ Usage
 """
 
 from Phenomena.Default import (
-    JointAttentionTemporalTracker,
+    JointAttentionTracker,
     MutualGazeTracker, SocialReferenceTracker, GazeFollowingTracker,
     GazeAversionTracker, ScanpathTracker, GazeLeadershipTracker,
     AttentionSpanTracker,
@@ -48,25 +49,32 @@ def init_phenomena_trackers(cfg: PhenomenaConfig):
 
     Returns
     -------
-    ja_tracker : JointAttentionTemporalTracker | None
-        Temporal joint-attention filter (not a PhenomenaPlugin — it gates
-        joint_objs before other trackers see them).
     builtin_trackers : list[PhenomenaPlugin]
-        Active built-in tracker instances.  Disabled trackers are omitted.
-        The list order determines dashboard panel rendering order.
+        Active built-in tracker instances.  JointAttentionTracker is always
+        first (when enabled) so that confirmed_objs is available to
+        subsequent trackers.  The list order determines dashboard panel
+        rendering order.
     """
-    ja_tracker = (JointAttentionTemporalTracker(cfg.ja_window, cfg.ja_window_thresh)
-                  if cfg.joint_attention and cfg.ja_window > 0 else None)
-
-    # Build list in display order: left-panel trackers first, then right-panel.
     builtin_trackers = []
 
+    # JA tracker is always first — other trackers depend on confirmed_objs.
+    if cfg.joint_attention:
+        ja = JointAttentionTracker(
+            window=cfg.ja_window,
+            threshold=cfg.ja_window_thresh,
+            quorum=cfg.ja_quorum,
+        )
+        builtin_trackers.append(ja)
+
+    # Left-panel trackers
     if cfg.mutual_gaze:
         builtin_trackers.append(MutualGazeTracker())
     if cfg.social_ref:
         builtin_trackers.append(SocialReferenceTracker(cfg.social_ref_window))
     if cfg.gaze_follow:
         builtin_trackers.append(GazeFollowingTracker(cfg.gaze_follow_lag))
+
+    # Right-panel trackers
     if cfg.attn_span:
         builtin_trackers.append(AttentionSpanTracker())
     if cfg.gaze_aversion:
@@ -74,9 +82,12 @@ def init_phenomena_trackers(cfg: PhenomenaConfig):
     if cfg.scanpath:
         builtin_trackers.append(ScanpathTracker(cfg.scanpath_dwell))
     if cfg.gaze_leader:
-        builtin_trackers.append(GazeLeadershipTracker())
+        builtin_trackers.append(GazeLeadershipTracker(
+            tip_mode=cfg.gaze_leader_tips,
+            tip_lag=cfg.gaze_leader_tip_lag,
+        ))
 
-    return ja_tracker, builtin_trackers
+    return builtin_trackers
 
 
 def update_phenomena_step(ctx, **kwargs):
@@ -86,12 +97,13 @@ def update_phenomena_step(ctx, **kwargs):
     Reads from ctx
     --------------
     frame_no, persons_gaze, face_bboxes, hit_events, joint_objs,
-    objects, face_track_ids, hits, ja_tracker, ja_mode_str, all_trackers.
+    objects, face_track_ids, hits, all_trackers.
 
     Writes to ctx
     -------------
     confirmed_objs : set — joint attention after temporal confirmation.
     extra_hud      : str | None — window-fill status for HUD.
+    joint_pct      : float — running JA percentage.
     """
     frame_no = ctx['frame_no']
     persons_gaze = ctx['persons_gaze']
@@ -101,8 +113,6 @@ def update_phenomena_step(ctx, **kwargs):
     dets = ctx['objects']
     face_track_ids = ctx.get('face_track_ids')
     hits = ctx.get('hits')
-    ja_tracker = ctx.get('ja_tracker')
-    ja_mode_str = ctx.get('ja_mode_str')
     all_trackers = ctx.get('all_trackers', [])
 
     n_faces = len(persons_gaze)
@@ -119,34 +129,49 @@ def update_phenomena_step(ctx, **kwargs):
                     hits_set.add((ev['face_idx'], oi))
                     break
 
-    # Temporal joint-attention confirmation
-    if ja_tracker is not None:
-        confirmed_objs = ja_tracker.update(joint_objs)
-        win_fill_pct   = ja_tracker.fill * 100
-        extra_hud = (f"{ja_mode_str}  win:{win_fill_pct:.0f}%"
-                     if ja_mode_str else f"win:{win_fill_pct:.0f}%")
-    else:
-        confirmed_objs = joint_objs
-        extra_hud      = ja_mode_str
-
-    # Update all trackers uniformly (built-in + external plugins)
+    # Update all trackers uniformly (built-in + external plugins).
+    # JA tracker (if present) is first and sets confirmed_objs/extra_hud.
     tracker_kwargs = dict(
         frame_no=frame_no, persons_gaze=persons_gaze, face_bboxes=face_bboxes,
         hit_events=hit_events, joint_objs=joint_objs, dets=dets,
         n_faces=n_faces, face_track_ids=face_track_ids, hits=hits_set,
+        tip_convergences=ctx.get('tip_convergences', []),
+        tip_radius=ctx.get('tip_radius', 50),
+        detect_extend=ctx.get('detect_extend', 0.0),
+        detect_extend_scope=ctx.get('detect_extend_scope', 'objects'),
+        pid_map=ctx.get('pid_map'),
+        fps=ctx.get('fps', 0.0),
+        joint_pct=ctx.get('joint_pct', 0.0),
+        n_dets=ctx.get('n_dets', 0),
+        _all_trackers=all_trackers,
     )
+
+    confirmed_objs = joint_objs  # default: no temporal filter
+    extra_hud = None
+    joint_pct = ctx.get('joint_pct', 0.0)
+
     for tracker in all_trackers:
-        tracker.update(**tracker_kwargs)
+        result = tracker.update(**tracker_kwargs)
+
+        # JA tracker writes confirmed_objs and extra_hud via its return value
+        if result and 'confirmed_objs' in result:
+            confirmed_objs = result['confirmed_objs']
+            extra_hud = result.get('extra_hud')
+            joint_pct = result.get('joint_pct', joint_pct)
+            # Update kwargs so subsequent trackers see confirmed JA
+            tracker_kwargs['joint_objs'] = confirmed_objs
 
     ctx['confirmed_objs'] = confirmed_objs
     ctx['extra_hud'] = extra_hud
+    ctx['joint_pct'] = joint_pct
 
 
-def post_run_summary(all_trackers: list, total_frames: int) -> None:
+def post_run_summary(all_trackers: list, total_frames: int,
+                     pid_map=None) -> None:
     """
     Print post-run phenomena summaries to stdout for all active trackers.
     """
     for tracker in all_trackers:
-        summary = tracker.console_summary(total_frames)
+        summary = tracker.console_summary(total_frames, pid_map=pid_map)
         if summary:
             print(summary)
