@@ -1,5 +1,5 @@
 """
-Plugins/GazeTracking/MGaze/MGaze_Config.py — Configuration for the MGaze gaze-estimation backend.
+GazeTracking/Backends/MGaze/MGaze_Config.py — Configuration for the MGaze gaze-estimation backend.
 
 Contains dataset parameters, default model paths, and architecture choices
 used by the MGaze ONNX and PyTorch estimation backends.

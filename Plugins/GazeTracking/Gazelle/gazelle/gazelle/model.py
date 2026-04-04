@@ -54,7 +54,7 @@ class GazeLLE(nn.Module):
         x = self.linear(x)
         x = x + self.pos_embed
         x = utils.repeat_tensors(x, num_ppl_per_img) # repeat image features along people dimension per image
-        head_maps = torch.cat(self.get_input_head_maps(input["bboxes"]), dim=0).to(x.device) # [sum(N_p), 32, 32]
+        head_maps = torch.cat(self.get_input_head_maps(input["bboxes"]), dim=0).to(dtype=x.dtype, device=x.device) # [sum(N_p), 32, 32]
         head_map_embeddings = head_maps.unsqueeze(dim=1) * self.head_token.weight.unsqueeze(-1).unsqueeze(-1)
         x = x + head_map_embeddings
         x = x.flatten(start_dim=2).permute(0, 2, 1) # "b c h w -> b (h w) c"
