@@ -37,8 +37,15 @@ def gaze_convergence(persons_gaze, tip_radius):
         return []
     tips = [np.asarray(re, float) for _, re, _ in persons_gaze]
     thr  = tip_radius * 2.0
-    adj  = [{j for j in range(len(tips)) if i != j and np.linalg.norm(tips[i]-tips[j]) < thr}
-            for i in range(len(tips))]
+
+    # Vectorized pairwise distance computation
+    tips_arr = np.array(tips)                                   # (N, 2)
+    diff = tips_arr[:, None, :] - tips_arr[None, :, :]          # (N, N, 2)
+    dists = np.linalg.norm(diff, axis=2)                        # (N, N)
+    np.fill_diagonal(dists, np.inf)                             # exclude self
+    close = dists < thr                                         # (N, N) bool
+    adj = [set(np.nonzero(close[i])[0]) for i in range(len(tips))]
+
     visited, clusters = set(), []
     for s in range(len(tips)):
         if s in visited:
@@ -50,5 +57,5 @@ def gaze_convergence(persons_gaze, tip_radius):
                 continue
             visited.add(n); cl.add(n); q.extend(adj[n] - visited)
         if len(cl) >= 2:
-            clusters.append((frozenset(cl), np.mean([tips[i] for i in cl], axis=0)))
+            clusters.append((frozenset(cl), np.mean(tips_arr[list(cl)], axis=0)))
     return clusters

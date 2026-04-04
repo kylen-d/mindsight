@@ -1,7 +1,9 @@
 """Phenomena/Default/social_referencing.py — Social referencing detection."""
+import numpy as np
 from Plugins import PhenomenaPlugin
 from utils.geometry import ray_hits_box, extend_ray
 from DataCollection.dashboard_output import _draw_panel_section, _DASH_DIM
+from pipeline_config import resolve_display_pid
 
 
 class SocialReferenceTracker(PhenomenaPlugin):
@@ -21,6 +23,7 @@ class SocialReferenceTracker(PhenomenaPlugin):
         self._state:   dict = {}   # face_idx -> {'frame': int, 'targets': set}
         self.event_log: list = []
         self._current_events: list = []
+        self._history:  list = []   # [(frame_no, cumulative_event_count)]
 
     def update(self, **kwargs):
         frame_no = kwargs['frame_no']
@@ -29,16 +32,30 @@ class SocialReferenceTracker(PhenomenaPlugin):
         dets = kwargs.get('dets', [])
         hits_set = kwargs.get('hits') or set()
 
+        detect_extend = kwargs.get('detect_extend', 0.0)
+        scope = kwargs.get('detect_extend_scope', 'objects')
+        use_extend = detect_extend > 0 and scope in ('phenomena', 'both')
+
         n = min(len(persons_gaze), len(face_bboxes))
+
+        # Pre-compute ray endpoints once per person (O(N) instead of O(N^2))
+        origins = []
+        endpoints = []
+        for i in range(n):
+            oi_pt, rei, _ = persons_gaze[i]
+            origins.append(oi_pt)
+            if use_extend:
+                endpoints.append(extend_ray(oi_pt, rei, length=float(np.linalg.norm(np.asarray(rei) - np.asarray(oi_pt))) + detect_extend))
+            else:
+                endpoints.append(rei)
+
         face_lookers: dict = {}   # viewer_fi -> set of looked-at face indices
         for i in range(n):
             for j in range(n):
                 if i == j:
                     continue
-                oi_pt, rei, _ = persons_gaze[i]
-                rei_ext = extend_ray(oi_pt, rei)
                 x1, y1, x2, y2 = face_bboxes[j]
-                if ray_hits_box(oi_pt, rei_ext, x1, y1, x2, y2):
+                if ray_hits_box(origins[i], endpoints[i], x1, y1, x2, y2):
                     face_lookers.setdefault(i, set()).add(j)
 
         obj_lookers = {fi for fi, _ in hits_set}
@@ -67,19 +84,37 @@ class SocialReferenceTracker(PhenomenaPlugin):
                     self._state.pop(fi, None)
 
         self._current_events = events
+        self._history.append((frame_no, len(self.event_log)))
         return {'events': events}
 
-    def dashboard_section(self, panel, y, line_h):
+    def dashboard_section(self, panel, y, line_h, *, pid_map=None):
         rows = []
         for ev in self.event_log[-3:]:
-            pf = "+".join(f"P{x}" for x in ev['prior_face_targets'])
+            pf = "+".join(resolve_display_pid(x, pid_map)
+                          for x in ev['prior_face_targets'])
             ob = ",".join(ev['object_names']) or "?"
-            rows.append((f"P{ev['face_idx']} [{pf}]\u2192{ob}", self._COLOUR))
+            plbl = resolve_display_pid(ev['face_idx'], pid_map)
+            rows.append((f"{plbl} [{pf}]\u2192{ob}", self._COLOUR))
         if not rows:
             rows = [("--", _DASH_DIM)]
         return _draw_panel_section(panel, y, "SOCIAL REFERENCE", self._COLOUR, rows, line_h)
 
-    def csv_rows(self, total_frames):
+    def dashboard_data(self, *, pid_map=None) -> dict:
+        rows = []
+        for ev in self.event_log[-3:]:
+            pf = "+".join(resolve_display_pid(x, pid_map)
+                          for x in ev['prior_face_targets'])
+            ob = ",".join(ev['object_names']) or "?"
+            plbl = resolve_display_pid(ev['face_idx'], pid_map)
+            rows.append({"label": f"{plbl} [{pf}]\u2192{ob}"})
+        return {
+            "title": "SOCIAL REFERENCE",
+            "colour": self._COLOUR,
+            "rows": rows,
+            "empty_text": "--",
+        }
+
+    def csv_rows(self, total_frames, *, pid_map=None):
         if not self.event_log:
             return []
         rows = [["category", "participant", "object",
@@ -88,14 +123,35 @@ class SocialReferenceTracker(PhenomenaPlugin):
         for ev in self.event_log:
             counts[ev['face_idx']] = counts.get(ev['face_idx'], 0) + 1
         for fi, cnt in sorted(counts.items()):
-            rows.append(["social_reference", f"P{fi}", "",
-                         cnt, total_frames, ""])
+            rows.append(["social_reference", resolve_display_pid(fi, pid_map),
+                         "", cnt, total_frames, ""])
         return rows
 
-    def console_summary(self, total_frames):
+    def console_summary(self, total_frames, *, pid_map=None):
         if not self.event_log:
             return None
         return f"Social reference events: {len(self.event_log)}"
+
+    def time_series_data(self):
+        if not self._history:
+            return {}
+        return {'social_ref_events': {
+            'x': [f for f, _ in self._history],
+            'y': [v for _, v in self._history],
+            'label': 'Cumulative reference events',
+            'chart_type': 'step',
+            'color': self._COLOUR,
+        }}
+
+    def latest_metric(self):
+        return float(len(self.event_log))
+
+    def latest_metrics(self):
+        return {'events': {
+            'value': float(len(self.event_log)),
+            'label': 'Cumulative reference events',
+            'y_label': 'events',
+        }}
 
     # ── CLI protocol ──────────────────────────────────────────────────────────
 

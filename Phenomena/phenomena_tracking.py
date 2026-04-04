@@ -41,8 +41,6 @@ def add_arguments(parser) -> None:
     parser.add_argument("--ja-window", type=int, default=0, metavar="N",
                         help="Temporal consistency window (frames). 0 = disabled (default).")
     parser.add_argument("--ja-window-thresh", type=float, default=0.70, metavar="F")
-    parser.add_argument("--ja-conf-gate", type=float, default=0.0, metavar="F",
-                        help="Minimum per-face gaze confidence. 0.0 = disabled.")
     parser.add_argument("--ja-quorum", type=float, default=1.0, metavar="F",
                         help="Fraction of faces required for joint attention (default 1.0).")
     # Gaze phenomena flags
@@ -57,6 +55,11 @@ def add_arguments(parser) -> None:
     parser.add_argument("--scanpath",      action="store_true")
     parser.add_argument("--scanpath-dwell", type=int, default=8, metavar="N")
     parser.add_argument("--gaze-leader",   action="store_true")
+    parser.add_argument("--gaze-leader-tips", action="store_true",
+                        help="Also detect leadership via gaze-tip convergence "
+                             "(requires --gaze-tips).")
+    parser.add_argument("--gaze-leader-tip-lag", type=int, default=15, metavar="N",
+                        help="Lookback frames for tip-arrival priority (default: 15).")
     parser.add_argument("--attn-span",     action="store_true",
                         help="Track per-participant per-object average attention span "
                              "(mean completed-glance duration). Most salient object shown in HUD.")

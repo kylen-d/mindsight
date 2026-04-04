@@ -3,6 +3,7 @@ import numpy as np
 
 from Plugins import PhenomenaPlugin
 from DataCollection.dashboard_output import _draw_panel_section, _DASH_DIM
+from pipeline_config import resolve_display_pid
 
 
 class AttentionSpanTracker(PhenomenaPlugin):
@@ -24,6 +25,7 @@ class AttentionSpanTracker(PhenomenaPlugin):
     def __init__(self):
         self._active:    dict = {}   # (face_idx, cls) -> frame_no of glance start
         self._durations: dict = {}   # (face_idx, cls) -> list[int] of completed glance lengths
+        self._history:   list = []   # [(frame_no, max_avg_glance)]
 
     def update(self, **kwargs):
         frame_no = kwargs['frame_no']
@@ -48,6 +50,13 @@ class AttentionSpanTracker(PhenomenaPlugin):
             if key not in self._active:
                 self._active[key] = frame_no
 
+        # Track max average glance duration across all participants
+        max_avg = 0.0
+        for fi in self.all_participants():
+            result = self.most_salient(fi)
+            if result:
+                max_avg = max(max_avg, result[1])
+        self._history.append((frame_no, max_avg))
         return {}
 
     def avg_glance_duration(self, face_idx: int, cls: str) -> float:
@@ -79,33 +88,86 @@ class AttentionSpanTracker(PhenomenaPlugin):
         """Return all face_idx values for which at least one glance has completed."""
         return {fi for fi, _ in self._durations}
 
-    def dashboard_section(self, panel, y, line_h):
+    def dashboard_section(self, panel, y, line_h, *, pid_map=None):
         rows = []
         all_pids = sorted(self.all_participants())
         for fi in all_pids:
             result = self.most_salient(fi)
             if result:
                 cls, avg = result
-                rows.append((f"P{fi}: {cls}  {avg:.1f}f", self._COLOUR))
+                plbl = resolve_display_pid(fi, pid_map)
+                rows.append((f"{plbl}: {cls}  {avg:.1f}f", self._COLOUR))
         if not rows:
             rows = [("--", _DASH_DIM)]
         return _draw_panel_section(panel, y, "ATTN SPAN (salient)", self._COLOUR, rows, line_h)
 
-    def console_summary(self, total_frames):
+    def dashboard_data(self, *, pid_map=None) -> dict:
+        rows = []
+        for fi in sorted(self.all_participants()):
+            result = self.most_salient(fi)
+            if result:
+                cls, avg = result
+                plbl = resolve_display_pid(fi, pid_map)
+                rows.append({
+                    "label": f"{plbl}: {cls}",
+                    "value": f"{avg:.1f}f",
+                })
+        return {
+            "title": "ATTN SPAN (salient)",
+            "colour": self._COLOUR,
+            "rows": rows,
+            "empty_text": "--",
+        }
+
+    def console_summary(self, total_frames, *, pid_map=None):
         participants = sorted(self.all_participants())
         if not participants:
             return None
         lines = ["Attention span \u2014 most salient object per participant:"]
         for fi in participants:
+            plbl = resolve_display_pid(fi, pid_map)
             result = self.most_salient(fi)
             if result:
                 cls, avg = result
-                lines.append(f"  P{fi}: {cls}  (avg glance {avg:.1f} frames)")
+                lines.append(f"  {plbl}: {cls}  (avg glance {avg:.1f} frames)")
             all_avgs = self.all_averages(fi)
             for obj_cls, obj_avg in sorted(all_avgs.items(), key=lambda x: -x[1]):
                 marker = " *" if obj_cls == (result[0] if result else None) else ""
                 lines.append(f"    {obj_cls}: {obj_avg:.1f}f{marker}")
         return "\n".join(lines)
+
+    def time_series_data(self):
+        if not self._history:
+            return {}
+        return {'attn_span_max_avg': {
+            'x': [f for f, _ in self._history],
+            'y': [v for _, v in self._history],
+            'label': 'Max avg glance duration (frames)',
+            'chart_type': 'line',
+            'color': self._COLOUR,
+        }}
+
+    def latest_metric(self):
+        max_avg = 0.0
+        for fi in self.all_participants():
+            result = self.most_salient(fi)
+            if result:
+                max_avg = max(max_avg, result[1])
+        return max_avg
+
+    def latest_metrics(self):
+        result = {}
+        for fi in sorted(self.all_participants()):
+            plbl = resolve_display_pid(fi)
+            sal = self.most_salient(fi)
+            if sal:
+                cls, avg = sal
+                result[plbl] = {
+                    'value': avg,
+                    'label': f'{plbl}: {cls}',
+                    'y_label': 'avg frames',
+                }
+        return result or None
 
     # ── CLI protocol ──────────────────────────────────────────────────────────
 
