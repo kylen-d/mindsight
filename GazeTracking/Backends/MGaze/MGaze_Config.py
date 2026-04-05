@@ -4,12 +4,10 @@ GazeTracking/Backends/MGaze/MGaze_Config.py — Configuration for the MGaze gaze
 Contains dataset parameters, default model paths, and architecture choices
 used by the MGaze ONNX and PyTorch estimation backends.
 """
-from pathlib import Path
+from weights import resolve_weight
 
-# Default ONNX model shipped with the gaze-estimation library
-DEFAULT_ONNX_MODEL = str(
-    Path(__file__).parent / "gaze-estimation" / "weights" / "mobileone_s0_gaze.onnx"
-)
+# Default ONNX model (resolved via Weights/MGaze/)
+DEFAULT_ONNX_MODEL = str(resolve_weight("MGaze", "mobileone_s0_gaze.onnx"))
 
 # Architecture choices for PyTorch (.pt) models
 ARCH_CHOICES = [

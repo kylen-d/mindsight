@@ -291,10 +291,11 @@ class GazeEstimationGazelle(GazePlugin):
     @classmethod
     def from_args(cls, args):
         """Return an initialized instance if ``--gazelle-model`` was given, else ``None``."""
+        from weights import resolve_weight
         ckpt = getattr(args, "gazelle_model", None)
         if not ckpt:
             return None
-        ckpt = Path(ckpt)
+        ckpt = Path(resolve_weight("Gazelle", str(ckpt)))
         if not ckpt.exists():
             raise FileNotFoundError(f"Gazelle checkpoint not found: {ckpt}")
         name    = getattr(args, "gazelle_name", "gazelle_dinov2_vitb14")

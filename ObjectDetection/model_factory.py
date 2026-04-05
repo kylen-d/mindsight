@@ -7,36 +7,14 @@ so that detector initialization logic is defined in one place.
 import sys
 from pathlib import Path
 
-from constants import PROJECT_ROOT
 from ObjectDetection.object_detection import YOLOEVPDetector
 from ObjectDetection.YOLO.yolo_tracking import BLACKLISTED_CLASSES, resolve_classes
-
-# Default directory for YOLO weight files.  Models referenced by bare
-# filename (e.g. "yolov8n.pt") are resolved here first; any models that
-# Ultralytics auto-downloads will also be placed here.
-_YOLO_WEIGHTS_DIR = PROJECT_ROOT / "Weights" / "YOLO"
+from weights import resolve_weight
 
 
 def _resolve_yolo_path(model_path: str) -> str:
-    """Resolve a YOLO model path, preferring the Weights/YOLO/ directory.
-
-    If *model_path* is a bare filename (no directory component) and a file
-    with that name exists under ``Weights/YOLO/``, the full path is returned
-    so that Ultralytics uses the local copy instead of downloading a new one
-    to the working directory.
-
-    If the file doesn't exist yet (first run), the path is still pointed at
-    ``Weights/YOLO/`` so that the auto-downloaded model lands there.
-    """
-    p = Path(model_path)
-    # If the user supplied an absolute or relative path with directories,
-    # respect it as-is — they know where their model is.
-    if p.parent != Path("."):
-        return model_path
-    # Bare filename → resolve against the weights directory
-    weights_path = _YOLO_WEIGHTS_DIR / p.name
-    _YOLO_WEIGHTS_DIR.mkdir(parents=True, exist_ok=True)
-    return str(weights_path)
+    """Resolve a YOLO model path, preferring the Weights/YOLO/ directory."""
+    return str(resolve_weight("YOLO", model_path))
 
 
 def create_yolo_detector(

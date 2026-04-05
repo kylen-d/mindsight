@@ -418,8 +418,10 @@ class VPInferenceWorker(threading.Thread):
         import cv2
         from ultralytics import YOLOE
 
-        self._log(f"Loading YOLOE: {self.model_path}")
-        model = YOLOE(self.model_path)
+        from weights import resolve_weight
+        resolved = str(resolve_weight("YOLO", self.model_path))
+        self._log(f"Loading YOLOE: {resolved}")
+        model = YOLOE(resolved)
 
         # ── Determine mode ───────────────────────────────────────────────────
         if self.vp_file:

@@ -356,7 +356,8 @@ class GazelleSnapPlugin(GazePlugin):
         from Plugins.GazeTracking.Gazelle.gazelle_backend import (
             GazeEstimationGazelle,
         )
-        gazelle_ckpt = Path(gazelle_ckpt)
+        from weights import resolve_weight
+        gazelle_ckpt = Path(resolve_weight("Gazelle", str(gazelle_ckpt)))
         if not gazelle_ckpt.exists():
             raise FileNotFoundError(
                 f"Gazelle-Snap checkpoint not found: {gazelle_ckpt}"
