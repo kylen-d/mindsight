@@ -2,7 +2,7 @@
 
 ## Overview
 
-The `ObjectDetection/` module handles all YOLO-based object detection in MindSight. It consists of four files:
+The `ms/ObjectDetection/` module handles all YOLO-based object detection in MindSight. It consists of four files:
 
 | File | Purpose |
 |------|---------|
@@ -33,7 +33,7 @@ Data flows top-down at runtime:
 
 ## Detection Dataclass
 
-**File:** `ObjectDetection/detection.py`
+**File:** `ms/ObjectDetection/detection.py`
 
 `Detection` is a slotted dataclass that replaces the implicit dict schema used in earlier versions.
 
@@ -64,7 +64,7 @@ A `_KEY_MAP` class variable handles legacy key aliases. For example, `det['_ghos
 
 ## Model Factory
 
-**File:** `ObjectDetection/model_factory.py`
+**File:** `ms/ObjectDetection/model_factory.py`
 
 ### `create_yolo_detector`
 
@@ -81,7 +81,7 @@ create_yolo_detector(
 
 - **Weight resolution:** bare filenames (no directory component) are resolved against `Weights/YOLO/`. The directory is created if it does not exist, so auto-downloaded models land there instead of the project root.
 - **VP mode:** when `vp_file` is provided, the factory creates a `YOLOEVPDetector` instead of a standard YOLO model. In this mode `class_ids` is `None` and the blacklist is empty because classes come from the VP file.
-- **Device resolution:** delegates to `utils/device.py` which follows the priority order CUDA > MPS > CPU when device is `"auto"`.
+- **Device resolution:** delegates to `ms/utils/device.py` which follows the priority order CUDA > MPS > CPU when device is `"auto"`.
 - **Blacklist:** merges the built-in `BLACKLISTED_CLASSES` with any user-supplied `blacklist_names`, always excluding `"person"` from the blacklist.
 
 ### `create_face_detector`
@@ -90,11 +90,11 @@ create_yolo_detector(
 create_face_detector() -> RetinaFace
 ```
 
-Returns a `RetinaFace` instance used for face-level detection in the gaze tracking pipeline. Adds the `GazeTracking/gaze-estimation` directory to `sys.path` if not already present.
+Returns a `RetinaFace` instance used for face-level detection in the gaze tracking pipeline. Adds the `ms/GazeTracking/gaze-estimation` directory to `sys.path` if not already present.
 
 ## YOLOEVPDetector
 
-**File:** `ObjectDetection/object_detection.py`
+**File:** `ms/ObjectDetection/object_detection.py`
 
 `YOLOEVPDetector` wraps a YOLOE model together with a Visual Prompt file (`.vp.json`) to provide the same callable interface as a standard Ultralytics YOLO model.
 
@@ -125,7 +125,7 @@ detector(frame, conf=0.35, classes=None, verbose=False)
 
 ## ObjectPersistenceCache
 
-**File:** `ObjectDetection/object_detection.py`
+**File:** `ms/ObjectDetection/object_detection.py`
 
 Keeps detected objects alive for a configurable number of frames after they disappear from the detector output. This handles momentary occlusion and YOLO misses.
 
@@ -154,7 +154,7 @@ Matching is greedy: for each existing slot, the incoming detection with the high
 
 ## parse_dets
 
-**File:** `ObjectDetection/object_detection.py`
+**File:** `ms/ObjectDetection/object_detection.py`
 
 ```python
 parse_dets(results, names, conf_thr, blacklist) -> list[Detection]
@@ -169,7 +169,7 @@ Returns an empty list if `results` is empty or the first result has no boxes.
 
 ## Pipeline Step
 
-**File:** `ObjectDetection/detection_pipeline.py`
+**File:** `ms/ObjectDetection/detection_pipeline.py`
 
 ```python
 run_detection_step(ctx, *, yolo, det_cfg: DetectionConfig,

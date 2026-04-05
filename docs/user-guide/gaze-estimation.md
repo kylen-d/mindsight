@@ -25,7 +25,7 @@ Each stage is configurable through command-line flags described in the sections 
 
 MindSight supports multiple gaze estimation backends. Select one by providing the appropriate model flag.
 
-Backends are auto-discovered from `GazeTracking/Backends/` via the backend registry. Any conforming backend placed in that directory is available automatically without code changes.
+Backends are auto-discovered from `ms/GazeTracking/Backends/` via the backend registry. Any conforming backend placed in that directory is available automatically without code changes.
 
 | Backend | Trigger | Mode | Notes |
 |---------|---------|------|-------|
@@ -141,7 +141,7 @@ Lock-on detects sustained fixation on a single object and visually confirms it.
 
 ### Temporal Smoothing
 
-Gaze direction is smoothed with an exponential moving average (EMA). The smoothing alpha is defined in `constants.py`. Lower alpha values produce smoother but more sluggish tracking; higher values are more responsive but noisier.
+Gaze direction is smoothed with an exponential moving average (EMA). The smoothing alpha is defined in `ms/constants.py`. Lower alpha values produce smoother but more sluggish tracking; higher values are more responsive but noisier.
 
 ### Face Re-ID
 

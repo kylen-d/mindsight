@@ -2,7 +2,7 @@
 
 ## Overview
 
-The `DataCollection/` module is responsible for all output generation in MindSight: CSV summaries, dashboard video overlays, heatmaps, time-series charts, and project-level CSV aggregation. It contains seven files:
+The `ms/DataCollection/` module is responsible for all output generation in MindSight: CSV summaries, dashboard video overlays, heatmaps, time-series charts, and project-level CSV aggregation. It contains seven files:
 
 | File | Purpose |
 |---|---|

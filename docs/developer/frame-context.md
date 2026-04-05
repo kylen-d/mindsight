@@ -4,7 +4,7 @@
 
 `FrameContext` is a mutable dict-like container created once per frame and passed through all four pipeline stages. Each stage reads the keys it needs and writes its results back into the context. This design decouples the stages from each other -- adding new data fields never requires changing function signatures upstream or downstream.
 
-`FrameContext` is defined in `pipeline_config.py`.
+`FrameContext` is defined in `ms/pipeline_config.py`.
 
 ## API
 

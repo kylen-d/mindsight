@@ -1,0 +1,1 @@
+"""ms -- MindSight core package."""

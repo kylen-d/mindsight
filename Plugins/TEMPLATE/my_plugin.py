@@ -44,15 +44,7 @@ Import from ``DataCollection.dashboard_output``:
 
 from __future__ import annotations
 
-import sys
-from pathlib import Path
-
-# Ensure repo root is on sys.path for sibling imports
-_REPO_ROOT = Path(__file__).parent.parent.parent
-if str(_REPO_ROOT) not in sys.path:
-    sys.path.insert(0, str(_REPO_ROOT))
-
-from Plugins import PhenomenaPlugin  # noqa: E402
+from Plugins import PhenomenaPlugin
 
 
 class MyTracker(PhenomenaPlugin):
@@ -91,7 +83,7 @@ class MyTracker(PhenomenaPlugin):
 
     def dashboard_section(self, panel, y: int, line_h: int) -> int:
         """Draw a section in the side panel.  Return new y after the section."""
-        from DataCollection.dashboard_output import _DASH_DIM, _draw_panel_section
+        from ms.DataCollection.dashboard_output import _DASH_DIM, _draw_panel_section
         rows = [("--", _DASH_DIM)]
         return _draw_panel_section(
             panel, y, "MY TRACKER", (200, 200, 200), rows, line_h)

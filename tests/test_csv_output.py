@@ -1,11 +1,10 @@
 """Tests for DataCollection/csv_output.py -- summary CSV writing."""
 
 import csv
-from pathlib import Path
 
 import pytest
 
-from DataCollection.csv_output import resolve_summary_path, write_summary_csv
+from ms.DataCollection.csv_output import resolve_summary_path, write_summary_csv
 
 
 class TestResolveSummaryPath:

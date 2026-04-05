@@ -1,6 +1,6 @@
 # MindSight — Unified Object Detection and Gaze Intersection Tracker for Cognitive Sciences Research
 
-> **Beta Release** — This is a pre-release version (v0.3.0-beta). APIs and features may change. Bug reports and feedback are welcome via [GitHub Issues](https://github.com/kylen-d/mindsight/issues).
+> **Beta Release** — This is a pre-release version (v0.4.0-beta). APIs and features may change. Bug reports and feedback are welcome via [GitHub Issues](https://github.com/kylen-d/mindsight/issues).
 
 [![License: AGPL v3](https://img.shields.io/badge/License-AGPLv3-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
 
@@ -165,26 +165,29 @@ source .venv/bin/activate        # macOS / Linux
 
 ```bash
 pip install -r requirements.txt
+pip install -e .                  # install MindSight as an editable package
 ```
+
+> **Note:** `pip install -e .` is required -- it makes the `ms` package importable and installs the `mindsight` and `mindsight-gui` console commands.
 
 **GPU acceleration (optional):** Install PyTorch with CUDA support *before* running the above — see [pytorch.org/get-started](https://pytorch.org/get-started/locally/). For Apple Silicon CoreML, replace `onnxruntime` with `onnxruntime-silicon`.
 
 Alternatively, use the platform-aware helper:
 
 ```bash
-python install_dependencies.py        # auto-detects CUDA / Apple Silicon
+python scripts/install_dependencies.py        # auto-detects CUDA / Apple Silicon
 ```
 
 ### 4. Download gaze model weights
 
-MGaze weights are stored in `GazeTracking/Backends/MGaze/gaze-estimation/weights/`. Download them with:
+All model weights are centralized in `Weights/{backend}/`. Download them with:
 
 ```bash
-cd GazeTracking/Backends/MGaze/gaze-estimation
-bash download.sh
+python scripts/download_weights.py            # all backends
+python scripts/download_weights.py --backend MGaze   # specific backend
 ```
 
-For L2CS-Net, download weights to `GazeTracking/Backends/L2CS/weights/` and pass the path via `--l2cs-model`.
+For L2CS-Net, download weights to `Weights/L2CS/` and pass the path via `--l2cs-model`.
 
 For Gazelle, download a checkpoint separately and pass it via `--gazelle-model`.
 
@@ -202,49 +205,53 @@ YOLO model weights (e.g. `yolov8n.pt`) are downloaded automatically by Ultralyti
 
 ```
 MindSight/
-├── MindSight.py                  # Orchestrator + CLI entry point
-├── pipeline_config.py            # Config dataclasses + FrameContext
-├── pipeline_loader.py            # YAML pipeline config loader
-├── project_runner.py             # Project-based batch processing
-├── constants.py                  # Shared constants (colours, thresholds)
+├── MindSight.py                  # CLI entry point (thin wrapper)
+├── MindSight_GUI.py              # GUI entry point (thin wrapper)
+├── pyproject.toml                # Package config, console_scripts, linter settings
 │
-├── ObjectDetection/
-│   ├── Detection_Pipeline.py     # YOLO detection step (ctx-based)
-│   ├── Object_Detection.py       # YOLO wrapper, ObjectPersistenceCache
-│   ├── detection.py              # Detection utilities
-│   └── model_factory.py          # YOLO and RetinaFace factory
-│
-├── GazeTracking/
-│   ├── Gaze_Pipeline.py          # Gaze step coordinator (ctx-based)
-│   ├── Gaze_Processing.py        # GazeSmootherReID, snap, lock-on
-│   ├── gaze_factory.py           # Gaze engine factory
-│   └── Backends/                 # Built-in gaze backends (MGaze, L2CS, UniGaze)
-│
-├── Phenomena/
-│   ├── Phenomena_Pipeline.py     # Phenomena step (ctx-based unified loop)
-│   ├── phenomena_config.py       # PhenomenaConfig dataclass
-│   ├── helpers.py                # joint_attention, gaze_convergence
-│   └── Default/                  # Built-in phenomena pack
-│       ├── joint_attention.py    # Temporal JA confirmation filter
-│       ├── mutual_gaze.py
-│       ├── social_referencing.py
-│       ├── gaze_following.py
-│       ├── gaze_aversion.py
-│       ├── scanpath.py
-│       ├── gaze_leadership.py
-│       └── attention_span.py
-│
-├── DataCollection/
-│   ├── Data_Pipeline.py          # CSV logging, heatmap accumulation
-│   ├── Dashboard_Output.py       # Frame overlay + dashboard compositor
-│   ├── CSV_Output.py             # Summary CSV writer
-│   └── Heatmap_Output.py         # Per-participant heatmap generation
-│
-├── GUI/
-│   ├── main_window.py            # PyQt6 main window (3-tab layout)
-│   ├── workers.py                # Background processing threads
-│   ├── pipeline_dialog.py        # Pipeline YAML editor dialog
-│   └── widgets.py                # Reusable GUI components
+├── ms/                           # Core package (pip install -e .)
+│   ├── cli.py                    # CLI orchestrator (main pipeline logic)
+│   ├── gui.py                    # GUI launcher
+│   ├── constants.py              # Shared constants (colours, thresholds)
+│   ├── pipeline_config.py        # Config dataclasses + FrameContext
+│   ├── pipeline_loader.py        # YAML pipeline config loader
+│   ├── project_runner.py         # Project-based batch processing
+│   ├── participant_ids.py        # Participant label mapping
+│   ├── weights.py                # Centralized weight file resolution
+│   │
+│   ├── ObjectDetection/
+│   │   ├── detection_pipeline.py # YOLO detection step (ctx-based)
+│   │   ├── object_detection.py   # YOLO wrapper, ObjectPersistenceCache
+│   │   ├── detection.py          # Detection dataclass
+│   │   └── model_factory.py      # YOLO and RetinaFace factory
+│   │
+│   ├── GazeTracking/
+│   │   ├── gaze_pipeline.py      # Gaze step coordinator (ctx-based)
+│   │   ├── gaze_processing.py    # GazeSmootherReID, snap, lock-on
+│   │   ├── gaze_factory.py       # Gaze engine factory
+│   │   └── Backends/             # Built-in gaze backends (MGaze, L2CS, UniGaze)
+│   │
+│   ├── Phenomena/
+│   │   ├── phenomena_pipeline.py # Phenomena step (ctx-based unified loop)
+│   │   ├── phenomena_config.py   # PhenomenaConfig dataclass
+│   │   ├── helpers.py            # joint_attention, gaze_convergence
+│   │   └── Default/              # Built-in phenomena pack
+│   │
+│   ├── DataCollection/
+│   │   ├── data_pipeline.py      # CSV logging, heatmap accumulation
+│   │   ├── dashboard_output.py   # Frame overlay + dashboard compositor
+│   │   ├── csv_output.py         # Summary CSV writer
+│   │   └── heatmap_output.py     # Per-participant heatmap generation
+│   │
+│   ├── GUI/
+│   │   ├── main_window.py        # PyQt6 main window (3-tab layout)
+│   │   ├── gaze_tab/             # Gaze tracker tab (decomposed sections)
+│   │   ├── project_tab/          # Project mode tab (decomposed sections)
+│   │   └── widgets.py            # Reusable GUI components
+│   │
+│   └── utils/
+│       ├── geometry.py           # Ray geometry, pitch/yaw, bbox ops
+│       └── device.py             # Shared device detection for all backends
 │
 ├── Plugins/
 │   ├── __init__.py               # Base classes + registries
@@ -254,27 +261,12 @@ MindSight/
 │   ├── DataCollection/           # Custom data output plugins
 │   └── TEMPLATE/                 # Skeleton plugin for developers
 │
-├── Projects/
-│   └── ExampleProject/           # Example project layout
-│       ├── Inputs/Videos/
-│       ├── Inputs/Prompts/
-│       ├── Outputs/
-│       └── Pipeline/pipeline.yaml
-│
-├── utils/
-│   ├── geometry.py               # Ray geometry, pitch/yaw, bbox ops
-│   └── device.py                 # Shared device detection for all backends
-│
-├── tests/                        # pytest test suite
-│   ├── test_geometry.py
-│   ├── test_frame_context.py
-│   ├── test_pipeline_loader.py
-│   └── test_phenomena_trackers.py
-│
+├── Weights/                      # Model weights (git-ignored, download on demand)
+├── Projects/                     # User project directories
+├── scripts/                      # Utility scripts (download_weights, install_deps)
+├── tests/                        # pytest test suite (171 tests)
+├── docs/                         # MkDocs documentation
 └── Outputs/                      # Default output directory
-    ├── CSV Files/
-    ├── Video/
-    └── heatmaps/
 ```
 
 ---
@@ -290,6 +282,9 @@ python MindSight.py [OPTIONS]
 ```bash
 # Webcam with default settings
 python MindSight.py --source 0
+
+# After `pip install -e .`, you can also use the `mindsight` command directly:
+mindsight --source video.mp4 --save
 
 # Video file, save output, log events to CSV
 python MindSight.py --source video.mp4 --save --log events.csv
@@ -465,7 +460,8 @@ MindSight supports four plugin types: **Gaze**, **Object Detection**, **Phenomen
 ## MindSight_GUI.py — GUI Usage
 
 ```bash
-python MindSight_GUI.py
+mindsight-gui                # console command (after pip install -e .)
+python MindSight_GUI.py      # or run the wrapper script directly
 ```
 
 The GUI has three tabs:

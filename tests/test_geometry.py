@@ -3,7 +3,7 @@
 import numpy as np
 import pytest
 
-from utils.geometry import (
+from ms.utils.geometry import (
     bbox_center,
     extend_ray,
     pitch_yaw_to_2d,
@@ -219,7 +219,7 @@ class TestExtendRay:
 
     def test_default_length_uses_constant(self):
         """Calling without explicit length uses the constant from constants.py."""
-        from constants import RAY_EXT_LENGTH
+        from ms.constants import RAY_EXT_LENGTH
         result = extend_ray([0, 0], [1, 0])
         expected_len = np.linalg.norm(result)
         assert expected_len == pytest.approx(RAY_EXT_LENGTH, rel=1e-6)

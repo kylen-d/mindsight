@@ -11,14 +11,6 @@ evidence to push borderline detections above the confidence threshold.
 Enable via ``--gaze-boost``.  See ``--help`` for tuning parameters.
 """
 
-import sys
-from pathlib import Path
-
-# Ensure the repo root is importable (required for plugins loaded dynamically)
-_REPO = str(Path(__file__).resolve().parents[3])
-if _REPO not in sys.path:
-    sys.path.insert(0, _REPO)
-
 from Plugins import ObjectDetectionPlugin
 
 

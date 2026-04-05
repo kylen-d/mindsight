@@ -7,8 +7,10 @@ This guide walks through MindSight's graphical interface, covering each tab and 
 ## 1. Launching
 
 ```bash
-python -m GUI.main_window
+python MindSight_GUI.py
 ```
+
+Or use the console command: `mindsight-gui`
 
 Requires **PyQt6**. Install it with `pip install PyQt6` if not already present.
 

@@ -59,4 +59,4 @@ python MindSight.py --source video.mp4 --scanpath --scanpath-dwell 12
 
 ## Source
 
-`Phenomena/Default/scanpath.py`
+`ms/Phenomena/Default/scanpath.py`

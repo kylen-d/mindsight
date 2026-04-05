@@ -1,9 +1,9 @@
 # Detection Dataclass
 
-Defined in `ObjectDetection/detection.py`. Replaces the implicit dict schema with a typed, slotted dataclass while preserving full dict-style access for backward compatibility.
+Defined in `ms/ObjectDetection/detection.py`. Replaces the implicit dict schema with a typed, slotted dataclass while preserving full dict-style access for backward compatibility.
 
 ```python
-from ObjectDetection.detection import Detection
+from ms.ObjectDetection.detection import Detection
 ```
 
 ---

@@ -1,12 +1,12 @@
 # Configuration Dataclasses
 
-MindSight groups its many parameters into typed dataclasses defined in `pipeline_config.py` and `Phenomena/phenomena_config.py`. Each dataclass has a `from_namespace(ns)` classmethod that constructs it from an `argparse.Namespace`.
+MindSight groups its many parameters into typed dataclasses defined in `ms/pipeline_config.py` and `ms/Phenomena/phenomena_config.py`. Each dataclass has a `from_namespace(ns)` classmethod that constructs it from an `argparse.Namespace`.
 
 ---
 
 ## GazeConfig
 
-Defined in `pipeline_config.py`. All gaze-estimation and ray-intersection tuning parameters.
+Defined in `ms/pipeline_config.py`. All gaze-estimation and ray-intersection tuning parameters.
 
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
@@ -32,7 +32,7 @@ Defined in `pipeline_config.py`. All gaze-estimation and ray-intersection tuning
 
 ## DetectionConfig
 
-Defined in `pipeline_config.py`. Object-detection parameters passed through to YOLO.
+Defined in `ms/pipeline_config.py`. Object-detection parameters passed through to YOLO.
 
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
@@ -47,7 +47,7 @@ Note: `from_namespace(ns, class_ids, blacklist)` takes pre-resolved class IDs an
 
 ## TrackerConfig
 
-Defined in `pipeline_config.py`. Parameters used by `run()` to construct per-run tracker instances.
+Defined in `ms/pipeline_config.py`. Parameters used by `run()` to construct per-run tracker instances.
 
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
@@ -64,7 +64,7 @@ Defined in `pipeline_config.py`. Parameters used by `run()` to construct per-run
 
 ## OutputConfig
 
-Defined in `pipeline_config.py`. Paths and flags controlling run-loop outputs.
+Defined in `ms/pipeline_config.py`. Paths and flags controlling run-loop outputs.
 
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
@@ -84,7 +84,7 @@ Defined in `pipeline_config.py`. Paths and flags controlling run-loop outputs.
 
 ## AuxStreamConfig
 
-Defined in `pipeline_config.py`. Configuration for a single auxiliary video stream mapped to a participant.
+Defined in `ms/pipeline_config.py`. Configuration for a single auxiliary video stream mapped to a participant.
 
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
@@ -98,7 +98,7 @@ Auxiliary streams are optional per-participant video feeds that are frame-synchr
 
 ## ProjectConfig
 
-Defined in `pipeline_config.py`. Project-level metadata loaded from `project.yaml`. Stores study-level information (condition tags, participant labels, output settings) that is separate from pipeline processing parameters in `pipeline.yaml`.
+Defined in `ms/pipeline_config.py`. Project-level metadata loaded from `project.yaml`. Stores study-level information (condition tags, participant labels, output settings) that is separate from pipeline processing parameters in `pipeline.yaml`.
 
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
@@ -113,7 +113,7 @@ When `project.yaml` exists, its `participants` section takes precedence over `pa
 
 ## ProjectOutputConfig
 
-Defined in `pipeline_config.py`. Controls where project-level outputs are written.
+Defined in `ms/pipeline_config.py`. Controls where project-level outputs are written.
 
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
@@ -125,7 +125,7 @@ The `resolve_root(project)` method returns the resolved output root as a `Path`.
 
 ## PhenomenaConfig
 
-Defined in `Phenomena/phenomena_config.py`. All phenomena-related configuration in one object.
+Defined in `ms/Phenomena/phenomena_config.py`. All phenomena-related configuration in one object.
 
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|

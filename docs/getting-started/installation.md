@@ -48,7 +48,11 @@ Install all dependencies at once:
 
 ```bash
 pip install -r requirements.txt
+pip install -e .                  # install MindSight as an editable package
 ```
+
+!!! note "Editable install required"
+    The `pip install -e .` step is required -- it registers the `ms` package and installs the `mindsight` and `mindsight-gui` console commands.
 
 !!! note "PyTorch GPU support"
     The `requirements.txt` installs CPU-only PyTorch by default. For GPU acceleration, install PyTorch **first** using the appropriate command from [pytorch.org/get-started](https://pytorch.org/get-started/locally/), then run `pip install -r requirements.txt`.
@@ -59,8 +63,8 @@ pip install -r requirements.txt
 Alternatively, use the helper script for platform-aware installation:
 
 ```bash
-python install_dependencies.py          # auto-detects CUDA / Apple Silicon
-python install_dependencies.py --dry-run  # preview without installing
+python scripts/install_dependencies.py          # auto-detects CUDA / Apple Silicon
+python scripts/install_dependencies.py --dry-run  # preview without installing
 ```
 
 ---
@@ -97,6 +101,8 @@ Run the following command to confirm MindSight is installed correctly:
 ```bash
 python MindSight.py --help
 ```
+
+Or use the console command: `mindsight --help`
 
 You should see a list of available command-line arguments and their descriptions.
 

@@ -61,4 +61,4 @@ python MindSight.py --source video.mp4 --gaze-follow --gaze-follow-lag 45
 
 ## Source
 
-`Phenomena/Default/gaze_following.py`
+`ms/Phenomena/Default/gaze_following.py`

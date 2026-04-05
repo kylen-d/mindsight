@@ -3,7 +3,7 @@
 import numpy as np
 import pytest
 
-from pipeline_config import FrameContext
+from ms.pipeline_config import FrameContext
 
 
 class TestFrameContextInit:

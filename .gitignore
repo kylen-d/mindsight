@@ -38,7 +38,7 @@ Weights/
 venv/
 
 # Embedded third-party caches
-GazeTracking/Backends/MGaze/gaze-estimation/gaze/
+ms/GazeTracking/Backends/MGaze/gaze-estimation/gaze/
 .ruff_cache/
 
 # Upstream demo assets (large GIFs/images)

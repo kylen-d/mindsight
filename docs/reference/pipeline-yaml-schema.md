@@ -1,6 +1,6 @@
 # pipeline.yaml Schema
 
-MindSight can load a declarative YAML configuration file via `--pipeline path/to/pipeline.yaml`. The loader (`pipeline_loader.py`) reads the YAML, maps keys to argparse attributes, and populates the namespace. CLI flags always take precedence over YAML values.
+MindSight can load a declarative YAML configuration file via `--pipeline path/to/pipeline.yaml`. The loader (`ms/pipeline_loader.py`) reads the YAML, maps keys to argparse attributes, and populates the namespace. CLI flags always take precedence over YAML values.
 
 ---
 

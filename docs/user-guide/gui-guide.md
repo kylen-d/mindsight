@@ -5,7 +5,8 @@
 Start the MindSight GUI with:
 
 ```bash
-python MindSight_GUI.py
+mindsight-gui                # console command (after pip install -e .)
+python MindSight_GUI.py      # or run the wrapper script directly
 ```
 
 PyQt6 is required. Install it with `pip install PyQt6` if not already available.

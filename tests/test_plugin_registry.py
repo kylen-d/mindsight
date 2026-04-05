@@ -4,7 +4,6 @@ import pytest
 
 from Plugins import (
     GazePlugin,
-    ObjectDetectionPlugin,
     PhenomenaPlugin,
     PluginRegistry,
 )

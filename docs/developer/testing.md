@@ -39,7 +39,7 @@ To test a custom plugin, create a file such as `tests/test_my_plugin.py` and fol
 
 ```python
 import pytest
-from Plugins.Phenomena.MyPlugin.my_plugin import MyPhenomenonTracker
+from Plugins.Phenomena.MyPlugin.my_plugin import MyPhenomenonTracker  # Plugins stay top-level
 
 
 @pytest.fixture

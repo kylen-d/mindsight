@@ -1,6 +1,6 @@
 # Social Referencing
 
-**Source:** `Phenomena/Default/social_referencing.py`
+**Source:** `ms/Phenomena/Default/social_referencing.py`
 
 ## What It Is
 

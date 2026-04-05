@@ -1,6 +1,6 @@
 [project]
 name = "mindsight"
-version = "0.2.0b1"
+version = "0.4.0b1"
 description = "Real-time multi-person gaze tracking and attention analysis platform"
 requires-python = ">=3.10"
 license = "AGPL-3.0-or-later"
@@ -8,7 +8,6 @@ authors = [{name = "MindSight Contributors"}]
 keywords = ["gaze-tracking", "eye-tracking", "attention-analysis", "computer-vision"]
 classifiers = [
     "Development Status :: 4 - Beta",
-    "License :: OSI Approved :: GNU Affero General Public License v3 or later (AGPLv3+)",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
@@ -20,6 +19,17 @@ classifiers = [
 Repository = "https://github.com/kylen-d/mindsight"
 Issues = "https://github.com/kylen-d/mindsight/issues"
 Changelog = "https://github.com/kylen-d/mindsight/blob/main/CHANGELOG.md"
+
+[project.scripts]
+mindsight = "ms.cli:main"
+mindsight-gui = "ms.gui:main"
+
+[build-system]
+requires = ["setuptools>=64", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["ms", "ms.*", "Plugins", "Plugins.*"]
 
 [tool.black]
 line-length = 99
@@ -33,19 +43,23 @@ line_length = 99
 line-length = 99
 target-version = "py310"
 extend-exclude = [
-    "GazeTracking/Backends/MGaze/gaze-estimation",  # upstream third-party code
-    "Plugins/GazeTracking/Gazelle/gazelle/gazelle",  # upstream third-party code
+    "ms/GazeTracking/Backends/MGaze/gaze-estimation",  # upstream third-party code
+    "Plugins/GazeTracking/Gazelle/gazelle",  # upstream third-party code
 ]
 
 [tool.ruff.lint]
 select = ["E", "F", "W"]
 ignore = [
     "E501",  # line too long (handled by formatter)
-    "E701",  # multiple statements on one line (colon) — used for compact guards
-    "E702",  # multiple statements on one line (semicolon) — used for compact init
-    "E731",  # lambda assignment — used for short callbacks
-    "E402",  # module-level import not at top — needed for sys.path manipulation
+    "E701",  # multiple statements on one line (colon) -- used for compact guards
+    "E702",  # multiple statements on one line (semicolon) -- used for compact init
+    "E731",  # lambda assignment -- used for short callbacks
 ]
+
+[tool.ruff.lint.per-file-ignores]
+"ms/GazeTracking/Backends/MGaze/MGaze_Tracking.py" = ["E402"]
+"ms/ObjectDetection/model_factory.py" = ["E402"]
+"Plugins/GazeTracking/Gazelle/gazelle_backend.py" = ["E402"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

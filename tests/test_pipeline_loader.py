@@ -4,7 +4,7 @@ from argparse import Namespace
 
 import pytest
 
-from pipeline_loader import _flatten, _is_default, load_pipeline
+from ms.pipeline_loader import _flatten, _is_default, load_pipeline
 
 # ── _flatten helper ──────────────────────────────────────────────────────────
 

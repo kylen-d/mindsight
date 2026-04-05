@@ -1,6 +1,6 @@
 # FrameContext Keys
 
-`FrameContext` is the mutable per-frame data carrier that flows through all pipeline stages. Each stage reads what it needs and writes its results. The class lives in `pipeline_config.py` and supports dict-like access (`ctx['key']`, `ctx.get('key', default)`, `'key' in ctx`).
+`FrameContext` is the mutable per-frame data carrier that flows through all pipeline stages. Each stage reads what it needs and writes its results. The class lives in `ms/pipeline_config.py` and supports dict-like access (`ctx['key']`, `ctx.get('key', default)`, `'key' in ctx`).
 
 ---
 

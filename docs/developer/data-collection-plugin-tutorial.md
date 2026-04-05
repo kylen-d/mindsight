@@ -46,7 +46,7 @@ The `__init__.py` is empty. All logic lives in `json_logger.py`.
 import json
 from pathlib import Path
 from Plugins import DataCollectionPlugin
-from pipeline_config import resolve_display_pid
+from ms.pipeline_config import resolve_display_pid
 
 class JsonLoggerPlugin(DataCollectionPlugin):
     name = "json_logger"
@@ -290,7 +290,7 @@ Return an empty list if your plugin does not produce charts. The pipeline will n
 import json
 from pathlib import Path
 from Plugins import DataCollectionPlugin
-from pipeline_config import resolve_display_pid
+from ms.pipeline_config import resolve_display_pid
 
 
 class JsonLoggerPlugin(DataCollectionPlugin):

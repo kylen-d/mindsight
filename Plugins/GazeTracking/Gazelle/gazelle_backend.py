@@ -25,15 +25,9 @@ from pathlib import Path
 import numpy as np
 import torch
 
-# Ensure the repo root is on sys.path so sibling package imports resolve when
-# this module is loaded by the PluginRegistry discovery loop.
-_REPO_ROOT   = Path(__file__).parent.parent.parent.parent   # Plugins/GazeTracking/Gazelle/ → repo root
-_GAZELLE_DIR = Path(__file__).parent / "gazelle"             # Plugins/GazeTracking/Gazelle/gazelle/ (repo root containing gazelle package)
+_GAZELLE_DIR = Path(__file__).parent / "gazelle"             # Plugins/GazeTracking/Gazelle/gazelle/ (3rd-party gazelle package)
 
-if str(_REPO_ROOT) not in sys.path:
-    sys.path.insert(0, str(_REPO_ROOT))
-
-from Plugins import GazePlugin  # noqa: E402
+from Plugins import GazePlugin
 
 # ══════════════════════════════════════════════════════════════════════════════
 # Plugin class
@@ -88,7 +82,7 @@ class GazeEstimationGazelle(GazePlugin):
         self._has_inout = model_name.endswith("_inout")
 
         # ── Device selection ─────────────────────────────────────────────
-        from utils.device import resolve_device
+        from ms.utils.device import resolve_device
         self.device = resolve_device(device)
 
         model, _tf = get_gazelle_model(model_name)
@@ -291,7 +285,7 @@ class GazeEstimationGazelle(GazePlugin):
     @classmethod
     def from_args(cls, args):
         """Return an initialized instance if ``--gazelle-model`` was given, else ``None``."""
-        from weights import resolve_weight
+        from ms.weights import resolve_weight
         ckpt = getattr(args, "gazelle_model", None)
         if not ckpt:
             return None

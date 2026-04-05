@@ -14,23 +14,18 @@ Pass ``--gazelle-snap`` together with a pitch/yaw backend flag (e.g.
 """
 from __future__ import annotations
 
-import sys
 from pathlib import Path
 
 import numpy as np
 
-_REPO_ROOT = Path(__file__).parent.parent.parent.parent
-if str(_REPO_ROOT) not in sys.path:
-    sys.path.insert(0, str(_REPO_ROOT))
-
-from constants import CR_MAX, CR_MIN, EYE_CONF_THRESH  # noqa: E402
-from GazeTracking.gaze_processing import (  # noqa: E402
+from ms.constants import CR_MAX, CR_MIN, EYE_CONF_THRESH
+from ms.GazeTracking.gaze_processing import (
     _faces_as_objects,
     _get_eye_center,
     adaptive_snap,
 )
-from Plugins import GazePlugin  # noqa: E402
-from utils.geometry import pitch_yaw_to_2d  # noqa: E402
+from Plugins import GazePlugin
+from ms.utils.geometry import pitch_yaw_to_2d
 
 # ══════════════════════════════════════════════════════════════════════════════
 # Heatmap utilities
@@ -356,7 +351,7 @@ class GazelleSnapPlugin(GazePlugin):
         from Plugins.GazeTracking.Gazelle.gazelle_backend import (
             GazeEstimationGazelle,
         )
-        from weights import resolve_weight
+        from ms.weights import resolve_weight
         gazelle_ckpt = Path(resolve_weight("Gazelle", str(gazelle_ckpt)))
         if not gazelle_ckpt.exists():
             raise FileNotFoundError(
@@ -374,7 +369,7 @@ class GazelleSnapPlugin(GazePlugin):
         # ── Instantiate the pitch/yaw engine via factory ────────────────────
         # Temporarily clear --gazelle-snap so the factory doesn't recurse
         # back to this plugin.
-        from GazeTracking.gaze_factory import create_gaze_engine
+        from ms.GazeTracking.gaze_factory import create_gaze_engine
         args.gazelle_snap = False
         try:
             pitchyaw_engine = create_gaze_engine(plugin_args=args)

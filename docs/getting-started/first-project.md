@@ -84,5 +84,5 @@ Now that you have a working project, try expanding it:
 - **Add more phenomena** -- Edit `pipeline.yaml` to enable `mutual_gaze`, `gaze_following`, `attention_span`, or use `all_phenomena: true` to enable everything. See [Phenomena Tracking](../user-guide/phenomena-overview.md).
 - **Create visual prompts** -- Build a `.vp.json` file to detect custom objects that standard YOLO classes do not cover. See [Visual Prompts](../user-guide/visual-prompts.md).
 - **Customize the pipeline** -- Adjust gaze parameters, detection thresholds, and output settings in `pipeline.yaml`. See [Pipeline YAML Schema](../reference/pipeline-yaml-schema.md).
-- **Use the GUI** -- Launch `python MindSight_GUI.py` for a graphical interface to configure and run tracking. See [GUI Guide](../user-guide/gui-guide.md).
+- **Use the GUI** -- Launch `mindsight-gui` (or `python MindSight_GUI.py`) for a graphical interface to configure and run tracking. See [GUI Guide](../user-guide/gui-guide.md).
 - **Assign participant IDs** -- Create a `project.yaml` in the project root to map video filenames to participant IDs and tag videos with study conditions. The GUI's Project Mode tab can generate this file for you, or you can write it by hand. See [Project Mode](../user-guide/project-mode.md).

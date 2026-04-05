@@ -56,27 +56,19 @@ from __future__ import annotations
 
 import collections
 import math
-import sys
-from pathlib import Path
 
 import cv2
 import numpy as np
 
-# Ensure repo root is on sys.path so sibling package imports resolve when the
-# plugin is loaded by the PluginRegistry discovery loop.
-_REPO_ROOT = Path(__file__).parent.parent.parent.parent  # Plugins/Phenomena/NovelSalience/ → repo root
-if str(_REPO_ROOT) not in sys.path:
-    sys.path.insert(0, str(_REPO_ROOT))
-
-from pipeline_config import resolve_display_pid  # noqa: E402
-from Plugins import PhenomenaPlugin  # noqa: E402
+from ms.pipeline_config import resolve_display_pid
+from Plugins import PhenomenaPlugin
 
 
 # ── Dashboard drawing helpers ─────────────────────────────────────────────────
 # Imported lazily inside methods that need them so the plugin loads even when
 # the DataCollection package has not been fully initialized yet.
 def _dash():
-    from DataCollection.dashboard_output import (
+    from ms.DataCollection.dashboard_output import (
         _DASH_DIM,
         _dash_line_h,
         _draw_panel_section,

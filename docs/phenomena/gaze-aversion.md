@@ -61,4 +61,4 @@ python MindSight.py --source video.mp4 --gaze-aversion --aversion-window 90
 
 ## Source
 
-`Phenomena/Default/gaze_aversion.py`
+`ms/Phenomena/Default/gaze_aversion.py`

@@ -38,7 +38,7 @@ The `__init__.py` is empty. All logic lives in `gaze_boost.py`.
 
 ```python
 from Plugins import ObjectDetectionPlugin
-from ObjectDetection.detection import Detection
+from ms.ObjectDetection.detection import Detection
 
 class GazeBoostPlugin(ObjectDetectionPlugin):
     name = "gaze_boost"
@@ -219,7 +219,7 @@ If multiple ObjectDetection plugins are active, they are called in sequence. Eac
 
 ```python
 from Plugins import ObjectDetectionPlugin
-from ObjectDetection.detection import Detection
+from ms.ObjectDetection.detection import Detection
 
 
 class GazeBoostPlugin(ObjectDetectionPlugin):

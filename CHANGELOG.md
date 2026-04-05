@@ -1,32 +1,35 @@
 # Changelog
 
-## [0.3.0-beta] - 2026-04-04
+## [0.4.0-beta] - 2026-04-05
+
+### Changed
+- **Package restructure** -- all domain code moved under `ms/` package; `pip install -e .` now required; `mindsight` and `mindsight-gui` console commands available
 
 ### Added
 - **L2CS-Net gaze backend** — dual classification heads, 3.92° MAE on MPIIGaze (vs 11° for MGaze)
 - **UniGaze gaze backend** — ViT + MAE pre-training, best cross-dataset accuracy (~9.4°, non-commercial license)
-- **Backend registry** — automatic discovery of gaze backends from `GazeTracking/Backends/`
+- **Backend registry** — automatic discovery of gaze backends from `ms/GazeTracking/Backends/`
 - **Unified pitchyaw pipeline** — `pitchyaw_pipeline.py` shared by all pitch/yaw-based backends
-- **Live matplotlib dashboard** — real-time per-tracker charts during processing (`GUI/live_dashboard.py`)
-- **Dashboard bridge** — thread-safe GUI-to-dashboard data flow (`GUI/live_dashboard_bridge.py`)
-- **Post-run chart generation** — time-series charts via `DataCollection/chart_output.py` (`--charts` flag)
-- **Global CSV** — cross-video summary and per-condition statistics for project mode (`DataCollection/global_csv.py`)
-- **Matplotlib dashboard renderer** — `DataCollection/dashboard_matplotlib.py` replaces OpenCV drawing
+- **Live matplotlib dashboard** — real-time per-tracker charts during processing (`ms/GUI/live_dashboard.py`)
+- **Dashboard bridge** — thread-safe GUI-to-dashboard data flow (`ms/GUI/live_dashboard_bridge.py`)
+- **Post-run chart generation** — time-series charts via `ms/DataCollection/chart_output.py` (`--charts` flag)
+- **Global CSV** — cross-video summary and per-condition statistics for project mode (`ms/DataCollection/global_csv.py`)
+- **Matplotlib dashboard renderer** — `ms/DataCollection/dashboard_matplotlib.py` replaces OpenCV drawing
 - **Face anonymization** — `--anonymize blur|black` with configurable padding and temporal smoothing
 - **Auxiliary video streams** — per-participant secondary cameras (eye-tracking, FPV) via `AuxStreamConfig`
-- **Participant ID mapping** — custom labels via `pid_map` in `project.yaml` and `participant_ids.py`
+- **Participant ID mapping** — custom labels via `pid_map` in `project.yaml` and `ms/participant_ids.py`
 - **ProjectConfig / ProjectOutputConfig** — study metadata dataclasses for project mode
 - **Example project template** — `Projects/ExampleProject/` with `project.yaml`
 - **CollapsibleGroupBox widget** — expandable/collapsible GUI sections
 - **GazelleSnap plugin** — snap-augmented Gazelle gaze backend
 - **GazeBoost plugin** — gaze-informed object detection boost using pitchyaw pipeline
-- **Device auto-detection** — `utils/device.py` for CUDA/MPS/CPU hardware selection
+- **Device auto-detection** — `ms/utils/device.py` for CUDA/MPS/CPU hardware selection
 - **Plugin protocol methods** — `dashboard_data()`, `latest_metric()`, `latest_metrics()`, `dashboard_widget()`, `generate_charts()`
 - **Performance flags** — `--fast-mode`, `--skip-phenomena N`, `--lite-overlay`, `--no-dashboard`, `--profile`
 - **Gaze convergence tips** — `--gaze-tips` + `--tip-radius` for multi-person gaze convergence visualization
 
 ### Changed
-- **MGaze relocated** from `Plugins/GazeTracking/MGaze/` to `GazeTracking/Backends/MGaze/`
+- **MGaze relocated** from `Plugins/GazeTracking/MGaze/` to `ms/GazeTracking/Backends/MGaze/`
 - **CLI flags renamed** — `--gaze-model` → `--mgaze-model`, `--gaze-arch` → `--mgaze-arch`, `--gaze-dataset` → `--mgaze-dataset`
 - **GazeConfig.adaptive_ray** — type changed from `bool` to `str` (`"off"` / `"extend"` / `"snap"`)
 - **`ja_conf_gate` renamed to `hit_conf_gate`** — broader semantics beyond joint attention
@@ -54,7 +57,7 @@
 - `GazeConfig.adaptive_ray` type changed from `bool` to `str`
 - `GazeConfig.adaptive_snap_mode` removed (replaced by `snap_bbox_scale` and scoring weights)
 - `GazeConfig.ja_conf_gate` renamed to `hit_conf_gate`
-- MGaze plugin path changed from `Plugins/GazeTracking/MGaze/` to `GazeTracking/Backends/MGaze/`
+- MGaze plugin path changed from `Plugins/GazeTracking/MGaze/` to `ms/GazeTracking/Backends/MGaze/`
 - `dashboard_section()`, `csv_rows()`, `console_summary()` signatures changed (added `pid_map` kwarg)
 - Phenomena tracker `__init__` no longer returns separate `ja_tracker` — JA unified into tracker list
 

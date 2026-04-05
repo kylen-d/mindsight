@@ -330,6 +330,6 @@ What makes NovelSalience a well-built plugin:
 
 - **Only pulls needed kwargs.** Uses `kwargs.get()` with defaults, so the plugin never breaks when new keys are added to the pipeline.
 - **Uses `resolve_display_pid` for participant labels.** Internal track IDs are integers; display labels (P1, S70, etc.) are resolved via `pid_map` at output time.
-- **Lazy imports for dashboard helpers.** The `_dash()` helper function imports from `DataCollection.dashboard_output` only when called, so the plugin module loads even if the DataCollection package is not yet initialised.
+- **Lazy imports for dashboard helpers.** The `_dash()` helper function imports from `ms.DataCollection.dashboard_output` only when called, so the plugin module loads even if the DataCollection package is not yet initialised.
 - **Smooth visual indicators with frame-based fade.** The `frac = frames_remaining / flash_len` pattern gives a linear fade that is consistent across video frame rates.
 - **Both `dashboard_section` (legacy) and `dashboard_data` (new) implemented.** This ensures the plugin works with both the direct-draw dashboard renderer and the newer structured-data renderer used by the GUI.

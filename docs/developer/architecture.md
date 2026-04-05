@@ -15,28 +15,28 @@ The four stages are:
 
 ```mermaid
 graph TD
-    MS[MindSight.py] --> DP[ObjectDetection/detection_pipeline]
-    MS --> GP[GazeTracking/gaze_pipeline]
-    MS --> PP[Phenomena/phenomena_pipeline]
-    MS --> DC[DataCollection/data_pipeline]
+    MS[MindSight.py] --> DP[ms/ObjectDetection/detection_pipeline]
+    MS --> GP[ms/GazeTracking/gaze_pipeline]
+    MS --> PP[ms/Phenomena/phenomena_pipeline]
+    MS --> DC[ms/DataCollection/data_pipeline]
 
-    DP --> OD[ObjectDetection/object_detection]
-    DP --> MF[ObjectDetection/model_factory]
+    DP --> OD[ms/ObjectDetection/object_detection]
+    DP --> MF[ms/ObjectDetection/model_factory]
 
-    GP --> GPR[GazeTracking/gaze_processing]
-    GP --> GI[GazeTracking/__init__]
-    GP --> GBE[GazeTracking/Backends/*]
+    GP --> GPR[ms/GazeTracking/gaze_processing]
+    GP --> GI[ms/GazeTracking/__init__]
+    GP --> GBE[ms/GazeTracking/Backends/*]
 
-    PP --> PT[Phenomena/phenomena_tracking]
-    PP --> PC[Phenomena/phenomena_config]
-    PP --> PH[Phenomena/helpers]
-    PP --> PD[Phenomena/Default/*]
+    PP --> PT[ms/Phenomena/phenomena_tracking]
+    PP --> PC[ms/Phenomena/phenomena_config]
+    PP --> PH[ms/Phenomena/helpers]
+    PP --> PD[ms/Phenomena/Default/*]
 
-    DC --> CSV[DataCollection/csv_output]
-    DC --> HM[DataCollection/heatmap_output]
-    DC --> DB[DataCollection/dashboard_output]
+    DC --> CSV[ms/DataCollection/csv_output]
+    DC --> HM[ms/DataCollection/heatmap_output]
+    DC --> DB[ms/DataCollection/dashboard_output]
 
-    MS --> CFG[pipeline_config.py]
+    MS --> CFG[ms/pipeline_config.py]
     MS --> PLG[Plugins/__init__.py]
 
     PLG --> GREG[gaze_registry]
@@ -44,7 +44,7 @@ graph TD
     PLG --> PREG[phenomena_registry]
 ```
 
-`Plugins/__init__.py` provides base classes and registries that each plugin subdirectory hooks into. `pipeline_config.py` defines `FrameContext` and the configuration dataclasses consumed by every stage.
+`Plugins/__init__.py` provides base classes and registries that each plugin subdirectory hooks into. `ms/pipeline_config.py` defines `FrameContext` and the configuration dataclasses consumed by every stage.
 
 ## The Orchestrator: MindSight.py
 
@@ -82,10 +82,10 @@ Factory function that reads the argparse namespace and instantiates the correct 
 
 | Stage | Entry Point | Module |
 |-------|-------------|--------|
-| Detection | `run_detection_step(ctx, ...)` | `ObjectDetection/detection_pipeline.py` |
-| Gaze | `run_gaze_step(ctx, ...)` | `GazeTracking/gaze_pipeline.py` |
-| Phenomena | `update_phenomena_step(ctx)` | `Phenomena/phenomena_pipeline.py` |
-| Data Collection | `collect_frame_data(ctx, ...)` | `DataCollection/data_pipeline.py` |
+| Detection | `run_detection_step(ctx, ...)` | `ms/ObjectDetection/detection_pipeline.py` |
+| Gaze | `run_gaze_step(ctx, ...)` | `ms/GazeTracking/gaze_pipeline.py` |
+| Phenomena | `update_phenomena_step(ctx)` | `ms/Phenomena/phenomena_pipeline.py` |
+| Data Collection | `collect_frame_data(ctx, ...)` | `ms/DataCollection/data_pipeline.py` |
 
 Each stage reads from and writes to the `FrameContext`. See [FrameContext Reference](frame-context.md) for the full key registry.
 
@@ -99,7 +99,7 @@ All configuration dataclasses follow the same pattern: they are constructed via 
 - **OutputConfig** -- save directory paths, PID map file, anonymization mode, video writer settings.
 - **PhenomenaConfig** -- per-phenomenon enable/disable toggles and their individual thresholds (e.g., mutual gaze angle, joint attention confirmation frames).
 
-All of these are defined in `pipeline_config.py` or in their respective module configs (e.g., `Phenomena/phenomena_config.py`).
+All of these are defined in `ms/pipeline_config.py` or in their respective module configs (e.g., `ms/Phenomena/phenomena_config.py`).
 
 ## CLI Argument Registration
 
@@ -140,7 +140,7 @@ sequenceDiagram
 
 ## GUI Architecture
 
-The GUI is built with PyQt and lives in the `GUI/` directory.
+The GUI is built with PyQt and lives in the `ms/GUI/` directory.
 
 - **`main_window.py`** creates the application window with three tabs:
   - **`GazeTab`** (`gaze_tab.py`) -- live video view with gaze overlay, controls for starting/stopping tracking.
@@ -162,7 +162,7 @@ Plugins hook into three registries defined in `Plugins/__init__.py`:
 | `object_detection_registry` | Alternative detection backends | Custom YOLO variants |
 | `phenomena_registry` | New social gaze phenomena | Custom attention metrics |
 
-Auto-discovery scans `Plugins/` subdirectories at startup. The gaze registry also scans `GazeTracking/Backends/` for built-in gaze backends (MGaze, L2CS, UniGaze). Each plugin package exposes a registration function that inserts itself into the appropriate registry. Plugins can also provide `add_arguments(parser)` to register their own CLI flags.
+Auto-discovery scans `Plugins/` subdirectories at startup. The gaze registry also scans `ms/GazeTracking/Backends/` for built-in gaze backends (MGaze, L2CS, UniGaze). Each plugin package exposes a registration function that inserts itself into the appropriate registry. Plugins can also provide `add_arguments(parser)` to register their own CLI flags.
 
 ## Auxiliary Video Streams
 

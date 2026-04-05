@@ -41,23 +41,7 @@ The filename does not matter. Only the class and `PLUGIN_CLASS` variable are use
 
 ### Step 2: Set Up Imports
 
-Plugins live in subdirectories and are loaded dynamically, so Python's default import resolution will not find top-level packages like `Plugins` or `DataCollection` from that depth. Add this boilerplate at the top of your module:
-
-```python
-from __future__ import annotations
-
-import sys
-from pathlib import Path
-
-# Walk up to the repository root so sibling imports resolve correctly.
-_REPO_ROOT = Path(__file__).parent.parent.parent
-if str(_REPO_ROOT) not in sys.path:
-    sys.path.insert(0, str(_REPO_ROOT))
-```
-
-The number of `.parent` calls depends on your plugin's depth relative to the repository root. For a standard plugin at `Plugins/<Type>/<Name>/module.py`, three levels is correct.
-
-Then import the base class for your plugin type:
+Plugins live in subdirectories and are loaded dynamically. The `ms` package is installed as an editable package, so domain modules are available via `ms.*` imports. Import the base class for your plugin type:
 
 ```python
 from Plugins import GazePlugin           # for gaze plugins
@@ -182,7 +166,7 @@ def estimate_frame(self, frame_bgr, face_bboxes_px: list) -> list:
 
 ### Custom Pipeline (Advanced)
 
-Override `run_pipeline()` for full control over face cropping, estimation, temporal smoothing, and ray construction. When implemented, the coordinator in `GazeTracking/gaze_pipeline.py` calls this instead of the default per-face or scene handler.
+Override `run_pipeline()` for full control over face cropping, estimation, temporal smoothing, and ray construction. When implemented, the coordinator in `ms/GazeTracking/gaze_pipeline.py` calls this instead of the default per-face or scene handler.
 
 ```python
 def run_pipeline(self, **kwargs):

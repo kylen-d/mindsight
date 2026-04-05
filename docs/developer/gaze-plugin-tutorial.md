@@ -4,7 +4,7 @@
 
 This tutorial covers all three gaze plugin patterns by walking through real backends that ship with MindSight:
 
-- **[Part A — Per-face mode:](#part-a-per-face-backend-mgaze)** The MGaze backend (`GazeTracking/Backends/MGaze/MGaze_Tracking.py`), which crops each face and estimates pitch/yaw angles independently.
+- **[Part A — Per-face mode:](#part-a-per-face-backend-mgaze)** The MGaze backend (`ms/GazeTracking/Backends/MGaze/MGaze_Tracking.py`), which crops each face and estimates pitch/yaw angles independently.
 - **[Part B — Scene-level mode:](#part-b-scene-level-backend-gazelle)** The Gazelle backend (`Plugins/GazeTracking/Gazelle/gazelle_backend.py`), which processes the full frame and all faces in a single DINOv2 forward pass.
 - **[Part C — Composite / processing augmentation:](#part-c-composite-backend-adding-gaze-processing-features-gazellesnap)** The GazelleSnap backend (`Plugins/GazeTracking/GazelleSnap/gazelle_snap_backend.py`), which wraps an existing per-face backend and augments it with periodic Gazelle heatmap-based ray blending.
 
@@ -29,14 +29,14 @@ Choose your mode based on what your model produces. If it outputs pitch/yaw angl
 
 The MGaze plugin is MindSight's default gaze backend. It supports both ONNX and PyTorch inference, wrapping the vendored `gaze-estimation` library. It demonstrates the per-face pattern where `estimate()` receives a single cropped face and returns pitch/yaw angles.
 
-**Source:** `GazeTracking/Backends/MGaze/MGaze_Tracking.py`
+**Source:** `ms/GazeTracking/Backends/MGaze/MGaze_Tracking.py`
 
 ---
 
 ## A1. File Structure
 
 ```
-GazeTracking/Backends/MGaze/
+ms/GazeTracking/Backends/MGaze/
 ├── __init__.py
 ├── MGaze_Tracking.py       # PLUGIN_CLASS = MGazePlugin
 ├── MGaze_Config.py         # DEFAULT_ONNX_MODEL, ARCH_CHOICES, DATA_CONFIG
@@ -52,7 +52,7 @@ GazeTracking/Backends/MGaze/
 ```
 
 !!! note
-    MGaze lives under `GazeTracking/Backends/` (not `Plugins/GazeTracking/`). The gaze registry discovers both locations — built-in backends from `GazeTracking/Backends/` and external plugins from `Plugins/GazeTracking/`.
+    MGaze lives under `ms/GazeTracking/Backends/` (not `Plugins/GazeTracking/`). The gaze registry discovers both locations — built-in backends from `ms/GazeTracking/Backends/` and external plugins from `Plugins/GazeTracking/`.
 
 ---
 
@@ -178,7 +178,7 @@ class MGazePlugin(GazePlugin):
         return self._engine.estimate(face_bgr)
 
     def run_pipeline(self, **kwargs):
-        from GazeTracking.pitchyaw_pipeline import run_pitchyaw_pipeline
+        from ms.GazeTracking.pitchyaw_pipeline import run_pitchyaw_pipeline
         return run_pitchyaw_pipeline(gaze_eng=self, **kwargs)
 ```
 
@@ -194,7 +194,7 @@ Any per-face plugin that outputs `(pitch, yaw, confidence)` can use this shared 
 
 ```python
 def run_pipeline(self, **kwargs):
-    from GazeTracking.pitchyaw_pipeline import run_pitchyaw_pipeline
+    from ms.GazeTracking.pitchyaw_pipeline import run_pitchyaw_pipeline
     return run_pitchyaw_pipeline(gaze_eng=self, **kwargs)
 ```
 
@@ -283,12 +283,6 @@ To create a new per-face gaze backend as a plugin:
 # Plugins/GazeTracking/MyBackend/my_backend.py
 
 from __future__ import annotations
-import sys
-from pathlib import Path
-
-_REPO_ROOT = Path(__file__).parent.parent.parent.parent
-if str(_REPO_ROOT) not in sys.path:
-    sys.path.insert(0, str(_REPO_ROOT))
 
 from Plugins import GazePlugin
 
@@ -313,7 +307,7 @@ class MyGazeBackend(GazePlugin):
 
     def run_pipeline(self, **kwargs):
         """Delegate to the shared per-face pipeline."""
-        from GazeTracking.pitchyaw_pipeline import run_pitchyaw_pipeline
+        from ms.GazeTracking.pitchyaw_pipeline import run_pitchyaw_pipeline
         return run_pitchyaw_pipeline(gaze_eng=self, **kwargs)
 
     @classmethod
@@ -534,18 +528,6 @@ PLUGIN_CLASS = MGazePlugin       # per-face
 PLUGIN_CLASS = GazeEstimationGazelle  # scene-level
 ```
 
-### sys.path setup
-
-Both plugins prepend the repo root to `sys.path` so that `from Plugins import GazePlugin` resolves from the subdirectory:
-
-```python
-_REPO_ROOT = Path(__file__).parent.parent.parent.parent
-if str(_REPO_ROOT) not in sys.path:
-    sys.path.insert(0, str(_REPO_ROOT))
-```
-
-The depth (number of `.parent` calls) depends on how deep the plugin file is relative to the repo root.
-
 ---
 
 # Part C: Composite Backend — Adding Gaze Processing Features (GazelleSnap)
@@ -755,11 +737,11 @@ def from_args(cls, args):
         return None
 
     # 1. Create the Gazelle heatmap engine
-    from Plugins.GazeTracking.Gazelle.gazelle_backend import GazeEstimationGazelle
+    from Plugins.GazeTracking.Gazelle.gazelle_backend import GazeEstimationGazelle  # noqa: Plugins stay top-level
     gazelle_engine = GazeEstimationGazelle(gz_name, gazelle_ckpt, ...)
 
     # 2. Create the inner pitch/yaw engine via the gaze factory
-    from GazeTracking.gaze_factory import create_gaze_engine
+    from ms.GazeTracking.gaze_factory import create_gaze_engine
     args.gazelle_snap = False          # prevent recursion
     try:
         pitchyaw_engine = create_gaze_engine(plugin_args=args)

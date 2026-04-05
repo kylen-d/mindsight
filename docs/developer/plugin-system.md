@@ -100,7 +100,7 @@ data_collection_registry   = PluginRegistry()
 The gaze registry scans two locations:
 
 - `Plugins/GazeTracking/` -- third-party gaze plugins.
-- `GazeTracking/Backends/` -- built-in gaze backends shipped with MindSight.
+- `ms/GazeTracking/Backends/` -- built-in gaze backends shipped with MindSight.
 
 The other three registries each scan their corresponding `Plugins/<Type>/` directory.
 
@@ -124,7 +124,7 @@ Base class for gaze estimation backends.
 
 **`estimate_frame(frame_bgr, face_bboxes_px)`** -- Scene-level estimation. Returns `[(gaze_xy_px, confidence), ...]`, one entry per bounding box. Implement this when `mode = "scene"`.
 
-**`run_pipeline(**kwargs)`** -- Optional. Override to provide a self-contained pipeline that handles face cropping, estimation, temporal smoothing, and ray construction. When implemented, the coordinator in `GazeTracking/gaze_pipeline.py` calls this instead of the default per-face or scene handler.
+**`run_pipeline(**kwargs)`** -- Optional. Override to provide a self-contained pipeline that handles face cropping, estimation, temporal smoothing, and ray construction. When implemented, the coordinator in `ms/GazeTracking/gaze_pipeline.py` calls this instead of the default per-face or scene handler.
 
 `run_pipeline` keyword arguments:
 

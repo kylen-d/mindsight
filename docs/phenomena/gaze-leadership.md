@@ -67,4 +67,4 @@ python MindSight.py --source video.mp4 --gaze-leader --joint-attention
 
 ---
 
-Source: `Phenomena/Default/gaze_leadership.py`
+Source: `ms/Phenomena/Default/gaze_leadership.py`

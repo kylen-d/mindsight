@@ -3,7 +3,7 @@
 import numpy as np
 import pytest
 
-from GazeTracking.gaze_processing import (
+from ms.GazeTracking.gaze_processing import (
     GazeLockTracker,
     GazeSmootherReID,
     SnapHysteresisTracker,
@@ -142,7 +142,7 @@ class TestGazeLockTracker:
 
     def _make_object(self, x1, y1, x2, y2, cls="obj"):
         """Helper to create object dicts with bbox keys."""
-        from ObjectDetection.detection import Detection
+        from ms.ObjectDetection.detection import Detection
         return Detection(
             class_name=cls, cls_id=0, conf=0.9,
             x1=x1, y1=y1, x2=x2, y2=y2,

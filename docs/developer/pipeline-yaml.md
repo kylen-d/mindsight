@@ -12,7 +12,7 @@ This is especially useful for reproducible experiments, project mode, and sharin
 
 ## How It Works
 
-On startup, `pipeline_loader.py` reads the YAML file, flattens any nested keys into dot-separated paths, and maps each key to its corresponding `argparse` attribute using the internal `_YAML_MAP` dictionary. The resulting values are applied to the argument namespace before the pipeline begins.
+On startup, `ms/pipeline_loader.py` reads the YAML file, flattens any nested keys into dot-separated paths, and maps each key to its corresponding `argparse` attribute using the internal `_YAML_MAP` dictionary. The resulting values are applied to the argument namespace before the pipeline begins.
 
 CLI flags always take precedence over YAML values, so you can use a YAML file as a baseline and override individual settings from the command line.
 

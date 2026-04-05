@@ -568,8 +568,8 @@ gaze_registry.discover(_PLUGINS_ROOT / "GazeTracking", namespace="Plugins.GazeTr
 
 #: Built-in backends under ``GazeTracking/Backends/``.
 gaze_registry.discover(
-    _PLUGINS_ROOT.parent / "GazeTracking" / "Backends",
-    namespace="GazeTracking.Backends",
+    _PLUGINS_ROOT.parent / "ms" / "GazeTracking" / "Backends",
+    namespace="ms.GazeTracking.Backends",
 )
 
 #: Registry for :class:`ObjectDetectionPlugin` backends (``Plugins/ObjectDetection/``).
