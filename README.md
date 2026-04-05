@@ -273,7 +273,8 @@ MindSight/
 ## MindSight.py — CLI Usage
 
 ```bash
-python MindSight.py [OPTIONS]
+mindsight                          # console command (after pip install -e .)
+python MindSight.py [OPTIONS]      # or run the CLI directly
 ```
 
 ### Quick examples
