@@ -63,6 +63,7 @@ nav:
       - Visual Prompts: user-guide/visual-prompts.md
       - Phenomena Tracking: user-guide/phenomena-overview.md
       - Data & Output: user-guide/data-output.md
+      - Auxiliary Streams: user-guide/auxiliary-streams.md
       - Project Mode: user-guide/project-mode.md
       - GUI Guide: user-guide/gui-guide.md
   - Phenomena:

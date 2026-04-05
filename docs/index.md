@@ -1,6 +1,6 @@
 # MindSight
 
-**Unified object detection and gaze intersection tracking for cognitive science research.**
+**Unified Object Detection and Gaze Intersection Tracker for Cognitive Sciences Research**
 
 MindSight is an open-source toolkit that detects where people look in video, images, and live camera feeds, then maps those gaze vectors onto detected objects to identify social-cognitive phenomena such as joint attention, mutual gaze, and gaze following -- all from a single configurable pipeline.
 

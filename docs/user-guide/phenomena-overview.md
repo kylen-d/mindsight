@@ -35,11 +35,11 @@ phenomena:
 |---|---|---|---|
 | Joint Attention | `--joint-attention` | Two or more people looking at the same object simultaneously | [Joint Attention](../phenomena/joint-attention.md) |
 | Mutual Gaze | `--mutual-gaze` | Two people looking directly at each other | [Mutual Gaze](../phenomena/mutual-gaze.md) |
-| Gaze Following | `--gaze-following` | One person shifts gaze to match where another is looking | [Gaze Following](../phenomena/gaze-following.md) |
-| Gaze Leadership | `--gaze-leadership` | One person's gaze consistently directs others' attention | [Gaze Leadership](../phenomena/gaze-leadership.md) |
-| Social Referencing | `--social-referencing` | Looking at another person's face after encountering a novel object | [Social Referencing](../phenomena/social-referencing.md) |
+| Gaze Following | `--gaze-follow` | One person shifts gaze to match where another is looking | [Gaze Following](../phenomena/gaze-following.md) |
+| Gaze Leadership | `--gaze-leader` | One person's gaze consistently directs others' attention | [Gaze Leadership](../phenomena/gaze-leadership.md) |
+| Social Referencing | `--social-ref` | Looking at another person's face after encountering a novel object | [Social Referencing](../phenomena/social-referencing.md) |
 | Gaze Aversion | `--gaze-aversion` | Deliberately looking away from a person or object | [Gaze Aversion](../phenomena/gaze-aversion.md) |
-| Attention Span | `--attention-span` | Duration of sustained gaze on a single target | [Attention Span](../phenomena/attention-span.md) |
+| Attention Span | `--attn-span` | Duration of sustained gaze on a single target | [Attention Span](../phenomena/attention-span.md) |
 | Scanpath | `--scanpath` | Sequential pattern of gaze fixations across objects | [Scanpath](../phenomena/scanpath.md) |
 
 ## How Phenomena Work

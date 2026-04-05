@@ -160,4 +160,4 @@ MindSight includes several flags to trade output richness for speed:
 | `--profile` | Prints per-stage timing after each frame for performance diagnosis. |
 
 !!! tip "Under the hood"
-    `--profile` writes a `profile.csv` alongside the output video, which you can load in a spreadsheet to identify bottlenecks. See [developer/profiling.md](../developer/profiling.md) for analysis tips.
+    `--profile` writes a `profile.csv` alongside the output video, which you can load in a spreadsheet to identify bottlenecks.

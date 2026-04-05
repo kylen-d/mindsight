@@ -22,13 +22,17 @@ The User Guide covers every major feature of MindSight in detail. Whether you ar
 
     Define regions and objects of interest to guide detection and phenomena analysis.
 
--   **[Phenomena Tracking](phenomena-tracking.md)**
+-   **[Phenomena Tracking](phenomena-overview.md)**
 
     The eight built-in phenomena detectors and how to enable or configure them.
 
 -   **[Data & Output](data-output.md)**
 
     CSV logs, heatmaps, video overlays, and dashboard views.
+
+-   **[Auxiliary Streams](auxiliary-streams.md)**
+
+    Per-participant secondary video feeds (eye cameras, first-person views) for plugins.
 
 -   **[Project Mode](project-mode.md)**
 
