@@ -249,10 +249,11 @@ class L2CSPlugin(GazePlugin):
     @classmethod
     def from_args(cls, args):
         """Create an L2CS engine from parsed CLI args."""
+        from weights import resolve_weight
         model = getattr(args, "l2cs_model", None)
         if not model:
             return None
-        model = Path(model)
+        model = Path(resolve_weight("L2CS", str(model)))
         if not model.exists():
             raise FileNotFoundError(f"L2CS model not found: {model}")
 

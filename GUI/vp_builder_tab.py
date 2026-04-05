@@ -214,7 +214,8 @@ class VisualPromptBuilderTab(QWidget):
 
         test_lay.addWidget(QLabel("YOLOE model:"))
         self._test_model = QComboBox()
-        seg_models = sorted(str(p.name) for p in _HERE.glob("yoloe-*.pt"))
+        _yolo_dir = _HERE / "Weights" / "YOLO"
+        seg_models = sorted(str(p.name) for p in _yolo_dir.glob("yoloe-*.pt")) if _yolo_dir.is_dir() else []
         self._test_model.addItems(seg_models or ["yoloe-26l-seg.pt"])
         self._test_model.setEditable(True)
         test_lay.addWidget(self._test_model, 2)

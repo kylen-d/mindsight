@@ -16,11 +16,13 @@ build/
 Outputs/
 heatmaps/
 
-# Model weights (large binary files)
+# Model weights -- all backends store weights in Weights/{backend}/
+# Download via: python scripts/download_weights.py
+Weights/
 *.pt
 *.ts
 *.onnx
-Weights/
+*.pkl
 
 # IDE
 .vscode/
@@ -35,17 +37,12 @@ Weights/
 .env
 venv/
 
-# Embedded venvs (gaze-estimation submodule)
+# Embedded third-party caches
 GazeTracking/Backends/MGaze/gaze-estimation/gaze/
-GazeTracking/Backends/MGaze/gaze-estimation/weights/
-GazeTracking/Backends/MGaze/gaze-estimation/assets/
+.ruff_cache/
 
 # Upstream demo assets (large GIFs/images)
 Plugins/GazeTracking/Gazelle/gazelle/assets/
-
-# Backend model weights
-GazeTracking/Backends/L2CS/weights/
-*.pkl
 
 # Test data (large video files)
 test_data/

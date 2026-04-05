@@ -65,57 +65,28 @@ python install_dependencies.py --dry-run  # preview without installing
 
 ---
 
-## Download Gaze Model Weights
+## Download Model Weights
 
-MindSight supports multiple gaze-estimation backends. Each requires its own model weights.
-
-### MGaze (default)
-
-Download ONNX or PyTorch weights and place them in:
-
-```
-GazeTracking/Backends/MGaze/gaze-estimation/weights/
-```
-
-You can download weights using the included script:
+All model weights are stored in `Weights/{backend}/`. Download them with:
 
 ```bash
-cd GazeTracking/Backends/MGaze/gaze-estimation
-bash download.sh
+python scripts/download_weights.py            # all backends
+python scripts/download_weights.py --backend MGaze   # specific backend
+python scripts/download_weights.py --dry-run         # preview only
 ```
 
-### Gazelle
+### What gets downloaded
 
-Download the Gazelle model weights separately and pass the path at launch:
+| Backend | Method | Notes |
+|---------|--------|-------|
+| **MGaze** (default) | Download script | ONNX + PyTorch variants in `Weights/MGaze/` |
+| **Gazelle** | Download script | Checkpoints in `Weights/Gazelle/` |
+| **L2CS** | Manual | Download from [L2CS-Net](https://github.com/Ahmednull/L2CS-Net), place in `Weights/L2CS/` |
+| **UniGaze** | Auto (HuggingFace) | Downloaded on first use, cached in `~/.cache/huggingface/` |
+| **YOLO** | Auto (Ultralytics) | Downloaded on first use, cached in `Weights/YOLO/` |
 
-```bash
-python MindSight.py --gazelle-model /path/to/gazelle_weights.pth
-```
-
-### L2CS
-
-Download the L2CS weights and pass the path at launch:
-
-```bash
-python MindSight.py --l2cs-model /path/to/l2cs_weights.pkl
-```
-
-### UniGaze
-
-!!! warning "Non-commercial license"
+!!! warning "UniGaze non-commercial license"
     UniGaze is released under a non-commercial license. Review its terms before use.
-
-UniGaze dependencies (`timm`) are included in `requirements.txt`. Download the UniGaze model weights and pass the path at launch:
-
-```bash
-python MindSight.py --unigaze-model /path/to/unigaze_weights.pth
-```
-
----
-
-## YOLO Weights
-
-YOLO and YOLOE weights are **auto-downloaded** by the Ultralytics library on first use. No manual download is required. The weights are cached locally after the initial download.
 
 ---
 
@@ -149,8 +120,8 @@ RuntimeError: CUDA not available
 FileNotFoundError: .../mobileone_s0_gaze.onnx
 ```
 
-- Check that the `GazeTracking/Backends/MGaze/gaze-estimation/weights/` directory exists and contains the expected weight files.
-- Download weights using `bash GazeTracking/Backends/MGaze/gaze-estimation/download.sh`.
+- Check that the `Weights/MGaze/` directory exists and contains the expected weight files.
+- Download weights using `python scripts/download_weights.py --backend MGaze`.
 
 ### Import errors
 

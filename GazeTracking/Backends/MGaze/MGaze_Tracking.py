@@ -141,10 +141,11 @@ class MGazePlugin(GazePlugin):
     @classmethod
     def from_args(cls, args):
         """Create an MGaze engine from parsed CLI args."""
+        from weights import resolve_weight
         model = getattr(args, "mgaze_model", None)
         if not model:
             return None
-        model = Path(model)
+        model = Path(resolve_weight("MGaze", str(model)))
         if not model.exists():
             raise FileNotFoundError(f"MGaze model not found: {model}")
 

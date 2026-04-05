@@ -9,12 +9,10 @@ References
 Paper  : https://arxiv.org/abs/2203.03339
 Repo   : https://github.com/Ahmednull/L2CS-Net
 """
-from pathlib import Path
+from weights import resolve_weight
 
-# Default model shipped with MindSight (user must download separately)
-WEIGHTS_DIR = Path(__file__).parent / "weights"
-
-DEFAULT_MODEL = str(WEIGHTS_DIR / "L2CSNet_gaze360.pkl")
+# Default model shipped with MindSight (resolved via Weights/L2CS/)
+DEFAULT_MODEL = str(resolve_weight("L2CS", "L2CSNet_gaze360.pkl"))
 
 # Architecture choices (ResNet variants supported by L2CS)
 ARCH_CHOICES = [
