@@ -36,6 +36,7 @@ Base pipeline: YOLO objects -> RetinaFace faces -> gaze estimation ->
 import argparse
 import csv
 import time
+from collections import deque
 from pathlib import Path
 
 import cv2
@@ -143,6 +144,112 @@ def process_frame(ctx, *, yolo, face_det, gaze_eng,
 
 
 # ══════════════════════════════════════════════════════════════════════════════
+# Run helpers
+# ══════════════════════════════════════════════════════════════════════════════
+
+def _ja_mode_string(phenomena_cfg, gaze_cfg):
+    """Build a human-readable summary of active JA accuracy features for the HUD."""
+    ja_flags = []
+    if phenomena_cfg.joint_attention and phenomena_cfg.ja_window > 0:
+        ja_flags.append(f"win={phenomena_cfg.ja_window}/{phenomena_cfg.ja_window_thresh:.0%}")
+    if gaze_cfg.hit_conf_gate > 0:
+        ja_flags.append(f"hit-gate={gaze_cfg.hit_conf_gate:.2f}")
+    if phenomena_cfg.ja_quorum < 1.0:
+        ja_flags.append(f"quorum={phenomena_cfg.ja_quorum:.0%}")
+    if gaze_cfg.gaze_cone_angle > 0:
+        ja_flags.append(f"cone={gaze_cfg.gaze_cone_angle:.1f}\u00b0")
+    return ("JA+ [" + " ".join(ja_flags) + "]") if ja_flags else None
+
+
+def _run_image(source, *, yolo, face_det, gaze_eng, gaze_cfg, det_cfg,
+               output_cfg, phenomena_cfg, detection_plugins, ja_mode_str):
+    """Single-frame pipeline: detect -> gaze -> JA -> overlay -> display/save."""
+    frame = cv2.imread(source)
+    if frame is None:
+        raise FileNotFoundError(f"Cannot read: {source}")
+
+    ctx = FrameContext(frame=frame, frame_no=0, pid_map=output_cfg.pid_map,
+                       aux_frames={},
+                       anonymize=output_cfg.anonymize,
+                       anonymize_padding=output_cfg.anonymize_padding)
+    process_frame(ctx, yolo=yolo, face_det=face_det, gaze_eng=gaze_eng,
+                  gaze_cfg=gaze_cfg, det_cfg=det_cfg,
+                  phenomena_cfg=phenomena_cfg,
+                  detection_plugins=detection_plugins)
+
+    hit_events = ctx['hit_events']
+    joint_objs = ctx['joint_objs']
+    tip_convs = ctx['tip_convergences']
+    dets = ctx['objects']
+
+    ctx['fps'] = 0.0
+    ctx['n_dets'] = len(hit_events)
+    ctx['joint_pct'] = 100.0 if joint_objs else 0.0
+    ctx['confirmed_objs'] = joint_objs
+    ctx['extra_hud'] = ja_mode_str
+    display = compose_dashboard(ctx)
+
+    pid_map = output_cfg.pid_map
+    for ev in hit_events:
+        plbl = resolve_display_pid(ev['face_idx'], pid_map)
+        print(f"{plbl} \u2192 {ev['object']} ({ev['object_conf']:.2f})")
+    if joint_objs:
+        print("Joint attention:", ", ".join(dets[oi]['class_name']
+              for oi in sorted(joint_objs) if oi < len(dets)))
+    for faces_set, centroid in tip_convs:
+        tag = "+".join(resolve_display_pid(fi, pid_map) for fi in sorted(faces_set))
+        print(f"Gaze convergence ({tag}) at ({int(centroid[0])}, {int(centroid[1])})")
+    if not hit_events and not tip_convs:
+        print("No gaze intersections detected.")
+    if output_cfg.save:
+        out = Path(source).stem + "_gaze.jpg"
+        cv2.imwrite(out, display)
+        print(f"Saved \u2192 {out}")
+    cv2.imshow("MindSight", display)
+    print("Press any key to close.")
+    cv2.waitKey(0)
+    cv2.destroyAllWindows()
+
+
+def _open_aux_streams(output_cfg, main_fps):
+    """Open auxiliary video captures and return (captures_dict, ended_set)."""
+    aux_captures: dict[tuple[str, str], cv2.VideoCapture] = {}
+    _aux_ended: set[tuple[str, str]] = set()
+    if output_cfg.aux_streams:
+        for aux in output_cfg.aux_streams:
+            ac = cv2.VideoCapture(aux.source)
+            if not ac.isOpened():
+                print(f"Warning: cannot open aux stream "
+                      f"{aux.pid}:{aux.stream_type} ({aux.source}) -- skipping")
+                continue
+            aux_fps = ac.get(cv2.CAP_PROP_FPS) or 30.0
+            if abs(aux_fps - main_fps) > 1.0:
+                print(f"Warning: aux stream {aux.pid}:{aux.stream_type} "
+                      f"FPS ({aux_fps:.1f}) differs from main ({main_fps:.1f}) "
+                      f"-- frames may drift")
+            aux_captures[(aux.pid, aux.stream_type)] = ac
+        if aux_captures:
+            print(f"Opened {len(aux_captures)} auxiliary stream(s)")
+    return aux_captures, _aux_ended
+
+
+def _read_aux_frames(aux_captures, _aux_ended, frame_no):
+    """Read one frame from each auxiliary stream, returning a dict of frames."""
+    aux_frames: dict[tuple[str, str], object] = {}
+    for key, ac in aux_captures.items():
+        ret_a, frame_a = ac.read()
+        if ret_a:
+            aux_frames[key] = frame_a
+        else:
+            aux_frames[key] = None
+            if key not in _aux_ended:
+                _aux_ended.add(key)
+                print(f"Warning: aux stream {key[0]}:{key[1]} "
+                      f"ended at frame {frame_no}")
+    return aux_frames
+
+
+# ══════════════════════════════════════════════════════════════════════════════
 # Run loop
 # ══════════════════════════════════════════════════════════════════════════════
 
@@ -166,98 +273,23 @@ def run(source, yolo, face_det, gaze_eng,
         phenomena_cfg = PhenomenaConfig()
 
     is_image = isinstance(source, str) and Path(source).suffix.lower() in IMAGE_EXTS
-
-    # Build a human-readable summary of active JA accuracy features for the HUD
-    ja_flags = []
-    if phenomena_cfg.joint_attention and phenomena_cfg.ja_window > 0:
-        ja_flags.append(f"win={phenomena_cfg.ja_window}/{phenomena_cfg.ja_window_thresh:.0%}")
-    if gaze_cfg.hit_conf_gate > 0:
-        ja_flags.append(f"hit-gate={gaze_cfg.hit_conf_gate:.2f}")
-    if phenomena_cfg.ja_quorum < 1.0:
-        ja_flags.append(f"quorum={phenomena_cfg.ja_quorum:.0%}")
-    if gaze_cfg.gaze_cone_angle > 0:
-        ja_flags.append(f"cone={gaze_cfg.gaze_cone_angle:.1f}\u00b0")
-    ja_mode_str = ("JA+ [" + " ".join(ja_flags) + "]") if ja_flags else None
+    ja_mode_str = _ja_mode_string(phenomena_cfg, gaze_cfg)
 
     # ── Static image mode ─────────────────────────────────────────────────────
-    # Single-frame pipeline: detect → gaze → JA → overlay → display/save.
     if is_image:
-        frame = cv2.imread(source)
-        if frame is None:
-            raise FileNotFoundError(f"Cannot read: {source}")
-
-        ctx = FrameContext(frame=frame, frame_no=0, pid_map=output_cfg.pid_map,
-                           aux_frames={},
-                           anonymize=output_cfg.anonymize,
-                           anonymize_padding=output_cfg.anonymize_padding)
-        process_frame(ctx, yolo=yolo, face_det=face_det, gaze_eng=gaze_eng,
-                      gaze_cfg=gaze_cfg, det_cfg=det_cfg,
-                      phenomena_cfg=phenomena_cfg,
-                      detection_plugins=detection_plugins)
-
-        hit_events = ctx['hit_events']
-        joint_objs = ctx['joint_objs']
-        tip_convs = ctx['tip_convergences']
-        dets = ctx['objects']
-
-        ctx['fps'] = 0.0
-        ctx['n_dets'] = len(hit_events)
-        ctx['joint_pct'] = 100.0 if joint_objs else 0.0
-        ctx['confirmed_objs'] = joint_objs
-        ctx['extra_hud'] = ja_mode_str
-        display = compose_dashboard(ctx)
-
-        pid_map = output_cfg.pid_map
-        for ev in hit_events:
-            plbl = resolve_display_pid(ev['face_idx'], pid_map)
-            print(f"{plbl} \u2192 {ev['object']} ({ev['object_conf']:.2f})")
-        if joint_objs:
-            print("Joint attention:", ", ".join(dets[oi]['class_name']
-                  for oi in sorted(joint_objs) if oi < len(dets)))
-        for faces_set, centroid in tip_convs:
-            tag = "+".join(resolve_display_pid(fi, pid_map) for fi in sorted(faces_set))
-            print(f"Gaze convergence ({tag}) at ({int(centroid[0])}, {int(centroid[1])})")
-        if not hit_events and not tip_convs:
-            print("No gaze intersections detected.")
-        if output_cfg.save:
-            out = Path(source).stem + "_gaze.jpg"
-            cv2.imwrite(out, display)
-            print(f"Saved \u2192 {out}")
-        cv2.imshow("MindSight", display)
-        print("Press any key to close.")
-        cv2.waitKey(0)
-        cv2.destroyAllWindows()
-        return
+        return _run_image(source, yolo=yolo, face_det=face_det, gaze_eng=gaze_eng,
+                          gaze_cfg=gaze_cfg, det_cfg=det_cfg, output_cfg=output_cfg,
+                          phenomena_cfg=phenomena_cfg,
+                          detection_plugins=detection_plugins,
+                          ja_mode_str=ja_mode_str)
 
     # ── Video / webcam loop ──────────────────────────────────────────────────
-    # Initialize capture, per-run trackers, and output sinks before entering
-    # the frame loop.
     cap = cv2.VideoCapture(source)
     if not cap.isOpened():
         raise RuntimeError(f"Cannot open source: {source}")
 
-    # Convert the user-facing grace period (seconds) to frames using the
-    # source FPS so Re-ID behaves consistently across different frame rates.
-    _fps         = cap.get(cv2.CAP_PROP_FPS) or 30.0
-
-    # Open auxiliary video captures (per-participant streams)
-    aux_captures: dict[tuple[str, str], cv2.VideoCapture] = {}
-    _aux_ended: set[tuple[str, str]] = set()   # one-time warning tracker
-    if output_cfg.aux_streams:
-        for aux in output_cfg.aux_streams:
-            ac = cv2.VideoCapture(aux.source)
-            if not ac.isOpened():
-                print(f"Warning: cannot open aux stream "
-                      f"{aux.pid}:{aux.stream_type} ({aux.source}) -- skipping")
-                continue
-            aux_fps = ac.get(cv2.CAP_PROP_FPS) or 30.0
-            if abs(aux_fps - _fps) > 1.0:
-                print(f"Warning: aux stream {aux.pid}:{aux.stream_type} "
-                      f"FPS ({aux_fps:.1f}) differs from main ({_fps:.1f}) "
-                      f"-- frames may drift")
-            aux_captures[(aux.pid, aux.stream_type)] = ac
-        if aux_captures:
-            print(f"Opened {len(aux_captures)} auxiliary stream(s)")
+    _fps = cap.get(cv2.CAP_PROP_FPS) or 30.0
+    aux_captures, _aux_ended = _open_aux_streams(output_cfg, _fps)
     grace_frames = max(0, int(round(tracker_cfg.reid_grace_seconds * _fps)))
 
     smoother  = GazeSmootherReID(grace_frames=grace_frames,
@@ -304,7 +336,7 @@ def run(source, yolo, face_det, gaze_eng,
     skip                             = max(1, tracker_cfg.skip_frames)
     frame_no = total_hits            = 0
     total_frames                     = 0
-    frame_times                      = []
+    frame_times                      = deque(maxlen=30)
     look_counts: dict                = {}
     heatmap_gaze: dict               = {}
 
@@ -359,18 +391,7 @@ def run(source, yolo, face_det, gaze_eng,
             # N frames; intermediate frames reuse cached detections.
             do_det = (frame_no % skip == 0)
 
-            # Read auxiliary streams (every frame to stay in sync)
-            aux_frames: dict[tuple[str, str], object] = {}
-            for key, ac in aux_captures.items():
-                ret_a, frame_a = ac.read()
-                if ret_a:
-                    aux_frames[key] = frame_a
-                else:
-                    aux_frames[key] = None
-                    if key not in _aux_ended:
-                        _aux_ended.add(key)
-                        print(f"Warning: aux stream {key[0]}:{key[1]} "
-                              f"ended at frame {frame_no}")
+            aux_frames = _read_aux_frames(aux_captures, _aux_ended, frame_no)
 
             # Build per-frame context from the run-level base
             ctx = FrameContext(frame=frame, frame_no=frame_no,
@@ -476,8 +497,6 @@ def run(source, yolo, face_det, gaze_eng,
 
             # Rolling FPS estimate over the last 30 frames
             frame_times.append(time.perf_counter() - t0)
-            if len(frame_times) > 30:
-                frame_times.pop(0)
             cur_fps = 1.0 / (sum(frame_times) / len(frame_times))
 
             ctx['fps'] = cur_fps
