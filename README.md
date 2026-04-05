@@ -100,10 +100,9 @@ Camera / Video / Image
         ▼
   Ray–BBox Intersection ──► hit list  (face_idx, object_idx)
         │
-        ├──► Phenomena Pipeline (JA, Mutual Gaze, Social Ref, …)
         ├──► Gaze Convergence
-        ├──► Cosine Similarity
-        └──► Lock-on / Smooth / Snap
+        ├──► Gaze Lock-on / Smooth / Snap 
+        └──► Phenomena Pipeline (JA, Mutual Gaze, Social Ref, …)
 ```
 
 > See the [architecture deep dive](https://kylen-d.github.io/mindsight-docs/developer/architecture/) for module dependency graphs and per-frame processing details.
