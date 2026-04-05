@@ -14,8 +14,6 @@ users:
 Colour palette entries follow the same order used throughout the rest of
 the MindSight GUI so that class colours remain consistent.
 
-Extracted from the original monolithic ``MindSight_GUI.py`` without any
-behavioural changes.
 """
 
 from __future__ import annotations

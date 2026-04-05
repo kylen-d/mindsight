@@ -16,7 +16,7 @@ from Phenomena.Default import (  # noqa: F401
     GazeAversionTracker,
     GazeFollowingTracker,
     GazeLeadershipTracker,
-    JointAttentionTemporalTracker,
+    JointAttentionTracker,
     MutualGazeTracker,
     ScanpathTracker,
     SocialReferenceTracker,

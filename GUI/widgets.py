@@ -2,8 +2,7 @@
 widgets.py
 ----------
 Shared widgets, layout helpers, and Visual Prompt file utilities for the
-MindSight GUI.  Extracted from the monolithic MindSight_GUI.py as Phase 1
-of the GUI rewrite.
+MindSight GUI.
 
 Exports
 -------
