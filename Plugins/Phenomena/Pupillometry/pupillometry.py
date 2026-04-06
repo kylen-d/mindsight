@@ -103,16 +103,22 @@ class PupillometryTracker(PhenomenaPlugin):
             if aux_key in aux_frames and aux_frames[aux_key] is not None:
                 return aux_frames[aux_key]
 
-        # Fall back to cropping face from main frame
+        # Fall back to cropping face from main frame.
+        # MediaPipe needs head/neck context beyond the tight face bbox,
+        # so pad the crop by 50% on all sides.
         if frame is None or bbox is None:
             return None
 
-        x1, y1, x2, y2 = bbox
-        h, w = frame.shape[:2]
-        x1, y1 = max(0, int(x1)), max(0, int(y1))
-        x2, y2 = min(w, int(x2)), min(h, int(y2))
-        if x2 - x1 < 10 or y2 - y1 < 10:
+        bx1, by1, bx2, by2 = int(bbox[0]), int(bbox[1]), int(bbox[2]), int(bbox[3])
+        bw, bh = bx2 - bx1, by2 - by1
+        if bw < 10 or bh < 10:
             return None
+        pad_x, pad_y = bw // 2, bh // 2
+        h, w = frame.shape[:2]
+        x1 = max(0, bx1 - pad_x)
+        y1 = max(0, by1 - pad_y)
+        x2 = min(w, bx2 + pad_x)
+        y2 = min(h, by2 + pad_y)
         return frame[y1:y2, x1:x2]
 
     def _measure(self, face_crop):

@@ -90,18 +90,27 @@ class EyeMovementTracker(PhenomenaPlugin):
         """Compute iris center position relative to eye socket (iris mode)."""
         from ms.utils.mediapipe_face import extract_iris_data
 
-        # Get face crop
+        # Get face crop with padding (mediapipe needs head context)
         if frame is None or bbox is None:
             return None
 
-        x1, y1, x2, y2 = bbox
-        h, w = frame.shape[:2]
-        x1, y1 = max(0, int(x1)), max(0, int(y1))
-        x2, y2 = min(w, int(x2)), min(h, int(y2))
-        if x2 - x1 < 10 or y2 - y1 < 10:
+        import cv2
+        bx1, by1, bx2, by2 = int(bbox[0]), int(bbox[1]), int(bbox[2]), int(bbox[3])
+        bw, bh = bx2 - bx1, by2 - by1
+        if bw < 10 or bh < 10:
             return None
+        pad_x, pad_y = bw // 2, bh // 2
+        h, w = frame.shape[:2]
+        x1 = max(0, bx1 - pad_x)
+        y1 = max(0, by1 - pad_y)
+        x2 = min(w, bx2 + pad_x)
+        y2 = min(h, by2 + pad_y)
 
         crop = frame[y1:y2, x1:x2]
+        if max(crop.shape[:2]) < 200:
+            s = 200 / max(crop.shape[:2])
+            crop = cv2.resize(crop, (int(crop.shape[1] * s), int(crop.shape[0] * s)),
+                              interpolation=cv2.INTER_CUBIC)
         iris_data = extract_iris_data(crop)
         if iris_data is None:
             return None
