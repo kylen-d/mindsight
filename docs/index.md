@@ -6,7 +6,7 @@ MindSight is an open-source toolkit that detects where people look in video, ima
 
 !!! warning "Beta Notice"
 
-    MindSight v0.3.0-beta is currently in **beta**. APIs, configuration formats, and output schemas may change between releases. Please pin your version and check the [Changelog](changelog.md) before upgrading.
+    MindSight v0.4.0-beta is currently in **beta**. APIs, configuration formats, and output schemas may change between releases. Please pin your version and check the [Changelog](changelog.md) before upgrading.
 
 ---
 

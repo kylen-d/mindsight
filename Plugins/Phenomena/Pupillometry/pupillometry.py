@@ -63,7 +63,6 @@ class PupillometryTracker(PhenomenaPlugin):
         self._baselines: dict[int, float | None] = {}
         self._ema: dict[int, float | None] = {}
         self._valid_counts: dict[int, int] = {}
-        self._median_buf: dict[int, collections.deque] = {}  # sliding window for median pre-filter
 
         # Time-series storage
         self._ts_frames: dict[int, list[int]] = {}
@@ -87,7 +86,6 @@ class PupillometryTracker(PhenomenaPlugin):
             self._baselines[tid] = None
             self._ema[tid] = None
             self._valid_counts[tid] = 0
-            self._median_buf[tid] = collections.deque(maxlen=5)
             self._ts_frames[tid] = []
             self._ts_ratios[tid] = []
             self._ts_dilation[tid] = []
@@ -103,22 +101,16 @@ class PupillometryTracker(PhenomenaPlugin):
             if aux_key in aux_frames and aux_frames[aux_key] is not None:
                 return aux_frames[aux_key]
 
-        # Fall back to cropping face from main frame.
-        # MediaPipe needs head/neck context beyond the tight face bbox,
-        # so pad the crop by 50% on all sides.
+        # Fall back to cropping face from main frame
         if frame is None or bbox is None:
             return None
 
-        bx1, by1, bx2, by2 = int(bbox[0]), int(bbox[1]), int(bbox[2]), int(bbox[3])
-        bw, bh = bx2 - bx1, by2 - by1
-        if bw < 10 or bh < 10:
-            return None
-        pad_x, pad_y = bw // 2, bh // 2
+        x1, y1, x2, y2 = bbox
         h, w = frame.shape[:2]
-        x1 = max(0, bx1 - pad_x)
-        y1 = max(0, by1 - pad_y)
-        x2 = min(w, bx2 + pad_x)
-        y2 = min(h, by2 + pad_y)
+        x1, y1 = max(0, int(x1)), max(0, int(y1))
+        x2, y2 = min(w, int(x2)), min(h, int(y2))
+        if x2 - x1 < 10 or y2 - y1 < 10:
+            return None
         return frame[y1:y2, x1:x2]
 
     def _measure(self, face_crop):
@@ -127,16 +119,8 @@ class PupillometryTracker(PhenomenaPlugin):
             from Plugins.Phenomena.Pupillometry.iris_extraction import measure_ir
             return measure_ir(face_crop, threshold=self._ir_threshold)
         else:
-            import cv2
             from ms.utils.mediapipe_face import extract_iris_data
             from Plugins.Phenomena.Pupillometry.iris_extraction import measure_rgb
-            # Upscale small face crops so mediapipe can detect landmarks
-            h, w = face_crop.shape[:2]
-            if max(h, w) < 200:
-                s = 200 / max(h, w)
-                face_crop = cv2.resize(face_crop,
-                                       (int(w * s), int(h * s)),
-                                       interpolation=cv2.INTER_CUBIC)
             iris_data = extract_iris_data(face_crop)
             return measure_rgb(face_crop, iris_data, upscale=self._upscale)
 
@@ -180,44 +164,25 @@ class PupillometryTracker(PhenomenaPlugin):
             if result is None:
                 continue
 
-            raw_ratio = result['ratio']
-
-            # Outlier rejection: skip if too far from running median.
-            # Only activate after the buffer is full (5 samples) and always
-            # add to the buffer so the filter can recover from transients.
-            buf = self._median_buf[tid]
-            if len(buf) >= buf.maxlen:
-                running_med = float(np.median(list(buf)))
-                running_std = float(np.std(list(buf)))
-                threshold = max(0.08, running_std * 4)
-                if abs(raw_ratio - running_med) > threshold:
-                    buf.append(raw_ratio)  # still update buffer so it adapts
-                    continue  # but skip this frame for display/dilation
-
-            buf.append(raw_ratio)
-            self._raw_ratios[tid].append(raw_ratio)
+            ratio = result['ratio']
+            self._raw_ratios[tid].append(ratio)
             self._valid_counts[tid] += 1
 
-            # Median pre-filter: use window median instead of raw value
-            ratio = float(np.median(list(buf)))
-
-            # Compute or update baseline (robust: trimmed mean of central 60%)
+            # Compute or update baseline
             if self._baselines[tid] is None:
                 if len(self._raw_ratios[tid]) >= self._baseline_frames:
-                    bl_data = sorted(self._raw_ratios[tid][:self._baseline_frames])
-                    trim = max(1, len(bl_data) // 5)  # drop 20% from each tail
-                    self._baselines[tid] = float(np.mean(bl_data[trim:-trim]))
+                    self._baselines[tid] = float(
+                        np.median(self._raw_ratios[tid][:self._baseline_frames])
+                    )
 
-            # EMA smoothing on the median-filtered ratio
+            # EMA smoothing
             if self._ema[tid] is None:
                 self._ema[tid] = ratio
             else:
                 self._ema[tid] = (self._ema_alpha * ratio +
                                   (1 - self._ema_alpha) * self._ema[tid])
 
-            # Use the EMA-smoothed value as the current ratio
-            smoothed = self._ema[tid]
-            self._current_ratio[tid] = smoothed
+            self._current_ratio[tid] = ratio
 
             # Store iris offset for dashboard eye widget
             iris_off = result.get('iris_offset')
@@ -225,10 +190,10 @@ class PupillometryTracker(PhenomenaPlugin):
                 self._current_iris_offset[tid] = (float(iris_off[0]),
                                                    float(iris_off[1]))
 
-            # Dilation percentage (from smoothed ratio)
+            # Dilation percentage
             baseline = self._baselines[tid]
             if baseline is not None and baseline > 0:
-                dilation_pct = (smoothed - baseline) / baseline * 100
+                dilation_pct = (ratio - baseline) / baseline * 100
                 self._current_dilation[tid] = dilation_pct
                 self._ts_dilation[tid].append(dilation_pct)
             else:
