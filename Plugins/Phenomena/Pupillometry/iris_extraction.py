@@ -34,6 +34,7 @@ def measure_rgb(face_crop: np.ndarray, iris_data, *,
         return None
 
     results = []
+    offsets = []  # normalized iris offset from eye center per side
 
     for side in ('right', 'left'):
         valid = getattr(iris_data, f'{side}_valid')
@@ -52,6 +53,12 @@ def measure_rgb(face_crop: np.ndarray, iris_data, *,
         iris_radius = float(np.mean(iris_dists))
         if iris_radius < 1.0:
             continue
+
+        # Compute iris offset from eye center (normalized by eye width)
+        eye_center = np.mean(eye_contour, axis=0)
+        eye_width = np.linalg.norm(eye_contour[0] - eye_contour[1])
+        if eye_width > 1:
+            offsets.append((iris_center - eye_center) / eye_width)
 
         # Extract ROI around iris for pupil segmentation
         scale = upscale
@@ -130,6 +137,8 @@ def measure_rgb(face_crop: np.ndarray, iris_data, *,
     if not results:
         return None
 
+    avg_offset = np.mean(offsets, axis=0) if offsets else np.zeros(2)
+
     if len(results) == 2:
         avg_ratio = (results[0]['ratio'] + results[1]['ratio']) / 2
         return {
@@ -137,7 +146,9 @@ def measure_rgb(face_crop: np.ndarray, iris_data, *,
             'iris_radius': (results[0]['iris_radius'] + results[1]['iris_radius']) / 2,
             'ratio': avg_ratio,
             'eye': 'avg',
+            'iris_offset': avg_offset,
         }
+    results[0]['iris_offset'] = avg_offset
     return results[0]
 
 

@@ -72,8 +72,13 @@ class PupillometryTracker(PhenomenaPlugin):
         # Current-frame cache for dashboard/draw
         self._current_dilation: dict[int, float] = {}
         self._current_ratio: dict[int, float] = {}
+        self._current_iris_offset: dict[int, tuple] = {}
         self._last_face_bboxes: list = []
         self._last_face_track_ids: list = []
+
+        # Cross-plugin references (discovered at runtime)
+        self._eye_movement_tracker = None
+        self._eye_widget = None
 
     def _init_track(self, tid: int) -> None:
         if tid not in self._raw_ratios:
@@ -137,6 +142,14 @@ class PupillometryTracker(PhenomenaPlugin):
         self._last_face_track_ids = tids
         self._current_dilation.clear()
         self._current_ratio.clear()
+        self._current_iris_offset.clear()
+
+        # Discover EyeMovement tracker on first frame (for dashboard widget)
+        if self._eye_movement_tracker is None:
+            for t in kwargs.get('_all_trackers', []):
+                if getattr(t, 'name', '') == 'eye_movement':
+                    self._eye_movement_tracker = t
+                    break
 
         for fi in range(len(persons_gaze)):
             tid = tids[fi] if fi < len(tids) else fi
@@ -170,6 +183,12 @@ class PupillometryTracker(PhenomenaPlugin):
                                   (1 - self._ema_alpha) * self._ema[tid])
 
             self._current_ratio[tid] = ratio
+
+            # Store iris offset for dashboard eye widget
+            iris_off = result.get('iris_offset')
+            if iris_off is not None:
+                self._current_iris_offset[tid] = (float(iris_off[0]),
+                                                   float(iris_off[1]))
 
             # Dilation percentage
             baseline = self._baselines[tid]
@@ -267,6 +286,43 @@ class PupillometryTracker(PhenomenaPlugin):
             }
             for tid, dil in self._current_dilation.items()
         }
+
+    # ── Custom Qt dashboard widget ──────────────────────────────────────────
+
+    def dashboard_widget(self):
+        try:
+            from ms.GUI.eye_tracking_widget import EyeTrackingWidget
+            self._eye_widget = EyeTrackingWidget()
+            return self._eye_widget
+        except ImportError:
+            return None
+
+    def dashboard_widget_update(self, data: dict) -> None:
+        if self._eye_widget is None:
+            return
+
+        pid_map = None  # not available in snapshot; labels set from track IDs
+
+        # Get eye states from EyeMovement tracker if available
+        eye_states = {}
+        if self._eye_movement_tracker is not None:
+            em_states = getattr(self._eye_movement_tracker, '_current_states', {})
+            for tid, state in em_states.items():
+                eye_states[tid] = state.value  # EyeState enum -> str
+
+        # Push per-participant data to the widget
+        for tid in sorted(set(list(self._current_ratio.keys()) +
+                               list(self._current_dilation.keys()))):
+            self._eye_widget.update_participant(
+                tid,
+                dilation_pct=self._current_dilation.get(tid),
+                ratio=self._current_ratio.get(tid),
+                baseline=self._baselines.get(tid),
+                iris_offset=self._current_iris_offset.get(tid),
+                eye_state=eye_states.get(tid),
+            )
+
+        self._eye_widget.refresh()
 
     # ── Time-series ───────────────────────────────────────────────────────────
 
