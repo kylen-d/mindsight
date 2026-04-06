@@ -121,8 +121,16 @@ class PupillometryTracker(PhenomenaPlugin):
             from Plugins.Phenomena.Pupillometry.iris_extraction import measure_ir
             return measure_ir(face_crop, threshold=self._ir_threshold)
         else:
+            import cv2
             from ms.utils.mediapipe_face import extract_iris_data
             from Plugins.Phenomena.Pupillometry.iris_extraction import measure_rgb
+            # Upscale small face crops so mediapipe can detect landmarks
+            h, w = face_crop.shape[:2]
+            if max(h, w) < 200:
+                s = 200 / max(h, w)
+                face_crop = cv2.resize(face_crop,
+                                       (int(w * s), int(h * s)),
+                                       interpolation=cv2.INTER_CUBIC)
             iris_data = extract_iris_data(face_crop)
             return measure_rgb(face_crop, iris_data, upscale=self._upscale)
 
@@ -168,14 +176,17 @@ class PupillometryTracker(PhenomenaPlugin):
 
             raw_ratio = result['ratio']
 
-            # Outlier rejection: skip if too far from running median
+            # Outlier rejection: skip if too far from running median.
+            # Only activate after the buffer is full (5 samples) and always
+            # add to the buffer so the filter can recover from transients.
             buf = self._median_buf[tid]
-            if len(buf) >= 3:
+            if len(buf) >= buf.maxlen:
                 running_med = float(np.median(list(buf)))
                 running_std = float(np.std(list(buf)))
-                threshold = max(0.05, running_std * 3)
+                threshold = max(0.08, running_std * 4)
                 if abs(raw_ratio - running_med) > threshold:
-                    continue  # skip this frame's measurement
+                    buf.append(raw_ratio)  # still update buffer so it adapts
+                    continue  # but skip this frame for display/dilation
 
             buf.append(raw_ratio)
             self._raw_ratios[tid].append(raw_ratio)
