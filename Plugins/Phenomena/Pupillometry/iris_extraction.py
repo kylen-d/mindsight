@@ -95,15 +95,18 @@ def measure_rgb(face_crop: np.ndarray, iris_data, *,
         cv2.circle(mask, tuple(center_local), iris_r_scaled, 255, -1)
 
         # Segment pupil (darkest circular region within the iris mask)
-        masked_gray = cv2.bitwise_and(gray, gray, mask=mask)
         valid_pixels = gray[mask > 0]
         if len(valid_pixels) < 10:
             continue
 
-        # Otsu threshold on the iris-masked region (adapts to lighting)
+        # Compute Otsu threshold on ONLY the valid iris pixels (not the
+        # zero-padded masked image, which biases the threshold too low).
+        otsu_thresh, _ = cv2.threshold(
+            valid_pixels, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU,
+        )
+        masked_gray = cv2.bitwise_and(gray, gray, mask=mask)
         _, binary = cv2.threshold(
-            masked_gray, 0, 255,
-            cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU,
+            masked_gray, int(otsu_thresh), 255, cv2.THRESH_BINARY_INV,
         )
         binary = cv2.bitwise_and(binary, binary, mask=mask)
 
