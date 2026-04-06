@@ -352,13 +352,24 @@ class LiveDashboardPanel(QWidget):
             col = i % 2
             self._grid.addWidget(widget, row, col)
 
-    def _ensure_chart(self, name: str) -> TrackerChartWidget | None:
+    def _ensure_chart(self, name: str, tracker=None) -> TrackerChartWidget | None:
         if name in self._charts:
             return self._charts[name]
         if name in self._custom_widgets:
             return None
         if name.startswith('_'):
             return None
+
+        # Check if tracker provides a custom widget
+        if tracker is not None and hasattr(tracker, 'dashboard_widget'):
+            try:
+                custom = tracker.dashboard_widget()
+            except Exception:
+                custom = None
+            if custom is not None:
+                self._custom_widgets[name] = (custom, tracker)
+                self._relayout()
+                return None
 
         colour = self._tracker_colours.get(name, (180, 180, 180))
         chart = TrackerChartWidget(name, colour)
@@ -389,8 +400,9 @@ class LiveDashboardPanel(QWidget):
                     self._tracker_colours[name] = colour
 
             # Push per-series data to charts
+            tracker_instances = item.get('tracker_instances', {})
             for name, series_dict in rich_metrics.items():
-                chart = self._ensure_chart(name)
+                chart = self._ensure_chart(name, tracker_instances.get(name))
                 if chart is not None:
                     chart.push_metrics(frame_no, series_dict)
 

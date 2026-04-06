@@ -45,6 +45,7 @@ class LiveDashboardBridge(PhenomenaPlugin):
         # Prefer latest_metrics() (per-series) over latest_metric() (scalar).
         tracker_rich_metrics = {}  # name -> dict of series
         tracker_colours = {}      # name -> BGR colour tuple
+        tracker_instances = {}    # name -> tracker (for custom widget discovery)
         for t in kwargs.get('_all_trackers', []):
             if t is self:
                 continue
@@ -55,6 +56,8 @@ class LiveDashboardBridge(PhenomenaPlugin):
             colour = getattr(t, '_COLOUR', None)
             if colour:
                 tracker_colours[name] = colour
+
+            tracker_instances[name] = t
 
             # Try rich metrics first, fall back to scalar
             if hasattr(t, 'latest_metrics'):
@@ -81,6 +84,7 @@ class LiveDashboardBridge(PhenomenaPlugin):
             'n_dets': kwargs.get('n_dets', 0),
             'tracker_rich_metrics': tracker_rich_metrics,
             'tracker_colours': tracker_colours,
+            'tracker_instances': tracker_instances,
         }
         try:
             self._q.put_nowait(snapshot)
