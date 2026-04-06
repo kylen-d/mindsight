@@ -223,7 +223,7 @@ class L2CSPlugin(GazePlugin):
 
     def run_pipeline(self, **kwargs):
         """Delegate to the generic pitch/yaw per-face pipeline."""
-        from GazeTracking.pitchyaw_pipeline import run_pitchyaw_pipeline
+        from ms.GazeTracking.pitchyaw_pipeline import run_pitchyaw_pipeline
         return run_pitchyaw_pipeline(gaze_eng=self, **kwargs)
 
     # -- CLI protocol ----------------------------------------------------------
@@ -243,7 +243,7 @@ class L2CSPlugin(GazePlugin):
     @classmethod
     def from_args(cls, args):
         """Create an L2CS engine from parsed CLI args."""
-        from weights import resolve_weight
+        from ms.weights import resolve_weight
         model = getattr(args, "l2cs_model", None)
         if not model:
             return None

@@ -26,7 +26,7 @@ def import_pipeline(parent) -> Namespace | None:
         return None
 
     try:
-        from pipeline_loader import load_pipeline
+        from ms.pipeline_loader import load_pipeline
         ns = load_pipeline(path, Namespace())
         QMessageBox.information(
             parent, "Pipeline Imported",

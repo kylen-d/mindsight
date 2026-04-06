@@ -99,7 +99,7 @@ class UniGazePlugin(GazePlugin):
         return self._engine.estimate(face_bgr)
 
     def run_pipeline(self, **kwargs):
-        from GazeTracking.pitchyaw_pipeline import run_pitchyaw_pipeline
+        from ms.GazeTracking.pitchyaw_pipeline import run_pitchyaw_pipeline
         return run_pitchyaw_pipeline(gaze_eng=self, **kwargs)
 
     # -- CLI protocol ----------------------------------------------------------

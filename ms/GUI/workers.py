@@ -71,7 +71,7 @@ class GazeWorker(threading.Thread):
 
         import cv2
 
-        from MindSight import _build_from_args, run
+        from ms.cli import _build_from_args, run
 
         self._log("Initializing models...")
 
@@ -194,9 +194,9 @@ class ProjectWorker(threading.Thread):
 
         import cv2
 
-        from MindSight import _build_from_args, run
-        from pipeline_config import OutputConfig
-        from pipeline_loader import load_pipeline
+        from ms.cli import _build_from_args, run
+        from ms.pipeline_config import OutputConfig
+        from ms.pipeline_loader import load_pipeline
         from project_runner import (
             discover_aux_streams,
             discover_participant_ids,
@@ -242,7 +242,7 @@ class ProjectWorker(threading.Thread):
 
         # Discover auxiliary streams
         aux_streams = discover_aux_streams(project)
-        from participant_ids import load_aux_streams_from_csv
+        from ms.participant_ids import load_aux_streams_from_csv
         csv_path = project / "participant_ids.csv"
         if csv_path.is_file():
             csv_aux = load_aux_streams_from_csv(csv_path)
@@ -343,7 +343,7 @@ class ProjectWorker(threading.Thread):
             # ── Post-processing: global and per-condition CSVs ───────────
             csv_dir = out_root / "CSV Files"
             self._log("\nGenerating global CSVs...")
-            from DataCollection.global_csv import (
+            from ms.DataCollection.global_csv import (
                 generate_condition_csvs,
                 generate_global_csv,
             )
@@ -418,7 +418,7 @@ class VPInferenceWorker(threading.Thread):
         import cv2
         from ultralytics import YOLOE
 
-        from weights import resolve_weight
+        from ms.weights import resolve_weight
         resolved = str(resolve_weight("YOLO", self.model_path))
         self._log(f"Loading YOLOE: {resolved}")
         model = YOLOE(resolved)

@@ -118,7 +118,7 @@ class MGazePlugin(GazePlugin):
 
     def run_pipeline(self, **kwargs):
         """Delegate to the generic pitch/yaw per-face pipeline."""
-        from GazeTracking.pitchyaw_pipeline import run_pitchyaw_pipeline
+        from ms.GazeTracking.pitchyaw_pipeline import run_pitchyaw_pipeline
         return run_pitchyaw_pipeline(gaze_eng=self, **kwargs)
 
     # ── CLI protocol ─────────────────────────────────────────────────────────
@@ -137,7 +137,7 @@ class MGazePlugin(GazePlugin):
     @classmethod
     def from_args(cls, args):
         """Create an MGaze engine from parsed CLI args."""
-        from weights import resolve_weight
+        from ms.weights import resolve_weight
         model = getattr(args, "mgaze_model", None)
         if not model:
             return None

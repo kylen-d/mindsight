@@ -43,7 +43,7 @@ def resolve_chart_path(charts_arg, source) -> Path | None:
     """
     if not charts_arg:
         return None
-    from constants import OUTPUTS_ROOT
+    from ms.constants import OUTPUTS_ROOT
     if charts_arg is True:
         stem = Path(str(source)).stem if not isinstance(source, int) else 'webcam'
         return OUTPUTS_ROOT / 'Charts' / f'{stem}_Charts.png'
