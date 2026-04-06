@@ -94,65 +94,39 @@ def measure_rgb(face_crop: np.ndarray, iris_data, *,
         iris_r_scaled = int(iris_radius * scale)
         cv2.circle(mask, tuple(center_local), iris_r_scaled, 255, -1)
 
-        # Segment pupil (darkest circular region within the iris mask)
+        # Threshold dark region within iris to find pupil
+        masked_gray = cv2.bitwise_and(gray, gray, mask=mask)
+
+        # Adaptive threshold: pupil is darkest region
         valid_pixels = gray[mask > 0]
         if len(valid_pixels) < 10:
             continue
 
-        # Compute Otsu threshold on ONLY the valid iris pixels (not the
-        # zero-padded masked image, which biases the threshold too low).
-        otsu_thresh, _ = cv2.threshold(
-            valid_pixels, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU,
-        )
-        masked_gray = cv2.bitwise_and(gray, gray, mask=mask)
-        _, binary = cv2.threshold(
-            masked_gray, int(otsu_thresh), 255, cv2.THRESH_BINARY_INV,
-        )
+        thresh_val = int(np.percentile(valid_pixels, 25))
+        _, binary = cv2.threshold(masked_gray, thresh_val, 255, cv2.THRESH_BINARY_INV)
         binary = cv2.bitwise_and(binary, binary, mask=mask)
 
-        # Morphological cleanup (slightly larger kernel for robustness)
-        kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
+        # Morphological cleanup
+        kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
         binary = cv2.morphologyEx(binary, cv2.MORPH_OPEN, kernel)
         binary = cv2.morphologyEx(binary, cv2.MORPH_CLOSE, kernel)
 
-        # Find the most circular contour (reject eyelash/shadow blobs)
+        # Find largest contour and fit min-enclosing circle
         contours, _ = cv2.findContours(binary, cv2.RETR_EXTERNAL,
                                        cv2.CHAIN_APPROX_SIMPLE)
         if not contours:
             continue
 
-        best_cnt = None
-        best_score = -1
-        for cnt in contours:
-            area = cv2.contourArea(cnt)
-            if area < 8:
-                continue
-            perimeter = cv2.arcLength(cnt, True)
-            if perimeter < 1:
-                continue
-            circularity = 4 * np.pi * area / (perimeter * perimeter)
-            # Weight by area so we prefer large circular blobs
-            score = circularity * area
-            if score > best_score:
-                best_score = score
-                best_cnt = cnt
-
-        if best_cnt is None:
+        largest = max(contours, key=cv2.contourArea)
+        if cv2.contourArea(largest) < 5:
             continue
 
-        # Reject if the best candidate isn't reasonably circular
-        area = cv2.contourArea(best_cnt)
-        perimeter = cv2.arcLength(best_cnt, True)
-        circularity = 4 * np.pi * area / (perimeter * perimeter) if perimeter > 0 else 0
-        if circularity < 0.4:
-            continue
-
-        (_, _), pupil_radius_scaled = cv2.minEnclosingCircle(best_cnt)
+        (_, _), pupil_radius_scaled = cv2.minEnclosingCircle(largest)
         pupil_radius = pupil_radius_scaled / scale
 
         ratio = (pupil_radius * 2) / (iris_radius * 2)
-        # Sanity: pupil/iris ratio should be 0.15-0.75
-        if 0.15 <= ratio <= 0.75:
+        # Sanity: pupil/iris ratio should be 0.1-0.8
+        if 0.1 <= ratio <= 0.8:
             results.append({
                 'pupil_radius': pupil_radius,
                 'iris_radius': iris_radius,
