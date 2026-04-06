@@ -102,7 +102,7 @@ def load_aux_streams_from_csv(csv_path: str | Path) -> list:
     The function is backward-compatible: CSVs without the extra columns
     simply return an empty list.
     """
-    from pipeline_config import AuxStreamConfig
+    from ms.pipeline_config import AuxStreamConfig
 
     path = Path(csv_path)
     if not path.is_file():

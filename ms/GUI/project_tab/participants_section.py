@@ -115,7 +115,7 @@ class ParticipantsSection(QWidget):
                 self._table.setItem(i, 1, QTableWidgetItem(str(tid)))
                 self._table.setItem(i, 2, QTableWidgetItem(label))
         else:
-            from participant_ids import load_participant_csv
+            from ms.participant_ids import load_participant_csv
             csv_path = project_path / "participant_ids.csv" \
                 if project_path else None
             if csv_path and csv_path.is_file():

@@ -152,7 +152,7 @@ class OutputSection(QWidget):
 
     def _aux_stream_configs(self):
         """Read the aux table into a list of AuxStreamConfig or None."""
-        from pipeline_config import AuxStreamConfig
+        from ms.pipeline_config import AuxStreamConfig
         configs = []
         for r in range(self._aux_table.rowCount()):
             pid = (self._aux_table.item(r, 0).text().strip()

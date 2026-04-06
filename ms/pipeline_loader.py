@@ -8,7 +8,7 @@ always take precedence over YAML values.
 
 Usage
 -----
-    from pipeline_loader import load_pipeline
+    from ms.pipeline_loader import load_pipeline
 
     # In _args(), after parse_args():
     ns = p.parse_args()
@@ -187,7 +187,7 @@ def load_pipeline(path: str | Path, ns: Namespace | None = None) -> Namespace:
     aux_list = cfg.get('aux_streams', [])
     if isinstance(aux_list, list) and aux_list:
         if not hasattr(ns, 'aux_streams') or _is_default(ns, 'aux_streams'):
-            from pipeline_config import AuxStreamConfig
+            from ms.pipeline_config import AuxStreamConfig
             parsed = []
             for item in aux_list:
                 if isinstance(item, dict):

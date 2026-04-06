@@ -399,7 +399,7 @@ class GazeLockTracker:
 def _faces_as_objects(face_bboxes_list):
     """Convert a list of (x1,y1,x2,y2) face bboxes to Detection objects so they
     can be treated as gaze targets by adaptive_snap and the hit-detection loop."""
-    from ObjectDetection.detection import Detection
+    from ms.ObjectDetection.detection import Detection
     return [Detection(class_name='face', cls_id=-1, conf=1.0,
                       x1=x1, y1=y1, x2=x2, y2=y2, _face_idx=fi)
             for fi, (x1, y1, x2, y2) in enumerate(face_bboxes_list)]

@@ -502,7 +502,7 @@ class ProjectTab(QWidget):
     # ── Save project.yaml ───────────────────────────────────────────────────
 
     def _build_project_config(self):
-        from pipeline_config import ProjectConfig, ProjectOutputConfig
+        from ms.pipeline_config import ProjectConfig, ProjectOutputConfig
         pipe = self._pipeline_path.text().strip() or None
         conditions = self._conditions.get_conditions()
         participants = self._participants.get_participants()

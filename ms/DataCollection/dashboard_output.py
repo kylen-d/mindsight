@@ -590,7 +590,7 @@ def compose_dashboard(ctx, **kwargs):
     """
     global _mpl_renderer
     if _mpl_renderer is None:
-        from DataCollection.dashboard_matplotlib import DashboardRenderer
+        from ms.DataCollection.dashboard_matplotlib import DashboardRenderer
         _mpl_renderer = DashboardRenderer()
 
     return _mpl_renderer.render(ctx['frame'], ctx)
