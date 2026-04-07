@@ -312,6 +312,13 @@ class PhenomenaPlugin(ABC):
     ``name``, implement ``add_arguments`` / ``from_args``, and expose
     ``PLUGIN_CLASS = YourClass`` at module level.
 
+    Auxiliary stream preferences
+    ----------------------------
+    Set ``preferred_video_types`` and/or ``preferred_stream_labels`` to
+    declare which auxiliary streams the plugin consumes.  The pipeline
+    auto-routes matching streams; user YAML config can override via
+    ``plugin_stream_map:``.
+
     Drawing helpers (for ``dashboard_section``)
     -------------------------------------------
     Import from ``DataCollection.dashboard_output``:
@@ -324,6 +331,47 @@ class PhenomenaPlugin(ABC):
 
     #: Which dashboard panel to draw into: ``"left"`` or ``"right"``.
     dashboard_panel: str = "right"
+
+    #: Preferred auxiliary stream video types (e.g. [VideoType.EYE_ONLY]).
+    #: Used for auto-routing aux frames to this plugin.
+    preferred_video_types: list = []
+
+    #: Preferred auxiliary stream labels (e.g. ["eye_camera"]).
+    preferred_stream_labels: list = []
+
+    # ── Auxiliary stream helpers ────────────────────────────────────────────
+
+    def get_aux_frame(self, aux_frames: dict, pid: str, **overrides):
+        """Find the best auxiliary frame for *pid* using plugin preferences.
+
+        Checks ``preferred_video_types`` then ``preferred_stream_labels``,
+        falling back to any available stream for *pid*.  Keyword *overrides*
+        (``video_type``, ``stream_label``) take precedence over preferences.
+        """
+        from ms.pipeline_config import find_aux_frame, VideoType
+
+        vtype = overrides.get('video_type')
+        slabel = overrides.get('stream_label')
+
+        # Explicit override
+        if vtype or slabel:
+            return find_aux_frame(aux_frames, pid,
+                                  video_type=vtype, stream_label=slabel)
+
+        # Try preferred video types
+        for vt in self.preferred_video_types:
+            result = find_aux_frame(aux_frames, pid, video_type=vt)
+            if result is not None:
+                return result
+
+        # Try preferred stream labels
+        for sl in self.preferred_stream_labels:
+            result = find_aux_frame(aux_frames, pid, stream_label=sl)
+            if result is not None:
+                return result
+
+        # Fall back to any stream for this pid
+        return find_aux_frame(aux_frames, pid)
 
     # ── Lifecycle ─────────────────────────────────────────────────────────────
 

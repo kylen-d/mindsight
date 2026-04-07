@@ -14,6 +14,7 @@ See also ``Phenomena/phenomena_config.py`` for phenomena-specific config.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from enum import Enum
 from pathlib import Path
 from typing import Optional
 
@@ -186,20 +187,60 @@ class TrackerConfig:
 # Output configuration
 # ══════════════════════════════════════════════════════════════════════════════
 
+class VideoType(str, Enum):
+    """Classification of auxiliary video stream content."""
+
+    WIDE_CLOSEUP = "wide_closeup"    # multiple participants in view
+    FACE_CLOSEUP = "face_closeup"    # single person face
+    EYE_ONLY = "eye_only"            # single person eye region
+    CUSTOM = "custom"                # arbitrary user-defined type
+
+
 @dataclass
 class AuxStreamConfig:
-    """Configuration for a single auxiliary video stream mapped to a participant.
+    """Configuration for a single auxiliary video stream.
 
-    Auxiliary streams are optional per-participant video feeds (e.g. a
-    dedicated eye-tracking camera or a first-person-view camera) that are
-    frame-synchronised with the main source.  They are exposed in
-    ``FrameContext['aux_frames']`` for consumption by plugins but are
-    **not** processed by any built-in pipeline stage.
+    Auxiliary streams are optional video feeds (e.g. a dedicated
+    eye-tracking camera, a wide-angle room camera, or a first-person-view
+    camera) that are frame-synchronised with the main source.  They are
+    exposed in ``FrameContext['aux_frames']`` for consumption by plugins.
+
+    Each stream declares its ``video_type`` (how the video is framed) and
+    the ``participants`` visible in it.  Plugins declare preferred video
+    types via ``preferred_video_types`` and the system auto-routes
+    matching streams, with user config overrides.
     """
 
-    pid: str            # participant label (e.g. "S70")
-    stream_type: str    # purpose tag (e.g. "eye_camera", "first_person_view")
-    source: str         # file path or device index string
+    source: str                        # file path or device index string
+    video_type: VideoType              # how the video is framed
+    stream_label: str                  # user-defined label (e.g. "left_eye_cam")
+    participants: list[str]            # participant labels visible in this stream
+    auto_detect_faces: bool = True     # run face detection on WIDE/FACE streams
+
+
+def find_aux_frame(
+    aux_frames: dict,
+    pid: str,
+    *,
+    video_type: VideoType | None = None,
+    stream_label: str | None = None,
+) -> 'np.ndarray | None':
+    """Find the best matching auxiliary frame for a participant.
+
+    Searches *aux_frames* (keyed by ``(pid, stream_label, video_type)``)
+    for the given participant.  Optionally filters by *video_type* and/or
+    *stream_label*.  Returns the first matching frame, or ``None``.
+    """
+    for (apid, alabel, avtype), frame in aux_frames.items():
+        if apid != pid:
+            continue
+        if video_type is not None and avtype != video_type:
+            continue
+        if stream_label is not None and alabel != stream_label:
+            continue
+        if frame is not None:
+            return frame
+    return None
 
 
 @dataclass

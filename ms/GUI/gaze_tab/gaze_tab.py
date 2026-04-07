@@ -86,14 +86,14 @@ class GazeTab(QWidget):
 
         log_group = QGroupBox("Log")
         log_group.setCheckable(True)
-        log_group.setChecked(False)
+        log_group.setChecked(True)
         log_lay = QVBoxLayout(log_group)
         self._log_box = QTextEdit()
         self._log_box.setReadOnly(True)
         self._log_box.setMinimumHeight(60)
         self._log_box.setFont(QFont("Courier", 10))
         log_lay.addWidget(self._log_box)
-        self._log_box.setVisible(False)
+        self._log_box.setVisible(True)
         log_group.toggled.connect(self._log_box.setVisible)
 
         v_split = QSplitter(Qt.Orientation.Vertical)

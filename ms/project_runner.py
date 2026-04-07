@@ -184,18 +184,29 @@ def discover_aux_streams(project: Path) -> list:
     Expected layout::
 
         Inputs/AuxStreams/
-        ├── eye_camera/
+        ├── eye_only/
         │   ├── S70.mp4
         │   └── S71.mp4
-        └── first_person_view/
-            └── S70.mp4
+        ├── face_closeup/
+        │   └── S70.mp4
+        └── wide_closeup/
+            └── S70+S71.mp4
 
-    Subdirectory name → ``stream_type``, file stem → ``pid``.
+    Subdirectory name maps to ``video_type``.  File stem is used for
+    ``participants``: single name (``S70``) maps to one participant,
+    ``+``-separated names (``S70+S71``) map to multiple.  The
+    ``stream_label`` is auto-generated from directory and filename.
 
     Returns a list of ``AuxStreamConfig`` objects with resolved absolute
     paths, or an empty list if the directory does not exist.
     """
-    from ms.pipeline_config import AuxStreamConfig
+    from ms.pipeline_config import AuxStreamConfig, VideoType
+
+    _VTYPE_MAP = {
+        'eye_only': VideoType.EYE_ONLY,
+        'face_closeup': VideoType.FACE_CLOSEUP,
+        'wide_closeup': VideoType.WIDE_CLOSEUP,
+    }
 
     aux_dir = project / "Inputs" / "AuxStreams"
     if not aux_dir.is_dir():
@@ -205,13 +216,26 @@ def discover_aux_streams(project: Path) -> list:
     for type_dir in sorted(aux_dir.iterdir()):
         if not type_dir.is_dir():
             continue
-        stream_type = type_dir.name
+        dir_name = type_dir.name
+        vtype = _VTYPE_MAP.get(dir_name, VideoType.CUSTOM)
+
         for media in sorted(type_dir.iterdir()):
             if media.is_file() and media.suffix.lower() in _ALL_MEDIA:
+                stem = media.stem
+                # Support multi-participant files: S70+S71.mp4
+                if '+' in stem:
+                    participants = [p.strip() for p in stem.split('+')]
+                else:
+                    participants = [stem]
+
+                stream_label = f"{dir_name}_{stem}"
                 configs.append(AuxStreamConfig(
-                    pid=media.stem,
-                    stream_type=stream_type,
                     source=str(media.resolve()),
+                    video_type=vtype,
+                    stream_label=stream_label,
+                    participants=participants,
+                    auto_detect_faces=(vtype in (VideoType.WIDE_CLOSEUP,
+                                                 VideoType.FACE_CLOSEUP)),
                 ))
     return configs
 
@@ -310,10 +334,12 @@ def run_project(project_dir: str | Path, run_fn, build_fn, args_ns) -> None:
             aux_streams = aux_streams + csv_aux
 
     if aux_streams:
-        types = {a.stream_type for a in aux_streams}
-        pids = {a.pid for a in aux_streams}
+        vtypes = {a.video_type.value for a in aux_streams}
+        all_pids = set()
+        for a in aux_streams:
+            all_pids.update(a.participants)
         print(f"Auxiliary streams: {len(aux_streams)} "
-              f"({len(pids)} participant(s), {len(types)} type(s))")
+              f"({len(all_pids)} participant(s), {len(vtypes)} type(s))")
 
     # Resolve output root
     if project_cfg and project_cfg.output:
