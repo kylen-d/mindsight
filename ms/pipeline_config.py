@@ -224,7 +224,7 @@ def find_aux_frame(
     *,
     video_type: VideoType | None = None,
     stream_label: str | None = None,
-) -> 'np.ndarray | None':
+):
     """Find the best matching auxiliary frame for a participant.
 
     Searches *aux_frames* (keyed by ``(pid, stream_label, video_type)``)

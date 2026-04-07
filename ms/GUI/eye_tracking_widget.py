@@ -69,7 +69,7 @@ class EyeTrackingWidget(QWidget):
         self.setSizePolicy(QSizePolicy.Policy.Expanding,
                            QSizePolicy.Policy.Preferred)
         self.setMinimumHeight(_CARD_H + _CARD_PAD * 2)
-        self.setStyleSheet(f'background: #121212;')
+        self.setStyleSheet('background: #121212;')
 
         # Per-participant data, keyed by track_id
         self._participants: dict[int, dict] = {}
@@ -249,7 +249,6 @@ class EyeTrackingWidget(QWidget):
         p.drawEllipse(QPointF(iris_cx, iris_cy), _IRIS_R, _IRIS_R)
 
         # -- Pupil --
-        dilation = data.get('dilation')
         ratio = data.get('ratio', 0.4)
         if ratio is not None:
             # Map ratio 0.2-0.7 to min-max pupil radius

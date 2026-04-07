@@ -3,7 +3,6 @@ tests/test_eye_movement.py -- Unit tests for I-VT classifier and EyeMovement tra
 """
 
 import numpy as np
-import pytest
 
 from Plugins.Phenomena.EyeMovement.classifiers import EyeState, IVTClassifier
 
@@ -118,7 +117,7 @@ class TestIVTClassifier:
         c.classify(np.array([0.0, 0.0]), 0)
         c.classify(np.array([1.0, 0.0]), 1)
         c.classify(np.array([102.0, 0.0]), 2)  # spike
-        state = c.classify(np.array([103.0, 0.0]), 3)
+        c.classify(np.array([103.0, 0.0]), 3)
         # With window=3, median of [1, 101, 1] = 1, so should still be fixation
         # Actually the velocities are: 1, 101, 1 -> median = 1
         # But frame 2->3 velocity is 1, not spike

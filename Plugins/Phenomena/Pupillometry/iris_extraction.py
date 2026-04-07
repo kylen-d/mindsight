@@ -123,9 +123,7 @@ def measure_rgb(face_crop: np.ndarray, iris_data, *,
         gray = cv2.cvtColor(roi, cv2.COLOR_BGR2GRAY)
 
         # Create iris mask from contour
-        iris_pts_scaled = (iris_contour * scale).astype(np.int32)
         center_scaled = (iris_center * scale).astype(np.int32)
-        iris_pts_local = iris_pts_scaled - np.array([x1, y1])
         center_local = center_scaled - np.array([x1, y1])
 
         mask = np.zeros(gray.shape, dtype=np.uint8)

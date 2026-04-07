@@ -3,7 +3,6 @@ tests/test_iris_refine.py -- Unit tests for IrisRefinedGaze wrapper.
 """
 
 import numpy as np
-import pytest
 
 from Plugins import GazePlugin
 

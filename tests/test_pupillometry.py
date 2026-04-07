@@ -3,7 +3,6 @@ tests/test_pupillometry.py -- Unit tests for iris extraction and pupillometry tr
 """
 
 import numpy as np
-import pytest
 
 
 # ── iris_extraction tests ────────────────────────────────────────────────────

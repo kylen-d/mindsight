@@ -17,7 +17,6 @@ Key landmark indices:
 
 from __future__ import annotations
 
-import os
 import urllib.request
 from dataclasses import dataclass, field
 from pathlib import Path
