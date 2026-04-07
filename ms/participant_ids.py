@@ -93,16 +93,13 @@ def load_participant_csv(csv_path: str | Path) -> dict[str, dict[int, str]]:
 def load_aux_streams_from_csv(csv_path: str | Path) -> list:
     """Extract auxiliary stream definitions from a ``participant_ids.csv``.
 
-    The CSV may contain optional columns ``aux_stream_type`` and
-    ``aux_stream_source``.  When both are present *and non-empty* for a
-    row, an ``AuxStreamConfig`` is created using the row's
-    ``participant_label`` as the PID.
+    The CSV should contain columns ``source``, ``video_type``,
+    ``stream_label``, and ``participants``.  The ``participants`` column
+    may contain comma-separated PIDs for multi-participant streams.
 
     Returns a (possibly empty) list of ``AuxStreamConfig`` objects.
-    The function is backward-compatible: CSVs without the extra columns
-    simply return an empty list.
     """
-    from ms.pipeline_config import AuxStreamConfig
+    from ms.pipeline_config import AuxStreamConfig, VideoType
 
     path = Path(csv_path)
     if not path.is_file():
@@ -112,15 +109,34 @@ def load_aux_streams_from_csv(csv_path: str | Path) -> list:
     with open(path, newline="", encoding="utf-8-sig") as fh:
         reader = csv.DictReader(fh)
         fields = reader.fieldnames or []
-        if "aux_stream_type" not in fields or "aux_stream_source" not in fields:
+
+        # Required columns for aux stream definitions
+        required = {"source", "video_type", "stream_label", "participants"}
+        if not required.issubset(set(fields)):
             return []
 
         for row in reader:
-            stype = row.get("aux_stream_type", "").strip()
-            source = row.get("aux_stream_source", "").strip()
-            label = row.get("participant_label", "").strip()
-            if stype and source and label:
-                configs.append(AuxStreamConfig(pid=label,
-                                               stream_type=stype,
-                                               source=source))
+            source = row.get("source", "").strip()
+            vtype_str = row.get("video_type", "custom").strip()
+            stream_label = row.get("stream_label", "").strip()
+            participants_str = row.get("participants", "").strip()
+            auto_detect = row.get("auto_detect_faces", "true").strip().lower()
+
+            if not (source and stream_label and participants_str):
+                continue
+
+            try:
+                vtype = VideoType(vtype_str)
+            except ValueError:
+                vtype = VideoType.CUSTOM
+
+            participants = [p.strip() for p in participants_str.split(",")
+                           if p.strip()]
+            configs.append(AuxStreamConfig(
+                source=source,
+                video_type=vtype,
+                stream_label=stream_label,
+                participants=participants,
+                auto_detect_faces=(auto_detect != "false"),
+            ))
     return configs

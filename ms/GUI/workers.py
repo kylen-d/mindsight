@@ -249,10 +249,12 @@ class ProjectWorker(threading.Thread):
             if csv_aux:
                 aux_streams = aux_streams + csv_aux
         if aux_streams:
-            types = {a.stream_type for a in aux_streams}
-            pids = {a.pid for a in aux_streams}
+            vtypes = {a.video_type.value for a in aux_streams}
+            all_pids = set()
+            for a in aux_streams:
+                all_pids.update(a.participants)
             self._log(f"Auxiliary streams: {len(aux_streams)} "
-                      f"({len(pids)} participant(s), {len(types)} type(s))")
+                      f"({len(all_pids)} participant(s), {len(vtypes)} type(s))")
 
         # Build models once for the whole project
         (yolo, face_det, gaze_eng, gaze_cfg, det_cfg, tracker_cfg,

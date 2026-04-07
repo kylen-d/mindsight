@@ -14,6 +14,43 @@ import cv2
 import numpy as np
 
 
+def compute_ear(iris_data) -> float | None:
+    """Compute the Eye Aspect Ratio (EAR) from MediaPipe iris data.
+
+    Uses the 6-point EAR formula:
+        EAR = (||P2-P6|| + ||P3-P5||) / (2 * ||P1-P4||)
+
+    Returns the average EAR of both eyes, or ``None`` if landmarks are
+    unavailable.
+    """
+    if iris_data is None:
+        return None
+
+    ears = []
+    for side in ('right', 'left'):
+        if not getattr(iris_data, f'{side}_valid', False):
+            continue
+        eye_contour = getattr(iris_data, f'{side}_eye_contour', None)
+        if eye_contour is None or len(eye_contour) < 6:
+            continue
+
+        # MediaPipe eye contour points: approximate EAR from the
+        # eye outline landmarks (upper/lower lid distances vs width)
+        pts = eye_contour
+        # Horizontal (eye width): points 0 and 3 (or endpoints)
+        horizontal = np.linalg.norm(pts[0] - pts[3])
+        if horizontal < 1.0:
+            continue
+        # Vertical: approximate from upper/lower lid midpoints
+        # Use points 1,5 and 2,4 as upper/lower pairs
+        v1 = np.linalg.norm(pts[1] - pts[5])
+        v2 = np.linalg.norm(pts[2] - pts[4])
+        ear = (v1 + v2) / (2.0 * horizontal)
+        ears.append(ear)
+
+    return float(np.mean(ears)) if ears else None
+
+
 def measure_rgb(face_crop: np.ndarray, iris_data, *,
                 upscale: float = 2.0) -> dict | None:
     """
@@ -28,6 +65,7 @@ def measure_rgb(face_crop: np.ndarray, iris_data, *,
     Returns
     -------
     dict with keys: pupil_radius, iris_radius, ratio, eye ('right'|'left'|'avg'),
+    left_ratio, right_ratio (individual eye ratios when available),
     or ``None`` if measurement failed.
     """
     if iris_data is None:
@@ -141,15 +179,30 @@ def measure_rgb(face_crop: np.ndarray, iris_data, *,
 
     if len(results) == 2:
         avg_ratio = (results[0]['ratio'] + results[1]['ratio']) / 2
+        # Determine which result is left vs right
+        left_r = None
+        right_r = None
+        for r in results:
+            if r['eye'] == 'left':
+                left_r = r['ratio']
+            elif r['eye'] == 'right':
+                right_r = r['ratio']
         return {
             'pupil_radius': (results[0]['pupil_radius'] + results[1]['pupil_radius']) / 2,
             'iris_radius': (results[0]['iris_radius'] + results[1]['iris_radius']) / 2,
             'ratio': avg_ratio,
             'eye': 'avg',
             'iris_offset': avg_offset,
+            'left_ratio': left_r,
+            'right_ratio': right_r,
         }
-    results[0]['iris_offset'] = avg_offset
-    return results[0]
+
+    # Single eye result
+    single = results[0]
+    single['iris_offset'] = avg_offset
+    single['left_ratio'] = single['ratio'] if single['eye'] == 'left' else None
+    single['right_ratio'] = single['ratio'] if single['eye'] == 'right' else None
+    return single
 
 
 def measure_ir(eye_crop: np.ndarray, *, threshold: int = 40) -> dict | None:
@@ -157,11 +210,13 @@ def measure_ir(eye_crop: np.ndarray, *, threshold: int = 40) -> dict | None:
     Measure pupil/iris ratio from an IR (infrared) eye camera crop.
 
     Uses dark-pupil technique: pupil is the darkest circular region in IR.
+    Uses Otsu's method for adaptive thresholding with fallback to the
+    user-provided threshold.
 
     Parameters
     ----------
     eye_crop  : Grayscale or BGR numpy array from IR eye camera.
-    threshold : Pixel intensity threshold for pupil segmentation (default 40).
+    threshold : Fallback pixel intensity threshold (default 40).
 
     Returns
     -------
@@ -176,11 +231,17 @@ def measure_ir(eye_crop: np.ndarray, *, threshold: int = 40) -> dict | None:
     else:
         gray = eye_crop.copy()
 
-    # Blur to reduce noise
-    gray = cv2.GaussianBlur(gray, (5, 5), 0)
+    # Blur to reduce noise (larger kernel for better noise rejection)
+    gray = cv2.GaussianBlur(gray, (7, 7), 0)
 
-    # --- Pupil: dark region thresholding ---
-    _, pupil_binary = cv2.threshold(gray, threshold, 255, cv2.THRESH_BINARY_INV)
+    # --- Pupil: adaptive thresholding via Otsu ---
+    otsu_thresh, pupil_binary = cv2.threshold(
+        gray, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
+
+    # Fallback if Otsu gives unreasonable result
+    if otsu_thresh > 120 or otsu_thresh < 10:
+        _, pupil_binary = cv2.threshold(
+            gray, threshold, 255, cv2.THRESH_BINARY_INV)
 
     kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
     pupil_binary = cv2.morphologyEx(pupil_binary, cv2.MORPH_OPEN, kernel)

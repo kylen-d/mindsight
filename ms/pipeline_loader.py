@@ -187,17 +187,31 @@ def load_pipeline(path: str | Path, ns: Namespace | None = None) -> Namespace:
     aux_list = cfg.get('aux_streams', [])
     if isinstance(aux_list, list) and aux_list:
         if not hasattr(ns, 'aux_streams') or _is_default(ns, 'aux_streams'):
-            from ms.pipeline_config import AuxStreamConfig
+            from ms.pipeline_config import AuxStreamConfig, VideoType
             parsed = []
             for item in aux_list:
                 if isinstance(item, dict):
-                    pid = item.get('pid', '')
-                    stype = item.get('stream_type', '')
                     source = item.get('source', '')
-                    if pid and stype and source:
-                        parsed.append(AuxStreamConfig(pid=pid,
-                                                      stream_type=stype,
-                                                      source=source))
+                    vtype_str = item.get('video_type', 'custom')
+                    stream_label = item.get('stream_label', '')
+                    participants = item.get('participants', [])
+                    auto_detect = item.get('auto_detect_faces', True)
+                    if source and stream_label and participants:
+                        try:
+                            vtype = VideoType(vtype_str)
+                        except ValueError:
+                            print(f"Warning: unknown video_type '{vtype_str}', "
+                                  f"using 'custom'")
+                            vtype = VideoType.CUSTOM
+                        if isinstance(participants, str):
+                            participants = [participants]
+                        parsed.append(AuxStreamConfig(
+                            source=source,
+                            video_type=vtype,
+                            stream_label=stream_label,
+                            participants=list(participants),
+                            auto_detect_faces=bool(auto_detect),
+                        ))
             if parsed:
                 setattr(ns, 'aux_streams', parsed)
 

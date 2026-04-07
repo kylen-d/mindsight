@@ -81,10 +81,12 @@ class PerformanceSection(QWidget):
             "Disable cone rendering, convergence markers, and debug text")
         f.addRow(self._cb_lite_overlay)
 
-        self._cb_no_dashboard = QCheckBox("No dashboard (raw frame only)")
-        self._cb_no_dashboard.setToolTip(
-            "Skip dashboard composition for maximum throughput")
-        f.addRow(self._cb_no_dashboard)
+        self._cb_dashboard_in_video = QCheckBox(
+            "Include dashboard in video output")
+        self._cb_dashboard_in_video.setToolTip(
+            "Compose side-panel dashboard into the saved video "
+            "(reduces throughput)")
+        f.addRow(self._cb_dashboard_in_video)
 
         self._cb_profile = QCheckBox("Profile (per-stage timing)")
         self._cb_profile.setToolTip(
@@ -105,7 +107,7 @@ class PerformanceSection(QWidget):
             fast=self._cb_fast.isChecked(),
             skip_phenomena=self._skip_phenomena.value(),
             lite_overlay=self._cb_lite_overlay.isChecked(),
-            no_dashboard=self._cb_no_dashboard.isChecked(),
+            no_dashboard=not self._cb_dashboard_in_video.isChecked(),
             profile=self._cb_profile.isChecked(),
         )
 
@@ -121,8 +123,8 @@ class PerformanceSection(QWidget):
             int(getattr(ns, 'skip_phenomena', 0)))
         self._cb_lite_overlay.setChecked(
             bool(getattr(ns, 'lite_overlay', False)))
-        self._cb_no_dashboard.setChecked(
-            bool(getattr(ns, 'no_dashboard', False)))
+        self._cb_dashboard_in_video.setChecked(
+            not bool(getattr(ns, 'no_dashboard', True)))
         self._cb_profile.setChecked(bool(getattr(ns, 'profile', False)))
 
     def reset_defaults(self):
@@ -134,5 +136,5 @@ class PerformanceSection(QWidget):
         self._cb_fast.setChecked(False)
         self._skip_phenomena.setValue(0)
         self._cb_lite_overlay.setChecked(False)
-        self._cb_no_dashboard.setChecked(False)
+        self._cb_dashboard_in_video.setChecked(False)
         self._cb_profile.setChecked(False)

@@ -212,41 +212,126 @@ def _run_image(source, *, yolo, face_det, gaze_eng, gaze_cfg, det_cfg,
 
 
 def _open_aux_streams(output_cfg, main_fps):
-    """Open auxiliary video captures and return (captures_dict, ended_set)."""
-    aux_captures: dict[tuple[str, str], cv2.VideoCapture] = {}
-    _aux_ended: set[tuple[str, str]] = set()
+    """Open auxiliary video captures and return (captures_dict, ended_set).
+
+    Each AuxStreamConfig may list multiple participants.  A single
+    VideoCapture is opened per config; ``_read_aux_frames`` then
+    populates keys for every participant in the config.
+    """
+    # canonical_key -> (VideoCapture, AuxStreamConfig)
+    aux_captures: dict[str, tuple] = {}
+    _aux_ended: set[str] = set()
+
     if output_cfg.aux_streams:
         for aux in output_cfg.aux_streams:
+            ckey = f"{aux.stream_label}:{aux.source}"
             ac = cv2.VideoCapture(aux.source)
             if not ac.isOpened():
                 print(f"Warning: cannot open aux stream "
-                      f"{aux.pid}:{aux.stream_type} ({aux.source}) -- skipping")
+                      f"{aux.stream_label} ({aux.source}) -- skipping")
                 continue
             aux_fps = ac.get(cv2.CAP_PROP_FPS) or 30.0
             if abs(aux_fps - main_fps) > 1.0:
-                print(f"Warning: aux stream {aux.pid}:{aux.stream_type} "
+                print(f"Warning: aux stream {aux.stream_label} "
                       f"FPS ({aux_fps:.1f}) differs from main ({main_fps:.1f}) "
                       f"-- frames may drift")
-            aux_captures[(aux.pid, aux.stream_type)] = ac
+            aux_captures[ckey] = (ac, aux)
         if aux_captures:
             print(f"Opened {len(aux_captures)} auxiliary stream(s)")
     return aux_captures, _aux_ended
 
 
 def _read_aux_frames(aux_captures, _aux_ended, frame_no):
-    """Read one frame from each auxiliary stream, returning a dict of frames."""
-    aux_frames: dict[tuple[str, str], object] = {}
-    for key, ac in aux_captures.items():
+    """Read one frame from each auxiliary stream.
+
+    Returns a dict keyed by ``(pid, stream_label, video_type)`` so that
+    ``find_aux_frame()`` can search by any combination of fields.
+    For multi-participant streams, the same frame is stored under each
+    participant's key.
+    """
+    aux_frames: dict[tuple, object] = {}
+    for ckey, (ac, cfg) in aux_captures.items():
         ret_a, frame_a = ac.read()
-        if ret_a:
-            aux_frames[key] = frame_a
-        else:
-            aux_frames[key] = None
-            if key not in _aux_ended:
-                _aux_ended.add(key)
-                print(f"Warning: aux stream {key[0]}:{key[1]} "
+        if not ret_a:
+            frame_a = None
+            if ckey not in _aux_ended:
+                _aux_ended.add(ckey)
+                print(f"Warning: aux stream {cfg.stream_label} "
                       f"ended at frame {frame_no}")
+
+        # Register under each participant listed in the config
+        for pid in cfg.participants:
+            aux_frames[(pid, cfg.stream_label, cfg.video_type)] = frame_a
+
     return aux_frames
+
+
+def _enrich_aux_with_face_detection(aux_frames, aux_captures, face_det,
+                                     pid_map):
+    """Run face detection on WIDE_CLOSEUP/FACE_CLOSEUP aux streams.
+
+    For streams with ``auto_detect_faces=True``, detect faces in the aux
+    frame and match them to known participants using spatial ordering
+    (left-to-right).  Populates per-participant face crops from the
+    wide/face stream so plugins can access individual participant data.
+    """
+    from ms.pipeline_config import VideoType
+    if not aux_captures:
+        return
+
+    for ckey, (ac, cfg) in aux_captures.items():
+        if not cfg.auto_detect_faces:
+            continue
+        if cfg.video_type not in (VideoType.WIDE_CLOSEUP,
+                                  VideoType.FACE_CLOSEUP):
+            continue
+
+        # Find the frame in aux_frames for this config
+        ref_key = None
+        ref_frame = None
+        for pid in cfg.participants:
+            key = (pid, cfg.stream_label, cfg.video_type)
+            if key in aux_frames and aux_frames[key] is not None:
+                ref_key = key
+                ref_frame = aux_frames[key]
+                break
+
+        if ref_frame is None:
+            continue
+
+        # Detect faces in the aux frame
+        try:
+            detected = face_det.detect(ref_frame)
+        except Exception:
+            continue
+
+        if not detected:
+            continue
+
+        # Sort detected faces left-to-right by x1
+        detected = sorted(detected, key=lambda f: f.get('bbox', [0])[0]
+                          if 'bbox' in f else 0)
+
+        # Match to participants: positional mapping (left-to-right order
+        # matches the order in cfg.participants)
+        for i, pid in enumerate(cfg.participants):
+            if i >= len(detected):
+                break
+            face = detected[i]
+            bbox = face.get('bbox')
+            if bbox is None:
+                continue
+            x1, y1, x2, y2 = [int(v) for v in bbox]
+            h, w = ref_frame.shape[:2]
+            x1, y1 = max(0, x1), max(0, y1)
+            x2, y2 = min(w, x2), min(h, y2)
+            if x2 - x1 < 10 or y2 - y1 < 10:
+                continue
+            face_crop = ref_frame[y1:y2, x1:x2]
+            # Add per-participant face crop as an additional aux entry
+            crop_key = (pid, f"{cfg.stream_label}_face",
+                        VideoType.FACE_CLOSEUP)
+            aux_frames[crop_key] = face_crop
 
 
 # ==============================================================================
@@ -337,6 +422,7 @@ def run(source, yolo, face_det, gaze_eng,
     frame_no = total_hits            = 0
     total_frames                     = 0
     frame_times                      = deque(maxlen=30)
+    _prev_fps                        = 0.0
     look_counts: dict                = {}
     heatmap_gaze: dict               = {}
 
@@ -392,6 +478,9 @@ def run(source, yolo, face_det, gaze_eng,
             do_det = (frame_no % skip == 0)
 
             aux_frames = _read_aux_frames(aux_captures, _aux_ended, frame_no)
+            _enrich_aux_with_face_detection(
+                aux_frames, aux_captures, face_det,
+                output_cfg.pid_map)
 
             # Build per-frame context from the run-level base
             ctx = FrameContext(frame=frame, frame_no=frame_no,
@@ -424,6 +513,9 @@ def run(source, yolo, face_det, gaze_eng,
             # Cache gaze data for next frame's detection plugins
             cache['prev_persons_gaze'] = ctx.get('persons_gaze', [])
             cache['prev_face_track_ids'] = ctx.get('face_track_ids', [])
+
+            # Inject previous frame's FPS so LiveDashboardBridge can read it
+            ctx['fps'] = _prev_fps
 
             # Phenomena tracker updates (built-in + plugins, unified loop)
             # Determine whether to run phenomena this frame
@@ -496,6 +588,7 @@ def run(source, yolo, face_det, gaze_eng,
             # Rolling FPS estimate over the last 30 frames
             frame_times.append(time.perf_counter() - t0)
             cur_fps = 1.0 / (sum(frame_times) / len(frame_times))
+            _prev_fps = cur_fps
 
             ctx['fps'] = cur_fps
             ctx['n_dets'] = len(hit_events)
@@ -590,12 +683,18 @@ def _args():
                    help="Path to a participant_ids.csv mapping video filenames "
                         "to custom participant labels (see docs for format).")
     p.add_argument("--aux-stream", action="append", default=None,
-                   dest="aux_streams_raw", metavar="PID:TYPE:SOURCE",
-                   help="Auxiliary video stream mapped to a participant. "
-                        "Format: PID:TYPE:SOURCE where PID is the participant "
-                        "label, TYPE is the stream purpose (e.g. eye_camera, "
-                        "first_person_view), and SOURCE is the file path. "
+                   dest="aux_streams_raw",
+                   metavar="SOURCE:VIDEO_TYPE:LABEL:PIDS",
+                   help="Auxiliary video stream. "
+                        "Format: SOURCE:VIDEO_TYPE:LABEL:PID1,PID2 where "
+                        "SOURCE is the file path, VIDEO_TYPE is one of "
+                        "eye_only/face_closeup/wide_closeup/custom, "
+                        "LABEL is a user-defined stream label, and PIDS "
+                        "is a comma-separated list of participant labels. "
                         "Repeatable for multiple streams.")
+    p.add_argument("--aux-auto-detect", action="store_true", default=True,
+                   help="Enable automatic face detection on wide/face "
+                        "auxiliary streams (default: enabled).")
 
     p.add_argument("--device", default="auto",
                    help="Compute device for all backends: auto, cpu, cuda, "
@@ -723,19 +822,36 @@ def _build_from_args(args):
                           f"available: {list(all_maps.keys())}")
     args.pid_map = pid_map
 
-    # Parse --aux-stream PID:TYPE:SOURCE entries into AuxStreamConfig list
-    from ms.pipeline_config import AuxStreamConfig
+    # Parse --aux-stream SOURCE:VIDEO_TYPE:LABEL:PIDS entries
+    from ms.pipeline_config import AuxStreamConfig, VideoType
     raw_aux = getattr(args, 'aux_streams_raw', None)
     if raw_aux and not getattr(args, 'aux_streams', None):
         aux_list = []
         for entry in raw_aux:
-            parts = entry.split(":", 2)
-            if len(parts) != 3:
+            parts = entry.split(":", 3)
+            if len(parts) != 4:
                 raise ValueError(
-                    f"--aux-stream requires PID:TYPE:SOURCE format, got '{entry}'"
+                    f"--aux-stream requires SOURCE:VIDEO_TYPE:LABEL:PIDS "
+                    f"format, got '{entry}'"
                 )
-            aux_list.append(AuxStreamConfig(pid=parts[0], stream_type=parts[1],
-                                            source=parts[2]))
+            source, vtype_str, label, pids_str = parts
+            try:
+                vtype = VideoType(vtype_str)
+            except ValueError:
+                raise ValueError(
+                    f"Unknown video_type '{vtype_str}'. "
+                    f"Options: {[v.value for v in VideoType]}"
+                )
+            participants = [p.strip() for p in pids_str.split(",")
+                           if p.strip()]
+            auto_detect = getattr(args, 'aux_auto_detect', True)
+            aux_list.append(AuxStreamConfig(
+                source=source,
+                video_type=vtype,
+                stream_label=label,
+                participants=participants,
+                auto_detect_faces=auto_detect,
+            ))
         args.aux_streams = aux_list if aux_list else None
 
     phenomena_cfg = PhenomenaConfig.from_namespace(args)

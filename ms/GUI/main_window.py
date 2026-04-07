@@ -26,7 +26,7 @@ class MainWindow(QMainWindow):
 
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("MindSight — Gaze Tracker + Visual Prompt Builder")
+        self.setWindowTitle("MindSight — Inference + Visual Prompt Builder")
         self.resize(1280, 800)
         self.setMinimumSize(900, 600)
 
@@ -36,7 +36,7 @@ class MainWindow(QMainWindow):
 
         self._gaze_tab = GazeTab()
         self._vp_tab = VisualPromptBuilderTab()
-        tabs.addTab(self._gaze_tab, "  Gaze Tracker  ")
+        tabs.addTab(self._gaze_tab, "  Inference  ")
         tabs.addTab(self._vp_tab, "  VP Builder  ")
 
         # Project tab — receives a reference to gaze_tab for namespace building
@@ -142,7 +142,7 @@ class MainWindow(QMainWindow):
             sb.addPermanentWidget(btn)
 
         # -- VP Builder button (tab 1) ----------------------------------------
-        self._use_vp_btn = QPushButton("Use saved VP in Gaze Tracker")
+        self._use_vp_btn = QPushButton("Use saved VP in Inference")
         self._use_vp_btn.setStyleSheet(self._BTN_VP)
         self._use_vp_btn.clicked.connect(self._push_vp_to_gaze)
         sb.addPermanentWidget(self._use_vp_btn)

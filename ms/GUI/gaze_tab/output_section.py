@@ -99,9 +99,9 @@ class OutputSection(QWidget):
         aux_grp.setChecked(False)
         aux_lay = QVBoxLayout(aux_grp)
 
-        self._aux_table = QTableWidget(0, 3)
+        self._aux_table = QTableWidget(0, 5)
         self._aux_table.setHorizontalHeaderLabels(
-            ["PID", "Type", "Source"])
+            ["Source", "Video Type", "Label", "Participants", "Auto-Detect"])
         self._aux_table.horizontalHeader().setStretchLastSection(True)
         self._aux_table.setMinimumHeight(100)
         aux_lay.addWidget(self._aux_table)
@@ -129,11 +129,21 @@ class OutputSection(QWidget):
             line_edit.setText(path)
 
     def _aux_add_row(self):
+        from ms.pipeline_config import VideoType
         row = self._aux_table.rowCount()
         self._aux_table.insertRow(row)
-        self._aux_table.setItem(row, 0, QTableWidgetItem(""))
-        self._aux_table.setItem(row, 1, QTableWidgetItem("eye_camera"))
-        self._aux_table.setItem(row, 2, QTableWidgetItem(""))
+        self._aux_table.setItem(row, 0, QTableWidgetItem(""))  # Source
+        # Video Type combo box
+        vtype_combo = QComboBox()
+        vtype_combo.addItems([v.value for v in VideoType])
+        vtype_combo.setCurrentText(VideoType.EYE_ONLY.value)
+        self._aux_table.setCellWidget(row, 1, vtype_combo)
+        self._aux_table.setItem(row, 2, QTableWidgetItem(""))  # Label
+        self._aux_table.setItem(row, 3, QTableWidgetItem(""))  # Participants
+        # Auto-Detect checkbox
+        auto_cb = QCheckBox()
+        auto_cb.setChecked(True)
+        self._aux_table.setCellWidget(row, 4, auto_cb)
 
     def _aux_remove_row(self):
         row = self._aux_table.currentRow()
@@ -148,22 +158,41 @@ class OutputSection(QWidget):
             self, "Select Auxiliary Video",
             filter="Video (*.mp4 *.avi *.mov *.mkv *.webm);;All (*)")
         if path:
-            self._aux_table.setItem(row, 2, QTableWidgetItem(path))
+            self._aux_table.setItem(row, 0, QTableWidgetItem(path))
 
     def _aux_stream_configs(self):
         """Read the aux table into a list of AuxStreamConfig or None."""
-        from ms.pipeline_config import AuxStreamConfig
+        from ms.pipeline_config import AuxStreamConfig, VideoType
         configs = []
         for r in range(self._aux_table.rowCount()):
-            pid = (self._aux_table.item(r, 0).text().strip()
-                   if self._aux_table.item(r, 0) else "")
-            stype = (self._aux_table.item(r, 1).text().strip()
-                     if self._aux_table.item(r, 1) else "")
-            source = (self._aux_table.item(r, 2).text().strip()
-                      if self._aux_table.item(r, 2) else "")
-            if pid and stype and source:
-                configs.append(AuxStreamConfig(
-                    pid=pid, stream_type=stype, source=source))
+            source = (self._aux_table.item(r, 0).text().strip()
+                      if self._aux_table.item(r, 0) else "")
+            vtype_w = self._aux_table.cellWidget(r, 1)
+            vtype_str = (vtype_w.currentText() if vtype_w else "custom")
+            label = (self._aux_table.item(r, 2).text().strip()
+                     if self._aux_table.item(r, 2) else "")
+            pids_str = (self._aux_table.item(r, 3).text().strip()
+                        if self._aux_table.item(r, 3) else "")
+            auto_w = self._aux_table.cellWidget(r, 4)
+            auto_detect = auto_w.isChecked() if auto_w else True
+
+            if not (source and label and pids_str):
+                continue
+
+            try:
+                vtype = VideoType(vtype_str)
+            except ValueError:
+                vtype = VideoType.CUSTOM
+
+            participants = [p.strip() for p in pids_str.split(",")
+                           if p.strip()]
+            configs.append(AuxStreamConfig(
+                source=source,
+                video_type=vtype,
+                stream_label=label,
+                participants=participants,
+                auto_detect_faces=auto_detect,
+            ))
         return configs if configs else None
 
     # -- Namespace interface --------------------------------------------------
