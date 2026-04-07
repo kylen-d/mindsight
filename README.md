@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/mindsightdraftcirclebak.svg" alt="MindSight logo" width="256">
+  <img src="mindsightlogo.png" alt="MindSight logo">
 </p>
 
 # MindSight — Unified Object Detection and Gaze Intersection Tracker for Cognitive Sciences Research
