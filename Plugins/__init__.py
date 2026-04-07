@@ -348,7 +348,7 @@ class PhenomenaPlugin(ABC):
         falling back to any available stream for *pid*.  Keyword *overrides*
         (``video_type``, ``stream_label``) take precedence over preferences.
         """
-        from ms.pipeline_config import find_aux_frame, VideoType
+        from ms.pipeline_config import find_aux_frame
 
         vtype = overrides.get('video_type')
         slabel = overrides.get('stream_label')

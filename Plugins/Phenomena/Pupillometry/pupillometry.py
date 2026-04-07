@@ -17,7 +17,7 @@ import collections
 import cv2
 import numpy as np
 
-from ms.pipeline_config import VideoType, find_aux_frame, resolve_display_pid
+from ms.pipeline_config import VideoType, resolve_display_pid
 from Plugins import PhenomenaPlugin
 
 
@@ -542,8 +542,6 @@ class PupillometryTracker(PhenomenaPlugin):
     def dashboard_widget_update(self, data: dict) -> None:
         if self._eye_widget is None:
             return
-
-        pid_map = self._pid_map
 
         # Get eye states from EyeMovement tracker if available
         eye_states = {}

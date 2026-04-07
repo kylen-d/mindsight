@@ -287,12 +287,10 @@ def _enrich_aux_with_face_detection(aux_frames, aux_captures, face_det,
             continue
 
         # Find the frame in aux_frames for this config
-        ref_key = None
         ref_frame = None
         for pid in cfg.participants:
             key = (pid, cfg.stream_label, cfg.video_type)
             if key in aux_frames and aux_frames[key] is not None:
-                ref_key = key
                 ref_frame = aux_frames[key]
                 break
 
