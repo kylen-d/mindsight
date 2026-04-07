@@ -1,10 +1,8 @@
 <p align="center">
-  <img src="assets/mindsightdraftcirclebak.svg" alt="MindSight logo" width="160">
+  <img src="assets/mindsightdraftcirclebak.svg" alt="MindSight logo" width="512">
 </p>
 
-# MindSight — Unified Object Detection and Gaze Intersection Tracker for Cognitive Sciences Research <p align="center">
-  <img src="assets/mindsightdraftcirclebak.svg" alt="MindSight logo" width="160">
-</p>
+# MindSight — Unified Object Detection and Gaze Intersection Tracker for Cognitive Sciences Research
 
 > **Beta Release** — This is a pre-release version (v0.4.0-beta). APIs and features may change. Bug reports and feedback are welcome via [GitHub Issues](https://github.com/kylen-d/mindsight/issues).
 
