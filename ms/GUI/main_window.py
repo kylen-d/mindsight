@@ -9,9 +9,7 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
-from PyQt6.QtCore import Qt
-from PyQt6.QtGui import QIcon, QPainter, QPixmap
-from PyQt6.QtSvg import QSvgRenderer
+from PyQt6.QtGui import QIcon
 from PyQt6.QtWidgets import (
     QApplication,
     QMainWindow,
@@ -281,15 +279,9 @@ def main():
     """Entry point for the MindSight GUI application."""
     app = QApplication(sys.argv)
     app.setStyle("Fusion")
-    icon_path = Path(__file__).resolve().parents[2] / "assets" / "mindsightdraftcirclebak.svg"
+    icon_path = Path(__file__).resolve().parents[2] / "assets" / "mindsight_icon.png"
     if icon_path.exists():
-        renderer = QSvgRenderer(str(icon_path))
-        pixmap = QPixmap(256, 256)
-        pixmap.fill(Qt.GlobalColor.transparent)
-        painter = QPainter(pixmap)
-        renderer.render(painter)
-        painter.end()
-        app.setWindowIcon(QIcon(pixmap))
+        app.setWindowIcon(QIcon(str(icon_path)))
     win = MainWindow()
     win.show()
     sys.exit(app.exec())
