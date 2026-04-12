@@ -5,7 +5,7 @@
 </p>
 
 #
-**Featured at PURC 2026📚🎉** — This project has been featured at the **University of British Columbia's** 28th Annual *Psychology Undergraduate Research Conference!* Massive thanks to the folks at the *UBC Motivated Cognition Lab* for this opportounity and for all their help in supervising and supporting this project! [See the poster here.](https://github.com/kylen-d/mindsight-docs/blob/main/PURC_KylenD_Final.png)
+**Featured at PURC 2026📚🎉** — This project has been featured at the **University of British Columbia's** 28th Annual *Psychology Undergraduate Research Conference!* Massive thanks to the folks at the *UBC Motivated Cognition Lab* for this opportounity and for all their help in supervising and supporting this project!
 
 > **Beta Release** — This is a pre-release version (v0.4.0-beta). APIs and features may change. Bug reports and feedback are welcome via [GitHub Issues](https://github.com/kylen-d/mindsight/issues).
 
