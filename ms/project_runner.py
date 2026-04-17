@@ -310,7 +310,9 @@ def run_project(project_dir: str | Path, run_fn, build_fn, args_ns) -> None:
 
     # Build models once for the whole project
     (yolo, face_det, gaze_eng, gaze_cfg, det_cfg, tracker_cfg, output_cfg,
-     active_plugins, phenomena_cfg, detection_plugins) = build_fn(args_ns)
+     active_plugins, phenomena_cfg, detection_plugins,
+     depth_cfg, depth_backend,
+     gazelle_provider, ray_cfg) = build_fn(args_ns)
 
     # Discover per-video participant ID mappings
     # project.yaml participants take precedence over participant_ids.csv
@@ -391,7 +393,9 @@ def run_project(project_dir: str | Path, run_fn, build_fn, args_ns) -> None:
                    skip_phenomena=getattr(args_ns, 'skip_phenomena', 0),
                    lite_overlay=getattr(args_ns, 'lite_overlay', False),
                    no_dashboard=getattr(args_ns, 'no_dashboard', False),
-                   profile=getattr(args_ns, 'profile', False))
+                   profile=getattr(args_ns, 'profile', False),
+                   depth_cfg=depth_cfg, depth_backend=depth_backend,
+                   gazelle_provider=gazelle_provider, ray_cfg=ray_cfg)
         except Exception as exc:
             print(f"Error processing {source.name}: {exc}")
             continue

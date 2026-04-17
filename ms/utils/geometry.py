@@ -114,3 +114,21 @@ def bbox_diagonal(obj) -> float:
     """Diagonal length of a detection bounding-box in pixels."""
     return float(np.sqrt((obj['x2'] - obj['x1'])**2 +
                          (obj['y2'] - obj['y1'])**2))
+
+
+def sample_depth_patch(depth_map: np.ndarray, x: float, y: float,
+                       radius: int = 2) -> float:
+    """Sample depth at a point using a median-of-patch for robustness.
+
+    Extracts a (2*radius+1) square patch centred at ``(x, y)``, clamped to
+    image bounds, and returns the median depth value.
+    """
+    h, w = depth_map.shape[:2]
+    ix, iy = int(round(x)), int(round(y))
+    x1 = max(0, ix - radius)
+    y1 = max(0, iy - radius)
+    x2 = min(w, ix + radius + 1)
+    y2 = min(h, iy + radius + 1)
+    if x2 <= x1 or y2 <= y1:
+        return 0.5  # fallback for out-of-bounds
+    return float(np.median(depth_map[y1:y2, x1:x2]))
