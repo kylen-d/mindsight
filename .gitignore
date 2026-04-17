@@ -54,3 +54,6 @@ Projects/*/Inputs/Videos/
 .superpowers/
 docs/superpowers/
 assets/presentation/
+
+# Local-only reference material (draft plans, baselines) -- not tracked
+localref/
