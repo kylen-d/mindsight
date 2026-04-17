@@ -40,7 +40,6 @@ Select from the dropdown:
 - **MGaze** (default — auto-detects ONNX or PyTorch from model file extension)
 - **Gazelle**
 - **L2CS**
-- **UniGaze**
 
 ### Device Selector
 
