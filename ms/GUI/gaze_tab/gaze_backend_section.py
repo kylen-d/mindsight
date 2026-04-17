@@ -1,4 +1,4 @@
-"""Gaze backend selection and configuration (MGaze, L2CS, UniGaze, Gazelle)."""
+"""Gaze backend selection and configuration (MGaze, L2CS, Gazelle)."""
 
 from __future__ import annotations
 
@@ -29,17 +29,6 @@ from ms.GazeTracking.Backends.MGaze.MGaze_Config import DEFAULT_ONNX_MODEL
 
 from ..widgets import _browse_btn, _hrow
 
-try:
-    from ms.GazeTracking.Backends.UniGaze.UniGaze_Config import (
-        DEFAULT_VARIANT as UNIGAZE_DEFAULT,
-    )
-    from ms.GazeTracking.Backends.UniGaze.UniGaze_Config import (
-        MODEL_VARIANTS as UNIGAZE_VARIANTS,
-    )
-    _UNIGAZE_AVAILABLE = True
-except ImportError:
-    _UNIGAZE_AVAILABLE = False
-
 GAZE_ARCHS = [
     "resnet18", "resnet34", "resnet50", "mobilenetv2",
     "mobileone_s0", "mobileone_s1", "mobileone_s2",
@@ -65,19 +54,13 @@ class GazeBackendSection(QWidget):
         g = QGroupBox("Gaze Backend")
         vl = QVBoxLayout(g)
 
-        # Row 1: MGaze, L2CS, UniGaze, Gazelle
+        # Row 1: MGaze, L2CS, Gazelle
         rb_row1 = _hrow()
         self._rb_mgaze = QRadioButton("MGaze")
         self._rb_mgaze.setChecked(True)
         rb_row1.layout().addWidget(self._rb_mgaze)
         self._rb_l2cs = QRadioButton("L2CS-Net")
         rb_row1.layout().addWidget(self._rb_l2cs)
-        self._rb_unigaze = QRadioButton("UniGaze")
-        if not _UNIGAZE_AVAILABLE:
-            self._rb_unigaze.setEnabled(False)
-            self._rb_unigaze.setToolTip(
-                "Requires: pip install unigaze timm==0.3.2")
-        rb_row1.layout().addWidget(self._rb_unigaze)
         self._rb_gazelle = QRadioButton("Gazelle")
         rb_row1.layout().addWidget(self._rb_gazelle)
         rb_row1.layout().addStretch(1)
@@ -132,18 +115,6 @@ class GazeBackendSection(QWidget):
         self._l2cs_widget.setVisible(False)
         vl.addWidget(self._l2cs_widget)
 
-        # -- UniGaze widget --
-        self._unigaze_widget = QWidget()
-        ugl = QFormLayout(self._unigaze_widget)
-        ugl.setContentsMargins(0, 0, 0, 0)
-        self._unigaze_variant = QComboBox()
-        if _UNIGAZE_AVAILABLE:
-            self._unigaze_variant.addItems(list(UNIGAZE_VARIANTS.keys()))
-            self._unigaze_variant.setCurrentText(UNIGAZE_DEFAULT)
-        ugl.addRow("Variant:", self._unigaze_variant)
-        self._unigaze_widget.setVisible(False)
-        vl.addWidget(self._unigaze_widget)
-
         # -- Gazelle widget --
         self._gazelle_widget = QWidget()
         gwl = QFormLayout(self._gazelle_widget)
@@ -189,12 +160,10 @@ class GazeBackendSection(QWidget):
         self._backend_group = QButtonGroup(self)
         self._backend_group.addButton(self._rb_mgaze)
         self._backend_group.addButton(self._rb_l2cs)
-        self._backend_group.addButton(self._rb_unigaze)
         self._backend_group.addButton(self._rb_gazelle)
 
         self._rb_mgaze.toggled.connect(self._refresh_backend)
         self._rb_l2cs.toggled.connect(self._refresh_backend)
-        self._rb_unigaze.toggled.connect(self._refresh_backend)
         self._rb_gazelle.toggled.connect(self._refresh_backend)
         lay.addWidget(g)
 
@@ -206,7 +175,6 @@ class GazeBackendSection(QWidget):
         mgaze_path = self._gaze_model.text().strip().lower()
         self._arch_widget.setVisible(is_mgaze and mgaze_path.endswith('.pt'))
         self._l2cs_widget.setVisible(self._rb_l2cs.isChecked())
-        self._unigaze_widget.setVisible(self._rb_unigaze.isChecked())
         self._gazelle_widget.setVisible(self._rb_gazelle.isChecked())
 
     def _browse_to(self, line_edit: QLineEdit, filt: str = "*"):
@@ -220,8 +188,6 @@ class GazeBackendSection(QWidget):
             return "gazelle"
         if self._rb_l2cs.isChecked():
             return "l2cs"
-        if self._rb_unigaze.isChecked():
-            return "unigaze"
         return "mgaze"
 
     # -- Namespace interface --------------------------------------------------
@@ -242,8 +208,6 @@ class GazeBackendSection(QWidget):
                         if backend == "l2cs" else None),
             l2cs_arch=self._l2cs_arch.currentText(),
             l2cs_dataset=self._l2cs_dataset.currentText(),
-            unigaze_model=(self._unigaze_variant.currentText()
-                           if backend == "unigaze" else None),
             gazelle_model=(self._gazelle_ckpt.text().strip()
                            if backend == "gazelle" else None),
             gazelle_name=self._gazelle_name.currentText(),
@@ -257,7 +221,6 @@ class GazeBackendSection(QWidget):
     def apply_namespace(self, ns: Namespace):
         gazelle_model = getattr(ns, 'gazelle_model', None)
         l2cs_model = getattr(ns, 'l2cs_model', None)
-        unigaze_model = getattr(ns, 'unigaze_model', None)
         mgaze_arch = getattr(ns, 'mgaze_arch', None)
         if gazelle_model:
             self._rb_gazelle.setChecked(True)
@@ -265,9 +228,6 @@ class GazeBackendSection(QWidget):
         elif l2cs_model:
             self._rb_l2cs.setChecked(True)
             self._l2cs_model.setText(str(l2cs_model))
-        elif unigaze_model:
-            self._rb_unigaze.setChecked(True)
-            self._unigaze_variant.setCurrentText(str(unigaze_model))
         elif mgaze_arch:
             self._rb_mgaze.setChecked(True)
             self._gaze_arch.setCurrentText(str(mgaze_arch))

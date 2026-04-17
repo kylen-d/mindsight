@@ -162,7 +162,7 @@ Plugins hook into three registries defined in `Plugins/__init__.py`:
 | `object_detection_registry` | Alternative detection backends | Custom YOLO variants |
 | `phenomena_registry` | New social gaze phenomena | Custom attention metrics |
 
-Auto-discovery scans `Plugins/` subdirectories at startup. The gaze registry also scans `ms/GazeTracking/Backends/` for built-in gaze backends (MGaze, L2CS, UniGaze). Each plugin package exposes a registration function that inserts itself into the appropriate registry. Plugins can also provide `add_arguments(parser)` to register their own CLI flags.
+Auto-discovery scans `Plugins/` subdirectories at startup. The gaze registry also scans `ms/GazeTracking/Backends/` for built-in gaze backends (MGaze, L2CS). Each plugin package exposes a registration function that inserts itself into the appropriate registry. Plugins can also provide `add_arguments(parser)` to register their own CLI flags.
 
 ## Auxiliary Video Streams
 

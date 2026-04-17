@@ -12,7 +12,7 @@ The gaze processing subsystem lives across five key locations:
 | `gaze_processing.py` (~1 000 lines) | Core processing classes: smoothing, lock-on, snap hysteresis, ray geometry |
 | `gaze_pipeline.py` | Per-frame coordinator that wires detection, estimation, and post-processing together |
 | `pitchyaw_pipeline.py` | Pitch/yaw-specific pipeline utilities |
-| `Backends/` | Plugin backends (MGaze, L2CS, UniGaze, Gazelle) |
+| `Backends/` | Plugin backends (MGaze, L2CS, Gazelle) |
 
 ## 2. Module Architecture
 
@@ -155,7 +155,6 @@ Extensible toolkit class designed for plugins to add custom processing steps. Pl
 |---|---|---|---|
 | **MGaze** | ONNX or PyTorch (auto-detected) | Per-face | Default gaze estimation backend |
 | **L2CS** | PyTorch | Per-face | L2CS-Net architecture |
-| **UniGaze** | ViT | Per-face | Vision Transformer backbone |
 | **Gazelle** | DINOv2 | Scene-level | Processes the full scene rather than individual faces |
 
 All backends implement the `GazePlugin` interface, which requires at minimum an `estimate()` method and optionally a `run_pipeline()` override for scene-level models.
