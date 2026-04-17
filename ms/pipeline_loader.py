@@ -48,8 +48,15 @@ _YAML_MAP: dict[str, str] = {
     'gaze.snap_dist':      'snap_dist',
     'gaze.snap_bbox_scale': 'snap_bbox_scale',
     'gaze.snap_w_dist':    'snap_w_dist',
+    'gaze.snap_w_angle':   'snap_w_angle',
     'gaze.snap_w_size':    'snap_w_size',
     'gaze.snap_w_intersect': 'snap_w_intersect',
+    'gaze.snap_w_temporal': 'snap_w_temporal',
+    'gaze.snap_gate_angle': 'snap_gate_angle',
+    'gaze.snap_head_blend': 'snap_head_blend',
+    'gaze.snap_quality_thresh': 'snap_quality_thresh',
+    'gaze.snap_tip_dist':  'snap_tip_dist',
+    'gaze.snap_tip_quality': 'snap_tip_quality',
     'gaze.conf_ray':       'conf_ray',
     'gaze.gaze_tips':      'gaze_tips',
     'gaze.tip_radius':     'tip_radius',
@@ -58,7 +65,8 @@ _YAML_MAP: dict[str, str] = {
     'gaze.dwell_frames':   'dwell_frames',
     'gaze.lock_dist':      'lock_dist',
     'gaze.gaze_debug':     'gaze_debug',
-    'gaze.snap_switch_frames': 'snap_switch_frames',
+    'gaze.snap_release_frames': 'snap_release_frames',
+    'gaze.snap_engage_frames': 'snap_engage_frames',
     'gaze.reid_grace_seconds': 'reid_grace_seconds',
     'gaze.hit_conf_gate':      'hit_conf_gate',
     'gaze.detect_extend':      'detect_extend',
@@ -87,6 +95,15 @@ _YAML_MAP: dict[str, str] = {
     'phenomena.ja_window':       'ja_window',
     'phenomena.ja_window_thresh': 'ja_window_thresh',
     'phenomena.ja_quorum':       'ja_quorum',
+
+    # Depth estimation
+    'depth.enabled':             'depth',
+    'depth.backend':             'depth_backend',
+    'depth.input_size':          'depth_input_size',
+    'depth.skip_frames':         'depth_skip_frames',
+    'depth.depth_aware_scoring': 'depth_aware_scoring',
+    'depth.snap_w_depth':        'depth_w_depth',
+    'depth.gaze_sample_radius':  'depth_sample_radius',
 }
 
 # Phenomena tracker toggles — boolean flags

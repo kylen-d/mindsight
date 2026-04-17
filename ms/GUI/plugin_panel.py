@@ -39,10 +39,12 @@ _HANDLED_DESTS = {
     "vp_model", "skip_frames", "obj_persistence",
     # Gaze
     "mgaze_model", "mgaze_arch", "mgaze_dataset", "ray_length", "adaptive_ray",
-    "snap_dist", "snap_bbox_scale", "snap_w_dist", "snap_w_size", "snap_w_intersect",
+    "snap_dist", "snap_bbox_scale", "snap_w_dist", "snap_w_angle", "snap_w_size",
+    "snap_w_intersect", "snap_w_temporal", "snap_gate_angle", "snap_head_blend",
+    "snap_quality_thresh", "snap_tip_dist", "snap_tip_quality",
     "conf_ray", "gaze_tips", "tip_radius",
     "gaze_cone", "gaze_lock", "dwell_frames", "lock_dist", "gaze_debug",
-    "snap_switch_frames", "reid_grace_seconds",
+    "snap_release_frames", "snap_engage_frames", "reid_grace_seconds",
     # L2CS-Net
     "l2cs_model", "l2cs_arch", "l2cs_dataset",
     # UniGaze
@@ -137,13 +139,9 @@ _PLUGIN_LAYOUTS: dict[str, _PluginLayout] = {
     "iris_refined": _PluginLayout(sections=[
         _Section("Refinement", ["iris_refine_weight", "iris_refine_upscale"]),
     ]),
-    "gazelle_snap": _PluginLayout(sections=[
-        _Section("Model", ["gs_gazelle_model", "gs_gazelle_name"]),
-        _Section("Heatmap Inference",
-                 ["gs_snap_interval", "gs_heatmap_threshold",
-                  "gs_heatmap_weight", "gs_heatmap_decay"]),
-        _Section("Object Snapping", ["gs_obj_snap"]),
-    ]),
+    # gazelle_snap: DEPRECATED -- Gazelle blend controls are now in the
+    # core Ray Forming section of the Gaze tab (ray_section.py).
+    "gazelle_snap": _PluginLayout(sections=[]),
 }
 
 

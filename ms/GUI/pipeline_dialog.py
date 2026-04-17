@@ -137,8 +137,10 @@ def _namespace_to_yaml_dict(ns: Namespace) -> dict:
         gaze["lock_dist"] = d["lock_dist"]
     if d.get("gaze_debug"):
         gaze["gaze_debug"] = True
-    if d.get("snap_switch_frames") and d["snap_switch_frames"] != 8:
-        gaze["snap_switch_frames"] = d["snap_switch_frames"]
+    if d.get("snap_release_frames") and d["snap_release_frames"] != 5:
+        gaze["snap_release_frames"] = d["snap_release_frames"]
+    if d.get("snap_engage_frames") and d["snap_engage_frames"] != 0:
+        gaze["snap_engage_frames"] = d["snap_engage_frames"]
     if d.get("reid_grace_seconds") and d["reid_grace_seconds"] != 1.0:
         gaze["reid_grace_seconds"] = d["reid_grace_seconds"]
     if gaze:

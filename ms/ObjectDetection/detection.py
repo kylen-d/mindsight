@@ -30,6 +30,9 @@ class Detection:
     # Extra field used when faces are treated as objects.
     _face_idx: int | None = dataclasses.field(default=None, repr=False)
 
+    # Depth estimation metadata (set by run_depth_step when depth is enabled).
+    depth_median: float | None = dataclasses.field(default=None, repr=False)
+
     # ── Dict-compatible access (backward compat) ─────────────────────────────
 
     _KEY_MAP: ClassVar[dict] = {

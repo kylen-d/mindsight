@@ -133,7 +133,10 @@ class ScanpathTracker(PhenomenaPlugin):
                 'label': f'{plbl} fixations',
                 'y_label': 'fixations',
             }
-        return result or None
+        if not result:
+            return {'fixations': {'value': 0.0, 'label': 'Total fixations',
+                                  'y_label': 'fixations'}}
+        return result
 
     # ── CLI protocol ──────────────────────────────────────────────────────────
 

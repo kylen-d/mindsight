@@ -167,7 +167,10 @@ class AttentionSpanTracker(PhenomenaPlugin):
                     'label': f'{plbl}: {cls}',
                     'y_label': 'avg frames',
                 }
-        return result or None
+        if not result:
+            return {'max_avg': {'value': 0.0, 'label': 'Max avg glance',
+                                'y_label': 'avg frames'}}
+        return result
 
     # ── CLI protocol ──────────────────────────────────────────────────────────
 

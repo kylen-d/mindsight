@@ -174,7 +174,10 @@ class GazeLeadershipTracker(PhenomenaPlugin):
                 'label': f'{plbl}',
                 'y_label': 'events',
             }
-        return result or None
+        if not result:
+            return {'credits': {'value': 0.0, 'label': 'Leadership credits',
+                                'y_label': 'events'}}
+        return result
 
     # ── CLI protocol ──────────────────────────────────────────────────────────
 

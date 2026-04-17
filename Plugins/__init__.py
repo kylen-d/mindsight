@@ -220,7 +220,7 @@ class GazePlugin(ABC):
         objects         : Non-person detection list.
         gaze_cfg        : GazeConfig with ray parameters.
         smoother        : Optional GazeSmootherReID instance.
-        snap_hysteresis : Optional SnapHysteresisTracker instance.
+        snap_temporal   : Optional SnapTemporalState instance.
         aux_frames      : dict[(pid_label, stream_type), ndarray | None] —
                           per-participant auxiliary video frames.  Empty dict
                           when no auxiliary streams are configured.
