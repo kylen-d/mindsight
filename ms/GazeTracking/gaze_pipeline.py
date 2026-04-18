@@ -4,7 +4,7 @@ GazeTracking/gaze_pipeline.py — Run-loop gaze step (plugin coordinator).
 Delegates gaze estimation to the active plugin, then applies unified ray
 forming via ``ms.PostProcessing.RayForming``.  When a ``GazelleProvider``
 is available on the context, periodic Gaze-LLE heatmap inference and belief
-blending are applied as a core pipeline feature (no GazelleSnap plugin needed).
+blending are applied as a core pipeline feature.
 
 Plugins that implement ``run_pipeline()`` still work for backward compatibility,
 but the recommended path is:
@@ -202,16 +202,11 @@ def run_gaze_step(ctx, *, face_det, gaze_eng, gaze_cfg: GazeConfig, **kwargs):
                            and callable(gaze_eng.run_pipeline)
                            and type(gaze_eng).run_pipeline is not GazePlugin.run_pipeline)
 
-    # Check if the active engine is the deprecated GazelleSnap plugin
-    is_gazelle_snap = getattr(gaze_eng, 'name', None) == 'gazelle_snap'
-
     # ── Path A: Core ray forming (per-face PY + optional Gazelle blend) ─────
-    # Used when: the engine is a per-face backend AND we're NOT using the
-    # legacy GazelleSnap plugin.
+    # Used when the engine is a per-face backend.
     use_core_ray_forming = (
         ray_cfg is not None
         and getattr(gaze_eng, 'mode', 'per_face') == 'per_face'
-        and not is_gazelle_snap
     )
 
     if use_core_ray_forming:
@@ -259,7 +254,7 @@ def run_gaze_step(ctx, *, face_det, gaze_eng, gaze_cfg: GazeConfig, **kwargs):
         ray_snapped = result.ray_snapped
         ray_extended = result.ray_extended
 
-    # ── Path B: Legacy plugin pipeline (GazelleSnap or custom plugins) ──────
+    # ── Path B: Custom plugin pipeline ──────────────────────────────────────
     elif has_plugin_pipeline:
         (persons_gaze, face_confs, face_bboxes, face_track_ids,
          face_objs, ray_snapped, ray_extended) = gaze_eng.run_pipeline(

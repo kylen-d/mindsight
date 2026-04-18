@@ -47,8 +47,6 @@ _HANDLED_DESTS = {
     "snap_release_frames", "snap_engage_frames", "reid_grace_seconds",
     # L2CS-Net
     "l2cs_model", "l2cs_arch", "l2cs_dataset",
-    # UniGaze
-    "unigaze_model",
     # Gazelle
     "gazelle_model", "gazelle_name", "gazelle_inout_threshold",
     "gazelle_device", "gazelle_skip_frames", "gazelle_fp16", "gazelle_compile",
@@ -139,9 +137,6 @@ _PLUGIN_LAYOUTS: dict[str, _PluginLayout] = {
     "iris_refined": _PluginLayout(sections=[
         _Section("Refinement", ["iris_refine_weight", "iris_refine_upscale"]),
     ]),
-    # gazelle_snap: DEPRECATED -- Gazelle blend controls are now in the
-    # core Ray Forming section of the Gaze tab (ray_section.py).
-    "gazelle_snap": _PluginLayout(sections=[]),
 }
 
 

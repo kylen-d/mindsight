@@ -3,7 +3,7 @@ RayForming/ray_pipeline.py — Unified ray forming orchestrator.
 
 Converts raw gaze estimates (pitch/yaw angles + optional Gaze-LLE heatmaps)
 into finalized gaze rays.  Replaces the ray construction loops previously
-embedded in ``pitchyaw_pipeline.py`` and ``gazelle_snap_backend.py``.
+embedded in ``pitchyaw_pipeline.py``.
 
 Pipeline order per face:
   1. Construct base ray from pitch/yaw (direction + confidence-scaled length).
