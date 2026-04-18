@@ -617,18 +617,15 @@ class RaySection(QWidget):
         self._tip_radius.setValue(getattr(ns, 'tip_radius', 80))
 
         # Gazelle blend
-        gz_model = (getattr(ns, 'rf_gazelle_model', None)
-                    or getattr(ns, 'gs_gazelle_model', None) or '')
+        gz_model = getattr(ns, 'rf_gazelle_model', None) or ''
         self._gazelle_group.setChecked(bool(gz_model))
         self._gazelle_model_path.setText(gz_model)
-        gz_name = getattr(ns, 'rf_gazelle_name',
-                   getattr(ns, 'gs_gazelle_name', 'gazelle_dinov2_vitb14'))
+        gz_name = getattr(ns, 'rf_gazelle_name', 'gazelle_dinov2_vitb14')
         gz_name_idx = self._gazelle_name_combo.findText(gz_name)
         if gz_name_idx >= 0:
             self._gazelle_name_combo.setCurrentIndex(gz_name_idx)
         self._gazelle_interval.setValue(
-            int(getattr(ns, 'rf_gazelle_interval',
-                getattr(ns, 'gs_snap_interval', 30))))
+            int(getattr(ns, 'rf_gazelle_interval', 30)))
         self._direction_blend.setValue(
             float(getattr(ns, 'direction_blend',
                    getattr(ns, 'blend_strength', 1.0))))

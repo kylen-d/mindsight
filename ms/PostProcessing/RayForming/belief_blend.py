@@ -2,9 +2,8 @@
 RayForming/belief_blend.py — Bayesian belief map blending.
 
 Maintains a per-track 64x64 belief map that fuses continuous pitch/yaw
-temporal tracking with periodic Gaze-LLE spatial correction.  Replaces the
-exponential-decay centroid approach used in the original GazelleSnap plugin
-with a more principled spatial fusion.
+temporal tracking with periodic Gaze-LLE spatial correction using principled
+spatial fusion.
 
 Algorithm overview (per frame, per track):
   A. Temporal propagation: shift belief map by pitch/yaw delta, diffuse.

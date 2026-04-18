@@ -1,8 +1,8 @@
 """
 RayForming/ray_config.py — Unified configuration for the ray forming pipeline.
 
-Consolidates all ray-related parameters previously scattered across GazeConfig,
-GazelleSnap constructor args, and DepthConfig into a single dataclass.
+Consolidates all ray-related parameters previously scattered across GazeConfig
+and DepthConfig into a single dataclass.
 """
 from __future__ import annotations
 
@@ -134,8 +134,7 @@ class RayFormingConfig:
             blend_conf_scale=getattr(ns, 'blend_conf_scale', 0.7),
             belief_min_peak=getattr(ns, 'belief_min_peak', 0.05),
             inout_threshold=getattr(ns, 'inout_threshold', 0.5),
-            gazelle_interval=getattr(ns, 'rf_gazelle_interval',
-                              getattr(ns, 'gs_snap_interval', 30)),
+            gazelle_interval=getattr(ns, 'rf_gazelle_interval', 30),
             snap_mode=getattr(ns, 'adaptive_ray', 'off'),
             snap_dist=getattr(ns, 'snap_dist', 150.0),
             snap_bbox_scale=getattr(ns, 'snap_bbox_scale', 0.0),
@@ -153,8 +152,7 @@ class RayFormingConfig:
             snap_tip_quality=getattr(ns, 'snap_tip_quality', -1.0),
             smooth_snap=getattr(ns, 'smooth_snap', 'off'),
             smooth_snap_alpha=getattr(ns, 'smooth_snap_alpha', 0.20),
-            obj_snap_targets=getattr(ns, 'gs_obj_snap',
-                              getattr(ns, 'obj_snap_targets', 'all')),
+            obj_snap_targets=getattr(ns, 'obj_snap_targets', 'all'),
             depth_ray_length=getattr(ns, 'depth_ray_length', False),
             depth_length_min=getattr(ns, 'depth_length_min', 0.5),
             depth_length_max=getattr(ns, 'depth_length_max', 3.0),

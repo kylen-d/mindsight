@@ -2,8 +2,7 @@
 RayForming/gazelle_provider.py — Gaze-LLE model loading and heatmap inference.
 
 Handles Gazelle model instantiation, periodic heatmap inference scheduling,
-and heatmap cache management as a core RayForming component.  Replaces the
-model loading previously embedded in the GazelleSnap plugin.
+and heatmap cache management as a core RayForming component.
 
 Usage::
 
@@ -41,15 +40,11 @@ class GazelleProvider:
     def from_namespace(cls, ns, device: str = "auto") -> GazelleProvider | None:
         """Create a GazelleProvider from CLI args, or return None if not configured.
 
-        Looks for ``--gazelle-model`` (core flag) or ``--gs-gazelle-model``
-        (legacy GazelleSnap flag) to determine whether to load a Gazelle model.
+        Looks for ``--rf-gazelle-model`` to determine whether to load a Gazelle model.
         """
-        # Check core flag first, fall back to legacy GazelleSnap flag.
         # NOTE: uses rf_gazelle_model (not gazelle_model) to avoid
         # collision with the standalone Gazelle plugin's --gazelle-model.
         gazelle_ckpt = getattr(ns, 'rf_gazelle_model', None)
-        if gazelle_ckpt is None:
-            gazelle_ckpt = getattr(ns, 'gs_gazelle_model', None)
         if not gazelle_ckpt:
             return None
 
@@ -64,9 +59,7 @@ class GazelleProvider:
                 f"Gaze-LLE checkpoint not found: {ckpt_path}"
             )
 
-        # Model name: core flag or legacy flag
-        gz_name = getattr(ns, 'rf_gazelle_name',
-                   getattr(ns, 'gs_gazelle_name', 'gazelle_dinov2_vitb14'))
+        gz_name = getattr(ns, 'rf_gazelle_name', 'gazelle_dinov2_vitb14')
         inout_thresh = getattr(ns, 'inout_threshold', 0.5)
 
         engine = GazeEstimationGazelle(
@@ -78,9 +71,7 @@ class GazelleProvider:
             device=device,
         )
 
-        # Interval: core flag or legacy flag
-        interval = getattr(ns, 'rf_gazelle_interval',
-                    getattr(ns, 'gs_snap_interval', 30))
+        interval = getattr(ns, 'rf_gazelle_interval', 30)
 
         print(f"Gaze-LLE model loaded: {gz_name}")
         return cls(engine, interval=interval)
