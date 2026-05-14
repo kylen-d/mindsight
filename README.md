@@ -71,7 +71,7 @@ Each phenomenon has its own tuning parameters — see the [phenomena guide](http
 
 ### Highly Extensible
 
-- **Gaze Backend Plugins** — supports and includes MGaze out of the box, with ONNX, PyTorch, L2CS-Net, UniGaze, and Gazelle backends, and allows custom gaze estimation backends through the plugin system
+- **Gaze Backend Plugins** — supports and includes MGaze out of the box, with ONNX, PyTorch, L2CS-Net, and Gazelle backends, and allows custom gaze estimation backends through the plugin system
 - **Object Detection Plugins** — custom detection post-processing (e.g. the included GazeBoost plugin)
 - **Phenomena Plugins** — user-written plugins to detect custom phenomena alongside the default pack
 - **Data Collection Plugins** — user-written plugins for custom data output in addition to video, CSV, heatmaps, and charts
@@ -102,7 +102,7 @@ Camera / Video / Image
   RetinaFace ──────► face bounding boxes
         │
         ▼
-  Gaze Estimator ──► pitch + yaw per face  (MGaze / L2CS / UniGaze / Gazelle)
+  Gaze Estimator ──► pitch + yaw per face  (MGaze / L2CS / Gazelle)
         │
         ▼
   Ray–BBox Intersection ──► hit list  (face_idx, object_idx)
@@ -134,7 +134,7 @@ onnxruntime                  # ONNX inference (or onnxruntime-gpu for CUDA)
 ultralytics                  # YOLO / YOLOE object detection
 clip                         # Ultralytics CLIP fork (visual prompts)
 uniface                      # RetinaFace face detector
-timm                         # PyTorch Image Models (UniGaze backend)
+timm                         # PyTorch Image Models (MiDaS)
 opencv-python                # Computer vision
 matplotlib                   # Charts and dashboard rendering
 pandas                       # Data output
@@ -143,8 +143,6 @@ PyYAML                       # Pipeline configuration
 tqdm                         # Progress bars
 Pillow                       # Image handling
 ```
-
-> **Note:** The UniGaze backend requires `pip install unigaze` separately (non-commercial license, pins `timm==0.3.2`).
 
 > See the [installation guide](https://kylen-d.github.io/mindsight-docs/getting-started/installation/) for troubleshooting and platform-specific instructions.
 
@@ -197,8 +195,6 @@ For L2CS-Net, download weights to `Weights/L2CS/` and pass the path via `--l2cs-
 
 For Gazelle, download a checkpoint separately and pass it via `--gazelle-model`.
 
-For UniGaze, install separately (`pip install unigaze`) and pass the model variant via `--unigaze-model`.
-
 ### 5. YOLO weights
 
 YOLO model weights (e.g. `yolov8n.pt`) are downloaded automatically by Ultralytics on first use. YOLOE weights (e.g. `yoloe-26l-seg.pt`) are also auto-downloaded.
@@ -235,7 +231,7 @@ MindSight/
 │   │   ├── gaze_pipeline.py      # Gaze step coordinator (ctx-based)
 │   │   ├── gaze_processing.py    # GazeSmootherReID, snap, lock-on
 │   │   ├── gaze_factory.py       # Gaze engine factory
-│   │   └── Backends/             # Built-in gaze backends (MGaze, L2CS, UniGaze)
+│   │   └── Backends/             # Built-in gaze backends (MGaze, L2CS)
 │   │
 │   ├── Phenomena/
 │   │   ├── phenomena_pipeline.py # Phenomena step (ctx-based unified loop)
@@ -261,7 +257,7 @@ MindSight/
 │
 ├── Plugins/
 │   ├── __init__.py               # Base classes + registries
-│   ├── GazeTracking/             # Gaze backend plugins (Gazelle, GazelleSnap)
+│   ├── GazeTracking/             # Gaze backend plugins (Gazelle, IrisRefinedGaze)
 │   ├── ObjectDetection/          # Detection plugins (GazeBoost)
 │   ├── Phenomena/                # Community phenomena plugins (NovelSalience)
 │   ├── DataCollection/           # Custom data output plugins
@@ -371,7 +367,6 @@ The table below covers the most commonly used flags. For the **complete referenc
 |---|---|
 | `--mgaze-model` | MGaze: ONNX or `.pt` gaze weights (default backend) |
 | `--l2cs-model` | L2CS-Net: Path to `.pkl` or `.onnx` weights |
-| `--unigaze-model` | UniGaze: Model variant (requires `pip install unigaze`) |
 | `--gazelle-model` | Gazelle: Path to checkpoint; switches to scene-level backend |
 
 #### Phenomena
@@ -481,7 +476,7 @@ A graphical front-end for all `MindSight.py` functionality.
 
 - **Source** — camera index, video file, or image file
 - **Detection mode** — YOLO (text classes) or YOLOE Visual Prompt
-- **Gaze backend** — MGaze, L2CS-Net, UniGaze, or Gazelle
+- **Gaze backend** — MGaze, L2CS-Net, or Gazelle
 - **Device selector** — auto, CPU, CUDA, or MPS
 - **Gaze parameters** — ray length, adaptive ray, gaze cone, lock-on, etc.
 - **Phenomena panel** — toggle individual phenomena trackers
@@ -624,18 +619,13 @@ Labels appear in CSV output and on-screen overlays.
 | **MGaze ONNX** (default) | `--mgaze-model` with `.onnx` path | ~11 MAE | Fastest; uses CoreML on Apple Silicon, CUDA on NVIDIA, CPU otherwise |
 | **MGaze PyTorch** | `--mgaze-model` with `.pt` + `--mgaze-arch` | ~11 MAE | Requires `--mgaze-arch` to identify the architecture |
 | **L2CS-Net** | `--l2cs-model <weights>` | ~3.92 MAE | ResNet50 with dual classification heads; ~3x more accurate than MGaze on MPIIGaze |
-| **UniGaze** | `--unigaze-model <variant>` | ~9.4 (Gaze360) | ViT + MAE pre-training; best cross-dataset accuracy. Requires `pip install unigaze` (non-commercial) |
 | **Gazelle** | `--gazelle-model <ckpt.pt>` | — | Scene-level DINOv2 model; processes all faces in a single forward pass; outputs a gaze heatmap |
-| **GazelleSnap** | `--gazelle-model` + `--adaptive-ray snap` | — | Gazelle with adaptive snapping for object-level gaze assignment |
 
 **MGaze architectures** (`--mgaze-arch`):
 `resnet18`, `resnet34`, `resnet50`, `mobilenetv2`, `mobileone_s0`–`s4`
 
 **L2CS-Net architectures** (`--l2cs-arch`):
 `ResNet18`, `ResNet34`, `ResNet50` (default), `ResNet101`, `ResNet152`
-
-**UniGaze model variants** (`--unigaze-model`):
-`unigaze_b16_joint` (ViT-Base), `unigaze_l16_joint` (ViT-Large), `unigaze_h14_joint` (ViT-Huge, best accuracy)
 
 **Gazelle model variants** (`--gazelle-name`):
 `gazelle_dinov2_vitb14`, `gazelle_dinov2_vitl14`, `gazelle_dinov2_vitb14_inout`, `gazelle_dinov2_vitl14_inout`

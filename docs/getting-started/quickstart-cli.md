@@ -117,12 +117,6 @@ The default backend is **MGaze**. To use an alternative:
 python MindSight.py --source video.mp4 --l2cs-model weights.pkl
 ```
 
-**UniGaze:**
-
-```bash
-python MindSight.py --source video.mp4 --unigaze-model unigaze_b16_joint
-```
-
 **Gazelle:**
 
 ```bash

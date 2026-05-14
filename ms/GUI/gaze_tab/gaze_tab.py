@@ -292,8 +292,7 @@ class GazeTab(QWidget):
         if not ns.source:
             QMessageBox.critical(self, "Error", "Source is required.")
             return
-        has_gaze = (ns.mgaze_model or ns.gazelle_model
-                    or ns.l2cs_model or ns.unigaze_model)
+        has_gaze = (ns.mgaze_model or ns.gazelle_model or ns.l2cs_model)
         if not has_gaze:
             QMessageBox.critical(
                 self, "Error", "Gaze model path is required.")

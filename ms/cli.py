@@ -59,8 +59,10 @@ from ms.GazeTracking.gaze_pipeline import run_gaze_step
 from ms.GazeTracking.gaze_processing import (
     GazeLockTracker,
     GazeSmootherReID,
-    SnapHysteresisTracker,
+    SmoothSnapTracker,
+    SnapTemporalState,
 )
+from ms.PostProcessing.RayForming import BeliefBlender, ObjectSnap
 
 # -- Pipeline stage imports ----------------------------------------------------
 from ms.ObjectDetection.detection_pipeline import run_detection_step
@@ -99,7 +101,8 @@ from Plugins import (
 def process_frame(ctx, *, yolo, face_det, gaze_eng,
                   gaze_cfg: GazeConfig, det_cfg: DetectionConfig,
                   obj_cache=None, phenomena_cfg=None,
-                  detection_plugins=None):
+                  detection_plugins=None,
+                  depth_cfg=None, depth_backend=None):
     """
     Process one frame through detection, gaze, JA, and overlay stages.
 
@@ -115,6 +118,13 @@ def process_frame(ctx, *, yolo, face_det, gaze_eng,
 
     for p in ctx['persons']:
         cv2.rectangle(ctx['frame'], (p['x1'], p['y1']), (p['x2'], p['y2']), (255, 120, 30), 1)
+
+    # 1.5. Depth estimation (between detection and gaze)
+    if depth_cfg and depth_cfg.enabled and depth_backend and 'depth_map' not in ctx:
+        from ms.DepthEstimation.depth_pipeline import run_depth_step
+        run_depth_step(ctx, depth_cfg=depth_cfg, depth_backend=depth_backend)
+    if depth_cfg and depth_cfg.enabled:
+        ctx['depth_cfg'] = depth_cfg
 
     # 2. Gaze estimation + ray-bbox intersection
     run_gaze_step(ctx, face_det=face_det, gaze_eng=gaze_eng, gaze_cfg=gaze_cfg)
@@ -162,7 +172,9 @@ def _ja_mode_string(phenomena_cfg, gaze_cfg):
 
 
 def _run_image(source, *, yolo, face_det, gaze_eng, gaze_cfg, det_cfg,
-               output_cfg, phenomena_cfg, detection_plugins, ja_mode_str):
+               output_cfg, phenomena_cfg, detection_plugins, ja_mode_str,
+               depth_cfg=None, depth_backend=None,
+               gazelle_provider=None, ray_cfg=None):
     """Single-frame pipeline: detect -> gaze -> JA -> overlay -> display/save."""
     frame = cv2.imread(source)
     if frame is None:
@@ -171,11 +183,14 @@ def _run_image(source, *, yolo, face_det, gaze_eng, gaze_cfg, det_cfg,
     ctx = FrameContext(frame=frame, frame_no=0, pid_map=output_cfg.pid_map,
                        aux_frames={},
                        anonymize=output_cfg.anonymize,
-                       anonymize_padding=output_cfg.anonymize_padding)
+                       anonymize_padding=output_cfg.anonymize_padding,
+                       gazelle_provider=gazelle_provider,
+                       ray_cfg=ray_cfg)
     process_frame(ctx, yolo=yolo, face_det=face_det, gaze_eng=gaze_eng,
                   gaze_cfg=gaze_cfg, det_cfg=det_cfg,
                   phenomena_cfg=phenomena_cfg,
-                  detection_plugins=detection_plugins)
+                  detection_plugins=detection_plugins,
+                  depth_cfg=depth_cfg, depth_backend=depth_backend)
 
     hit_events = ctx['hit_events']
     joint_objs = ctx['joint_objs']
@@ -343,7 +358,9 @@ def run(source, yolo, face_det, gaze_eng,
         detection_plugins=None,
         phenomena_cfg=None,
         fast_mode=False, skip_phenomena=0, lite_overlay=False,
-        no_dashboard=False, profile=False):
+        no_dashboard=False, profile=False,
+        depth_cfg=None, depth_backend=None,
+        gazelle_provider=None, ray_cfg=None):
     """Execute the full MindSight pipeline on a single source (image, video, or webcam).
 
     For images: runs one frame through detection/gaze/JA, displays results, and exits.
@@ -364,7 +381,9 @@ def run(source, yolo, face_det, gaze_eng,
                           gaze_cfg=gaze_cfg, det_cfg=det_cfg, output_cfg=output_cfg,
                           phenomena_cfg=phenomena_cfg,
                           detection_plugins=detection_plugins,
-                          ja_mode_str=ja_mode_str)
+                          ja_mode_str=ja_mode_str,
+                          depth_cfg=depth_cfg, depth_backend=depth_backend,
+                          gazelle_provider=gazelle_provider, ray_cfg=ray_cfg)
 
     # -- Video / webcam loop ---------------------------------------------------
     cap = cv2.VideoCapture(source)
@@ -382,8 +401,12 @@ def run(source, yolo, face_det, gaze_eng,
                  if tracker_cfg.gaze_lock else None)
     obj_cache = (ObjectPersistenceCache(max_age=tracker_cfg.obj_persistence)
                  if tracker_cfg.obj_persistence > 0 else None)
-    snap_hyst = (SnapHysteresisTracker(switch_frames=tracker_cfg.snap_switch_frames)
-                 if gaze_cfg.adaptive_ray != "off" else None)
+    snap_temporal = (SnapTemporalState(
+                         release_frames=tracker_cfg.snap_release_frames,
+                         engage_frames=tracker_cfg.snap_engage_frames)
+                     if gaze_cfg.adaptive_ray != "off" else None)
+    smooth_snap = (SmoothSnapTracker(alpha=gaze_cfg.smooth_snap_alpha)
+                   if gaze_cfg.smooth_snap != "off" else None)
 
     # Phenomena trackers (built-in + plugins unified as PhenomenaPlugin list)
     builtin_trackers = init_phenomena_trackers(phenomena_cfg)
@@ -428,7 +451,8 @@ def run(source, yolo, face_det, gaze_eng,
     # Each frame gets a fresh FrameContext seeded with these base values.
     run_ctx_base = dict(
         source=source,
-        smoother=smoother, locker=locker, snap_hysteresis=snap_hyst,
+        smoother=smoother, locker=locker, snap_temporal=snap_temporal,
+        smooth_snap_tracker=smooth_snap,
         all_trackers=all_trackers,
         look_counts=look_counts,
         heatmap_path=output_cfg.heatmap_path,
@@ -442,6 +466,13 @@ def run(source, yolo, face_det, gaze_eng,
         face_det=face_det,
         video_name=output_cfg.video_name,
         conditions=output_cfg.conditions,
+        gazelle_provider=gazelle_provider,
+        ray_cfg=ray_cfg,
+        belief_blender=(BeliefBlender(ray_cfg)
+                        if ray_cfg is not None
+                        and (ray_cfg.direction_blend > 0 or ray_cfg.length_blend > 0)
+                        else None),
+        ray_object_snap=(ObjectSnap(ray_cfg) if ray_cfg is not None else None),
     )
 
     # Performance mode: resolve effective phenomena-skip interval
@@ -483,9 +514,16 @@ def run(source, yolo, face_det, gaze_eng,
             # Build per-frame context from the run-level base
             ctx = FrameContext(frame=frame, frame_no=frame_no,
                                aux_frames=aux_frames, **run_ctx_base)
+            # Depth skip-frame: only run depth every N detection frames
+            _depth_skip = (depth_cfg.skip_frames
+                           if depth_cfg and depth_cfg.enabled else 1)
+            do_depth = do_det and (frame_no % (skip * _depth_skip) == 0)
+
             if not do_det:
                 ctx['cached_all_dets'] = cache.get('all_dets')
                 ctx['cached_faces'] = cache.get('faces')
+            if not do_depth and 'depth_map' in cache:
+                ctx['depth_map'] = cache['depth_map']
             ctx['do_cache'] = do_det
 
             # Inject previous frame's gaze data for detection plugins
@@ -497,7 +535,8 @@ def run(source, yolo, face_det, gaze_eng,
             process_frame(ctx, yolo=yolo, face_det=face_det, gaze_eng=gaze_eng,
                           gaze_cfg=gaze_cfg, det_cfg=det_cfg, obj_cache=obj_cache,
                           phenomena_cfg=phenomena_cfg,
-                          detection_plugins=detection_plugins)
+                          detection_plugins=detection_plugins,
+                          depth_cfg=depth_cfg, depth_backend=depth_backend)
 
             if profile:
                 _t2 = time.perf_counter()
@@ -507,6 +546,8 @@ def run(source, yolo, face_det, gaze_eng,
                 cache['all_dets'] = ctx['all_dets']
                 if 'faces' in ctx:
                     cache['faces'] = ctx['faces']
+            if 'depth_map' in ctx and do_depth:
+                cache['depth_map'] = ctx['depth_map']
 
             # Cache gaze data for next frame's detection plugins
             cache['prev_persons_gaze'] = ctx.get('persons_gaze', [])
@@ -727,6 +768,30 @@ def _args():
         "--profile", action="store_true", default=False,
         help="Print per-stage timing breakdown every 100 frames.")
 
+    # -- Depth estimation flags ------------------------------------------------
+    depth_grp = p.add_argument_group("Depth Estimation")
+    depth_grp.add_argument("--depth", action="store_true", default=False,
+                           help="Enable monocular depth estimation.")
+    depth_grp.add_argument("--no-depth", action="store_true", default=False,
+                           help="Explicitly disable depth estimation.")
+    depth_grp.add_argument("--depth-backend", default="midas_small",
+                           help="Depth model backend (default: midas_small).")
+    depth_grp.add_argument("--depth-input-size", type=int, default=384,
+                           metavar="PX",
+                           help="Depth model input resolution (default: 384).")
+    depth_grp.add_argument("--depth-skip-frames", type=int, default=1,
+                           metavar="N",
+                           help="Run depth every N detection cycles (default: 1).")
+    depth_grp.add_argument("--depth-aware-scoring", action="store_true",
+                           default=False,
+                           help="Enable depth-weighted snap scoring.")
+    depth_grp.add_argument("--depth-w-depth", type=float, default=0.4,
+                           metavar="W",
+                           help="Depth match weight in snap scoring (default: 0.4).")
+    depth_grp.add_argument("--depth-sample-radius", type=int, default=2,
+                           metavar="PX",
+                           help="Half-size of patch for depth sampling (default: 2).")
+
     # -- Delegate to submodules ------------------------------------------------
     _add_det_args(p)
     _add_gaze_args(p)
@@ -852,15 +917,47 @@ def _build_from_args(args):
             ))
         args.aux_streams = aux_list if aux_list else None
 
+    # Handle --no-depth overriding --depth
+    if getattr(args, 'no_depth', False):
+        args.depth = False
+
     phenomena_cfg = PhenomenaConfig.from_namespace(args)
     gaze_cfg      = GazeConfig.from_namespace(args)
     det_cfg       = DetectionConfig.from_namespace(args, class_ids, blacklist)
     tracker_cfg   = TrackerConfig.from_namespace(args)
     output_cfg    = OutputConfig.from_namespace(args)
 
+    from ms.pipeline_config import DepthConfig
+    depth_cfg = DepthConfig.from_namespace(args)
+    depth_backend = None
+    if depth_cfg.enabled:
+        from ms.DepthEstimation.depth_backend import create_depth_backend
+        depth_backend = create_depth_backend(
+            depth_cfg, device=getattr(args, 'device', 'auto'))
+        if depth_backend is not None:
+            print(f"Depth estimation: {depth_cfg.backend} "
+                  f"(input {depth_cfg.input_size}px)")
+            depth_backend.warmup()
+
+    # ── Gazelle blend (core ray forming) ─────────────────────────────────
+    from ms.PostProcessing.RayForming import GazelleProvider, RayFormingConfig
+    gazelle_provider = GazelleProvider.from_namespace(
+        args, device=getattr(args, 'device', 'auto'))
+    # Build RayFormingConfig from the full namespace so all GUI/CLI params
+    # (belief blend, smooth snap, depth, etc.) are captured directly.
+    ray_cfg = RayFormingConfig.from_namespace(args)
+    if gazelle_provider is not None:
+        ray_cfg.gazelle_interval = gazelle_provider.interval
+    else:
+        # No Gazelle model -- force blend off
+        ray_cfg.blend_strength = 0.0
+        ray_cfg.direction_blend = 0.0
+        ray_cfg.length_blend = 0.0
+
     return (yolo, face_det, gaze_eng, gaze_cfg, det_cfg, tracker_cfg,
             output_cfg, active_plugins or None, phenomena_cfg,
-            detection_plugins or None)
+            detection_plugins or None, depth_cfg, depth_backend,
+            gazelle_provider, ray_cfg)
 
 
 def main():
@@ -887,7 +984,8 @@ def main():
 
     (yolo, face_det, gaze_eng, gaze_cfg, det_cfg, tracker_cfg,
      output_cfg, active_plugins, phenomena_cfg,
-     detection_plugins) = _build_from_args(args)
+     detection_plugins, depth_cfg, depth_backend,
+     gazelle_provider, ray_cfg) = _build_from_args(args)
 
     run(source, yolo, face_det, gaze_eng,
         gaze_cfg, det_cfg, tracker_cfg, output_cfg,
@@ -898,7 +996,9 @@ def main():
         skip_phenomena=args.skip_phenomena,
         lite_overlay=args.lite_overlay,
         no_dashboard=args.no_dashboard,
-        profile=args.profile)
+        profile=args.profile,
+        depth_cfg=depth_cfg, depth_backend=depth_backend,
+        gazelle_provider=gazelle_provider, ray_cfg=ray_cfg)
 
 
 if __name__ == "__main__":

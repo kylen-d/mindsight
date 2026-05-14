@@ -2,7 +2,7 @@
 GazeTracking — Gaze estimation and ray-intersection pipeline stage.
 
 Coordinates face-level gaze estimation (via pluggable backends), temporal
-smoothing with ReID, snap-to-object hysteresis, and dwell-based gaze locking.
+smoothing with ReID, snap-to-object scoring, and dwell-based gaze locking.
 """
 
 from .gaze_factory import create_gaze_engine
@@ -11,7 +11,7 @@ from .gaze_processing import (
     GazeLockTracker,
     GazeSmootherReID,
     GazeToolkit,
-    SnapHysteresisTracker,
+    SnapTemporalState,
 )
 from .pitchyaw_pipeline import run_pitchyaw_pipeline
 
@@ -20,7 +20,7 @@ __all__ = [
     "run_pitchyaw_pipeline",
     "GazeSmootherReID",
     "GazeLockTracker",
-    "SnapHysteresisTracker",
+    "SnapTemporalState",
     "GazeToolkit",
     "create_gaze_engine",
 ]

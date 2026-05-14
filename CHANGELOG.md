@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.8.0] - Unreleased
+
+### Removed
+- **UniGaze gaze backend** -- never loaded reliably (required non-commercial `unigaze` PyPI package pinning `timm==0.3.2`); functionality superseded by L2CS-Net and Gazelle backends
+- **GazelleSnap plugin** -- superseded by core Ray Forming + Gazelle Blend pipeline (`ms/PostProcessing/RayForming/gazelle_provider.py`). Legacy `--gs-*` CLI flags are no longer recognized
+
 ## [0.4.0-beta] - 2026-04-05
 
 ### Changed

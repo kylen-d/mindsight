@@ -49,3 +49,11 @@ test_data/
 
 # Project input videos
 Projects/*/Inputs/Videos/
+
+# Superpowers/presentation working material (not part of codebase)
+.superpowers/
+docs/superpowers/
+assets/presentation/
+
+# Local-only reference material (draft plans, baselines) -- not tracked
+localref/

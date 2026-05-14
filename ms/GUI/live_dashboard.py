@@ -164,12 +164,30 @@ class TrackerChartWidget(QWidget):
             return
 
         ax = self._ax
+
+        # Find the global latest frame across all series.
+        global_latest = max(
+            data[-1][0] for data in self._series_data.values() if data)
+
         all_x_min, all_x_max = float('inf'), float('-inf')
         all_y_max = 0.1
 
-        for key, data in self._series_data.items():
+        for key, data in list(self._series_data.items()):
             if not data:
                 continue
+
+            # Hide stale series whose newest point is more than WINDOW
+            # frames behind the current frame (e.g. placeholder series
+            # superseded by per-participant series).
+            if global_latest - data[-1][0] > self.WINDOW:
+                line = self._lines.pop(key, None)
+                if line is not None:
+                    line.remove()
+                del self._series_data[key]
+                self._series_labels.pop(key, None)
+                self._series_colours.pop(key, None)
+                continue
+
             x = np.array([d[0] for d in data])
             y = np.array([d[1] for d in data])
             colour = self._get_series_colour(key)
@@ -184,6 +202,9 @@ class TrackerChartWidget(QWidget):
             all_x_min = min(all_x_min, x[0])
             all_x_max = max(all_x_max, x[-1])
             all_y_max = max(all_y_max, y.max())
+
+        if all_x_min == float('inf'):
+            return
 
         ax.set_xlim(all_x_min, max(all_x_max, all_x_min + 1))
         ax.set_ylim(0, all_y_max * 1.15)

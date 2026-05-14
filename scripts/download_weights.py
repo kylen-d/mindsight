@@ -21,8 +21,8 @@ WEIGHTS_ROOT = PROJECT_ROOT / "Weights"
 
 # ── Weight manifest ──────────────────────────────────────────────────────────
 # Each entry: (backend_dir, filename, download_url)
-# Backends that auto-download (YOLO via Ultralytics, UniGaze via HuggingFace)
-# are not listed here — they handle their own downloads at runtime.
+# Backends that auto-download (YOLO via Ultralytics) are not listed here --
+# they handle their own downloads at runtime.
 
 MGAZE_BASE = "https://github.com/yakhyo/gaze-estimation/releases/download/weights"
 GAZELLE_BASE = "https://github.com/fkryan/gazelle/releases/download/v1.0.0"
@@ -53,7 +53,6 @@ MANIFEST: list[tuple[str, str, str]] = [
 # manually. See: https://github.com/Ahmednull/L2CS-Net
 
 # YOLO weights are auto-downloaded by Ultralytics at runtime.
-# UniGaze weights are auto-downloaded from HuggingFace at runtime.
 # MobileClip weights must be obtained separately.
 
 
@@ -141,7 +140,7 @@ def main():
     print("\nNote: L2CS weights must be downloaded manually.")
     print("  See: https://github.com/Ahmednull/L2CS-Net")
     print("  Place in: Weights/L2CS/")
-    print("\nYOLO and UniGaze weights are auto-downloaded at runtime.")
+    print("\nYOLO weights are auto-downloaded at runtime.")
 
     if failed:
         sys.exit(1)

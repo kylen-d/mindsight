@@ -79,7 +79,8 @@ class GazeWorker(threading.Thread):
         # this is the same code path the CLI uses, giving automatic feature parity.
         (yolo, face_det, gaze_eng, gaze_cfg, det_cfg, tracker_cfg,
          output_cfg, active_plugins, phenomena_cfg,
-         detection_plugins) = _build_from_args(self.ns)
+         detection_plugins, depth_cfg, depth_backend,
+         gazelle_provider, ray_cfg) = _build_from_args(self.ns)
 
         self._log("Models loaded — starting pipeline...")
 
@@ -138,7 +139,9 @@ class GazeWorker(threading.Thread):
                 skip_phenomena=getattr(self.ns, 'skip_phenomena', 0),
                 lite_overlay=getattr(self.ns, 'lite_overlay', False),
                 no_dashboard=getattr(self.ns, 'no_dashboard', False),
-                profile=getattr(self.ns, 'profile', False))
+                profile=getattr(self.ns, 'profile', False),
+                depth_cfg=depth_cfg, depth_backend=depth_backend,
+                gazelle_provider=gazelle_provider, ray_cfg=ray_cfg)
         finally:
             cv2.imshow            = _orig_imshow
             cv2.waitKey           = _orig_waitkey
@@ -259,7 +262,8 @@ class ProjectWorker(threading.Thread):
         # Build models once for the whole project
         (yolo, face_det, gaze_eng, gaze_cfg, det_cfg, tracker_cfg,
          output_cfg, active_plugins, phenomena_cfg,
-         detection_plugins) = _build_from_args(self.ns)
+         detection_plugins, depth_cfg, depth_backend,
+         gazelle_provider, ray_cfg) = _build_from_args(self.ns)
 
         # Resolve output root
         if pcfg and pcfg.output:
@@ -338,7 +342,9 @@ class ProjectWorker(threading.Thread):
                         skip_phenomena=getattr(self.ns, 'skip_phenomena', 0),
                         lite_overlay=getattr(self.ns, 'lite_overlay', False),
                         no_dashboard=getattr(self.ns, 'no_dashboard', False),
-                        profile=getattr(self.ns, 'profile', False))
+                        profile=getattr(self.ns, 'profile', False),
+                        depth_cfg=depth_cfg, depth_backend=depth_backend,
+                gazelle_provider=gazelle_provider, ray_cfg=ray_cfg)
                 except Exception as exc:
                     self._log(f"Error processing {source.name}: {exc}")
 
