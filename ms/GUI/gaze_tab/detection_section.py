@@ -5,6 +5,7 @@ from __future__ import annotations
 from argparse import Namespace
 
 from PyQt6.QtWidgets import (
+    QCheckBox,
     QComboBox,
     QDoubleSpinBox,
     QFileDialog,
@@ -117,12 +118,49 @@ class DetectionSection(QWidget):
         self._rb_det_vp.toggled.connect(self._refresh_det_mode)
         lay.addWidget(g)
 
+        self._build_merge_overlaps(lay)
+
+    # -- Merge Overlaps -------------------------------------------------------
+
+    def _build_merge_overlaps(self, lay):
+        g = QGroupBox("Merge Overlaps")
+        f = QFormLayout(g)
+
+        self._merge_chk = QCheckBox("Enable")
+        self._merge_chk.setToolTip(
+            "Merge or filter overlapping same-class detections.")
+        f.addRow("Merge Overlaps:", self._merge_chk)
+
+        self._merge_strategy = QComboBox()
+        self._merge_strategy.addItems(["dynamic", "filter", "merge"])
+        self._merge_strategy.setToolTip(
+            "'dynamic' chooses per-cluster based on confidence and size; "
+            "'filter' keeps the highest-confidence box; "
+            "'merge' creates one encompassing bounding box.")
+        f.addRow("Strategy:", self._merge_strategy)
+
+        self._merge_thr = QDoubleSpinBox()
+        self._merge_thr.setRange(0.10, 1.00)
+        self._merge_thr.setSingleStep(0.05)
+        self._merge_thr.setValue(0.70)
+        self._merge_thr.setDecimals(2)
+        self._merge_thr.setToolTip("Overlap threshold to trigger merge.")
+        f.addRow("Threshold:", self._merge_thr)
+
+        self._merge_chk.toggled.connect(self._refresh_merge_enabled)
+        self._refresh_merge_enabled(False)
+        lay.addWidget(g)
+
     # -- Helpers --------------------------------------------------------------
 
     def _refresh_det_mode(self):
         vp = self._rb_det_vp.isChecked()
         self._yolo_det_panel.setVisible(not vp)
         self._vp_det_panel.setVisible(vp)
+
+    def _refresh_merge_enabled(self, enabled):
+        self._merge_strategy.setEnabled(enabled)
+        self._merge_thr.setEnabled(enabled)
 
     def _browse_source(self):
         path, _ = QFileDialog.getOpenFileName(
@@ -167,6 +205,9 @@ class DetectionSection(QWidget):
             blacklist=[c.strip() for c in bl_raw.split(",") if c.strip()],
             vp_file=self._vp_file.text().strip() if use_vp else None,
             vp_model=self._yoloe_model.text().strip(),
+            merge_overlaps=self._merge_chk.isChecked(),
+            merge_overlap_strategy=self._merge_strategy.currentText(),
+            merge_overlap_threshold=self._merge_thr.value(),
         )
 
     def apply_namespace(self, ns: Namespace):
@@ -191,3 +232,10 @@ class DetectionSection(QWidget):
             self._rb_det_yolo.setChecked(True)
         self._yoloe_model.setText(
             str(getattr(ns, 'vp_model', 'yoloe-26l-seg.pt')))
+        self._merge_chk.setChecked(getattr(ns, 'merge_overlaps', False))
+        strategy = getattr(ns, 'merge_overlap_strategy', 'filter')
+        idx = self._merge_strategy.findText(strategy)
+        if idx >= 0:
+            self._merge_strategy.setCurrentIndex(idx)
+        self._merge_thr.setValue(
+            getattr(ns, 'merge_overlap_threshold', 0.7))

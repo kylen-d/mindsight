@@ -6,7 +6,8 @@ import pytest
 from ms.GazeTracking.gaze_processing import (
     GazeLockTracker,
     GazeSmootherReID,
-    SnapHysteresisTracker,
+    SnapTemporalState,
+    snap_score,
 )
 
 
@@ -81,58 +82,323 @@ class TestGazeSmootherReID:
         assert result[0][2] != result[1][2]  # different IDs
 
 
-# ── SnapHysteresisTracker ───────────────────────────────────────────────────
+# ── snap_score ─────────────────────────────────────────────────────────────
 
 
-class TestSnapHysteresisTracker:
+class _FakeDetection(dict):
+    """Lightweight Detection stand-in for unit tests.
 
-    def test_snap_engages_immediately_when_no_current(self):
-        t = SnapHysteresisTracker(switch_frames=3)
+    Supports both attribute and dict-style access (like the real Detection
+    dataclass) without importing heavyweight YOLO dependencies.
+    """
+    __slots__ = ()
+
+    def __getattr__(self, name):
+        try:
+            return self[name]
+        except KeyError:
+            raise AttributeError(name)
+
+
+def _make_obj(x1, y1, x2, y2, cls="obj"):
+    """Create a Detection-like object for scoring tests."""
+    return _FakeDetection(
+        class_name=cls, cls_id=0, conf=0.9,
+        x1=x1, y1=y1, x2=x2, y2=y2, ghost=False, _face_idx=None)
+
+
+class TestSnapScore:
+
+    def test_on_axis_intersection_scores_lowest(self):
+        """Object directly on ray with bbox intersection gets a very low score."""
+        origin = np.array([100.0, 100.0])
+        direction = np.array([1.0, 0.0])  # pointing right
+        obj = _make_obj(200, 80, 300, 120)  # directly ahead, ray intersects
+        face_ctr = np.array([100.0, 100.0])
+
+        ctr, found, _, score = snap_score(
+            origin, direction, [obj], origin,
+            snap_dist=200.0, face_center=face_ctr,
+            frame_diag=1000.0, quality_thresh=2.0)
+        assert found is True
+        assert score < 0.0  # intersection bonus should push it negative
+
+    def test_off_axis_penalized(self):
+        """Object at 45 deg scores worse than one at 10 deg."""
+        origin = np.array([0.0, 0.0])
+        direction = np.array([1.0, 0.0])
+        face_ctr = np.array([0.0, 0.0])
+
+        obj_near = _make_obj(180, -20, 220, 20)   # ~0 deg off-axis
+        obj_far = _make_obj(180, 160, 220, 200)   # ~45 deg off-axis
+
+        _, _, _, score_near = snap_score(
+            origin, direction, [obj_near], origin,
+            snap_dist=300.0, face_center=face_ctr,
+            frame_diag=1000.0, quality_thresh=2.0)
+        _, _, _, score_far = snap_score(
+            origin, direction, [obj_far], origin,
+            snap_dist=300.0, face_center=face_ctr,
+            frame_diag=1000.0, quality_thresh=2.0)
+        assert score_near < score_far
+
+    def test_beyond_gate_angle_excluded(self):
+        """Object well beyond gate angle is not returned."""
+        origin = np.array([0.0, 0.0])
+        direction = np.array([1.0, 0.0])
+        face_ctr = np.array([0.0, 0.0])
+        # Object almost directly below: center at (10, 500) -> ~89 degrees
+        obj = _make_obj(0, 480, 20, 520)
+
+        _, found, _, _ = snap_score(
+            origin, direction, [obj], origin,
+            snap_dist=600.0, gate_angle_deg=60.0,
+            head_blend=0.0,  # pure gaze direction for clarity
+            face_center=face_ctr, frame_diag=1000.0,
+            quality_thresh=2.0)
+        assert found is False
+
+    def test_no_objects_returns_fallback(self):
+        origin = np.array([100.0, 100.0])
+        direction = np.array([1.0, 0.0])
+        fallback = np.array([500.0, 100.0])
+
+        ctr, found, obj, _ = snap_score(
+            origin, direction, [], fallback,
+            snap_dist=200.0, quality_thresh=2.0)
+        assert found is False
+        assert obj is None
+        assert np.allclose(ctr, fallback)
+
+    def test_behind_face_excluded(self):
+        """Object behind the face (t <= 0) never selected."""
+        origin = np.array([300.0, 100.0])
+        direction = np.array([1.0, 0.0])  # pointing right
+        obj = _make_obj(50, 80, 150, 120)  # to the left = behind
+
+        _, found, _, _ = snap_score(
+            origin, direction, [obj], origin,
+            snap_dist=500.0, quality_thresh=2.0)
+        assert found is False
+
+    def test_temporal_bonus_creates_stickiness(self):
+        """With prev_target_key matching object A, A wins even when B is slightly closer."""
+        origin = np.array([0.0, 0.0])
+        direction = np.array([1.0, 0.0])
+        face_ctr = np.array([0.0, 0.0])
+
+        obj_a = _make_obj(190, -20, 230, 20)  # slightly farther
+        obj_b = _make_obj(180, -20, 220, 20)  # slightly closer
+
+        tracker = SnapTemporalState(grid_px=40)
+        key_a = tracker.key_for(np.array([210.0, 0.0]))
+
+        # Without temporal bonus, B should win (closer)
+        _, _, matched_no_t, _ = snap_score(
+            origin, direction, [obj_a, obj_b], origin,
+            snap_dist=300.0, w_temporal=0.0,
+            face_center=face_ctr, frame_diag=1000.0,
+            quality_thresh=2.0)
+
+        # With temporal bonus for A, A should win
+        _, _, matched_with_t, _ = snap_score(
+            origin, direction, [obj_a, obj_b], origin,
+            snap_dist=300.0, w_temporal=1.0,
+            prev_target_key=key_a, _key_fn=tracker.key_for,
+            face_center=face_ctr, frame_diag=1000.0,
+            quality_thresh=2.0)
+        assert matched_with_t is not None
+        # A's center is around (210, 0)
+        from ms.utils.geometry import bbox_center
+        a_ctr = bbox_center(obj_a)
+        assert np.allclose(bbox_center(matched_with_t), a_ctr)
+
+    def test_quality_threshold_rejects_poor_match(self):
+        """Single distant off-axis object exceeds quality threshold."""
+        origin = np.array([0.0, 0.0])
+        direction = np.array([1.0, 0.0])
+        face_ctr = np.array([0.0, 0.0])
+        # Object barely within snap_dist but significantly off-axis
+        obj = _make_obj(180, 120, 220, 160)
+
+        _, found, _, _ = snap_score(
+            origin, direction, [obj], origin,
+            snap_dist=200.0, quality_thresh=0.1,
+            face_center=face_ctr, frame_diag=1000.0)
+        assert found is False
+
+    def test_confidence_scales_snap_dist(self):
+        """Low gaze_conf reduces effective snap distance."""
+        origin = np.array([0.0, 0.0])
+        direction = np.array([1.0, 0.0])
+        face_ctr = np.array([0.0, 0.0])
+        # Object at edge of normal snap_dist
+        obj = _make_obj(180, 100, 220, 140)
+
+        # High confidence: should find it
+        _, found_hi, _, _ = snap_score(
+            origin, direction, [obj], origin,
+            snap_dist=150.0, gaze_conf=1.0,
+            face_center=face_ctr, frame_diag=1000.0,
+            quality_thresh=2.0)
+
+        # Low confidence: effective dist = 150 * 0.2 = 30, object too far
+        _, found_lo, _, _ = snap_score(
+            origin, direction, [obj], origin,
+            snap_dist=150.0, gaze_conf=0.0,
+            face_center=face_ctr, frame_diag=1000.0,
+            quality_thresh=2.0)
+        assert found_hi is True
+        assert found_lo is False
+
+    def test_head_blend_zero_uses_pure_gaze(self):
+        """With head_blend=0, angular penalty is purely gaze-based."""
+        origin = np.array([0.0, 0.0])
+        direction = np.array([1.0, 0.0])
+        face_ctr = np.array([0.0, 500.0])  # face center far off
+        obj = _make_obj(180, -20, 220, 20)  # on gaze axis
+
+        _, found, _, _ = snap_score(
+            origin, direction, [obj], origin,
+            snap_dist=300.0, head_blend=0.0,
+            face_center=face_ctr, frame_diag=1000.0,
+            quality_thresh=2.0)
+        assert found is True
+
+    def test_intersection_bonus_tips_preference(self):
+        """Two equidistant objects, one intersected, the intersected one wins."""
+        origin = np.array([0.0, 0.0])
+        direction = np.array([1.0, 0.0])
+        face_ctr = np.array([0.0, 0.0])
+
+        obj_hit = _make_obj(180, -20, 220, 20)    # ray passes through
+        obj_miss = _make_obj(180, 25, 220, 65)    # ray just misses
+
+        ctr, found, matched, _ = snap_score(
+            origin, direction, [obj_hit, obj_miss], origin,
+            snap_dist=300.0, w_intersect=0.5,
+            face_center=face_ctr, frame_diag=1000.0,
+            quality_thresh=2.0)
+        assert found is True
+        from ms.utils.geometry import bbox_center
+        assert np.allclose(ctr, bbox_center(obj_hit))
+
+    def test_size_weight_prefers_larger(self):
+        """With w_size > 0, larger object wins over equidistant smaller one."""
+        origin = np.array([0.0, 0.0])
+        direction = np.array([1.0, 0.0])
+        face_ctr = np.array([0.0, 0.0])
+
+        obj_small = _make_obj(195, -5, 205, 5)     # 10x10
+        obj_large = _make_obj(185, -25, 215, 25)   # 30x50
+
+        _, _, matched, _ = snap_score(
+            origin, direction, [obj_small, obj_large], origin,
+            snap_dist=300.0, w_size=2.0,
+            face_center=face_ctr, frame_diag=1000.0,
+            quality_thresh=2.0)
+        assert matched is not None
+        from ms.utils.geometry import bbox_center
+        assert np.allclose(bbox_center(matched), bbox_center(obj_large))
+
+
+# ── SnapTemporalState ─────────────────────────────────────────────────────
+
+
+class TestSnapTemporalState:
+
+    def test_instant_engage_when_no_prior(self):
+        t = SnapTemporalState(engage_frames=0)
         center = np.array([100.0, 200.0])
-        result, snapped = t.update(0, center, True)
-        assert snapped is True
-        assert result is not None
+        result, did_snap = t.update(0, center, True)
+        assert did_snap is True
         assert np.allclose(result, center)
 
-    def test_snap_holds_when_same_target(self):
-        t = SnapHysteresisTracker(switch_frames=3, grid_px=40)
+    def test_release_after_n_frames(self):
+        t = SnapTemporalState(release_frames=2)
         center = np.array([100.0, 200.0])
         t.update(0, center, True)
-        # Same grid cell
-        center2 = np.array([105.0, 205.0])
-        result, snapped = t.update(0, center2, True)
-        assert snapped is True
-
-    def test_snap_switches_after_switch_frames(self):
-        t = SnapHysteresisTracker(switch_frames=3, grid_px=40)
-        old_center = np.array([100.0, 200.0])
-        new_center = np.array([500.0, 500.0])
-        # Establish snap to old target
-        t.update(0, old_center, True)
-        # Present new candidate for switch_frames
-        for _ in range(3):
-            result, snapped = t.update(0, new_center, True)
-        assert snapped is True
-        assert np.allclose(result, new_center)
-
-    def test_snap_releases_after_no_target(self):
-        t = SnapHysteresisTracker(switch_frames=3, release_frames=2)
-        center = np.array([100.0, 200.0])
-        t.update(0, center, True)
-        # No target for release_frames
-        for _ in range(3):
-            result, snapped = t.update(0, None, False)
-        assert snapped is False
+        # No match for release_frames
+        t.update(0, None, False)
+        result, did_snap = t.update(0, None, False)
+        assert did_snap is False
         assert result is None
 
-    def test_independent_per_face(self):
-        t = SnapHysteresisTracker(switch_frames=3)
+    def test_hold_during_release_window(self):
+        t = SnapTemporalState(release_frames=3)
+        center = np.array([100.0, 200.0])
+        t.update(0, center, True)
+        # First no-match frame: should still hold
+        result, did_snap = t.update(0, None, False)
+        assert did_snap is True
+        assert np.allclose(result, center)
+
+    def test_engage_delay(self):
+        t = SnapTemporalState(engage_frames=3)
+        center = np.array([100.0, 200.0])
+        # First 2 frames: not yet engaged
+        for _ in range(2):
+            result, did_snap = t.update(0, center, True)
+            assert did_snap is False
+        # Third frame: engaged
+        result, did_snap = t.update(0, center, True)
+        assert did_snap is True
+        assert np.allclose(result, center)
+
+    def test_per_face_independence(self):
+        t = SnapTemporalState()
         c1 = np.array([100.0, 100.0])
         c2 = np.array([500.0, 500.0])
         r1, s1 = t.update(0, c1, True)
         r2, s2 = t.update(1, c2, True)
         assert s1 is True
         assert s2 is True
+
+    def test_prev_target_key(self):
+        t = SnapTemporalState(grid_px=40)
+        center = np.array([100.0, 200.0])
+        assert t.prev_target_key(0) is None
+        t.update(0, center, True)
+        key = t.prev_target_key(0)
+        assert key is not None
+        assert key == t.key_for(center)
+
+
+# ── Tip Snap Independence ─────────────────────────────────────────────────
+
+
+class TestTipSnapIndependence:
+
+    def test_tip_uses_own_distance(self):
+        """Tip snap with snap_tip_dist=50 rejects objects that snap_dist=150 would accept."""
+        origin = np.array([0.0, 0.0])
+        direction = np.array([1.0, 0.0])
+        obj = _make_obj(180, 80, 220, 120)  # ~100px from ray
+
+        # Object snap (dist=150): should find
+        _, found_obj, _, _ = snap_score(
+            origin, direction, [obj], origin,
+            snap_dist=150.0, quality_thresh=2.0)
+
+        # Tip snap (dist=50): should NOT find
+        _, found_tip, _, _ = snap_score(
+            origin, direction, [obj], origin,
+            snap_dist=50.0, quality_thresh=2.0)
+        assert found_obj is True
+        assert found_tip is False
+
+    def test_tip_falls_back_to_shared(self):
+        """When snap_tip_dist=-1, effective distance should equal snap_dist."""
+        # This is tested at the config level -- snap_tip_dist=-1 resolves to
+        # snap_dist before calling snap_score(). Just verify the resolution
+        # logic matches.
+        from ms.pipeline_config import GazeConfig
+        cfg = GazeConfig(snap_dist=200.0, snap_tip_dist=-1.0,
+                         snap_quality_thresh=0.8, snap_tip_quality=-1.0)
+        tip_dist = cfg.snap_tip_dist if cfg.snap_tip_dist >= 0 else cfg.snap_dist
+        tip_qual = cfg.snap_tip_quality if cfg.snap_tip_quality >= 0 else cfg.snap_quality_thresh
+        assert tip_dist == 200.0
+        assert tip_qual == 0.8
 
 
 # ── GazeLockTracker ─────────────────────────────────────────────────────────
@@ -142,11 +408,9 @@ class TestGazeLockTracker:
 
     def _make_object(self, x1, y1, x2, y2, cls="obj"):
         """Helper to create object dicts with bbox keys."""
-        from ms.ObjectDetection.detection import Detection
-        return Detection(
+        return _FakeDetection(
             class_name=cls, cls_id=0, conf=0.9,
-            x1=x1, y1=y1, x2=x2, y2=y2,
-        )
+            x1=x1, y1=y1, x2=x2, y2=y2, ghost=False, _face_idx=None)
 
     def test_no_lock_before_dwell(self):
         t = GazeLockTracker(dwell_frames=10, lock_dist=200)

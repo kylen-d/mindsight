@@ -63,7 +63,7 @@ class TestIrisRefinedGaze:
         frame = np.full((200, 200, 3), 128, dtype=np.uint8)
         result = w.run_pipeline(
             frame=frame, faces=[{}], objects=[],
-            gaze_cfg=None, smoother=None, snap_hysteresis=None,
+            gaze_cfg=None, smoother=None, snap_temporal=None,
         )
         assert w._inner._pipeline_called
         persons_gaze, face_confs, face_bboxes, face_track_ids, \

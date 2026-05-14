@@ -170,6 +170,17 @@ def add_arguments(parser) -> None:
                         help="YOLOE model to use alongside visual prompting for object detection")
     parser.add_argument("--obj-persistence", type=int, default=0, metavar="N",
                         help="Dead-reckon object bboxes for N frames after they disappear (default 0).")
+    parser.add_argument("--merge-overlaps", action="store_true", default=False,
+                        help="Merge or filter overlapping same-class detections.")
+    parser.add_argument("--merge-overlap-strategy",
+                        choices=["filter", "merge", "dynamic"],
+                        default="dynamic",
+                        help="Overlap strategy: 'filter' keeps highest-conf box, "
+                             "'merge' creates encompassing box, 'dynamic' chooses "
+                             "per-cluster based on confidence and size (default: dynamic).")
+    parser.add_argument("--merge-overlap-threshold", type=float, default=0.7,
+                        metavar="THR",
+                        help="Overlap threshold to trigger merge (default: 0.7).")
 
 
 def parse_dets(results, names, conf_thr, blacklist):
