@@ -57,3 +57,6 @@ assets/presentation/
 
 # Local-only reference material (draft plans, baselines) -- not tracked
 localref/
+
+# Git worktrees (isolated branch workspaces)
+.worktrees/
