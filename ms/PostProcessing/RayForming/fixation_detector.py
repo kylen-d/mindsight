@@ -79,14 +79,18 @@ class FixationDetector:
         self.d_threshold = float(d_threshold)
         self.v_scale = float(v_scale if v_scale is not None else v_threshold * 0.25)
         self.d_scale = float(d_scale if d_scale is not None else d_threshold * 0.25)
-        self._smoothed_prev: np.ndarray | None = None
-        self._smoothed_curr: np.ndarray | None = None
+        if self.v_threshold <= 0.0 or self.d_threshold <= 0.0:
+            raise ValueError(
+                f"FixationDetector thresholds must be positive; "
+                f"got v_threshold={self.v_threshold}, d_threshold={self.d_threshold}")
+        if self.v_scale <= 0.0 or self.d_scale <= 0.0:
+            raise ValueError(
+                f"FixationDetector scales must be positive; "
+                f"got v_scale={self.v_scale}, d_scale={self.d_scale}")
 
     def update(self, buf: PYHistoryBuffer) -> float:
         """Read the buffer, return fixation_likelihood in [0, 1]."""
         if buf.unstable:
-            self._smoothed_prev = None
-            self._smoothed_curr = None
             return 0.0
 
         samples = buf.samples()
@@ -123,5 +127,7 @@ class FixationDetector:
         return float(v_fit * d_fit)
 
     def reset(self) -> None:
-        self._smoothed_prev = None
-        self._smoothed_curr = None
+        """No-op -- the detector recomputes from the buffer each update.
+
+        Kept for API symmetry with PYHistoryBuffer.reset().
+        """

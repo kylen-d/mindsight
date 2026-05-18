@@ -86,6 +86,15 @@ def test_slow_drift_drops_via_dispersion_gate():
         f"slow drift accumulates dispersion and should drop likelihood; got {likelihood:.3f}"
 
 
+def test_nonpositive_thresholds_rejected():
+    with pytest.raises(ValueError):
+        FixationDetector(v_threshold=0.0, d_threshold=0.10)
+    with pytest.raises(ValueError):
+        FixationDetector(v_threshold=0.02, d_threshold=-1.0)
+    with pytest.raises(ValueError):
+        FixationDetector(v_threshold=0.02, d_threshold=0.10, v_scale=0.0)
+
+
 def test_unstable_buffer_gives_zero_likelihood():
     det = FixationDetector(v_threshold=0.02, d_threshold=0.10)
     buf = PYHistoryBuffer(size=10)
