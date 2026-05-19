@@ -128,7 +128,7 @@ def run_ray_forming(
         if (belief_blender is not None
                 and heatmap_cache is not None
                 and (cfg.direction_blend > 0 or cfg.length_blend > 0)):
-            hm, age, inout = heatmap_cache.get(tid)
+            hm, age, inout, _wanted = heatmap_cache.get(tid)
             # Only pass fresh heatmaps (age == 0) to the blender
             fresh_hm = hm if age == 0 else None
 
