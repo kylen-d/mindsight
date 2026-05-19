@@ -19,6 +19,10 @@ The caller pattern is:
     scheduler.forget(inactive_tids=faces_that_disappeared)
     scheduler.advance_frame()
 
+Faces not observed in a frame are excluded from that frame's fire
+decision -- a track surviving on ReID grace (no detection this frame)
+cannot drive an inference with stale data.
+
 Internal thresholds (P_ACCEPT, MIN_FACE_REFRESH, PY_CONF_FLOOR) are
 NOT user-tunable -- they set the shape of the response, and per the
 design spec (section 8) their values are internal constants, not
@@ -61,6 +65,7 @@ class InferenceScheduler:
         self._py_confs: dict[int, float] = {}
         self._frames_since_last_accept: dict[int, int] = {}
         self._has_latched: dict[int, bool] = {}
+        self._observed_this_frame: set[int] = set()
         self._frames_since_last_global_call: int = 10**9  # allow first fire
 
     def observe(self, *, track_id: int, py_dir: np.ndarray,
@@ -68,19 +73,26 @@ class InferenceScheduler:
         """Push one PY observation for a face this frame."""
         if track_id not in self._buffers:
             self._buffers[track_id] = PYHistoryBuffer(size=PY_HISTORY_SIZE)
+            # FixationDetector is currently stateless (recomputes from the
+            # buffer); kept per-face so future per-face adaptive state has
+            # a home without an API change.
             self._detectors[track_id] = FixationDetector(
                 v_threshold=self.v_threshold, d_threshold=self.d_threshold)
-            self._frames_since_last_accept[track_id] = 10**9  # bootstrap
+            # Inert until first latch -- _has_latched drives the bootstrap;
+            # this timer is only consulted once _has_latched is True.
+            self._frames_since_last_accept[track_id] = 0
             self._has_latched[track_id] = False
         self._buffers[track_id].push(py_dir)
         self._likelihoods[track_id] = self._detectors[track_id].update(
             self._buffers[track_id])
         self._py_confs[track_id] = float(py_conf)
+        self._observed_this_frame.add(track_id)
 
     def tick(self) -> tuple[bool, set[int]]:
         """End-of-frame decision: fire this frame? which faces want it?"""
         wanting: set[int] = set()
-        for tid, likelihood in self._likelihoods.items():
+        for tid in self._observed_this_frame:
+            likelihood = self._likelihoods.get(tid, 0.0)
             if likelihood < P_ACCEPT:
                 continue
             if self._py_confs.get(tid, 0.0) < PY_CONF_FLOOR:
@@ -113,6 +125,7 @@ class InferenceScheduler:
         for tid in list(self._frames_since_last_accept):
             self._frames_since_last_accept[tid] += 1
         self._frames_since_last_global_call += 1
+        self._observed_this_frame.clear()
 
     def forget(self, inactive_tids: set[int]) -> None:
         """Drop state for tracks that no longer exist."""
@@ -123,6 +136,7 @@ class InferenceScheduler:
             self._py_confs.pop(tid, None)
             self._frames_since_last_accept.pop(tid, None)
             self._has_latched.pop(tid, None)
+            self._observed_this_frame.discard(tid)
 
     @property
     def tracked_tids(self) -> set[int]:

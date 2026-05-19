@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import numpy as np
-import pytest
 
 from ms.PostProcessing.RayForming.inference_scheduler import InferenceScheduler
 
@@ -87,6 +86,26 @@ def test_per_face_min_refresh_enforced():
         _, wanting2 = sch.tick()
         assert 0 not in wanting2, f"per-face min_refresh violated: {wanting2}"
         sch.advance_frame()
+
+
+def test_unobserved_tracked_face_excluded_from_fire_decision():
+    """A face that is tracked but NOT observed this frame (ReID grace
+    period) must not drive should_fire with stale likelihoods."""
+    sch = InferenceScheduler(v_threshold=0.02, d_threshold=0.10, min_call_gap=1)
+    for _ in range(10):
+        sch.observe(track_id=0, py_dir=PYD, py_conf=1.0)
+    # Face is fixating and would fire this frame...
+    should_fire, wanting = sch.tick()
+    assert should_fire is True and wanting == {0}
+    sch.record_accepted(wanting)
+    sch.advance_frame()
+    # ...but the next frames it is NOT observed (missed detection).
+    # advance past min_call_gap and MIN_FACE_REFRESH with no observations.
+    for _ in range(10):
+        sch.advance_frame()
+    should_fire2, wanting2 = sch.tick()
+    assert should_fire2 is False and wanting2 == set(), \
+        f"unobserved face drove fire decision with stale data: {wanting2}"
 
 
 def test_forget_removes_face_state():
