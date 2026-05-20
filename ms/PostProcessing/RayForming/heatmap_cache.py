@@ -66,10 +66,11 @@ class HeatmapCache:
         """Increment age for all entries and prune tracks no longer active."""
         for tid in list(self._ages):
             self._ages[tid] += 1
-            # A cached heatmap that's not brand-new is no longer wanted --
-            # the "wanted" flag applies only to the fire event itself.
-            if self._ages[tid] > 0:
-                self._wanted[tid] = False
+            # Any entry surviving an age_all() is no longer brand-new; the
+            # "wanted" flag applies only to the fire-event frame, so clear
+            # it unconditionally.  (Fresh fires are re-flagged by update(),
+            # which the provider calls AFTER age_all() each frame.)
+            self._wanted[tid] = False
 
         for tid in list(self._heatmaps):
             if tid not in active_tids:
