@@ -18,23 +18,24 @@ class RayFormingConfig:
     conf_ray: bool = False
     forward_gaze_threshold: float = 5.0
 
-    # ── Gazelle blend ───────────────────────────────────────────────────────
-    # Independent direction and length blend strengths.
-    # 0.0 = pure pitch/yaw, 1.0 = full Gazelle correction.
-    # When no Gazelle model is loaded these are effectively 0.0.
-    blend_strength: float = 1.0         # legacy: sets both if dir/len not specified
-    direction_blend: float = 1.0        # direction blend strength
-    length_blend: float = 1.0           # length/reach blend strength
-    length_only: bool = False           # shortcut: sets direction_blend=0
-    direction_decay: float = 0.30       # direction EMA response rate
-    length_decay: float = 0.15          # length EMA response rate (lower = more persistent)
-    diffusion_sigma: float = 0.40       # per-frame belief map blur sigma
-    blend_conf_scale: float = 0.70      # PY prior tightening by gaze confidence
-    belief_min_peak: float = 0.05       # min Gaze-LLE heatmap peak to accept
-    inout_threshold: float = 0.5        # suppress heatmap when in/out < this
-
-    # ── Gazelle scheduling ──────────────────────────────────────────────────
-    gazelle_interval: int = 30          # frames between Gaze-LLE inferences
+    # ── Gazelle blend (fixation-aware scheduler + One Euro smoother) ──────
+    # A per-face InferenceScheduler decides when Gaze-LLE inferences are
+    # applied to each track's belief map, based on fixation_likelihood
+    # computed from smoothed PY velocity and windowed dispersion.  A One
+    # Euro Filter adaptively smooths the output direction and length
+    # channels -- heavy smoothing at rest (jitter kill), light smoothing
+    # during real motion (no lag).  See gazelle_blender.py for the
+    # algorithm and docs/superpowers/specs/ for the design rationale.
+    #
+    # Scheduler knobs.
+    fixation_v_threshold: float = 0.02       # rad/frame at 50% velocity fit
+    fixation_d_threshold: float = 0.10       # rad windowed dispersion at 50% fit
+    min_call_gap: int = 30                   # min frames between Gaze-LLE calls
+    # One Euro smoother knobs (per channel; direction and length).
+    dir_min_cutoff: float = 1.0              # Hz floor cutoff for direction
+    dir_beta: float = 0.5                    # direction speed responsiveness
+    len_min_cutoff: float = 1.0              # Hz floor cutoff for length
+    len_beta: float = 0.3                    # length speed responsiveness
 
     # ── Object snap ─────────────────────────────────────────────────────────
     snap_mode: str = "off"              # "off" | "extend" | "snap"
@@ -122,19 +123,14 @@ class RayFormingConfig:
             ray_length=getattr(ns, 'ray_length', 1.0),
             conf_ray=getattr(ns, 'conf_ray', False),
             forward_gaze_threshold=getattr(ns, 'forward_gaze_threshold', 5.0),
-            blend_strength=getattr(ns, 'blend_strength', 1.0),
-            direction_blend=getattr(ns, 'direction_blend',
-                             getattr(ns, 'blend_strength', 1.0)),
-            length_blend=getattr(ns, 'length_blend',
-                          getattr(ns, 'blend_strength', 1.0)),
-            length_only=getattr(ns, 'length_only', False),
-            direction_decay=getattr(ns, 'direction_decay', 0.30),
-            length_decay=getattr(ns, 'length_decay', 0.15),
-            diffusion_sigma=getattr(ns, 'diffusion_sigma', 0.40),
-            blend_conf_scale=getattr(ns, 'blend_conf_scale', 0.7),
-            belief_min_peak=getattr(ns, 'belief_min_peak', 0.05),
-            inout_threshold=getattr(ns, 'inout_threshold', 0.5),
-            gazelle_interval=getattr(ns, 'rf_gazelle_interval', 30),
+            fixation_v_threshold=getattr(ns, 'fixation_v_threshold', 0.02),
+            fixation_d_threshold=getattr(ns, 'fixation_d_threshold', 0.10),
+            min_call_gap=getattr(ns, 'min_call_gap',
+                                 getattr(ns, 'rf_gazelle_interval', 30)),  # legacy fallback
+            dir_min_cutoff=getattr(ns, 'dir_min_cutoff', 1.0),
+            dir_beta=getattr(ns, 'dir_beta', 0.5),
+            len_min_cutoff=getattr(ns, 'len_min_cutoff', 1.0),
+            len_beta=getattr(ns, 'len_beta', 0.3),
             snap_mode=getattr(ns, 'adaptive_ray', 'off'),
             snap_dist=getattr(ns, 'snap_dist', 150.0),
             snap_bbox_scale=getattr(ns, 'snap_bbox_scale', 0.0),
