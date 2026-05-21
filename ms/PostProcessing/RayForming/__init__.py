@@ -10,7 +10,7 @@ Public API
     from ms.PostProcessing.RayForming import (
         run_ray_forming,
         RayFormingConfig,
-        BeliefBlender,
+        GazeLLEBlender,
         HeatmapCache,
         ObjectSnap,
         GazeLockTracker,
@@ -19,7 +19,7 @@ Public API
 """
 from ms.PostProcessing.RayForming.ray_config import RayFormingConfig
 from ms.PostProcessing.RayForming.heatmap_cache import HeatmapCache
-from ms.PostProcessing.RayForming.belief_blend import BeliefBlender
+from ms.PostProcessing.RayForming.gazelle_blender import GazeLLEBlender
 from ms.PostProcessing.RayForming.object_snap import (
     ObjectSnap,
     SmoothSnapTracker,
@@ -36,7 +36,7 @@ __all__ = [
     "run_ray_forming",
     "RawGaze",
     "RayFormingConfig",
-    "BeliefBlender",
+    "GazeLLEBlender",
     "HeatmapCache",
     "ObjectSnap",
     "SmoothSnapTracker",

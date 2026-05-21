@@ -21,7 +21,7 @@ import numpy as np
 
 from ms.constants import CR_MAX, CR_MIN
 from ms.PostProcessing.RayForming.ray_config import RayFormingConfig
-from ms.PostProcessing.RayForming.belief_blend import BeliefBlender
+from ms.PostProcessing.RayForming.gazelle_blender import GazeLLEBlender
 from ms.PostProcessing.RayForming.depth_ray import depth_adjusted_length
 from ms.PostProcessing.RayForming.heatmap_cache import HeatmapCache
 from ms.PostProcessing.RayForming.object_snap import ObjectSnap
