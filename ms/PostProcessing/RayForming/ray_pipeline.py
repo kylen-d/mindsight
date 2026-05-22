@@ -8,7 +8,7 @@ embedded in ``pitchyaw_pipeline.py``.
 Pipeline order per face:
   1. Construct base ray from pitch/yaw (direction + confidence-scaled length).
   2. Forward-gaze dead zone check (stub ray if looking at camera).
-  3. Belief blend (when Gazelle available and blend_strength > 0).
+  3. Gaze-LLE blend (fixation-aware scheduler trust + One Euro smoothing).
   4. Depth-adjusted ray length (when depth map available).
   5. Object snap (snap/extend to YOLO objects).
 """
@@ -23,7 +23,6 @@ from ms.constants import CR_MAX, CR_MIN
 from ms.PostProcessing.RayForming.ray_config import RayFormingConfig
 from ms.PostProcessing.RayForming.gazelle_blender import GazeLLEBlender
 from ms.PostProcessing.RayForming.depth_ray import depth_adjusted_length
-from ms.PostProcessing.RayForming.heatmap_cache import HeatmapCache
 from ms.PostProcessing.RayForming.object_snap import ObjectSnap
 from ms.utils.geometry import pitch_yaw_to_2d
 
@@ -59,10 +58,11 @@ def run_ray_forming(
     frame_w: int,
     cfg: RayFormingConfig,
     *,
-    belief_blender: BeliefBlender | None = None,
-    heatmap_cache: HeatmapCache | None = None,
+    gazelle_provider=None,
+    gazelle_blender: GazeLLEBlender | None = None,
     object_snap: ObjectSnap | None = None,
     depth_map: np.ndarray | None = None,
+    dt: float = 1.0 / 30.0,
 ) -> RayFormingResult:
     """Run the full ray forming pipeline on raw gaze estimates.
 
@@ -73,10 +73,13 @@ def run_ray_forming(
     face_objs      : face-as-object Detection list.
     frame_h, frame_w : frame dimensions in pixels.
     cfg            : RayFormingConfig with all tuning parameters.
-    belief_blender : optional BeliefBlender for Gazelle fusion.
-    heatmap_cache  : optional HeatmapCache holding per-track Gaze-LLE heatmaps.
+    gazelle_provider : optional GazelleProvider owning the scheduler +
+                       heatmap cache; supplies accept/trust signals.
+    gazelle_blender  : optional GazeLLEBlender turning (accept, trust) into
+                       a smoothed endpoint.
     object_snap    : optional ObjectSnap for snap/extend/smooth.
     depth_map      : optional HxW normalized depth map.
+    dt             : seconds between frames; used by the One Euro smoothers.
 
     Returns
     -------
@@ -124,51 +127,26 @@ def run_ray_forming(
         base_length = fw * rl
         fb = c + d * base_length  # fallback endpoint (pure pitch/yaw)
 
-        # ── 3. Belief blend (Gazelle fusion) ──────────────────────────────
-        if (belief_blender is not None
-                and heatmap_cache is not None
-                and (cfg.direction_blend > 0 or cfg.length_blend > 0)):
-            hm, age, inout, _wanted = heatmap_cache.get(tid)
-            # Only pass fresh heatmaps (age == 0) to the blender
-            fresh_hm = hm if age == 0 else None
-
-            belief_target, belief_conf = belief_blender.update(
+        # ── 3. Gaze-LLE blend (fixation-aware scheduler + One Euro) ──────
+        # The provider's scheduler decides which faces accept fresh
+        # heatmaps; the blender turns (accept, trust) into a smoothed
+        # endpoint.  observe_face() feeds THIS frame's PY signal into the
+        # scheduler for the NEXT frame's fire decision (one-frame lag,
+        # documented in gazelle_provider.py).
+        if gazelle_provider is not None and gazelle_blender is not None:
+            gazelle_provider.observe_face(
+                track_id=tid, py_dir=d, py_conf=gc)
+            hm, age, inout, wanted = gazelle_provider.heatmap_cache.get(tid)
+            trust = gazelle_provider.likelihood(tid)
+            accept = bool(wanted and age == 0)
+            endpoint = gazelle_blender.update(
                 track_id=tid,
                 pitch=pitch, yaw=yaw, gaze_conf=gc,
                 origin=c, face_width=fw,
                 frame_h=frame_h, frame_w=frame_w,
-                gazelle_hm=fresh_hm,
-                inout_score=inout,
-                depth_map=depth_map,
-            )
-
-            # Independent direction and length blending.
-            # Each has its own strength knob scaled by belief confidence.
-            dir_bs = cfg.direction_blend * belief_conf
-            len_bs = cfg.length_blend * belief_conf
-
-            if dir_bs > 0.01 or len_bs > 0.01:
-                bt_vec = belief_target - c
-                bt_dist = float(np.linalg.norm(bt_vec))
-
-                if bt_dist > 1e-6:
-                    bt_dir = bt_vec / bt_dist
-
-                    # Direction blend
-                    if cfg.length_only or dir_bs <= 0.01:
-                        blended_dir = d
-                    else:
-                        blended_dir = d * (1.0 - dir_bs) + bt_dir * dir_bs
-                        bd_n = float(np.linalg.norm(blended_dir))
-                        blended_dir = blended_dir / bd_n if bd_n > 1e-6 else d
-
-                    # Length blend
-                    if len_bs > 0.01:
-                        blended_len = base_length * (1.0 - len_bs) + bt_dist * len_bs
-                    else:
-                        blended_len = base_length
-
-                    fb = c + blended_dir * blended_len
+                gazelle_hm=(hm if accept else None),
+                accept_heatmap=accept, trust=trust, dt=dt)
+            fb = endpoint
 
         # ── 4. Depth-adjusted ray length ──────────────────────────────────
         if cfg.depth_ray_length and depth_map is not None:

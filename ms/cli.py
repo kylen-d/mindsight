@@ -62,7 +62,7 @@ from ms.GazeTracking.gaze_processing import (
     SmoothSnapTracker,
     SnapTemporalState,
 )
-from ms.PostProcessing.RayForming import BeliefBlender, ObjectSnap
+from ms.PostProcessing.RayForming import GazeLLEBlender, ObjectSnap
 
 # -- Pipeline stage imports ----------------------------------------------------
 from ms.ObjectDetection.detection_pipeline import run_detection_step
@@ -468,10 +468,9 @@ def run(source, yolo, face_det, gaze_eng,
         conditions=output_cfg.conditions,
         gazelle_provider=gazelle_provider,
         ray_cfg=ray_cfg,
-        belief_blender=(BeliefBlender(ray_cfg)
-                        if ray_cfg is not None
-                        and (ray_cfg.direction_blend > 0 or ray_cfg.length_blend > 0)
-                        else None),
+        gazelle_blender=(GazeLLEBlender(ray_cfg)
+                         if ray_cfg is not None and gazelle_provider is not None
+                         else None),
         ray_object_snap=(ObjectSnap(ray_cfg) if ray_cfg is not None else None),
     )
 
@@ -946,13 +945,6 @@ def _build_from_args(args):
     # Build RayFormingConfig from the full namespace so all GUI/CLI params
     # (belief blend, smooth snap, depth, etc.) are captured directly.
     ray_cfg = RayFormingConfig.from_namespace(args)
-    if gazelle_provider is not None:
-        ray_cfg.gazelle_interval = gazelle_provider.interval
-    else:
-        # No Gazelle model -- force blend off
-        ray_cfg.blend_strength = 0.0
-        ray_cfg.direction_blend = 0.0
-        ray_cfg.length_blend = 0.0
 
     return (yolo, face_det, gaze_eng, gaze_cfg, det_cfg, tracker_cfg,
             output_cfg, active_plugins or None, phenomena_cfg,
