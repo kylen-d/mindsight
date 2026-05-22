@@ -118,3 +118,18 @@ def test_prune_removes_track_state():
     assert 0 in b._beliefs
     b.prune(active_tids=set())
     assert 0 not in b._beliefs
+
+
+def test_conf_ray_scales_py_length():
+    """With conf_ray on and trust=0, blender length matches the
+    confidence-scaled fallback, not the raw ray_length."""
+    from ms.constants import CR_MIN, CR_MAX
+    b = _make_blender(conf_ray=True, len_min_cutoff=100.0)
+    # gaze_conf=0.5 -> rl = ray_length * (CR_MIN + 0.5*(CR_MAX-CR_MIN))
+    endpoint = b.update(
+        track_id=0, pitch=PITCH, yaw=YAW, gaze_conf=0.5,
+        origin=ORIGIN, face_width=FACE_WIDTH,
+        frame_h=FRAME_H, frame_w=FRAME_W,
+        gazelle_hm=None, accept_heatmap=False, trust=0.0, dt=DT)
+    expected_rl = 1.0 * (CR_MIN + 0.5 * (CR_MAX - CR_MIN))
+    assert _length(endpoint) == pytest.approx(FACE_WIDTH * expected_rl, rel=0.05)

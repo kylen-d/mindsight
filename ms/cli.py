@@ -468,6 +468,7 @@ def run(source, yolo, face_det, gaze_eng,
         conditions=output_cfg.conditions,
         gazelle_provider=gazelle_provider,
         ray_cfg=ray_cfg,
+        video_fps=_fps,
         gazelle_blender=(GazeLLEBlender(ray_cfg)
                          if ray_cfg is not None and gazelle_provider is not None
                          else None),

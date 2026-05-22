@@ -176,9 +176,6 @@ def run_ray_forming(
                 depth_map=depth_map,
                 smooth_mode=cfg.smooth_snap,
             )
-        elif cfg.smooth_snap != "off":
-            # No object snap but smooth is requested -- just smooth the endpoint
-            pass
 
         persons_gaze.append((c, end, (pitch, yaw)))
         face_confs.append(gc)

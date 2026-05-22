@@ -38,7 +38,6 @@ to touch.  0.4 is empirically balanced.
 """
 
 _log = logging.getLogger(__name__)
-_antipodal_reported: set[int] = set()
 
 
 def _make_gaussian(cx: float, cy: float, sigma: float,
@@ -125,6 +124,7 @@ class GazeLLEBlender:
         self._dir_x_filter: dict[int, OneEuroFilter] = {}
         self._dir_y_filter: dict[int, OneEuroFilter] = {}
         self._len_filter: dict[int, OneEuroFilter] = {}
+        self._antipodal_reported: set[int] = set()
 
     def update(self, *, track_id: int,
                pitch: float, yaw: float, gaze_conf: float,
@@ -186,15 +186,21 @@ class GazeLLEBlender:
             raw_dir_target = raw_dir_target / rd_norm
         else:
             # Antipodal pathological case -- fall back to PY, log once per track.
-            if track_id not in _antipodal_reported:
+            if track_id not in self._antipodal_reported:
                 _log.warning(
                     "GazeLLEBlender: antipodal belief vs PY on track %d; "
                     "falling back to PY", track_id)
-                _antipodal_reported.add(track_id)
+                self._antipodal_reported.add(track_id)
             raw_dir_target = py_dir
 
         # === Length target = blend(py_length, latched_lle_length, trust) ===
-        py_length = float(face_width * cfg.ray_length)
+        # Match the fallback ray's confidence-scaled length so enabling
+        # the blend does not silently change length semantics when
+        # conf_ray is on.  Mirrors ray_pipeline's base-ray computation.
+        from ms.constants import CR_MIN, CR_MAX
+        rl = (cfg.ray_length * (CR_MIN + gaze_conf * (CR_MAX - CR_MIN))
+              if cfg.conf_ray else cfg.ray_length)
+        py_length = float(face_width * rl)
         latched = self._latched_lle_length.get(track_id)
         if latched is None:
             raw_length_target = py_length
@@ -202,13 +208,18 @@ class GazeLLEBlender:
             raw_length_target = py_length + t * (latched - py_length)
 
         # === One Euro smoothing ===
-        dir_x = self._dir_x_filter.setdefault(
-            track_id, OneEuroFilter(cfg.dir_min_cutoff, cfg.dir_beta, dt=dt))
-        dir_y = self._dir_y_filter.setdefault(
-            track_id, OneEuroFilter(cfg.dir_min_cutoff, cfg.dir_beta, dt=dt))
-        len_f = self._len_filter.setdefault(
-            track_id, OneEuroFilter(cfg.len_min_cutoff, cfg.len_beta, dt=dt))
+        if track_id not in self._dir_x_filter:
+            self._dir_x_filter[track_id] = OneEuroFilter(cfg.dir_min_cutoff, cfg.dir_beta, dt=dt)
+            self._dir_y_filter[track_id] = OneEuroFilter(cfg.dir_min_cutoff, cfg.dir_beta, dt=dt)
+            self._len_filter[track_id] = OneEuroFilter(cfg.len_min_cutoff, cfg.len_beta, dt=dt)
+        dir_x = self._dir_x_filter[track_id]
+        dir_y = self._dir_y_filter[track_id]
+        len_f = self._len_filter[track_id]
 
+        # Direction x/y are smoothed independently then renormalized.
+        # During a rapid gaze reversal the components can briefly desync,
+        # producing a short transient swing -- acceptable for a jitter
+        # smoother and bounded by the renormalize + py_dir fallback below.
         sx = dir_x.update(float(raw_dir_target[0]))
         sy = dir_y.update(float(raw_dir_target[1]))
         smoothed_dir = np.array([sx, sy], dtype=float)
@@ -229,3 +240,4 @@ class GazeLLEBlender:
                 self._dir_x_filter.pop(tid, None)
                 self._dir_y_filter.pop(tid, None)
                 self._len_filter.pop(tid, None)
+                self._antipodal_reported.discard(tid)
