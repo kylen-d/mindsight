@@ -132,7 +132,7 @@ class RaySection(QWidget):
         # 3 default-visible knobs; the rest live in a collapsed Advanced
         # group.  See ms/PostProcessing/RayForming/gazelle_blender.py and
         # the design spec for what each controls.
-        lbl_belief = QLabel("Belief Map Tuning")
+        lbl_belief = QLabel("Scheduling & Smoothing")
         lbl_belief.setStyleSheet(
             "color:#888; font-size:11px; margin-top:4px;")
         f.addRow(lbl_belief)
@@ -616,10 +616,14 @@ class RaySection(QWidget):
                                                  getattr(ns, 'rf_gazelle_interval', 30))))
         self._dir_beta.setValue(float(getattr(ns, 'dir_beta', 0.5)))
         self._len_beta.setValue(float(getattr(ns, 'len_beta', 0.3)))
-        self._fixation_v_threshold.setValue(float(getattr(ns, 'fixation_v_threshold', 0.02)))
-        self._fixation_d_threshold.setValue(float(getattr(ns, 'fixation_d_threshold', 0.10)))
-        self._dir_min_cutoff.setValue(float(getattr(ns, 'dir_min_cutoff', 1.0)))
-        self._len_min_cutoff.setValue(float(getattr(ns, 'len_min_cutoff', 1.0)))
+        self._fixation_v_threshold.setValue(
+            float(getattr(ns, 'fixation_v_threshold', 0.02)))
+        self._fixation_d_threshold.setValue(
+            float(getattr(ns, 'fixation_d_threshold', 0.10)))
+        self._dir_min_cutoff.setValue(
+            float(getattr(ns, 'dir_min_cutoff', 1.0)))
+        self._len_min_cutoff.setValue(
+            float(getattr(ns, 'len_min_cutoff', 1.0)))
 
         ar = getattr(ns, 'adaptive_ray', 'off')
         if isinstance(ar, bool):
