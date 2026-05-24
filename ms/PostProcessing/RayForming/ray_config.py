@@ -125,8 +125,9 @@ class RayFormingConfig:
             forward_gaze_threshold=getattr(ns, 'forward_gaze_threshold', 5.0),
             fixation_v_threshold=getattr(ns, 'fixation_v_threshold', 0.02),
             fixation_d_threshold=getattr(ns, 'fixation_d_threshold', 0.10),
-            min_call_gap=getattr(ns, 'min_call_gap',
-                                 getattr(ns, 'rf_gazelle_interval', 30)),  # legacy fallback
+            min_call_gap=(_mcg if (_mcg := getattr(ns, 'min_call_gap', None)) is not None
+                          else (_rgi if (_rgi := getattr(ns, 'rf_gazelle_interval', None)) is not None
+                                else 30)),  # legacy fallback: --min-call-gap wins, then --rf-gazelle-interval, then 30
             dir_min_cutoff=getattr(ns, 'dir_min_cutoff', 1.0),
             dir_beta=getattr(ns, 'dir_beta', 0.5),
             len_min_cutoff=getattr(ns, 'len_min_cutoff', 1.0),
