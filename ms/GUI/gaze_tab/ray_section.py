@@ -612,8 +612,8 @@ class RaySection(QWidget):
         gz_name_idx = self._gazelle_name_combo.findText(gz_name)
         if gz_name_idx >= 0:
             self._gazelle_name_combo.setCurrentIndex(gz_name_idx)
-        self._min_call_gap.setValue(int(getattr(ns, 'min_call_gap',
-                                                 getattr(ns, 'rf_gazelle_interval', 30))))
+        from ms.PostProcessing.RayForming.ray_config import resolve_min_call_gap
+        self._min_call_gap.setValue(resolve_min_call_gap(ns))
         self._dir_beta.setValue(float(getattr(ns, 'dir_beta', 0.5)))
         self._len_beta.setValue(float(getattr(ns, 'len_beta', 0.3)))
         self._fixation_v_threshold.setValue(

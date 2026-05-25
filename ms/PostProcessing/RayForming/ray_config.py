@@ -9,6 +9,19 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 
+def resolve_min_call_gap(ns) -> int:
+    """Resolve min_call_gap from a namespace with legacy fallback.
+
+    Precedence: --min-call-gap wins; else the legacy --rf-gazelle-interval
+    alias; else the default of 30.  Both flags default to None in argparse
+    so "unset" is distinguishable from an explicit value.
+    """
+    v = getattr(ns, 'min_call_gap', None)
+    if v is None:
+        v = getattr(ns, 'rf_gazelle_interval', None)
+    return 30 if v is None else int(v)
+
+
 @dataclass
 class RayFormingConfig:
     """All ray forming, belief blending, snap, fixation, and hit detection params."""
@@ -125,9 +138,7 @@ class RayFormingConfig:
             forward_gaze_threshold=getattr(ns, 'forward_gaze_threshold', 5.0),
             fixation_v_threshold=getattr(ns, 'fixation_v_threshold', 0.02),
             fixation_d_threshold=getattr(ns, 'fixation_d_threshold', 0.10),
-            min_call_gap=(_mcg if (_mcg := getattr(ns, 'min_call_gap', None)) is not None
-                          else (_rgi if (_rgi := getattr(ns, 'rf_gazelle_interval', None)) is not None
-                                else 30)),  # legacy fallback: --min-call-gap wins, then --rf-gazelle-interval, then 30
+            min_call_gap=resolve_min_call_gap(ns),
             dir_min_cutoff=getattr(ns, 'dir_min_cutoff', 1.0),
             dir_beta=getattr(ns, 'dir_beta', 0.5),
             len_min_cutoff=getattr(ns, 'len_min_cutoff', 1.0),

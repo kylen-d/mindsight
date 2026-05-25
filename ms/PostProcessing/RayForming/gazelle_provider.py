@@ -25,6 +25,7 @@ import numpy as np
 
 from ms.PostProcessing.RayForming.heatmap_cache import HeatmapCache
 from ms.PostProcessing.RayForming.inference_scheduler import InferenceScheduler
+from ms.PostProcessing.RayForming.ray_config import resolve_min_call_gap
 
 
 class GazelleProvider:
@@ -67,8 +68,7 @@ class GazelleProvider:
 
         v_thresh = getattr(ns, 'fixation_v_threshold', 0.02)
         d_thresh = getattr(ns, 'fixation_d_threshold', 0.10)
-        gap = getattr(ns, 'min_call_gap',
-                      getattr(ns, 'rf_gazelle_interval', 30))
+        gap = resolve_min_call_gap(ns)
 
         print(f"Gaze-LLE model loaded: {gz_name}")
         return cls(engine,
