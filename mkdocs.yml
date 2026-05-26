@@ -55,6 +55,7 @@ nav:
       - Quickstart (CLI): getting-started/quickstart-cli.md
       - Quickstart (GUI): getting-started/quickstart-gui.md
       - Your First Project: getting-started/first-project.md
+      - Cookbook: getting-started/cookbook.md
   - User Guide:
       - user-guide/index.md
       - Pipeline Overview: user-guide/pipeline-overview.md
