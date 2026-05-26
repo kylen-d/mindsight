@@ -7,7 +7,7 @@
 #
 **Featured at PURC 2026📚🎉** — This project has been featured at the **University of British Columbia's** 28th Annual *Psychology Undergraduate Research Conference!* Massive thanks to the folks at the [UBC Motivated Cognition Lab](https://mclab.psych.ubc.ca/) for this incredible opportunity, and for all their help in supervising and supporting this project!
 
-> **Beta Release** — This is a pre-release version (v0.4.0-beta). APIs and features may change. Bug reports and feedback are welcome via [GitHub Issues](https://github.com/kylen-d/mindsight/issues).
+> **v1.0.0 (in development)** -- APIs and features may change. Bug reports and feedback are welcome via [GitHub Issues](https://github.com/kylen-d/mindsight/issues).
 
 [![License: AGPL v3](https://img.shields.io/badge/License-AGPLv3-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
 
@@ -266,7 +266,7 @@ MindSight/
 ├── Weights/                      # Model weights (git-ignored, download on demand)
 ├── Projects/                     # User project directories
 ├── scripts/                      # Utility scripts (download_weights, install_deps)
-├── tests/                        # pytest test suite (171 tests)
+├── tests/                        # pytest test suite (265 tests)
 ├── docs/                         # MkDocs documentation
 └── Outputs/                      # Default output directory
 ```

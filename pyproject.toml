@@ -1,6 +1,6 @@
 [project]
 name = "mindsight"
-version = "0.4.0b1"
+dynamic = ["version"]
 description = "Real-time multi-person gaze tracking and attention analysis platform"
 requires-python = ">=3.10"
 license = "AGPL-3.0-or-later"
@@ -30,6 +30,9 @@ build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
 include = ["ms", "ms.*", "Plugins", "Plugins.*"]
+
+[tool.setuptools.dynamic]
+version = {attr = "ms.__version__"}
 
 [tool.black]
 line-length = 99
