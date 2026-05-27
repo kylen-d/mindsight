@@ -111,6 +111,8 @@ class GazeLLEBlender:
       - ``_prev_grid[tid]``: last frame's PY-projected grid coords
       - ``_latched_lle_length[tid]``: LLE-derived length latched on the
         last accepted inference
+      - ``_latch_age_s[tid]``: seconds since that latch; drives the slow
+        exp(-age/len_hold_tau) decay of length back toward the PY baseline
       - ``_dir_x_filter / _dir_y_filter / _len_filter``: One Euro filters
         for the output channels
     """
@@ -120,6 +122,7 @@ class GazeLLEBlender:
         self._beliefs: dict[int, np.ndarray] = {}
         self._prev_grid: dict[int, tuple[float, float]] = {}
         self._latched_lle_length: dict[int, float] = {}
+        self._latch_age_s: dict[int, float] = {}
         # OneEuroFilter is 1D; direction needs two (x, y).
         self._dir_x_filter: dict[int, OneEuroFilter] = {}
         self._dir_y_filter: dict[int, OneEuroFilter] = {}
@@ -164,6 +167,7 @@ class GazeLLEBlender:
             lle_norm = float(np.linalg.norm(lle_vec))
             if lle_norm > 1e-6:
                 self._latched_lle_length[track_id] = lle_norm
+                self._latch_age_s[track_id] = 0.0
 
         self._beliefs[track_id] = belief
         self._prev_grid[track_id] = (gx, gy)
@@ -193,10 +197,19 @@ class GazeLLEBlender:
                 self._antipodal_reported.add(track_id)
             raw_dir_target = py_dir
 
-        # === Length target = blend(py_length, latched_lle_length, trust) ===
-        # Match the fallback ray's confidence-scaled length so enabling
-        # the blend does not silently change length semantics when
-        # conf_ray is on.  Mirrors ray_pipeline's base-ray computation.
+        # === Length target = hold latched LLE length, slow decay to PY ===
+        # Length is deliberately DECOUPLED from per-frame trust.  Direction
+        # reverts to PY quickly as trust drops (above); length must not --
+        # ray reach is the main pathology the blend fixes, and per-face
+        # models carry zero depth information to fall back on.  Instead,
+        # each accepted heatmap re-latches the length and resets an age
+        # clock; the target then decays latched -> PY with time constant
+        # cfg.len_hold_tau (seconds), so reach persists across trust dips
+        # and between fixations.
+        #
+        # PY baseline matches the fallback ray's confidence-scaled length
+        # so enabling the blend does not silently change length semantics
+        # when conf_ray is on.  Mirrors ray_pipeline's base-ray computation.
         from ms.constants import CR_MIN, CR_MAX
         rl = (cfg.ray_length * (CR_MIN + gaze_conf * (CR_MAX - CR_MIN))
               if cfg.conf_ray else cfg.ray_length)
@@ -205,7 +218,13 @@ class GazeLLEBlender:
         if latched is None:
             raw_length_target = py_length
         else:
-            raw_length_target = py_length + t * (latched - py_length)
+            age = self._latch_age_s.get(track_id, 0.0)
+            if not accept_heatmap:
+                age += max(dt, 0.0)
+                self._latch_age_s[track_id] = age
+            tau = max(float(cfg.len_hold_tau), 1e-6)
+            hold = float(np.exp(-age / tau))
+            raw_length_target = py_length + hold * (latched - py_length)
 
         # === One Euro smoothing ===
         if track_id not in self._dir_x_filter:
@@ -237,6 +256,7 @@ class GazeLLEBlender:
                 self._beliefs.pop(tid, None)
                 self._prev_grid.pop(tid, None)
                 self._latched_lle_length.pop(tid, None)
+                self._latch_age_s.pop(tid, None)
                 self._dir_x_filter.pop(tid, None)
                 self._dir_y_filter.pop(tid, None)
                 self._len_filter.pop(tid, None)

@@ -442,6 +442,12 @@ def add_arguments(parser) -> None:
     rf.add_argument("--len-beta", type=float, default=0.3, metavar="F",
                     help="Length One Euro responsiveness. Lower than direction by "
                          "default so length holds steadier (default: 0.3).")
+    rf.add_argument("--len-hold-tau", type=float, default=5.0, metavar="F",
+                    help="Seconds the Gaze-LLE-derived ray length persists after "
+                         "an accepted inference before decaying back to the "
+                         "pitch/yaw baseline. Direction reverts quickly on its "
+                         "own; raise this to hold ray reach longer between "
+                         "inferences (default: 5.0).")
     rf.add_argument("--depth-ray-length", action="store_true", default=False,
                     help="Use depth map to scale ray length based on scene "
                          "geometry (default: off).")

@@ -73,21 +73,41 @@ def test_accepted_inference_sets_length_from_heatmap_centroid():
         f"length should converge toward heatmap centroid distance; got {_length(endpoint):.2f}, want {expected:.2f}"
 
 
-def test_trust_zero_after_accept_falls_back_to_py():
-    """After an accepted inference (trust=1 -> LLE length), setting trust=0
-    for many frames should slide length back toward PY baseline."""
+def test_length_holds_after_trust_drops():
+    """Regression: length must NOT bounce back to PY when trust dips.
+
+    After an accepted inference latches the LLE length, dropping trust to 0
+    for 20 frames (~0.67 s << len_hold_tau=5 s) must leave the ray still
+    extended near the LLE reach.  Direction reverts on trust; length holds.
+    """
     b = _make_blender(dir_min_cutoff=100.0, len_min_cutoff=100.0)
     _run(b, hm=None, accept=False, trust=0.0)
     hm = _blob_heatmap(gx=48.0, gy=16.0, sigma=4.0)
     for _ in range(5):
         _run(b, hm=hm, accept=True, trust=1.0)
-    # Now trust=0 for many frames.
+    lle_length = float(np.linalg.norm(np.array([480.0, 120.0]) - ORIGIN))  # 200
     endpoint = None
     for _ in range(20):
         endpoint = _run(b, hm=None, accept=False, trust=0.0)
+    assert _length(endpoint) > 0.8 * lle_length, \
+        f"length should hold near LLE reach through a trust dip; " \
+        f"got {_length(endpoint):.2f}, LLE reach {lle_length:.2f}"
+
+
+def test_length_decays_to_py_on_long_timescale():
+    """With a tiny len_hold_tau, an aged latch decays back to PY baseline."""
+    b = _make_blender(dir_min_cutoff=100.0, len_min_cutoff=100.0,
+                      len_hold_tau=0.05)
+    _run(b, hm=None, accept=False, trust=0.0)
+    hm = _blob_heatmap(gx=48.0, gy=16.0, sigma=4.0)
+    for _ in range(5):
+        _run(b, hm=hm, accept=True, trust=1.0)
+    endpoint = None
+    for _ in range(20):  # 0.67 s = 13x tau
+        endpoint = _run(b, hm=None, accept=False, trust=0.0)
     py_length = FACE_WIDTH * 1.0
     assert _length(endpoint) == pytest.approx(py_length, rel=0.05), \
-        f"with trust=0 for many frames, length should return to PY; got {_length(endpoint):.2f}, want {py_length:.2f}"
+        f"aged latch should decay to PY; got {_length(endpoint):.2f}, want {py_length:.2f}"
 
 
 def test_unaccepted_heatmap_does_not_change_length():

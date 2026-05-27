@@ -170,6 +170,18 @@ class RaySection(QWidget):
             "steadily than direction during smooth motion.")
         f.addRow("Length responsiveness:", self._len_beta)
 
+        self._len_hold_tau = QDoubleSpinBox()
+        self._len_hold_tau.setRange(0.1, 60.0)
+        self._len_hold_tau.setSingleStep(0.5)
+        self._len_hold_tau.setValue(5.0)
+        self._len_hold_tau.setDecimals(1)
+        self._len_hold_tau.setToolTip(
+            "Seconds the Gaze-LLE-derived ray length persists after an\n"
+            "accepted inference before decaying back to the pitch/yaw\n"
+            "baseline.  Direction reverts quickly on its own; raise this\n"
+            "to hold ray reach longer between inferences.")
+        f.addRow("Length hold (s):", self._len_hold_tau)
+
         # -- Advanced (collapsed) --
         adv_widget = QWidget()
         af = QFormLayout(adv_widget)
@@ -554,6 +566,7 @@ class RaySection(QWidget):
             min_call_gap=self._min_call_gap.value(),
             dir_beta=self._dir_beta.value(),
             len_beta=self._len_beta.value(),
+            len_hold_tau=self._len_hold_tau.value(),
             fixation_v_threshold=self._fixation_v_threshold.value(),
             fixation_d_threshold=self._fixation_d_threshold.value(),
             dir_min_cutoff=self._dir_min_cutoff.value(),
@@ -616,6 +629,7 @@ class RaySection(QWidget):
         self._min_call_gap.setValue(resolve_min_call_gap(ns))
         self._dir_beta.setValue(float(getattr(ns, 'dir_beta', 0.5)))
         self._len_beta.setValue(float(getattr(ns, 'len_beta', 0.3)))
+        self._len_hold_tau.setValue(float(getattr(ns, 'len_hold_tau', 5.0)))
         self._fixation_v_threshold.setValue(
             float(getattr(ns, 'fixation_v_threshold', 0.02)))
         self._fixation_d_threshold.setValue(
@@ -693,6 +707,7 @@ class RaySection(QWidget):
         self._min_call_gap.setValue(30)
         self._dir_beta.setValue(0.5)
         self._len_beta.setValue(0.3)
+        self._len_hold_tau.setValue(5.0)
         self._fixation_v_threshold.setValue(0.02)
         self._fixation_d_threshold.setValue(0.10)
         self._dir_min_cutoff.setValue(1.0)

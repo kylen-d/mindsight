@@ -49,6 +49,13 @@ class RayFormingConfig:
     dir_beta: float = 0.5                    # direction speed responsiveness
     len_min_cutoff: float = 1.0              # Hz floor cutoff for length
     len_beta: float = 0.3                    # length speed responsiveness
+    # Length-hold decay: after an accepted Gaze-LLE inference latches a
+    # length, the length target decays from the latched value back toward
+    # the PY baseline via exp(-age / len_hold_tau).  Direction reverts to
+    # PY quickly (per-frame trust); length deliberately does NOT -- ray
+    # reach is the main pathology the blend fixes, so it persists on a
+    # much longer timescale than the instantaneous fixation signal.
+    len_hold_tau: float = 5.0                # seconds; length-hold time constant
 
     # ── Object snap ─────────────────────────────────────────────────────────
     snap_mode: str = "off"              # "off" | "extend" | "snap"
@@ -143,6 +150,7 @@ class RayFormingConfig:
             dir_beta=getattr(ns, 'dir_beta', 0.5),
             len_min_cutoff=getattr(ns, 'len_min_cutoff', 1.0),
             len_beta=getattr(ns, 'len_beta', 0.3),
+            len_hold_tau=getattr(ns, 'len_hold_tau', 5.0),
             snap_mode=getattr(ns, 'adaptive_ray', 'off'),
             snap_dist=getattr(ns, 'snap_dist', 150.0),
             snap_bbox_scale=getattr(ns, 'snap_bbox_scale', 0.0),
