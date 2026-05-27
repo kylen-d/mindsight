@@ -65,10 +65,24 @@ def test_py_conf_floor_blocks_inference():
     when fixating."""
     sch = InferenceScheduler(v_threshold=0.02, d_threshold=0.10, min_call_gap=1)
     for _ in range(15):
-        sch.observe(track_id=0, py_dir=PYD, py_conf=0.2)   # below PY_CONF_FLOOR (0.5)
+        sch.observe(track_id=0, py_dir=PYD, py_conf=0.02)  # below PY_CONF_FLOOR (0.05)
     should_fire, wanting = sch.tick()
     assert should_fire is False
     assert wanting == set()
+
+
+def test_realistic_mgaze_conf_passes_floor():
+    """Regression: MobileGaze softmax-peak confidence is ~0.08-0.29 on real
+    footage (median ~0.14).  The floor must not reject that scale -- a 0.5
+    floor silently disabled Gaze-LLE entirely (0 fires in 869 frames)."""
+    sch = InferenceScheduler(v_threshold=0.02, d_threshold=0.10, min_call_gap=1)
+    for _ in range(15):
+        sch.observe(track_id=0, py_dir=PYD, py_conf=0.14)  # realistic MGaze conf
+        sch.advance_frame()
+    sch.observe(track_id=0, py_dir=PYD, py_conf=0.14)
+    should_fire, wanting = sch.tick()
+    assert should_fire is True
+    assert 0 in wanting
 
 
 def test_per_face_min_refresh_enforced():

@@ -36,15 +36,30 @@ from ms.PostProcessing.RayForming.py_history import PYHistoryBuffer
 from ms.PostProcessing.RayForming.fixation_detector import FixationDetector
 
 
-P_ACCEPT: float = 0.7
-"""fixation_likelihood threshold at which a face is deemed to want inference."""
+P_ACCEPT: float = 0.6
+"""fixation_likelihood threshold at which a face is deemed to want inference.
+
+Lowered from 0.7 after footage review (2026-07-05): 0.7 left the scheduler
+eligible on only ~38% of frames on KITCO-like footage, and inference gaps
+during softer fixations were visible as un-extended rays.  0.6 admits
+moderately stable gaze while the min-refresh and call-gap limits still
+bound the inference rate.
+"""
 
 MIN_FACE_REFRESH: int = 5
 """Minimum frames between accepted inferences for a single face."""
 
-PY_CONF_FLOOR: float = 0.5
+PY_CONF_FLOOR: float = 0.05
 """Minimum PY gaze_conf for a face to be considered a valid target
 for inference.  Prevents anchoring on garbage face crops.
+
+Calibrated to the softmax-peak confidence scale the per-face backends
+actually emit: MobileGaze maps the mean softmax peak of a 90-bin
+classifier onto [0, 1], which lands at ~0.08-0.29 (median ~0.14) on
+real footage -- a 0.5 floor rejected 100% of observations and Gaze-LLE
+never fired.  Garbage crops still bottom out near 0, and the fixation
+likelihood gate (P_ACCEPT) remains the primary defence: erratic crops
+produce unstable PY signals and never reach it.
 """
 
 PY_HISTORY_SIZE: int = 10
