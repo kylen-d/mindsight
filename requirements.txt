@@ -15,9 +15,9 @@ clip @ git+https://github.com/ultralytics/CLIP.git@88ade288431a46233f1556d1e1419
 # Gaze estimation
 uniface>=1.0                    # RetinaFace face detector
 timm>=0.3.2                     # PyTorch Image Models (required by MiDaS)
+mediapipe>=0.10                 # Face mesh landmarks
 
 # Computer vision
-opencv-python>=4.8
 opencv-contrib-python>=4.8
 Pillow>=10.0
 

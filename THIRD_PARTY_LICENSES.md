@@ -33,10 +33,7 @@ This file documents their licenses for compliance purposes.
 | mediapipe | Apache-2.0 | MediaPipe inference |
 | numpy | BSD-3-Clause | Numerical computing |
 | pandas | BSD-3-Clause | Data manipulation |
-| polars | MIT | DataFrame library |
-| scipy | BSD-3-Clause | Scientific computing |
-| scikit-image | BSD-3-Clause | Image processing |
-| scikit-learn | BSD-3-Clause | Machine learning |
+| scikit-learn | BSD-3-Clause | Machine learning (used by vendored Gazelle utils) |
 | matplotlib | PSF/BSD | Plotting |
 | Pillow | HPND (Historical Permission Notice and Disclaimer) | Image handling |
 | PyYAML | MIT | YAML parsing |
