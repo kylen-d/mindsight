@@ -66,6 +66,18 @@ From cookbook testing on KITCO 3 footage (2026-05):
 
 ---
 
+## Tuning queue (experiments in flight -- record results above when done)
+
+- **Direction drift between inferences (one participant).** Symptom: direction
+  accuracy slips back to the (biased) per-face vector between Gaze-LLE
+  inferences; participant-specific. Experiment: raise fixation tolerance so
+  slight shifting still counts as fixating and belief keeps steering --
+  GUI: Gazelle Blend > Advanced > "Fixation v-threshold" 0.02 -> 0.03-0.04
+  and "Fixation d-threshold" 0.10 -> 0.15 (flags `--fixation-v-threshold`,
+  `--fixation-d-threshold`). Escalation if insufficient: `--dir-trust-floor`
+  knob (direction weight = max(trust, floor)); further: per-track PY-vs-belief
+  bias correction learned during high-trust periods (design work, not a patch).
+
 ## Changelog
 
 - **2026-07-05**: Created. Gaze-LLE blend calibration after scheduler redesign:
