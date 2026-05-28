@@ -41,8 +41,8 @@ class RayFormingConfig:
     # algorithm and docs/superpowers/specs/ for the design rationale.
     #
     # Scheduler knobs.
-    fixation_v_threshold: float = 0.02       # rad/frame at 50% velocity fit
-    fixation_d_threshold: float = 0.10       # rad windowed dispersion at 50% fit
+    fixation_v_threshold: float = 0.04       # rad/frame at 50% velocity fit
+    fixation_d_threshold: float = 0.15       # rad windowed dispersion at 50% fit
     min_call_gap: int = 30                   # min frames between Gaze-LLE calls
     # One Euro smoother knobs (per channel; direction and length).
     dir_min_cutoff: float = 1.0              # Hz floor cutoff for direction
@@ -143,8 +143,8 @@ class RayFormingConfig:
             ray_length=getattr(ns, 'ray_length', 1.0),
             conf_ray=getattr(ns, 'conf_ray', False),
             forward_gaze_threshold=getattr(ns, 'forward_gaze_threshold', 5.0),
-            fixation_v_threshold=getattr(ns, 'fixation_v_threshold', 0.02),
-            fixation_d_threshold=getattr(ns, 'fixation_d_threshold', 0.10),
+            fixation_v_threshold=getattr(ns, 'fixation_v_threshold', 0.04),
+            fixation_d_threshold=getattr(ns, 'fixation_d_threshold', 0.15),
             min_call_gap=resolve_min_call_gap(ns),
             dir_min_cutoff=getattr(ns, 'dir_min_cutoff', 1.0),
             dir_beta=getattr(ns, 'dir_beta', 0.5),

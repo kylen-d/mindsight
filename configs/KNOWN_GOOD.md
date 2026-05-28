@@ -25,8 +25,8 @@ length jitter.
 | Direction responsiveness | 0.5 | `--dir-beta` (default) |
 | Length responsiveness | 0.3 | `--len-beta` (default) |
 | **Length hold** | **5.0 s** | `--len-hold-tau`. Length persists at the LLE-latched reach and decays to the pitch/yaw baseline on this timescale. Direction reverts fast on its own; do NOT try to make length "responsive" -- holding reach is the point. |
-| Fixation v-threshold | 0.02 rad/frame | `--fixation-v-threshold` (default) |
-| Fixation d-threshold | 0.10 rad | `--fixation-d-threshold` (default) |
+| Fixation v-threshold | 0.04 rad/frame | `--fixation-v-threshold` (code default since 2026-07-05) |
+| Fixation d-threshold | 0.15 rad | `--fixation-d-threshold` (code default since 2026-07-05) |
 
 ### Internal constants (code, not flags) -- calibration rationale
 
@@ -68,18 +68,29 @@ From cookbook testing on KITCO 3 footage (2026-05):
 
 ## Tuning queue (experiments in flight -- record results above when done)
 
-- **Direction drift between inferences (one participant).** Symptom: direction
-  accuracy slips back to the (biased) per-face vector between Gaze-LLE
-  inferences; participant-specific. Experiment: raise fixation tolerance so
-  slight shifting still counts as fixating and belief keeps steering --
-  GUI: Gazelle Blend > Advanced > "Fixation v-threshold" 0.02 -> 0.03-0.04
-  and "Fixation d-threshold" 0.10 -> 0.15 (flags `--fixation-v-threshold`,
-  `--fixation-d-threshold`). Escalation if insufficient: `--dir-trust-floor`
-  knob (direction weight = max(trust, floor)); further: per-track PY-vs-belief
-  bias correction learned during high-trust periods (design work, not a patch).
+(empty)
+
+## Future work
+
+- **Saccade safeguard (user, 2026-07-05).** With the tolerant fixation
+  thresholds (v 0.04 / d 0.15), quick-but-distinct head-direction/gaze shifts
+  risk being absorbed as "still fixating" -- the belief anchor can briefly
+  drag direction behind a genuine rapid retarget. Build an explicit safeguard:
+  detect large fast PY excursions (saccade detector) and immediately release
+  the belief anchor / drop trust for that track, independent of the tolerant
+  fixation criterion. Candidates: velocity spike gate above a hard ceiling,
+  or dispersion jump detection over a 2-3 frame window.
+- **Direction escalation path** (if drift returns): `--dir-trust-floor` knob
+  (direction weight = max(trust, floor)); further: per-track PY-vs-belief bias
+  correction learned during high-trust periods (design work, not a patch).
 
 ## Changelog
 
+- **2026-07-05 (later)**: Fixation thresholds v 0.02->0.04, d 0.10->0.15 made
+  code defaults after A/B test on trimmed.mp4 (user-validated visually).
+  Steering eligibility 38%->70% of frames, median direction trust 0.52->0.81,
+  hit events 953->1037, length stability unchanged. Saccade-safeguard future
+  work noted.
 - **2026-07-05**: Created. Gaze-LLE blend calibration after scheduler redesign:
   PY_CONF_FLOOR 0.5 -> 0.05 (bug: blend silently inert), len_hold_tau added
   (bug: length bounced with per-frame trust), P_ACCEPT 0.7 -> 0.6 (tuning).

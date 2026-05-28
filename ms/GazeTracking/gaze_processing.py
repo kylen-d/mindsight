@@ -423,13 +423,13 @@ def add_arguments(parser) -> None:
                     help="Minimum frames between Gaze-LLE inference calls. The "
                          "scheduler also requires at least one participant to be "
                          "fixating before firing (default: 30).")
-    rf.add_argument("--fixation-v-threshold", type=float, default=0.02, metavar="F",
+    rf.add_argument("--fixation-v-threshold", type=float, default=0.04, metavar="F",
                     help="Smoothed pitch/yaw velocity (rad/frame) at which a face "
                          "is treated as 50%% fixating. Lower = safer anchoring "
-                         "(default: 0.02).")
-    rf.add_argument("--fixation-d-threshold", type=float, default=0.10, metavar="F",
+                         "(default: 0.04).")
+    rf.add_argument("--fixation-d-threshold", type=float, default=0.15, metavar="F",
                     help="Windowed pitch/yaw dispersion (rad) at which a face is "
-                         "treated as 50%% fixating (default: 0.10).")
+                         "treated as 50%% fixating (default: 0.15).")
     rf.add_argument("--dir-min-cutoff", type=float, default=1.0, metavar="F",
                     help="Direction One Euro smoother floor cutoff (Hz). Lower = "
                          "smoother at rest (default: 1.0).")

@@ -190,7 +190,7 @@ class RaySection(QWidget):
         self._fixation_v_threshold = QDoubleSpinBox()
         self._fixation_v_threshold.setRange(0.001, 0.5)
         self._fixation_v_threshold.setSingleStep(0.005)
-        self._fixation_v_threshold.setValue(0.02)
+        self._fixation_v_threshold.setValue(0.04)
         self._fixation_v_threshold.setDecimals(3)
         self._fixation_v_threshold.setToolTip(
             "Smoothed pitch/yaw velocity (rad/frame) at which the scheduler\n"
@@ -201,7 +201,7 @@ class RaySection(QWidget):
         self._fixation_d_threshold = QDoubleSpinBox()
         self._fixation_d_threshold.setRange(0.01, 1.5)
         self._fixation_d_threshold.setSingleStep(0.01)
-        self._fixation_d_threshold.setValue(0.10)
+        self._fixation_d_threshold.setValue(0.15)
         self._fixation_d_threshold.setDecimals(2)
         self._fixation_d_threshold.setToolTip(
             "Windowed pitch/yaw dispersion (rad) at which the scheduler\n"
@@ -631,9 +631,9 @@ class RaySection(QWidget):
         self._len_beta.setValue(float(getattr(ns, 'len_beta', 0.3)))
         self._len_hold_tau.setValue(float(getattr(ns, 'len_hold_tau', 5.0)))
         self._fixation_v_threshold.setValue(
-            float(getattr(ns, 'fixation_v_threshold', 0.02)))
+            float(getattr(ns, 'fixation_v_threshold', 0.04)))
         self._fixation_d_threshold.setValue(
-            float(getattr(ns, 'fixation_d_threshold', 0.10)))
+            float(getattr(ns, 'fixation_d_threshold', 0.15)))
         self._dir_min_cutoff.setValue(
             float(getattr(ns, 'dir_min_cutoff', 1.0)))
         self._len_min_cutoff.setValue(
@@ -708,8 +708,8 @@ class RaySection(QWidget):
         self._dir_beta.setValue(0.5)
         self._len_beta.setValue(0.3)
         self._len_hold_tau.setValue(5.0)
-        self._fixation_v_threshold.setValue(0.02)
-        self._fixation_d_threshold.setValue(0.10)
+        self._fixation_v_threshold.setValue(0.04)
+        self._fixation_d_threshold.setValue(0.15)
         self._dir_min_cutoff.setValue(1.0)
         self._len_min_cutoff.setValue(1.0)
         # Adaptive snap

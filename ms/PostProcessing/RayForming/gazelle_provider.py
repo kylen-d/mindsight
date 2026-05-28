@@ -66,8 +66,8 @@ class GazelleProvider:
             device=device,
         )
 
-        v_thresh = getattr(ns, 'fixation_v_threshold', 0.02)
-        d_thresh = getattr(ns, 'fixation_d_threshold', 0.10)
+        v_thresh = getattr(ns, 'fixation_v_threshold', 0.04)
+        d_thresh = getattr(ns, 'fixation_d_threshold', 0.15)
         gap = resolve_min_call_gap(ns)
 
         print(f"Gaze-LLE model loaded: {gz_name}")
