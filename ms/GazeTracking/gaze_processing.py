@@ -415,45 +415,39 @@ def add_arguments(parser) -> None:
                     metavar="NAME",
                     help="Gaze-LLE model variant for ray forming "
                          "(default: gazelle_dinov2_vitb14).")
-    rf.add_argument("--rf-gazelle-interval", type=int, default=30, metavar="N",
-                    help="Run Gaze-LLE heatmap inference every N frames "
-                         "(default: 30).")
-    rf.add_argument("--blend-strength", type=float, default=1.0, metavar="F",
-                    help="Gazelle blend strength (sets both direction and "
-                         "length if not individually specified). 0.0 = pure "
-                         "pitch/yaw, 1.0 = full fusion (default: 1.0).")
-    rf.add_argument("--direction-blend", type=float, default=None, metavar="F",
-                    help="Direction blend strength. Overrides --blend-strength "
-                         "for direction only (default: uses --blend-strength).")
-    rf.add_argument("--length-blend", type=float, default=None, metavar="F",
-                    help="Length/reach blend strength. Overrides "
-                         "--blend-strength for length only "
-                         "(default: uses --blend-strength).")
-    rf.add_argument("--length-only", action="store_true", default=False,
-                    help="Gazelle influences ray length only, not direction.")
-    rf.add_argument("--direction-decay", type=float, default=0.30, metavar="F",
-                    help="Ray direction EMA response rate. Higher = direction "
-                         "follows belief centroid faster. Lower = smoother "
-                         "direction transitions (default: 0.30).")
-    rf.add_argument("--length-decay", type=float, default=0.15, metavar="F",
-                    help="Ray length/reach EMA response rate. Lower = ray "
-                         "reach persists longer between Gazelle updates. "
-                         "Set lower than --direction-decay for stable reach "
-                         "(default: 0.15).")
-    rf.add_argument("--diffusion-sigma", type=float, default=0.40, metavar="F",
-                    help="Per-frame Gaussian blur sigma on the belief map. "
-                         "Controls how fast Gazelle correction confidence "
-                         "decays between updates. 0 = no decay (default: 0.40).")
-    rf.add_argument("--blend-conf-scale", type=float, default=0.70, metavar="F",
-                    help="How much gaze confidence tightens the PY prior. "
-                         "Higher = confident gaze estimates steer belief "
-                         "more strongly (default: 0.70).")
-    rf.add_argument("--belief-min-peak", type=float, default=0.05, metavar="F",
-                    help="Minimum Gaze-LLE heatmap peak to accept "
-                         "(default: 0.05).")
-    rf.add_argument("--inout-threshold", type=float, default=0.5, metavar="F",
-                    help="Suppress Gaze-LLE heatmap when in/out score is below "
-                         "this threshold (default: 0.5).")
+    rf.add_argument("--rf-gazelle-interval", type=int, default=None, metavar="N",
+                    help="(Legacy) alias for --min-call-gap. If both are given, "
+                         "--min-call-gap wins. Kept so old scripts/YAMLs keep "
+                         "working (default: unset -> min_call_gap default).")
+    rf.add_argument("--min-call-gap", type=int, default=None, metavar="N",
+                    help="Minimum frames between Gaze-LLE inference calls. The "
+                         "scheduler also requires at least one participant to be "
+                         "fixating before firing (default: 30).")
+    rf.add_argument("--fixation-v-threshold", type=float, default=0.02, metavar="F",
+                    help="Smoothed pitch/yaw velocity (rad/frame) at which a face "
+                         "is treated as 50%% fixating. Lower = safer anchoring "
+                         "(default: 0.02).")
+    rf.add_argument("--fixation-d-threshold", type=float, default=0.10, metavar="F",
+                    help="Windowed pitch/yaw dispersion (rad) at which a face is "
+                         "treated as 50%% fixating (default: 0.10).")
+    rf.add_argument("--dir-min-cutoff", type=float, default=1.0, metavar="F",
+                    help="Direction One Euro smoother floor cutoff (Hz). Lower = "
+                         "smoother at rest (default: 1.0).")
+    rf.add_argument("--dir-beta", type=float, default=0.5, metavar="F",
+                    help="Direction One Euro responsiveness. Higher = snaps to "
+                         "fast motion (default: 0.5).")
+    rf.add_argument("--len-min-cutoff", type=float, default=1.0, metavar="F",
+                    help="Length One Euro smoother floor cutoff (Hz) "
+                         "(default: 1.0).")
+    rf.add_argument("--len-beta", type=float, default=0.3, metavar="F",
+                    help="Length One Euro responsiveness. Lower than direction by "
+                         "default so length holds steadier (default: 0.3).")
+    rf.add_argument("--len-hold-tau", type=float, default=5.0, metavar="F",
+                    help="Seconds the Gaze-LLE-derived ray length persists after "
+                         "an accepted inference before decaying back to the "
+                         "pitch/yaw baseline. Direction reverts quickly on its "
+                         "own; raise this to hold ray reach longer between "
+                         "inferences (default: 5.0).")
     rf.add_argument("--depth-ray-length", action="store_true", default=False,
                     help="Use depth map to scale ray length based on scene "
                          "geometry (default: off).")

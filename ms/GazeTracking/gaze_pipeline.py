@@ -230,10 +230,15 @@ def run_gaze_step(ctx, *, face_det, gaze_eng, gaze_cfg: GazeConfig, **kwargs):
                 track_id=face_track_ids[fi_loc], face_bbox=bbox))
 
         # Persistent ray forming state objects (created once in cli.py/run())
-        belief_blender = ctx.get('belief_blender')
+        gazelle_blender = ctx.get('gazelle_blender')
         ray_object_snap = ctx.get('ray_object_snap')
-        heatmap_cache = (gazelle_provider.heatmap_cache
-                         if gazelle_provider is not None else None)
+
+        # One Euro time-constant must track real fps -- a 60fps clip needs
+        # half the per-sample smoothing of a 30fps clip.
+        _vfps = ctx.get('video_fps')
+        dt = (1.0 / _vfps
+              if _vfps is not None and _vfps > 0 and _vfps == _vfps
+              else 1.0 / 30.0)
 
         result = run_ray_forming(
             raw_gazes=raw_gazes,
@@ -241,10 +246,11 @@ def run_gaze_step(ctx, *, face_det, gaze_eng, gaze_cfg: GazeConfig, **kwargs):
             face_objs=face_objs,
             frame_h=h, frame_w=w,
             cfg=ray_cfg,
-            belief_blender=belief_blender,
-            heatmap_cache=heatmap_cache,
+            gazelle_provider=gazelle_provider,
+            gazelle_blender=gazelle_blender,
             object_snap=ray_object_snap,
             depth_map=depth_map,
+            dt=dt,
         )
         persons_gaze = result.persons_gaze
         face_confs = result.face_confs

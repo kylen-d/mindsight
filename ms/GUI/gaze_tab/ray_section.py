@@ -20,6 +20,8 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
+from ..widgets import CollapsibleGroupBox
+
 
 class RaySection(QWidget):
     """Ray geometry + adaptive snap + fixation lock-on + hit detection."""
@@ -126,110 +128,110 @@ class RaySection(QWidget):
             "_inout variants predict whether gaze target is in-frame.")
         f.addRow("Variant:", self._gazelle_name_combo)
 
-        self._gazelle_interval = QSpinBox()
-        self._gazelle_interval.setRange(1, 120)
-        self._gazelle_interval.setValue(30)
-        self._gazelle_interval.setToolTip(
-            "Run Gaze-LLE inference every N frames.\n"
-            "Lower = more accurate but slower. 30 is a good default.")
-        f.addRow("Inference interval:", self._gazelle_interval)
-
-        # -- Blend parameters --
-        lbl_blend = QLabel("Blend Parameters")
-        lbl_blend.setStyleSheet(
-            "color:#888; font-size:11px; margin-top:4px;")
-        f.addRow(lbl_blend)
-
-        self._direction_blend = QDoubleSpinBox()
-        self._direction_blend.setRange(0.0, 1.0)
-        self._direction_blend.setSingleStep(0.05)
-        self._direction_blend.setValue(1.0)
-        self._direction_blend.setDecimals(2)
-        self._direction_blend.setToolTip(
-            "Direction blend strength.\n"
-            "0.0 = pure pitch/yaw direction, 1.0 = full Gazelle correction.")
-        f.addRow("Direction blend:", self._direction_blend)
-
-        self._length_blend = QDoubleSpinBox()
-        self._length_blend.setRange(0.0, 1.0)
-        self._length_blend.setSingleStep(0.05)
-        self._length_blend.setValue(1.0)
-        self._length_blend.setDecimals(2)
-        self._length_blend.setToolTip(
-            "Length/reach blend strength.\n"
-            "0.0 = pitch/yaw-derived length only,\n"
-            "1.0 = full Gazelle ray extension.")
-        f.addRow("Length blend:", self._length_blend)
-
-        self._cb_length_only = QCheckBox("Length only (direction from pitch/yaw)")
-        self._cb_length_only.setToolTip(
-            "When checked, Gazelle only influences ray reach/length,\n"
-            "not direction. Useful for preserving pitch/yaw temporal\n"
-            "gaze movement while using Gazelle for ray extension.")
-        f.addRow(self._cb_length_only)
-
-        # -- Belief map tuning --
-        lbl_belief = QLabel("Belief Map Tuning")
+        # -- Belief map tuning (fixation-aware scheduler + One Euro) -----
+        # 3 default-visible knobs; the rest live in a collapsed Advanced
+        # group.  See ms/PostProcessing/RayForming/gazelle_blender.py and
+        # the design spec for what each controls.
+        lbl_belief = QLabel("Scheduling & Smoothing")
         lbl_belief.setStyleSheet(
             "color:#888; font-size:11px; margin-top:4px;")
         f.addRow(lbl_belief)
 
-        self._direction_decay = QDoubleSpinBox()
-        self._direction_decay.setRange(0.0, 1.0)
-        self._direction_decay.setSingleStep(0.05)
-        self._direction_decay.setValue(0.30)
-        self._direction_decay.setDecimals(2)
-        self._direction_decay.setToolTip(
-            "How quickly the ray direction responds to changes.\n"
-            "Higher = direction follows belief centroid faster.\n"
-            "Lower = direction changes more smoothly/slowly.")
-        f.addRow("Direction response:", self._direction_decay)
+        self._min_call_gap = QSpinBox()
+        self._min_call_gap.setRange(1, 120)
+        self._min_call_gap.setValue(30)
+        self._min_call_gap.setToolTip(
+            "Minimum frames between Gaze-LLE inference calls.\n"
+            "Lower = more scene corrections per second (higher GPU cost).\n"
+            "Higher = fewer, cheaper corrections.\n"
+            "The scheduler additionally requires at least one participant\n"
+            "to be fixating; if nobody is, no inference fires regardless.")
+        f.addRow("Min call gap (frames):", self._min_call_gap)
 
-        self._length_decay = QDoubleSpinBox()
-        self._length_decay.setRange(0.0, 1.0)
-        self._length_decay.setSingleStep(0.05)
-        self._length_decay.setValue(0.15)
-        self._length_decay.setDecimals(2)
-        self._length_decay.setToolTip(
-            "How quickly the ray length/reach responds to changes.\n"
-            "Lower = ray reach persists longer between Gazelle updates.\n"
-            "Higher = ray length follows belief more responsively.\n"
-            "Typically set lower than direction response so ray\n"
-            "reach holds while direction may shift.")
-        f.addRow("Length response:", self._length_decay)
+        self._dir_beta = QDoubleSpinBox()
+        self._dir_beta.setRange(0.0, 5.0)
+        self._dir_beta.setSingleStep(0.1)
+        self._dir_beta.setValue(0.5)
+        self._dir_beta.setDecimals(2)
+        self._dir_beta.setToolTip(
+            "Direction smoother responsiveness (One Euro beta).\n"
+            "Higher = direction snaps to fast motion (saccades, head turns).\n"
+            "Lower = smoother direction, more lag on fast motion.")
+        f.addRow("Direction responsiveness:", self._dir_beta)
 
-        self._diffusion_sigma = QDoubleSpinBox()
-        self._diffusion_sigma.setRange(0.0, 3.0)
-        self._diffusion_sigma.setSingleStep(0.05)
-        self._diffusion_sigma.setValue(0.40)
-        self._diffusion_sigma.setDecimals(2)
-        self._diffusion_sigma.setToolTip(
-            "Per-frame Gaussian blur sigma on the belief map.\n"
-            "Controls how fast the belief spreads (forgets)\n"
-            "between Gazelle updates. Higher = faster decay\n"
-            "of Gazelle correction confidence. 0 = no decay.")
-        f.addRow("Diffusion sigma:", self._diffusion_sigma)
+        self._len_beta = QDoubleSpinBox()
+        self._len_beta.setRange(0.0, 5.0)
+        self._len_beta.setSingleStep(0.1)
+        self._len_beta.setValue(0.3)
+        self._len_beta.setDecimals(2)
+        self._len_beta.setToolTip(
+            "Length smoother responsiveness (One Euro beta).\n"
+            "Lower than direction by default -- length should hold more\n"
+            "steadily than direction during smooth motion.")
+        f.addRow("Length responsiveness:", self._len_beta)
 
-        self._blend_conf_scale = QDoubleSpinBox()
-        self._blend_conf_scale.setRange(0.0, 1.0)
-        self._blend_conf_scale.setSingleStep(0.05)
-        self._blend_conf_scale.setValue(0.70)
-        self._blend_conf_scale.setDecimals(2)
-        self._blend_conf_scale.setToolTip(
-            "How much gaze confidence tightens the PY prior.\n"
-            "Higher = confident gaze estimates produce narrower\n"
-            "priors that steer the belief more strongly.")
-        f.addRow("Conf scale:", self._blend_conf_scale)
+        self._len_hold_tau = QDoubleSpinBox()
+        self._len_hold_tau.setRange(0.1, 60.0)
+        self._len_hold_tau.setSingleStep(0.5)
+        self._len_hold_tau.setValue(5.0)
+        self._len_hold_tau.setDecimals(1)
+        self._len_hold_tau.setToolTip(
+            "Seconds the Gaze-LLE-derived ray length persists after an\n"
+            "accepted inference before decaying back to the pitch/yaw\n"
+            "baseline.  Direction reverts quickly on its own; raise this\n"
+            "to hold ray reach longer between inferences.")
+        f.addRow("Length hold (s):", self._len_hold_tau)
 
-        self._inout_threshold = QDoubleSpinBox()
-        self._inout_threshold.setRange(0.0, 1.0)
-        self._inout_threshold.setSingleStep(0.05)
-        self._inout_threshold.setValue(0.5)
-        self._inout_threshold.setDecimals(2)
-        self._inout_threshold.setToolTip(
-            "Suppress Gaze-LLE heatmap when in/out score is below this.\n"
-            "Relevant for _inout model variants only.")
-        f.addRow("In/out threshold:", self._inout_threshold)
+        # -- Advanced (collapsed) --
+        adv_widget = QWidget()
+        af = QFormLayout(adv_widget)
+        af.setContentsMargins(0, 0, 0, 0)
+
+        self._fixation_v_threshold = QDoubleSpinBox()
+        self._fixation_v_threshold.setRange(0.001, 0.5)
+        self._fixation_v_threshold.setSingleStep(0.005)
+        self._fixation_v_threshold.setValue(0.02)
+        self._fixation_v_threshold.setDecimals(3)
+        self._fixation_v_threshold.setToolTip(
+            "Smoothed pitch/yaw velocity (rad/frame) at which the scheduler\n"
+            "treats a face as 50% fixating.  Lower = fewer inferences on\n"
+            "slow-moving faces, safer anchoring; higher = more sensitive.")
+        af.addRow("Fixation v-threshold (rad/frame):", self._fixation_v_threshold)
+
+        self._fixation_d_threshold = QDoubleSpinBox()
+        self._fixation_d_threshold.setRange(0.01, 1.5)
+        self._fixation_d_threshold.setSingleStep(0.01)
+        self._fixation_d_threshold.setValue(0.10)
+        self._fixation_d_threshold.setDecimals(2)
+        self._fixation_d_threshold.setToolTip(
+            "Windowed pitch/yaw dispersion (rad) at which the scheduler\n"
+            "treats a face as 50% fixating.  Lower = tighter fixation\n"
+            "criterion; higher = more permissive.")
+        af.addRow("Fixation d-threshold (rad):", self._fixation_d_threshold)
+
+        self._dir_min_cutoff = QDoubleSpinBox()
+        self._dir_min_cutoff.setRange(0.1, 20.0)
+        self._dir_min_cutoff.setSingleStep(0.1)
+        self._dir_min_cutoff.setValue(1.0)
+        self._dir_min_cutoff.setDecimals(2)
+        self._dir_min_cutoff.setToolTip(
+            "Direction smoother floor cutoff (Hz).  Lower = smoother at\n"
+            "rest (heavier jitter suppression); higher = more responsive\n"
+            "even at rest.")
+        af.addRow("Direction min-cutoff (Hz):", self._dir_min_cutoff)
+
+        self._len_min_cutoff = QDoubleSpinBox()
+        self._len_min_cutoff.setRange(0.1, 20.0)
+        self._len_min_cutoff.setSingleStep(0.1)
+        self._len_min_cutoff.setValue(1.0)
+        self._len_min_cutoff.setDecimals(2)
+        self._len_min_cutoff.setToolTip(
+            "Length smoother floor cutoff (Hz).")
+        af.addRow("Length min-cutoff (Hz):", self._len_min_cutoff)
+
+        adv_grp = CollapsibleGroupBox("Advanced")
+        adv_grp.set_content(adv_widget)
+        f.addRow(adv_grp)
 
         lay.addWidget(self._gazelle_group)
 
@@ -561,15 +563,14 @@ class RaySection(QWidget):
             rf_gazelle_model=(self._gazelle_model_path.text().strip() or None
                               if self._gazelle_group.isChecked() else None),
             rf_gazelle_name=self._gazelle_name_combo.currentText(),
-            rf_gazelle_interval=self._gazelle_interval.value(),
-            direction_blend=self._direction_blend.value(),
-            length_blend=self._length_blend.value(),
-            length_only=self._cb_length_only.isChecked(),
-            direction_decay=self._direction_decay.value(),
-            length_decay=self._length_decay.value(),
-            diffusion_sigma=self._diffusion_sigma.value(),
-            blend_conf_scale=self._blend_conf_scale.value(),
-            inout_threshold=self._inout_threshold.value(),
+            min_call_gap=self._min_call_gap.value(),
+            dir_beta=self._dir_beta.value(),
+            len_beta=self._len_beta.value(),
+            len_hold_tau=self._len_hold_tau.value(),
+            fixation_v_threshold=self._fixation_v_threshold.value(),
+            fixation_d_threshold=self._fixation_d_threshold.value(),
+            dir_min_cutoff=self._dir_min_cutoff.value(),
+            len_min_cutoff=self._len_min_cutoff.value(),
             adaptive_ray=(self._adaptive_mode_combo.currentText().lower()
                           if self._adaptive_snap_group.isChecked()
                           else "off"),
@@ -624,26 +625,19 @@ class RaySection(QWidget):
         gz_name_idx = self._gazelle_name_combo.findText(gz_name)
         if gz_name_idx >= 0:
             self._gazelle_name_combo.setCurrentIndex(gz_name_idx)
-        self._gazelle_interval.setValue(
-            int(getattr(ns, 'rf_gazelle_interval', 30)))
-        self._direction_blend.setValue(
-            float(getattr(ns, 'direction_blend',
-                   getattr(ns, 'blend_strength', 1.0))))
-        self._length_blend.setValue(
-            float(getattr(ns, 'length_blend',
-                   getattr(ns, 'blend_strength', 1.0))))
-        self._cb_length_only.setChecked(
-            bool(getattr(ns, 'length_only', False)))
-        self._direction_decay.setValue(
-            float(getattr(ns, 'direction_decay', 0.30)))
-        self._length_decay.setValue(
-            float(getattr(ns, 'length_decay', 0.15)))
-        self._diffusion_sigma.setValue(
-            float(getattr(ns, 'diffusion_sigma', 0.40)))
-        self._blend_conf_scale.setValue(
-            float(getattr(ns, 'blend_conf_scale', 0.7)))
-        self._inout_threshold.setValue(
-            float(getattr(ns, 'inout_threshold', 0.5)))
+        from ms.PostProcessing.RayForming.ray_config import resolve_min_call_gap
+        self._min_call_gap.setValue(resolve_min_call_gap(ns))
+        self._dir_beta.setValue(float(getattr(ns, 'dir_beta', 0.5)))
+        self._len_beta.setValue(float(getattr(ns, 'len_beta', 0.3)))
+        self._len_hold_tau.setValue(float(getattr(ns, 'len_hold_tau', 5.0)))
+        self._fixation_v_threshold.setValue(
+            float(getattr(ns, 'fixation_v_threshold', 0.02)))
+        self._fixation_d_threshold.setValue(
+            float(getattr(ns, 'fixation_d_threshold', 0.10)))
+        self._dir_min_cutoff.setValue(
+            float(getattr(ns, 'dir_min_cutoff', 1.0)))
+        self._len_min_cutoff.setValue(
+            float(getattr(ns, 'len_min_cutoff', 1.0)))
 
         ar = getattr(ns, 'adaptive_ray', 'off')
         if isinstance(ar, bool):
@@ -710,15 +704,14 @@ class RaySection(QWidget):
         self._gazelle_group.setChecked(False)
         self._gazelle_model_path.clear()
         self._gazelle_name_combo.setCurrentIndex(0)
-        self._gazelle_interval.setValue(30)
-        self._direction_blend.setValue(1.0)
-        self._length_blend.setValue(1.0)
-        self._cb_length_only.setChecked(False)
-        self._direction_decay.setValue(0.30)
-        self._length_decay.setValue(0.15)
-        self._diffusion_sigma.setValue(0.40)
-        self._blend_conf_scale.setValue(0.7)
-        self._inout_threshold.setValue(0.5)
+        self._min_call_gap.setValue(30)
+        self._dir_beta.setValue(0.5)
+        self._len_beta.setValue(0.3)
+        self._len_hold_tau.setValue(5.0)
+        self._fixation_v_threshold.setValue(0.02)
+        self._fixation_d_threshold.setValue(0.10)
+        self._dir_min_cutoff.setValue(1.0)
+        self._len_min_cutoff.setValue(1.0)
         # Adaptive snap
         self._adaptive_snap_group.setChecked(False)
         self._adaptive_mode_combo.setCurrentIndex(0)

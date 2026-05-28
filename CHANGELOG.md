@@ -2,6 +2,10 @@
 
 ## [0.8.0] - Unreleased
 
+### Changed (breaking)
+- **Gazelle Blend redesigned around a fixation-aware scheduler.** The belief-map tuning knobs (`direction_blend`, `length_blend`, `length_only`, `direction_decay`, `length_decay`, `diffusion_sigma`, `blend_conf_scale`, `belief_min_peak`, `inout_threshold`, and the fixed `gazelle_interval`) are removed. Replaced with 3 default-visible knobs (`min_call_gap`, `dir_beta`, `len_beta`) and 4 advanced knobs (`fixation_v_threshold`, `fixation_d_threshold`, `dir_min_cutoff`, `len_min_cutoff`). Gaze-LLE inferences now fire only when at least one participant is fixating -- detected per-face from smoothed pitch/yaw velocity and windowed dispersion -- which prevents the post-inference head-turn artifact at its source rather than correcting it after the fact. The output is smoothed with a One Euro Filter (adaptive per-frame cutoff, calibrated to the video's real fps) instead of a fixed-alpha EMA, so the smoothing-vs-jitter trade-off resolves itself.
+- **YAML pipeline / CLI migration.** The removed knobs have no clean 1:1 replacement; pipelines referencing them should move to the new knob set (see the cookbook's "Migrating from the legacy Gazelle Blend"). The legacy `rf_gazelle_interval` key / `--rf-gazelle-interval` flag still works as an alias for `min_call_gap`.
+
 ### Removed
 - **UniGaze gaze backend** -- never loaded reliably (required non-commercial `unigaze` PyPI package pinning `timm==0.3.2`); functionality superseded by L2CS-Net and Gazelle backends
 - **GazelleSnap plugin** -- superseded by core Ray Forming + Gazelle Blend pipeline (`ms/PostProcessing/RayForming/gazelle_provider.py`). Legacy `--gs-*` CLI flags are no longer recognized
