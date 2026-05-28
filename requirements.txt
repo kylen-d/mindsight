@@ -31,4 +31,5 @@ pandas>=2.0
 
 # Utilities
 PyYAML>=6.0
+pydantic>=2.5
 tqdm>=4.65
