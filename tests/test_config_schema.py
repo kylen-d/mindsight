@@ -164,13 +164,10 @@ MIRROR_PAIRS = [
     (ProjectOutputSection, ProjectOutputConfig),
 ]
 
-# KNOWN preserved discrepancy: the DetectionConfig dataclass default is
-# 'dynamic' but the from_namespace fallback (and hence the schema default,
-# per the SP1.1 plan) is 'filter'.  The argparse default is 'dynamic', so
-# real CLI runs always see 'dynamic'.  See report / ms/config.py comment.
-DEFAULT_EXCEPTIONS = {
-    (DetectionSection, "merge_overlap_strategy"): ("dynamic", "filter"),
-}
+# No default exceptions remain: merge_overlap_strategy's schema default was
+# corrected from the dead 'filter' getattr-fallback to the runtime-true
+# 'dynamic', so it now matches the dataclass default like every other field.
+DEFAULT_EXCEPTIONS: dict = {}
 
 
 def _dataclass_default(field: dataclasses.Field):
@@ -293,16 +290,16 @@ def test_every_core_flag_resolves():
 def test_parser_defaults_match_schema_defaults():
     """Argparse defaults equal schema defaults for every mapped flag.
 
-    Exceptions: --merge-overlap-strategy (the preserved 'dynamic'/'filter'
-    discrepancy) and the two min-call-gap spellings (argparse None resolves
-    to the schema default 30 via resolve_min_call_gap).
+    Exceptions: the two min-call-gap spellings (argparse None resolves to the
+    schema default 30 via resolve_min_call_gap).  --merge-overlap-strategy is
+    no longer excepted -- its schema default was corrected to 'dynamic', which
+    now matches the argparse default.
     """
     import argparse
 
     parser = get_parser()
     metadata = schema_cli_metadata()
-    exceptions = {"--merge-overlap-strategy", "--min-call-gap",
-                  "--rf-gazelle-interval"}
+    exceptions = {"--min-call-gap", "--rf-gazelle-interval"}
 
     by_flag = {}
     for action in parser._actions:

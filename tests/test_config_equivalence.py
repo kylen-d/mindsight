@@ -22,10 +22,10 @@ Two boundaries are pinned:
      ``_is_default`` heuristic silently DROPPED any YAML value whose namespace
      attribute was truthy (e.g. conf=0.35 blocked ``detection.conf: 0.05``);
      with explicit-flag detection (ms.cli._args) that gating is gone.  The
-     per-file ``EXPECTED_GATED`` sets below are therefore now empty, and the
-     only remaining divergence is ``detection.merge_overlap_strategy``
-     (parser/from_namespace-fallback 'filter' vs argparse 'dynamic') -- see
-     Fix 2, which flips the schema default so even that vanishes.
+     per-file ``EXPECTED_GATED`` sets below are therefore now empty.  Fix 2
+     additionally corrected the ``detection.merge_overlap_strategy`` schema
+     default ('filter' -> 'dynamic'), so ``ALWAYS_DIVERGENT`` is empty too and
+     the CLI route matches ``load_yaml`` with zero divergences.
 """
 
 import copy
@@ -262,10 +262,10 @@ whatever:
 """,
 }
 
-# Divergence on EVERY file in the CLI route: from_namespace's fallback pins
-# merge_overlap_strategy='filter' via load_yaml while the parser default is
-# 'dynamic'.  Fix 2 flips the schema default to 'dynamic' and empties this set.
-ALWAYS_DIVERGENT = {"detection.merge_overlap_strategy"}
+# No always-divergent keys remain: Fix 2 flipped the schema default of
+# merge_overlap_strategy from the dead 'filter' fallback to the runtime-true
+# 'dynamic', so load_yaml and the CLI route now agree on it too.
+ALWAYS_DIVERGENT: set = set()
 
 # HOTFIX (YAML precedence): with explicit-flag detection the CLI route no
 # longer drops YAML values on truthy-default dests, so the frozen per-file
@@ -336,8 +336,9 @@ def test_yaml_equivalence_default_namespace(name, tmp_path):
         section, field = dotted.split(".", 1)
         assert dump_a[section][field] == legacy_val, dotted
         assert dump_b[section][field] == compat_val, dotted
+    # Fix 2: both routes now resolve the runtime-true 'dynamic'.
     assert dump_a["detection"]["merge_overlap_strategy"] == "dynamic"
-    assert dump_b["detection"]["merge_overlap_strategy"] == "filter"
+    assert dump_b["detection"]["merge_overlap_strategy"] == "dynamic"
 
 
 def test_yaml_to_dataclasses_roundtrip():

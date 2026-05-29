@@ -74,16 +74,16 @@ class DetectionSection(BaseModel):
     blacklist: set = Field(default_factory=set)
     detect_scale: float = Field(1.0, json_schema_extra={"cli": "--detect-scale"})
     merge_overlaps: bool = Field(False, json_schema_extra={"cli": "--merge-overlaps"})
-    # KNOWN DISCREPANCY (preserved, do not "fix" silently): the
-    # DetectionConfig dataclass default is 'dynamic' and the argparse default
-    # is ALSO 'dynamic'; the 'filter' below matches the getattr() fallback in
-    # DetectionConfig.from_namespace, which SP1.1's plan pinned as the schema
-    # default.  On any real CLI run the parser supplies 'dynamic', so this
-    # default is only visible to schema users who construct PipelineConfig()
-    # directly or via config_compat.load_yaml.  Revisit before SP1.3
-    # generates CLI flags from these defaults (see SP1.1 report).
+    # Runtime truth is 'dynamic': both the DetectionConfig dataclass default
+    # (pipeline_config.py:171) and the argparse default are 'dynamic', so every
+    # real CLI/GUI run resolves 'dynamic'.  The lone 'filter' left in the tree
+    # is the DEAD getattr() fallback in DetectionConfig.from_namespace
+    # (pipeline_config.py:183), which never fires because the parser always
+    # supplies the value.  SP1.1 mistakenly pinned this schema default to that
+    # dead fallback; corrected here so PipelineConfig() / config_compat.load_yaml
+    # match runtime.
     merge_overlap_strategy: str = Field(
-        "filter", json_schema_extra={"cli": "--merge-overlap-strategy"})
+        "dynamic", json_schema_extra={"cli": "--merge-overlap-strategy"})
     merge_overlap_threshold: float = Field(
         0.7, json_schema_extra={"cli": "--merge-overlap-threshold"})
 
@@ -370,7 +370,7 @@ class PipelineConfig(BaseModel):
             blacklist=blacklist if blacklist is not None else set(),
             detect_scale=g("detect_scale", 1.0),
             merge_overlaps=g("merge_overlaps", False),
-            merge_overlap_strategy=g("merge_overlap_strategy", "filter"),
+            merge_overlap_strategy=g("merge_overlap_strategy", "dynamic"),
             merge_overlap_threshold=g("merge_overlap_threshold", 0.7),
         )
         gaze = GazeSection(
