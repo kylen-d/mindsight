@@ -1,10 +1,13 @@
 """Tests for pipeline_loader.py -- YAML pipeline config loading."""
 
 from argparse import Namespace
+from pathlib import Path
 
 import pytest
 
 from ms.pipeline_loader import _flatten, _is_default, load_pipeline
+
+REPO_ROOT = Path(__file__).resolve().parents[1]
 
 # ── _flatten helper ──────────────────────────────────────────────────────────
 
@@ -255,3 +258,98 @@ class TestPhenomenaListParsing:
         assert ns.gaze_aversion is True
         assert ns.aversion_window == 120
         assert ns.aversion_conf == 0.7
+
+
+# ── Explicit-flag precedence (CLI route) ─────────────────────────────────────
+
+class TestExplicitFlagPrecedence:
+    """Tests for the ``_explicit_cli`` precedence path.
+
+    When the namespace carries ``_explicit_cli`` (the exact set of dests the
+    user typed on the CLI, attached by ms.cli._args), YAML overwrites every
+    dest NOT in that set -- the truthy-default _is_default heuristic that used
+    to silently drop YAML values is bypassed.
+    """
+
+    def test_empty_explicit_set_applies_all_yaml(self, tmp_path):
+        """With _explicit_cli=frozenset() (nothing typed), YAML wins even for
+        keys whose truthy parser default previously blocked it."""
+        cfg_file = tmp_path / "pipeline.yaml"
+        cfg_file.write_text(
+            "detection:\n"
+            "  conf: 0.05\n"
+            "  detect_scale: 0.75\n"
+            "gaze:\n"
+            "  ray_length: 1.5\n"
+            "  adaptive_ray: extend\n"
+        )
+        # Parser-default-like namespace: every attr truthy, so legacy
+        # _is_default would DROP all four YAML values.
+        ns = Namespace(conf=0.35, detect_scale=1.0, ray_length=1.0,
+                       adaptive_ray='off')
+        ns._explicit_cli = frozenset()
+        load_pipeline(cfg_file, ns)
+        assert ns.conf == 0.05
+        assert ns.detect_scale == 0.75
+        assert ns.ray_length == 1.5
+        assert ns.adaptive_ray == 'extend'
+
+    def test_explicit_dest_not_overwritten(self, tmp_path):
+        """A dest listed in _explicit_cli keeps its CLI value; others take
+        their YAML values."""
+        cfg_file = tmp_path / "pipeline.yaml"
+        cfg_file.write_text(
+            "detection:\n"
+            "  conf: 0.05\n"
+            "gaze:\n"
+            "  ray_length: 1.5\n"
+        )
+        ns = Namespace(conf=0.9, ray_length=1.0)  # user typed --conf 0.9
+        ns._explicit_cli = frozenset({'conf'})
+        load_pipeline(cfg_file, ns)
+        assert ns.conf == 0.9      # explicit -- YAML does NOT override
+        assert ns.ray_length == 1.5  # not explicit -- YAML applies
+
+    def test_explicit_phenomena_toggle_and_params(self, tmp_path):
+        """Phenomena toggles/params honor the explicit set too."""
+        cfg_file = tmp_path / "pipeline.yaml"
+        cfg_file.write_text(
+            "phenomena:\n"
+            "  - joint_attention:\n"
+            "      ja_window: 45\n"
+        )
+        ns = Namespace(joint_attention=False, ja_window=0)
+        ns._explicit_cli = frozenset()
+        load_pipeline(cfg_file, ns)
+        assert ns.joint_attention is True
+        assert ns.ja_window == 45
+
+    def test_without_explicit_legacy_heuristic(self, tmp_path):
+        """No _explicit_cli attr => legacy _is_default behavior (byte-for-byte:
+        a truthy non-default value blocks the YAML value)."""
+        cfg_file = tmp_path / "pipeline.yaml"
+        cfg_file.write_text("detection:\n  conf: 0.05\n")
+        ns = Namespace(conf=0.35)  # truthy => _is_default False => blocked
+        load_pipeline(cfg_file, ns)
+        assert ns.conf == 0.35  # legacy loader drops the YAML value
+
+
+# ── End-to-end: real _args parse + YAML merge ────────────────────────────────
+
+def test_args_yaml_honored_over_unset_flags_source_wins():
+    """Parse real argv through ms.cli._args, then apply the repo pipeline YAML
+    exactly as main() does.  The explicitly-typed --source must survive while
+    unset flags take their YAML values (the whole point of Fix 1)."""
+    from ms.cli import _args
+
+    argv = ["--pipeline", "test_pipeline.yaml", "--source", "x.mp4"]
+    ns = _args(argv)
+    # _explicit_cli reflects exactly what was typed.
+    assert ns._explicit_cli == frozenset({"pipeline", "source"})
+
+    load_pipeline(REPO_ROOT / ns.pipeline, ns)
+
+    assert ns.source == "x.mp4"        # explicit -- NOT overwritten by YAML
+    assert ns.conf == 0.05             # unset flag -- YAML wins
+    assert ns.ray_length == 1.5        # unset flag -- YAML wins
+    assert ns.adaptive_ray == "extend"  # truthy-default dest, now honored

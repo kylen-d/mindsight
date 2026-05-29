@@ -15,16 +15,17 @@ Two boundaries are pinned:
    * over an EMPTY namespace (the GUI pipeline_dialog route), the two must
      be IDENTICAL -- this pins alias, shim, and precedence semantics 1:1
      against the live loader;
-   * over the DEFAULT PARSER namespace (the CLI route), the legacy loader's
-     ``_is_default`` heuristic silently DROPS any YAML value whose namespace
-     attribute is truthy (e.g. conf=0.35 blocks ``detection.conf: 0.05``).
-     ``load_yaml`` applies what the YAML author wrote, so the two routes
-     diverge exactly on those gated keys.  The divergences are frozen
-     per-file below; each one is a pre-existing legacy-loader limitation,
-     NOT a schema bug (see the SP1.1 report).  ``detection.
-     merge_overlap_strategy`` additionally diverges on every file: the
-     parser default is 'dynamic' while the schema default pinned by the
-     SP1.1 plan is 'filter'.
+   * over the DEFAULT PARSER namespace WITH ``_explicit_cli=frozenset()``
+     (the CLI route after the YAML-precedence hotfix), the loader now honors
+     every YAML value on any dest the user did NOT type -- so the two routes
+     match EXACTLY.  This flips the SP1.1 frozen divergences: the old
+     ``_is_default`` heuristic silently DROPPED any YAML value whose namespace
+     attribute was truthy (e.g. conf=0.35 blocked ``detection.conf: 0.05``);
+     with explicit-flag detection (ms.cli._args) that gating is gone.  The
+     per-file ``EXPECTED_GATED`` sets below are therefore now empty, and the
+     only remaining divergence is ``detection.merge_overlap_strategy``
+     (parser/from_namespace-fallback 'filter' vs argparse 'dynamic') -- see
+     Fix 2, which flips the schema default so even that vanishes.
 """
 
 import copy
@@ -261,61 +262,29 @@ whatever:
 """,
 }
 
-# Divergence on EVERY file in the default-namespace route: parser supplies
-# merge_overlap_strategy='dynamic' while the schema default is 'filter'
-# (the preserved from_namespace-fallback discrepancy).
+# Divergence on EVERY file in the CLI route: from_namespace's fallback pins
+# merge_overlap_strategy='filter' via load_yaml while the parser default is
+# 'dynamic'.  Fix 2 flips the schema default to 'dynamic' and empties this set.
 ALWAYS_DIVERGENT = {"detection.merge_overlap_strategy"}
 
-# Frozen per-file divergences for the default-parser-namespace route.  Each
-# entry is a YAML value the legacy loader SILENTLY DROPS because the
-# corresponding namespace default is truthy (_is_default heuristic).
-# Format: path -> (legacy_route_value, load_yaml_value).
-EXPECTED_GATED = {
-    "test_pipeline.yaml": {
-        "detection.conf": (0.35, 0.05),
-        "detection.detect_scale": (1.0, 0.75),
-        "gaze.ray_length": (1.0, 1.5),
-        "rayforming.ray_length": (1.0, 1.5),
-        "gaze.tip_radius": (80, 40),
-        "rayforming.tip_radius": (80, 40),
-        "gaze.adaptive_ray": ("off", "extend"),
-        "rayforming.snap_mode": ("off", "extend"),
-    },
-    "Projects/ExampleProject/Pipeline/pipeline.yaml": {},
-    "Projects/ExampleProject/Pipeline/pipeline_example.yaml": {},
-    "legacy_bool_snap.yaml": {
-        "gaze.adaptive_ray": ("off", "snap"),
-        "rayforming.snap_mode": ("off", "snap"),
-    },
-    "legacy_bool_extend.yaml": {
-        "gaze.adaptive_ray": ("off", "extend"),
-        "rayforming.snap_mode": ("off", "extend"),
-    },
-    "legacy_bool_off.yaml": {},
-    "rf_interval.yaml": {},
-    "rf_precedence.yaml": {},
-    "aux_streams.yaml": {},
-    "kitchen_sink.yaml": {
-        "detection.conf": (0.35, 0.2),
-        "gaze.detect_extend_scope": ("objects", "both"),
-        "rayforming.detect_extend_scope": ("objects", "both"),
-        "tracker.dwell_frames": (15, 30),
-        "tracker.snap_release_frames": (5, 9),
-        "rayforming.snap_release_frames": (5, 9),
-        "depth.snap_w_depth": (0.4, 0.9),
-        "depth.gaze_sample_radius": (2, 5),
-        "depth.input_size": (384, 256),
-        "output.anonymize_padding": (0.3, 0.5),
-        "phenomena.ja_quorum": (1.0, 0.5),
-        "gaze.ja_quorum": (1.0, 0.5),
-        "phenomena.ja_window_thresh": (0.7, 0.9),
-    },
-    "unknown_keys.yaml": {
-        "detection.conf": (0.35, 0.2),
-        "gaze.ray_length": (1.0, 1.5),
-        "rayforming.ray_length": (1.0, 1.5),
-    },
-}
+# HOTFIX (YAML precedence): with explicit-flag detection the CLI route no
+# longer drops YAML values on truthy-default dests, so the frozen per-file
+# gated divergences of SP1.1 are now all EMPTY -- every YAML value lands and
+# the two routes match exactly (apart from ALWAYS_DIVERGENT above).  The keys
+# below are kept only to enumerate the files under test.
+EXPECTED_GATED = {name: {} for name in [
+    "test_pipeline.yaml",
+    "Projects/ExampleProject/Pipeline/pipeline.yaml",
+    "Projects/ExampleProject/Pipeline/pipeline_example.yaml",
+    "legacy_bool_snap.yaml",
+    "legacy_bool_extend.yaml",
+    "legacy_bool_off.yaml",
+    "rf_interval.yaml",
+    "rf_precedence.yaml",
+    "aux_streams.yaml",
+    "kitchen_sink.yaml",
+    "unknown_keys.yaml",
+]}
 
 
 def _yaml_path(name: str, tmp_path: Path) -> Path:
@@ -342,13 +311,17 @@ def test_yaml_equivalence_empty_namespace(name, tmp_path):
 
 @pytest.mark.parametrize("name", ALL_YAMLS, ids=[Path(p).name for p in ALL_YAMLS])
 def test_yaml_equivalence_default_namespace(name, tmp_path):
-    """CLI route: legacy merge into the DEFAULT parser namespace vs load_yaml.
+    """CLI route: merge into the DEFAULT parser namespace carrying
+    ``_explicit_cli=frozenset()`` (nothing typed) vs load_yaml.
 
-    Divergences must be exactly the frozen gated set (legacy _is_default
-    drops) plus the merge_overlap_strategy default discrepancy.
+    HOTFIX flip: with explicit-flag detection the loader honors every YAML
+    value on any unset dest, so the SP1.1 gated divergences are gone.  The
+    only remaining divergence is merge_overlap_strategy (ALWAYS_DIVERGENT),
+    which Fix 2 removes by flipping the schema default.
     """
     path = _yaml_path(name, tmp_path)
     ns = copy.deepcopy(get_parser().parse_args([]))
+    ns._explicit_cli = frozenset()  # CLI route: user typed nothing
     load_pipeline(path, ns)
     via_loader = PipelineConfig.from_namespace(ns)
     via_compat = load_yaml(path)

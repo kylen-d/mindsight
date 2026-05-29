@@ -170,12 +170,19 @@ def load_pipeline(path: str | Path, ns: Namespace | None = None) -> Namespace:
     if ns is None:
         ns = Namespace()
 
+    # Precedence source of truth.  When the CLI parser attached ``_explicit_cli``
+    # (the exact set of user-typed dests, see ms.cli._args), YAML applies to
+    # every dest the user did NOT type and the _is_default heuristic is bypassed.
+    # GUI-constructed / synthetic namespaces lack the attr and keep the legacy
+    # _is_default path unchanged.
+    explicit = getattr(ns, '_explicit_cli', None)
+
     # 1. Process flat and nested sections (detection, gaze, output)
     flat = _flatten(cfg)
     for yaml_key, attr in _YAML_MAP.items():
         if yaml_key in flat:
-            # Only set if the namespace attribute is at its default
-            if not hasattr(ns, attr) or _is_default(ns, attr):
+            # Only set if the CLI did not explicitly provide this dest
+            if _should_set(ns, attr, explicit):
                 setattr(ns, attr, flat[yaml_key])
 
     # 2. Process phenomena list (special format)
@@ -184,11 +191,11 @@ def load_pipeline(path: str | Path, ns: Namespace | None = None) -> Namespace:
         for item in phenomena_list:
             if isinstance(item, str):
                 # Simple toggle: "- mutual_gaze"
-                _set_phenomenon(ns, item, {})
+                _set_phenomenon(ns, item, {}, explicit)
             elif isinstance(item, dict):
                 # Toggle with params: "- joint_attention: {ja_window: 30}"
                 for name, params in item.items():
-                    _set_phenomenon(ns, name, params or {})
+                    _set_phenomenon(ns, name, params or {}, explicit)
 
     # 3. Process plugins section (pass-through to argparse attributes)
     #    Keys are mapped directly: hyphens → underscores.
@@ -197,13 +204,13 @@ def load_pipeline(path: str | Path, ns: Namespace | None = None) -> Namespace:
     if isinstance(plugins_cfg, dict):
         for key, val in plugins_cfg.items():
             attr = key.replace('-', '_')
-            if not hasattr(ns, attr) or _is_default(ns, attr):
+            if _should_set(ns, attr, explicit):
                 setattr(ns, attr, val)
 
     # 4. Process aux_streams section (optional per-participant video feeds)
     aux_list = cfg.get('aux_streams', [])
     if isinstance(aux_list, list) and aux_list:
-        if not hasattr(ns, 'aux_streams') or _is_default(ns, 'aux_streams'):
+        if _should_set(ns, 'aux_streams', explicit):
             from ms.pipeline_config import AuxStreamConfig, VideoType
             parsed = []
             for item in aux_list:
@@ -245,18 +252,33 @@ def load_pipeline(path: str | Path, ns: Namespace | None = None) -> Namespace:
     return ns
 
 
-def _set_phenomenon(ns: Namespace, name: str, params: dict) -> None:
+def _set_phenomenon(ns: Namespace, name: str, params: dict,
+                    explicit: frozenset | None = None) -> None:
     """Enable a phenomenon tracker and set its parameters."""
     attr = _PHENOMENA_TOGGLES.get(name)
     if attr is None:
         return
-    if not hasattr(ns, attr) or _is_default(ns, attr):
+    if _should_set(ns, attr, explicit):
         setattr(ns, attr, True)
 
     for param_key, param_attr in _PHENOMENA_PARAMS.items():
         if param_key in params:
-            if not hasattr(ns, param_attr) or _is_default(ns, param_attr):
+            if _should_set(ns, param_attr, explicit):
                 setattr(ns, param_attr, params[param_key])
+
+
+def _should_set(ns: Namespace, attr: str, explicit: frozenset | None) -> bool:
+    """Decide whether a YAML value may populate ``attr`` on the namespace.
+
+    When ``explicit`` is provided (the CLI route -- the exact set of dests the
+    user typed, from ms.cli._args), YAML wins for every dest NOT in that set;
+    the ``_is_default`` heuristic is bypassed entirely.  When ``explicit`` is
+    None (GUI / synthetic namespaces), fall back to the legacy heuristic:
+    overwrite only attrs that are missing or look default-like.
+    """
+    if explicit is not None:
+        return attr not in explicit
+    return not hasattr(ns, attr) or _is_default(ns, attr)
 
 
 def _is_default(ns: Namespace, attr: str) -> bool:

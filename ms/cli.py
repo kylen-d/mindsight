@@ -684,7 +684,7 @@ def run(source, yolo, face_det, gaze_eng,
 # CLI
 # ==============================================================================
 
-def _args():
+def _args(argv=None):
     from ms.GazeTracking.gaze_processing import add_arguments as _add_gaze_args
     from ms.ObjectDetection.object_detection import add_arguments as _add_det_args
 
@@ -807,7 +807,22 @@ def _args():
     for _pname in _phenomena_registry.names():
         _phenomena_registry.get(_pname).add_arguments(p)
 
-    return p.parse_args()
+    # -- Explicit-flag detection ----------------------------------------------
+    # argparse cannot tell a user-typed flag from one left at its default, so
+    # pipeline_loader would otherwise have to guess (the _is_default heuristic)
+    # which YAML values may overwrite a namespace attribute.  We resolve this
+    # exactly: temporarily suppress every action's default and re-parse, so the
+    # resulting namespace contains ONLY the dests the user actually supplied.
+    _saved_defaults = [(a, a.default) for a in p._actions]
+    for _action, _ in _saved_defaults:
+        _action.default = argparse.SUPPRESS
+    _suppressed_ns, _ = p.parse_known_args(argv)
+    for _action, _default in _saved_defaults:
+        _action.default = _default
+
+    ns = p.parse_args(argv)
+    ns._explicit_cli = frozenset(vars(_suppressed_ns))
+    return ns
 
 
 def _build_from_args(args):
