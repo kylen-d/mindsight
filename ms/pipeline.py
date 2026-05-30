@@ -6,9 +6,10 @@ per-frame ``process_frame`` orchestrator, the auxiliary-stream helpers, the
 static-image path, and the video/webcam ``run`` loop.  ``ms.cli`` now imports
 ``run`` from here and remains the thin CLI/model-wiring layer.
 
-The extraction is pure code motion (SP1.2 step 1): behavior is byte-identical
-to the previous in-cli implementation.  A GUI-consumable ``Pipeline`` class and
-``FrameResult`` API are layered on top in a later step.
+The public surface is a GUI-consumable ``Pipeline`` (a generator over
+``FrameResult``), a ``CancelToken`` for cooperative cancellation, and
+``run_to_completion`` to drive it the way the CLI does.  The legacy ``run``
+function is preserved with its exact signature and now defers to that surface.
 
 All pipeline stages communicate through a shared ``FrameContext`` object; each
 stage reads the keys it needs and writes its results back.
@@ -16,6 +17,8 @@ stage reads the keys it needs and writes its results back.
 
 import time
 from collections import deque
+from collections.abc import Iterator
+from dataclasses import dataclass
 from pathlib import Path
 
 import cv2
@@ -194,19 +197,152 @@ def _run_image(source, *, yolo, face_det, gaze_eng, gaze_cfg, det_cfg,
 
 
 # ==============================================================================
+# Public run API  (Pipeline / CancelToken / FrameResult / run_to_completion)
+# ==============================================================================
+
+@dataclass
+class RunOptions:
+    """Per-run performance knobs.
+
+    These are runtime toggles, not persisted configuration (they have no home
+    in the unified schema by design -- SP1.1 exclusion list), so they travel as
+    ``Pipeline.run`` options rather than as part of ``PipelineConfig``.
+    """
+    fast_mode: bool = False
+    skip_phenomena: int = 0
+    lite_overlay: bool = False
+    no_dashboard: bool = False
+    profile: bool = False
+
+
+class CancelToken:
+    """Cooperative cancellation flag, checked once per frame by the run loop.
+
+    Calling :meth:`cancel` makes the frame loop stop at the top of the next
+    iteration, so every output finalizes through the normal ``finally`` /
+    post-run paths (video remux, CSV close, phenomena + data summaries).
+    """
+    __slots__ = ("_cancelled",)
+
+    def __init__(self):
+        self._cancelled = False
+
+    def cancel(self) -> None:
+        self._cancelled = True
+
+    @property
+    def cancelled(self) -> bool:
+        return self._cancelled
+
+
+@dataclass(frozen=True)
+class FrameResult:
+    """One processed frame, handed to a consumer (GUI / run_to_completion).
+
+    ``annotated`` is the frame to display or record: the dashboard composite,
+    or -- under ``no_dashboard`` -- the raw annotated frame.  ``fps`` and
+    ``t_seconds`` are in video time (``t_seconds = frame_no / video_fps``); the
+    rolling processing FPS is available as ``context['fps']``.  ``hits`` are the
+    raw per-person ray/bbox intersections; ``events`` are the logged hit events;
+    ``faces`` are the face track ids.  ``context`` is the full FrameContext for
+    any consumer that needs a deeper reach.
+    """
+    frame_no: int
+    t_seconds: float
+    fps: float
+    total_frames: int
+    annotated: object
+    faces: list
+    hits: object
+    events: list
+    context: object
+
+
+class Pipeline:
+    """Holds the loaded models/providers + resolved config for one run.
+
+    Build it from the existing config dataclasses (what
+    ``cli._build_from_args`` produces) or, equivalently, from a unified
+    :class:`~ms.config.PipelineConfig` via :meth:`from_config`.  :meth:`run` is
+    a generator over :class:`FrameResult`; :func:`run_to_completion` drives it
+    the way the CLI does.
+    """
+
+    def __init__(self, *, yolo, face_det, gaze_eng,
+                 gaze_cfg, det_cfg, tracker_cfg, output_cfg,
+                 plugin_instances=None, detection_plugins=None,
+                 phenomena_cfg=None, depth_cfg=None, depth_backend=None,
+                 gazelle_provider=None, ray_cfg=None):
+        self.yolo = yolo
+        self.face_det = face_det
+        self.gaze_eng = gaze_eng
+        self.gaze_cfg = gaze_cfg
+        self.det_cfg = det_cfg
+        self.tracker_cfg = tracker_cfg
+        self.output_cfg = output_cfg
+        self.plugin_instances = plugin_instances
+        self.detection_plugins = detection_plugins
+        self.phenomena_cfg = phenomena_cfg
+        self.depth_cfg = depth_cfg
+        self.depth_backend = depth_backend
+        self.gazelle_provider = gazelle_provider
+        self.ray_cfg = ray_cfg
+
+    @classmethod
+    def from_config(cls, config, *, yolo, face_det, gaze_eng,
+                    plugin_instances=None, detection_plugins=None,
+                    depth_backend=None, gazelle_provider=None):
+        """Build a Pipeline from a unified ``PipelineConfig`` + live providers.
+
+        The config dataclasses derived here (via
+        ``config_compat.to_dataclasses``) are proven equal to those
+        ``cli._build_from_args`` builds directly (tests/test_config_equivalence).
+        Live models/providers are model wiring and are passed in, not derived
+        from config.
+        """
+        from ms.config_compat import to_dataclasses
+        (gaze_cfg, det_cfg, tracker_cfg, ray_cfg, depth_cfg,
+         phenomena_cfg, output_cfg, _project) = to_dataclasses(config)
+        return cls(
+            yolo=yolo, face_det=face_det, gaze_eng=gaze_eng,
+            gaze_cfg=gaze_cfg, det_cfg=det_cfg, tracker_cfg=tracker_cfg,
+            output_cfg=output_cfg, plugin_instances=plugin_instances,
+            detection_plugins=detection_plugins, phenomena_cfg=phenomena_cfg,
+            depth_cfg=depth_cfg, depth_backend=depth_backend,
+            gazelle_provider=gazelle_provider, ray_cfg=ray_cfg,
+        )
+
+    def run(self, source, *, options=None, cancel=None) -> Iterator[FrameResult]:
+        """Generator yielding one :class:`FrameResult` per processed frame.
+
+        For a still image, delegates to the single-frame path and yields
+        nothing.  For video/webcam, runs the full per-frame loop and yields a
+        result after each frame is processed, logged, and written; on ``cancel``
+        it stops cleanly at the next frame boundary.
+        """
+        yield from _run_video(
+            source, yolo=self.yolo, face_det=self.face_det,
+            gaze_eng=self.gaze_eng, gaze_cfg=self.gaze_cfg,
+            det_cfg=self.det_cfg, tracker_cfg=self.tracker_cfg,
+            output_cfg=self.output_cfg, plugin_instances=self.plugin_instances,
+            detection_plugins=self.detection_plugins,
+            phenomena_cfg=self.phenomena_cfg, depth_cfg=self.depth_cfg,
+            depth_backend=self.depth_backend,
+            gazelle_provider=self.gazelle_provider, ray_cfg=self.ray_cfg,
+            options=options, cancel=cancel,
+        )
+
+
+# ==============================================================================
 # Run loop
 # ==============================================================================
 
-def run(source, yolo, face_det, gaze_eng,
-        gaze_cfg: GazeConfig, det_cfg: DetectionConfig,
-        tracker_cfg: TrackerConfig, output_cfg: OutputConfig,
-        plugin_instances=None,
-        detection_plugins=None,
-        phenomena_cfg=None,
-        fast_mode=False, skip_phenomena=0, lite_overlay=False,
-        no_dashboard=False, profile=False,
-        depth_cfg=None, depth_backend=None,
-        gazelle_provider=None, ray_cfg=None):
+def _run_video(source, *, yolo, face_det, gaze_eng,
+               gaze_cfg, det_cfg, tracker_cfg, output_cfg,
+               plugin_instances=None, detection_plugins=None,
+               phenomena_cfg=None, depth_cfg=None, depth_backend=None,
+               gazelle_provider=None, ray_cfg=None,
+               options=None, cancel=None):
     """Execute the full MindSight pipeline on a single source (image, video, or webcam).
 
     For images: runs one frame through detection/gaze/JA, displays results, and exits.
@@ -214,6 +350,14 @@ def run(source, yolo, face_det, gaze_eng,
     heatmap accumulation, and dashboard display until the user presses Q or the
     video ends.
     """
+    if options is None:
+        options = RunOptions()
+    fast_mode      = options.fast_mode
+    skip_phenomena = options.skip_phenomena
+    lite_overlay   = options.lite_overlay
+    no_dashboard   = options.no_dashboard
+    profile        = options.profile
+
     from ms.Phenomena.phenomena_config import PhenomenaConfig
     if phenomena_cfg is None:
         phenomena_cfg = PhenomenaConfig()
@@ -327,6 +471,8 @@ def run(source, yolo, face_det, gaze_eng,
     cache: dict = {}
     try:
         while True:
+            if cancel is not None and cancel.cancelled:
+                break
             t0 = time.perf_counter()
             ret, frame = cap.read()
             if not ret:
@@ -485,9 +631,18 @@ def run(source, yolo, face_det, gaze_eng,
 
             if writer:
                 writer.write(display)
-            cv2.imshow("MindSight", display)
-            if cv2.waitKey(1) & 0xFF == ord('q'):
-                break
+
+            yield FrameResult(
+                frame_no=frame_no,
+                t_seconds=(frame_no / _fps) if _fps else 0.0,
+                fps=_fps,
+                total_frames=total_frames,
+                annotated=display,
+                faces=face_track_ids,
+                hits=ctx.get('hits'),
+                events=hit_events,
+                context=ctx,
+            )
             frame_no += 1
     finally:
         cap.release()
@@ -508,3 +663,54 @@ def run(source, yolo, face_det, gaze_eng,
     run_ctx['total_hits'] = total_hits
     run_ctx['fps'] = run_ctx_base.get('fps', 30.0)
     finalize_run(run_ctx)
+
+
+# ==============================================================================
+# Drivers
+# ==============================================================================
+
+def run_to_completion(pipeline, source, *, options=None, cancel=None):
+    """Drive ``pipeline.run`` to the end, reproducing the CLI display loop.
+
+    Displays each frame with ``cv2.imshow`` and honors 'q' to quit by tripping
+    the cancel token, so the run finalizes cleanly through the pipeline's normal
+    post-run paths.  A fresh :class:`CancelToken` is created when none is passed
+    (the CLI case); GUI callers pass their own so they can cancel externally.
+    """
+    if cancel is None:
+        cancel = CancelToken()
+    for result in pipeline.run(source, options=options, cancel=cancel):
+        cv2.imshow("MindSight", result.annotated)
+        if cv2.waitKey(1) & 0xFF == ord('q'):
+            cancel.cancel()
+
+
+def run(source, yolo, face_det, gaze_eng,
+        gaze_cfg: GazeConfig, det_cfg: DetectionConfig,
+        tracker_cfg: TrackerConfig, output_cfg: OutputConfig,
+        plugin_instances=None,
+        detection_plugins=None,
+        phenomena_cfg=None,
+        fast_mode=False, skip_phenomena=0, lite_overlay=False,
+        no_dashboard=False, profile=False,
+        depth_cfg=None, depth_backend=None,
+        gazelle_provider=None, ray_cfg=None):
+    """Backward-compatible entry point: build a :class:`Pipeline` and drive it.
+
+    Signature is unchanged so the GUI workers, project_runner, and CLI keep
+    calling it exactly as before; it now assembles a Pipeline + RunOptions and
+    defers to :func:`run_to_completion`.
+    """
+    pipeline = Pipeline(
+        yolo=yolo, face_det=face_det, gaze_eng=gaze_eng,
+        gaze_cfg=gaze_cfg, det_cfg=det_cfg, tracker_cfg=tracker_cfg,
+        output_cfg=output_cfg, plugin_instances=plugin_instances,
+        detection_plugins=detection_plugins, phenomena_cfg=phenomena_cfg,
+        depth_cfg=depth_cfg, depth_backend=depth_backend,
+        gazelle_provider=gazelle_provider, ray_cfg=ray_cfg,
+    )
+    options = RunOptions(
+        fast_mode=fast_mode, skip_phenomena=skip_phenomena,
+        lite_overlay=lite_overlay, no_dashboard=no_dashboard, profile=profile,
+    )
+    return run_to_completion(pipeline, source, options=options)
