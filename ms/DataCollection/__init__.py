@@ -6,8 +6,10 @@ event logging, post-run summary CSV generation, and per-participant
 gaze heatmap output.
 """
 
+from ms.io.writers import finalize_video, open_video_writer
+
 from .csv_output import write_summary_csv
-from .dashboard_output import compose_dashboard, draw_overlay, finalize_video, open_video_writer
+from .dashboard_output import compose_dashboard, draw_overlay
 from .data_pipeline import collect_frame_data, finalize_run
 from .global_csv import generate_condition_csvs, generate_global_csv
 from .heatmap_output import save_heatmaps
