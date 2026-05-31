@@ -23,8 +23,11 @@ VIDEO = REPO_ROOT / "test_data" / "trimmed.mp4"
 EXPECTED_FRAMES = 869
 EXPECTED_HITS = 0  # default config on trimmed.mp4 (golden_events.csv: header only)
 
-pytestmark = pytest.mark.skipif(
-    not VIDEO.exists(), reason="test_data/trimmed.mp4 not available")
+pytestmark = [
+    pytest.mark.slow,
+    pytest.mark.skipif(
+        not VIDEO.exists(), reason="test_data/trimmed.mp4 not available"),
+]
 
 
 @pytest.fixture(scope="module")

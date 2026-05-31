@@ -66,3 +66,6 @@ ignore = [
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+markers = [
+    "slow: heavy integration tests that load real models / run full clips (deselect with -m 'not slow')",
+]
