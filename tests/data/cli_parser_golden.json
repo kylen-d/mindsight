@@ -1,0 +1,2476 @@
+{
+  "prog": "MindSight -- Eye-Gaze Intersection Tracker",
+  "actions": [
+    {
+      "option_strings": [
+        "--source"
+      ],
+      "dest": "source",
+      "action": "_StoreAction",
+      "default": "0",
+      "type": null,
+      "nargs": null,
+      "const": null,
+      "choices": null,
+      "required": false,
+      "metavar": null,
+      "help": "Video input source, defaults to webcam",
+      "group": "options"
+    },
+    {
+      "option_strings": [
+        "--save"
+      ],
+      "dest": "save",
+      "action": "_StoreAction",
+      "default": null,
+      "type": null,
+      "nargs": "?",
+      "const": true,
+      "choices": null,
+      "required": false,
+      "metavar": "PATH",
+      "help": "Save annotated video. Omit a value to use Outputs/Video/[stem]_Video_Output.mp4, or supply a custom path.",
+      "group": "options"
+    },
+    {
+      "option_strings": [
+        "--log"
+      ],
+      "dest": "log",
+      "action": "_StoreAction",
+      "default": null,
+      "type": null,
+      "nargs": null,
+      "const": null,
+      "choices": null,
+      "required": false,
+      "metavar": null,
+      "help": null,
+      "group": "options"
+    },
+    {
+      "option_strings": [
+        "--summary"
+      ],
+      "dest": "summary",
+      "action": "_StoreAction",
+      "default": null,
+      "type": null,
+      "nargs": "?",
+      "const": true,
+      "choices": null,
+      "required": false,
+      "metavar": "PATH",
+      "help": "Save post-run summary CSV. Omit a value to use Outputs/CSV Files/[stem]_Summary_Output.csv, or supply a custom path.",
+      "group": "options"
+    },
+    {
+      "option_strings": [
+        "--heatmap"
+      ],
+      "dest": "heatmap",
+      "action": "_StoreAction",
+      "default": null,
+      "type": null,
+      "nargs": "?",
+      "const": true,
+      "choices": null,
+      "required": false,
+      "metavar": "PATH",
+      "help": "Save per-participant scene gaze heatmaps. Omit a value to use Outputs/heatmaps/[stem]_Heatmap_Output (one PNG per participant), or supply a custom directory/prefix path.",
+      "group": "options"
+    },
+    {
+      "option_strings": [
+        "--charts"
+      ],
+      "dest": "charts",
+      "action": "_StoreAction",
+      "default": null,
+      "type": null,
+      "nargs": "?",
+      "const": true,
+      "choices": null,
+      "required": false,
+      "metavar": "PATH",
+      "help": "Generate post-run time-series charts for each phenomena tracker. Omit a value to use Outputs/Charts/[stem]_Charts.png, or supply a custom path.",
+      "group": "options"
+    },
+    {
+      "option_strings": [
+        "--pipeline"
+      ],
+      "dest": "pipeline",
+      "action": "_StoreAction",
+      "default": null,
+      "type": null,
+      "nargs": null,
+      "const": null,
+      "choices": null,
+      "required": false,
+      "metavar": "YAML",
+      "help": "Load pipeline configuration from a YAML file. CLI flags override YAML values.",
+      "group": "options"
+    },
+    {
+      "option_strings": [
+        "--project"
+      ],
+      "dest": "project",
+      "action": "_StoreAction",
+      "default": null,
+      "type": null,
+      "nargs": null,
+      "const": null,
+      "choices": null,
+      "required": false,
+      "metavar": "DIR",
+      "help": "Run in project mode: process all videos in DIR/Inputs/Videos/ using DIR/Pipeline/pipeline.yaml as config.",
+      "group": "options"
+    },
+    {
+      "option_strings": [
+        "--participant-ids"
+      ],
+      "dest": "participant_ids",
+      "action": "_StoreAction",
+      "default": null,
+      "type": null,
+      "nargs": null,
+      "const": null,
+      "choices": null,
+      "required": false,
+      "metavar": "IDS",
+      "help": "Comma-separated participant labels for single-video mode. Positional: first label maps to track 0, second to track 1, etc. E.g. --participant-ids S70,S71,S72",
+      "group": "options"
+    },
+    {
+      "option_strings": [
+        "--participant-csv"
+      ],
+      "dest": "participant_csv",
+      "action": "_StoreAction",
+      "default": null,
+      "type": null,
+      "nargs": null,
+      "const": null,
+      "choices": null,
+      "required": false,
+      "metavar": "CSV",
+      "help": "Path to a participant_ids.csv mapping video filenames to custom participant labels (see docs for format).",
+      "group": "options"
+    },
+    {
+      "option_strings": [
+        "--aux-stream"
+      ],
+      "dest": "aux_streams_raw",
+      "action": "_AppendAction",
+      "default": null,
+      "type": null,
+      "nargs": null,
+      "const": null,
+      "choices": null,
+      "required": false,
+      "metavar": "SOURCE:VIDEO_TYPE:LABEL:PIDS",
+      "help": "Auxiliary video stream. Format: SOURCE:VIDEO_TYPE:LABEL:PID1,PID2 where SOURCE is the file path, VIDEO_TYPE is one of eye_only/face_closeup/wide_closeup/custom, LABEL is a user-defined stream label, and PIDS is a comma-separated list of participant labels. Repeatable for multiple streams.",
+      "group": "options"
+    },
+    {
+      "option_strings": [
+        "--aux-auto-detect"
+      ],
+      "dest": "aux_auto_detect",
+      "action": "_StoreTrueAction",
+      "default": true,
+      "type": null,
+      "nargs": 0,
+      "const": true,
+      "choices": null,
+      "required": false,
+      "metavar": null,
+      "help": "Enable automatic face detection on wide/face auxiliary streams (default: enabled).",
+      "group": "options"
+    },
+    {
+      "option_strings": [
+        "--device"
+      ],
+      "dest": "device",
+      "action": "_StoreAction",
+      "default": "auto",
+      "type": null,
+      "nargs": null,
+      "const": null,
+      "choices": null,
+      "required": false,
+      "metavar": null,
+      "help": "Compute device for all backends: auto, cpu, cuda, or mps.  'auto' selects CUDA > MPS > CPU  (default: auto).",
+      "group": "options"
+    },
+    {
+      "option_strings": [
+        "--anonymize"
+      ],
+      "dest": "anonymize",
+      "action": "_StoreAction",
+      "default": null,
+      "type": null,
+      "nargs": null,
+      "const": null,
+      "choices": [
+        "blur",
+        "black"
+      ],
+      "required": false,
+      "metavar": null,
+      "help": "Anonymize faces in the output video: 'blur' applies heavy Gaussian blur, 'black' fills with a solid rectangle.",
+      "group": "options"
+    },
+    {
+      "option_strings": [
+        "--anonymize-padding"
+      ],
+      "dest": "anonymize_padding",
+      "action": "_StoreAction",
+      "default": 0.3,
+      "type": "float",
+      "nargs": null,
+      "const": null,
+      "choices": null,
+      "required": false,
+      "metavar": "FRAC",
+      "help": "Fraction of face bbox size added as padding for anonymization (default: 0.3).",
+      "group": "options"
+    },
+    {
+      "option_strings": [
+        "--fast"
+      ],
+      "dest": "fast",
+      "action": "_StoreTrueAction",
+      "default": false,
+      "type": null,
+      "nargs": 0,
+      "const": true,
+      "choices": null,
+      "required": false,
+      "metavar": null,
+      "help": "Enable bundled performance optimizations: skip phenomena on non-detection frames, throttle dashboard bridge, reduce GUI poll rate.",
+      "group": "Performance"
+    },
+    {
+      "option_strings": [
+        "--skip-phenomena"
+      ],
+      "dest": "skip_phenomena",
+      "action": "_StoreAction",
+      "default": 0,
+      "type": "int",
+      "nargs": null,
+      "const": null,
+      "choices": null,
+      "required": false,
+      "metavar": "N",
+      "help": "Run phenomena trackers only every N frames (0 = every frame). Independent of --skip-frames.  (default: 0)",
+      "group": "Performance"
+    },
+    {
+      "option_strings": [
+        "--lite-overlay"
+      ],
+      "dest": "lite_overlay",
+      "action": "_StoreTrueAction",
+      "default": false,
+      "type": null,
+      "nargs": 0,
+      "const": true,
+      "choices": null,
+      "required": false,
+      "metavar": null,
+      "help": "Minimal overlay: disable cone rendering, convergence markers, dwell arcs, and debug text.  Keeps gaze arrows, boxes, badges.",
+      "group": "Performance"
+    },
+    {
+      "option_strings": [
+        "--no-dashboard"
+      ],
+      "dest": "no_dashboard",
+      "action": "_StoreTrueAction",
+      "default": false,
+      "type": null,
+      "nargs": 0,
+      "const": true,
+      "choices": null,
+      "required": false,
+      "metavar": null,
+      "help": "Skip dashboard composition for maximum throughput. Displays the raw annotated frame only.",
+      "group": "Performance"
+    },
+    {
+      "option_strings": [
+        "--profile"
+      ],
+      "dest": "profile",
+      "action": "_StoreTrueAction",
+      "default": false,
+      "type": null,
+      "nargs": 0,
+      "const": true,
+      "choices": null,
+      "required": false,
+      "metavar": null,
+      "help": "Print per-stage timing breakdown every 100 frames.",
+      "group": "Performance"
+    },
+    {
+      "option_strings": [
+        "--depth"
+      ],
+      "dest": "depth",
+      "action": "_StoreTrueAction",
+      "default": false,
+      "type": null,
+      "nargs": 0,
+      "const": true,
+      "choices": null,
+      "required": false,
+      "metavar": null,
+      "help": "Enable monocular depth estimation.",
+      "group": "Depth Estimation"
+    },
+    {
+      "option_strings": [
+        "--no-depth"
+      ],
+      "dest": "no_depth",
+      "action": "_StoreTrueAction",
+      "default": false,
+      "type": null,
+      "nargs": 0,
+      "const": true,
+      "choices": null,
+      "required": false,
+      "metavar": null,
+      "help": "Explicitly disable depth estimation.",
+      "group": "Depth Estimation"
+    },
+    {
+      "option_strings": [
+        "--depth-backend"
+      ],
+      "dest": "depth_backend",
+      "action": "_StoreAction",
+      "default": "midas_small",
+      "type": null,
+      "nargs": null,
+      "const": null,
+      "choices": null,
+      "required": false,
+      "metavar": null,
+      "help": "Depth model backend (default: midas_small).",
+      "group": "Depth Estimation"
+    },
+    {
+      "option_strings": [
+        "--depth-input-size"
+      ],
+      "dest": "depth_input_size",
+      "action": "_StoreAction",
+      "default": 384,
+      "type": "int",
+      "nargs": null,
+      "const": null,
+      "choices": null,
+      "required": false,
+      "metavar": "PX",
+      "help": "Depth model input resolution (default: 384).",
+      "group": "Depth Estimation"
+    },
+    {
+      "option_strings": [
+        "--depth-skip-frames"
+      ],
+      "dest": "depth_skip_frames",
+      "action": "_StoreAction",
+      "default": 1,
+      "type": "int",
+      "nargs": null,
+      "const": null,
+      "choices": null,
+      "required": false,
+      "metavar": "N",
+      "help": "Run depth every N detection cycles (default: 1).",
+      "group": "Depth Estimation"
+    },
+    {
+      "option_strings": [
+        "--depth-aware-scoring"
+      ],
+      "dest": "depth_aware_scoring",
+      "action": "_StoreTrueAction",
+      "default": false,
+      "type": null,
+      "nargs": 0,
+      "const": true,
+      "choices": null,
+      "required": false,
+      "metavar": null,
+      "help": "Enable depth-weighted snap scoring.",
+      "group": "Depth Estimation"
+    },
+    {
+      "option_strings": [
+        "--depth-w-depth"
+      ],
+      "dest": "depth_w_depth",
+      "action": "_StoreAction",
+      "default": 0.4,
+      "type": "float",
+      "nargs": null,
+      "const": null,
+      "choices": null,
+      "required": false,
+      "metavar": "W",
+      "help": "Depth match weight in snap scoring (default: 0.4).",
+      "group": "Depth Estimation"
+    },
+    {
+      "option_strings": [
+        "--depth-sample-radius"
+      ],
+      "dest": "depth_sample_radius",
+      "action": "_StoreAction",
+      "default": 2,
+      "type": "int",
+      "nargs": null,
+      "const": null,
+      "choices": null,
+      "required": false,
+      "metavar": "PX",
+      "help": "Half-size of patch for depth sampling (default: 2).",
+      "group": "Depth Estimation"
+    },
+    {
+      "option_strings": [
+        "--model"
+      ],
+      "dest": "model",
+      "action": "_StoreAction",
+      "default": "yolov8n.pt",
+      "type": null,
+      "nargs": null,
+      "const": null,
+      "choices": null,
+      "required": false,
+      "metavar": null,
+      "help": "Object Detection Model, defaults to yolov8n.pt",
+      "group": "options"
+    },
+    {
+      "option_strings": [
+        "--conf"
+      ],
+      "dest": "conf",
+      "action": "_StoreAction",
+      "default": 0.35,
+      "type": "float",
+      "nargs": null,
+      "const": null,
+      "choices": null,
+      "required": false,
+      "metavar": null,
+      "help": "Object detection confidence threshold, defaults to 0.35",
+      "group": "options"
+    },
+    {
+      "option_strings": [
+        "--classes"
+      ],
+      "dest": "classes",
+      "action": "_StoreAction",
+      "default": [],
+      "type": null,
+      "nargs": "+",
+      "const": null,
+      "choices": null,
+      "required": false,
+      "metavar": null,
+      "help": "Specified YOLO Object Detection Classes Prompt",
+      "group": "options"
+    },
+    {
+      "option_strings": [
+        "--blacklist"
+      ],
+      "dest": "blacklist",
+      "action": "_StoreAction",
+      "default": [],
+      "type": null,
+      "nargs": "+",
+      "const": null,
+      "choices": null,
+      "required": false,
+      "metavar": null,
+      "help": "Specified YOLO Object Detection Classes Blacklist",
+      "group": "options"
+    },
+    {
+      "option_strings": [
+        "--skip-frames"
+      ],
+      "dest": "skip_frames",
+      "action": "_StoreAction",
+      "default": 1,
+      "type": "int",
+      "nargs": null,
+      "const": null,
+      "choices": null,
+      "required": false,
+      "metavar": null,
+      "help": "Frames between object detection. Higher = faster but less accurate. (Defaults to 1, i.e. process every frame)",
+      "group": "options"
+    },
+    {
+      "option_strings": [
+        "--detect-scale"
+      ],
+      "dest": "detect_scale",
+      "action": "_StoreAction",
+      "default": 1.0,
+      "type": "float",
+      "nargs": null,
+      "const": null,
+      "choices": null,
+      "required": false,
+      "metavar": null,
+      "help": "Detection scale for Object Recognition",
+      "group": "options"
+    },
+    {
+      "option_strings": [
+        "--vp-file"
+      ],
+      "dest": "vp_file",
+      "action": "_StoreAction",
+      "default": null,
+      "type": null,
+      "nargs": null,
+      "const": null,
+      "choices": null,
+      "required": false,
+      "metavar": null,
+      "help": "Path to visual prompt file for use with YOLOE object detection models",
+      "group": "options"
+    },
+    {
+      "option_strings": [
+        "--vp-model"
+      ],
+      "dest": "vp_model",
+      "action": "_StoreAction",
+      "default": "yoloe-26l-seg.pt",
+      "type": null,
+      "nargs": null,
+      "const": null,
+      "choices": null,
+      "required": false,
+      "metavar": null,
+      "help": "YOLOE model to use alongside visual prompting for object detection",
+      "group": "options"
+    },
+    {
+      "option_strings": [
+        "--obj-persistence"
+      ],
+      "dest": "obj_persistence",
+      "action": "_StoreAction",
+      "default": 0,
+      "type": "int",
+      "nargs": null,
+      "const": null,
+      "choices": null,
+      "required": false,
+      "metavar": "N",
+      "help": "Dead-reckon object bboxes for N frames after they disappear (default 0).",
+      "group": "options"
+    },
+    {
+      "option_strings": [
+        "--merge-overlaps"
+      ],
+      "dest": "merge_overlaps",
+      "action": "_StoreTrueAction",
+      "default": false,
+      "type": null,
+      "nargs": 0,
+      "const": true,
+      "choices": null,
+      "required": false,
+      "metavar": null,
+      "help": "Merge or filter overlapping same-class detections.",
+      "group": "options"
+    },
+    {
+      "option_strings": [
+        "--merge-overlap-strategy"
+      ],
+      "dest": "merge_overlap_strategy",
+      "action": "_StoreAction",
+      "default": "dynamic",
+      "type": null,
+      "nargs": null,
+      "const": null,
+      "choices": [
+        "filter",
+        "merge",
+        "dynamic"
+      ],
+      "required": false,
+      "metavar": null,
+      "help": "Overlap strategy: 'filter' keeps highest-conf box, 'merge' creates encompassing box, 'dynamic' chooses per-cluster based on confidence and size (default: dynamic).",
+      "group": "options"
+    },
+    {
+      "option_strings": [
+        "--merge-overlap-threshold"
+      ],
+      "dest": "merge_overlap_threshold",
+      "action": "_StoreAction",
+      "default": 0.7,
+      "type": "float",
+      "nargs": null,
+      "const": null,
+      "choices": null,
+      "required": false,
+      "metavar": "THR",
+      "help": "Overlap threshold to trigger merge (default: 0.7).",
+      "group": "options"
+    },
+    {
+      "option_strings": [
+        "--ray-length"
+      ],
+      "dest": "ray_length",
+      "action": "_StoreAction",
+      "default": 1.0,
+      "type": "float",
+      "nargs": null,
+      "const": null,
+      "choices": null,
+      "required": false,
+      "metavar": null,
+      "help": "Gaze ray-length multiplier, default 1.0",
+      "group": "options"
+    },
+    {
+      "option_strings": [
+        "--conf-ray"
+      ],
+      "dest": "conf_ray",
+      "action": "_StoreTrueAction",
+      "default": false,
+      "type": null,
+      "nargs": 0,
+      "const": true,
+      "choices": null,
+      "required": false,
+      "metavar": null,
+      "help": "Dynamically adjust gaze ray-length based on gaze confidence value",
+      "group": "options"
+    },
+    {
+      "option_strings": [
+        "--gaze-tips"
+      ],
+      "dest": "gaze_tips",
+      "action": "_StoreTrueAction",
+      "default": false,
+      "type": null,
+      "nargs": 0,
+      "const": true,
+      "choices": null,
+      "required": false,
+      "metavar": null,
+      "help": "Adds circular bounding-box to tip of gaze-rays, used to determine intersection between gaze-rays. Set radius with --tip-radius (default 80).",
+      "group": "options"
+    },
+    {
+      "option_strings": [
+        "--tip-radius"
+      ],
+      "dest": "tip_radius",
+      "action": "_StoreAction",
+      "default": 80,
+      "type": "int",
+      "nargs": null,
+      "const": null,
+      "choices": null,
+      "required": false,
+      "metavar": null,
+      "help": "Pixel radius for --gaze-tips (default 80)",
+      "group": "options"
+    },
+    {
+      "option_strings": [
+        "--adaptive-ray"
+      ],
+      "dest": "adaptive_ray",
+      "action": "_StoreAction",
+      "default": "off",
+      "type": "str",
+      "nargs": null,
+      "const": null,
+      "choices": [
+        "off",
+        "extend",
+        "snap"
+      ],
+      "required": false,
+      "metavar": null,
+      "help": "Adaptive ray mode: 'off' disables, 'extend' freely extends the ray toward the nearest object, 'snap' locks the endpoint to the object centre (default: off).",
+      "group": "options"
+    },
+    {
+      "option_strings": [
+        "--snap-dist"
+      ],
+      "dest": "snap_dist",
+      "action": "_StoreAction",
+      "default": 150.0,
+      "type": "float",
+      "nargs": null,
+      "const": null,
+      "choices": null,
+      "required": false,
+      "metavar": null,
+      "help": null,
+      "group": "options"
+    },
+    {
+      "option_strings": [
+        "--snap-bbox-scale"
+      ],
+      "dest": "snap_bbox_scale",
+      "action": "_StoreAction",
+      "default": 0.0,
+      "type": "float",
+      "nargs": null,
+      "const": null,
+      "choices": null,
+      "required": false,
+      "metavar": null,
+      "help": "Fraction of bbox half-diagonal added to snap radius (default 0.0)",
+      "group": "options"
+    },
+    {
+      "option_strings": [
+        "--snap-w-dist"
+      ],
+      "dest": "snap_w_dist",
+      "action": "_StoreAction",
+      "default": 1.0,
+      "type": "float",
+      "nargs": null,
+      "const": null,
+      "choices": null,
+      "required": false,
+      "metavar": null,
+      "help": "Snap scoring weight for normalized distance penalty (default 1.0)",
+      "group": "options"
+    },
+    {
+      "option_strings": [
+        "--snap-w-angle"
+      ],
+      "dest": "snap_w_angle",
+      "action": "_StoreAction",
+      "default": 0.8,
+      "type": "float",
+      "nargs": null,
+      "const": null,
+      "choices": null,
+      "required": false,
+      "metavar": null,
+      "help": "Snap scoring weight for angular deviation penalty (default 0.8)",
+      "group": "options"
+    },
+    {
+      "option_strings": [
+        "--snap-w-size"
+      ],
+      "dest": "snap_w_size",
+      "action": "_StoreAction",
+      "default": 0.0,
+      "type": "float",
+      "nargs": null,
+      "const": null,
+      "choices": null,
+      "required": false,
+      "metavar": null,
+      "help": "Snap scoring weight for object size reward (default 0.0)",
+      "group": "options"
+    },
+    {
+      "option_strings": [
+        "--snap-w-intersect"
+      ],
+      "dest": "snap_w_intersect",
+      "action": "_StoreAction",
+      "default": 0.5,
+      "type": "float",
+      "nargs": null,
+      "const": null,
+      "choices": null,
+      "required": false,
+      "metavar": null,
+      "help": "Snap scoring bonus for ray-bbox intersection (default 0.5)",
+      "group": "options"
+    },
+    {
+      "option_strings": [
+        "--snap-w-temporal"
+      ],
+      "dest": "snap_w_temporal",
+      "action": "_StoreAction",
+      "default": 0.3,
+      "type": "float",
+      "nargs": null,
+      "const": null,
+      "choices": null,
+      "required": false,
+      "metavar": null,
+      "help": "Snap scoring bonus for previous-frame target stickiness (default 0.3)",
+      "group": "options"
+    },
+    {
+      "option_strings": [
+        "--snap-gate-angle"
+      ],
+      "dest": "snap_gate_angle",
+      "action": "_StoreAction",
+      "default": 60.0,
+      "type": "float",
+      "nargs": null,
+      "const": null,
+      "choices": null,
+      "required": false,
+      "metavar": "DEG",
+      "help": "Hard angular cutoff in degrees: objects beyond this angle from the blended gaze+head direction are never snap candidates (default 60.0).",
+      "group": "options"
+    },
+    {
+      "option_strings": [
+        "--snap-head-blend"
+      ],
+      "dest": "snap_head_blend",
+      "action": "_StoreAction",
+      "default": 0.3,
+      "type": "float",
+      "nargs": null,
+      "const": null,
+      "choices": null,
+      "required": false,
+      "metavar": "F",
+      "help": "Blend factor for angular scoring: 0=pure gaze direction, 1=pure head orientation (default 0.3).",
+      "group": "options"
+    },
+    {
+      "option_strings": [
+        "--snap-quality-thresh"
+      ],
+      "dest": "snap_quality_thresh",
+      "action": "_StoreAction",
+      "default": 0.8,
+      "type": "float",
+      "nargs": null,
+      "const": null,
+      "choices": null,
+      "required": false,
+      "metavar": "F",
+      "help": "Maximum score to accept a snap match. Higher values are more permissive. Set lower to reject poor matches (default 0.8).",
+      "group": "options"
+    },
+    {
+      "option_strings": [
+        "--snap-tip-dist"
+      ],
+      "dest": "snap_tip_dist",
+      "action": "_StoreAction",
+      "default": -1.0,
+      "type": "float",
+      "nargs": null,
+      "const": null,
+      "choices": null,
+      "required": false,
+      "metavar": "PX",
+      "help": "Tip-snap distance threshold. -1 = use --snap-dist (default -1).",
+      "group": "options"
+    },
+    {
+      "option_strings": [
+        "--snap-tip-quality"
+      ],
+      "dest": "snap_tip_quality",
+      "action": "_StoreAction",
+      "default": -1.0,
+      "type": "float",
+      "nargs": null,
+      "const": null,
+      "choices": null,
+      "required": false,
+      "metavar": "F",
+      "help": "Tip-snap quality threshold. -1 = use --snap-quality-thresh (default -1).",
+      "group": "options"
+    },
+    {
+      "option_strings": [
+        "--hit-conf-gate"
+      ],
+      "dest": "hit_conf_gate",
+      "action": "_StoreAction",
+      "default": 0.0,
+      "type": "float",
+      "nargs": null,
+      "const": null,
+      "choices": null,
+      "required": false,
+      "metavar": "F",
+      "help": "Minimum per-face gaze confidence for ray-object hit detection. 0.0 = disabled (default).",
+      "group": "options"
+    },
+    {
+      "option_strings": [
+        "--detect-extend"
+      ],
+      "dest": "detect_extend",
+      "action": "_StoreAction",
+      "default": 0.0,
+      "type": "float",
+      "nargs": null,
+      "const": null,
+      "choices": null,
+      "required": false,
+      "metavar": "PX",
+      "help": "Extend gaze-object detection N pixels past the visual ray/cone endpoint. 0 = detection matches visual exactly (default: %(default)s).",
+      "group": "options"
+    },
+    {
+      "option_strings": [
+        "--detect-extend-scope"
+      ],
+      "dest": "detect_extend_scope",
+      "action": "_StoreAction",
+      "default": "objects",
+      "type": "str",
+      "nargs": null,
+      "const": null,
+      "choices": [
+        "objects",
+        "phenomena",
+        "both"
+      ],
+      "required": false,
+      "metavar": null,
+      "help": "Scope for --detect-extend: 'objects' extends only ray-object hit detection, 'phenomena' extends only phenomena tracking (mutual gaze, social ref), 'both' extends both (default: objects).",
+      "group": "options"
+    },
+    {
+      "option_strings": [
+        "--gaze-cone"
+      ],
+      "dest": "gaze_cone",
+      "action": "_StoreAction",
+      "default": 0.0,
+      "type": "float",
+      "nargs": null,
+      "const": null,
+      "choices": null,
+      "required": false,
+      "metavar": "DEGREES",
+      "help": "Replaces standard gaze vectors with vision cones of a specified angle in degrees (disabled by default).",
+      "group": "options"
+    },
+    {
+      "option_strings": [
+        "--gaze-lock"
+      ],
+      "dest": "gaze_lock",
+      "action": "_StoreTrueAction",
+      "default": false,
+      "type": null,
+      "nargs": 0,
+      "const": true,
+      "choices": null,
+      "required": false,
+      "metavar": null,
+      "help": "Enable fixation lock-on (default: off).",
+      "group": "options"
+    },
+    {
+      "option_strings": [
+        "--dwell-frames"
+      ],
+      "dest": "dwell_frames",
+      "action": "_StoreAction",
+      "default": 15,
+      "type": "int",
+      "nargs": null,
+      "const": null,
+      "choices": null,
+      "required": false,
+      "metavar": null,
+      "help": null,
+      "group": "options"
+    },
+    {
+      "option_strings": [
+        "--lock-dist"
+      ],
+      "dest": "lock_dist",
+      "action": "_StoreAction",
+      "default": 100,
+      "type": "int",
+      "nargs": null,
+      "const": null,
+      "choices": null,
+      "required": false,
+      "metavar": null,
+      "help": null,
+      "group": "options"
+    },
+    {
+      "option_strings": [
+        "--gaze-debug"
+      ],
+      "dest": "gaze_debug",
+      "action": "_StoreTrueAction",
+      "default": false,
+      "type": null,
+      "nargs": 0,
+      "const": true,
+      "choices": null,
+      "required": false,
+      "metavar": null,
+      "help": null,
+      "group": "options"
+    },
+    {
+      "option_strings": [
+        "--snap-release-frames"
+      ],
+      "dest": "snap_release_frames",
+      "action": "_StoreAction",
+      "default": 5,
+      "type": "int",
+      "nargs": null,
+      "const": null,
+      "choices": null,
+      "required": false,
+      "metavar": "N",
+      "help": "Frames of no-match before releasing the held snap target (default 5).",
+      "group": "options"
+    },
+    {
+      "option_strings": [
+        "--snap-engage-frames"
+      ],
+      "dest": "snap_engage_frames",
+      "action": "_StoreAction",
+      "default": 0,
+      "type": "int",
+      "nargs": null,
+      "const": null,
+      "choices": null,
+      "required": false,
+      "metavar": "N",
+      "help": "Frames of consistent match required before engaging snap for the first time. 0 = instant engage (default 0).",
+      "group": "options"
+    },
+    {
+      "option_strings": [
+        "--reid-grace-seconds"
+      ],
+      "dest": "reid_grace_seconds",
+      "action": "_StoreAction",
+      "default": 1.0,
+      "type": "float",
+      "nargs": null,
+      "const": null,
+      "choices": null,
+      "required": false,
+      "metavar": "S",
+      "help": "Seconds a lost face track stays in the re-ID buffer (default 1.0).",
+      "group": "options"
+    },
+    {
+      "option_strings": [
+        "--forward-gaze-threshold"
+      ],
+      "dest": "forward_gaze_threshold",
+      "action": "_StoreAction",
+      "default": 5.0,
+      "type": "float",
+      "nargs": null,
+      "const": null,
+      "choices": null,
+      "required": false,
+      "metavar": "DEG",
+      "help": "Pitch/yaw angles below this (degrees) are treated as looking forward at the camera. Set to 0 to disable (default 5.0).",
+      "group": "options"
+    },
+    {
+      "option_strings": [
+        "--smooth-snap"
+      ],
+      "dest": "smooth_snap",
+      "action": "_StoreAction",
+      "default": "off",
+      "type": "str",
+      "nargs": null,
+      "const": null,
+      "choices": [
+        "off",
+        "objects",
+        "gaze_tips",
+        "all"
+      ],
+      "required": false,
+      "metavar": null,
+      "help": "Smooth snap mode: smoothly interpolate the ray toward snap targets instead of jumping instantly. 'objects' = smooth object snaps only, 'gaze_tips' = smooth gaze-tip snaps only, 'all' = both (default: off).",
+      "group": "options"
+    },
+    {
+      "option_strings": [
+        "--smooth-snap-alpha"
+      ],
+      "dest": "smooth_snap_alpha",
+      "action": "_StoreAction",
+      "default": 0.2,
+      "type": "float",
+      "nargs": null,
+      "const": null,
+      "choices": null,
+      "required": false,
+      "metavar": "F",
+      "help": "EMA rate for smooth snap: lower = smoother/slower, higher = faster/more responsive (default: 0.20).",
+      "group": "options"
+    },
+    {
+      "option_strings": [
+        "--rf-gazelle-model"
+      ],
+      "dest": "rf_gazelle_model",
+      "action": "_StoreAction",
+      "default": null,
+      "type": null,
+      "nargs": null,
+      "const": null,
+      "choices": null,
+      "required": false,
+      "metavar": "PATH",
+      "help": "Path to a Gaze-LLE checkpoint (.pt) for Gazelle blend ray forming. Used alongside a pitch/yaw backend (L2CS, MGaze, etc.) to periodically correct rays with Gaze-LLE heatmaps.",
+      "group": "Ray Forming (Gazelle blend)"
+    },
+    {
+      "option_strings": [
+        "--rf-gazelle-name"
+      ],
+      "dest": "rf_gazelle_name",
+      "action": "_StoreAction",
+      "default": "gazelle_dinov2_vitb14",
+      "type": null,
+      "nargs": null,
+      "const": null,
+      "choices": [
+        "gazelle_dinov2_vitb14",
+        "gazelle_dinov2_vitb14_inout",
+        "gazelle_dinov2_vitl14",
+        "gazelle_dinov2_vitl14_inout"
+      ],
+      "required": false,
+      "metavar": "NAME",
+      "help": "Gaze-LLE model variant for ray forming (default: gazelle_dinov2_vitb14).",
+      "group": "Ray Forming (Gazelle blend)"
+    },
+    {
+      "option_strings": [
+        "--rf-gazelle-interval"
+      ],
+      "dest": "rf_gazelle_interval",
+      "action": "_StoreAction",
+      "default": null,
+      "type": "int",
+      "nargs": null,
+      "const": null,
+      "choices": null,
+      "required": false,
+      "metavar": "N",
+      "help": "(Legacy) alias for --min-call-gap. If both are given, --min-call-gap wins. Kept so old scripts/YAMLs keep working (default: unset -> min_call_gap default).",
+      "group": "Ray Forming (Gazelle blend)"
+    },
+    {
+      "option_strings": [
+        "--min-call-gap"
+      ],
+      "dest": "min_call_gap",
+      "action": "_StoreAction",
+      "default": null,
+      "type": "int",
+      "nargs": null,
+      "const": null,
+      "choices": null,
+      "required": false,
+      "metavar": "N",
+      "help": "Minimum frames between Gaze-LLE inference calls. The scheduler also requires at least one participant to be fixating before firing (default: 30).",
+      "group": "Ray Forming (Gazelle blend)"
+    },
+    {
+      "option_strings": [
+        "--fixation-v-threshold"
+      ],
+      "dest": "fixation_v_threshold",
+      "action": "_StoreAction",
+      "default": 0.04,
+      "type": "float",
+      "nargs": null,
+      "const": null,
+      "choices": null,
+      "required": false,
+      "metavar": "F",
+      "help": "Smoothed pitch/yaw velocity (rad/frame) at which a face is treated as 50%% fixating. Lower = safer anchoring (default: 0.04).",
+      "group": "Ray Forming (Gazelle blend)"
+    },
+    {
+      "option_strings": [
+        "--fixation-d-threshold"
+      ],
+      "dest": "fixation_d_threshold",
+      "action": "_StoreAction",
+      "default": 0.15,
+      "type": "float",
+      "nargs": null,
+      "const": null,
+      "choices": null,
+      "required": false,
+      "metavar": "F",
+      "help": "Windowed pitch/yaw dispersion (rad) at which a face is treated as 50%% fixating (default: 0.15).",
+      "group": "Ray Forming (Gazelle blend)"
+    },
+    {
+      "option_strings": [
+        "--dir-min-cutoff"
+      ],
+      "dest": "dir_min_cutoff",
+      "action": "_StoreAction",
+      "default": 1.0,
+      "type": "float",
+      "nargs": null,
+      "const": null,
+      "choices": null,
+      "required": false,
+      "metavar": "F",
+      "help": "Direction One Euro smoother floor cutoff (Hz). Lower = smoother at rest (default: 1.0).",
+      "group": "Ray Forming (Gazelle blend)"
+    },
+    {
+      "option_strings": [
+        "--dir-beta"
+      ],
+      "dest": "dir_beta",
+      "action": "_StoreAction",
+      "default": 0.5,
+      "type": "float",
+      "nargs": null,
+      "const": null,
+      "choices": null,
+      "required": false,
+      "metavar": "F",
+      "help": "Direction One Euro responsiveness. Higher = snaps to fast motion (default: 0.5).",
+      "group": "Ray Forming (Gazelle blend)"
+    },
+    {
+      "option_strings": [
+        "--len-min-cutoff"
+      ],
+      "dest": "len_min_cutoff",
+      "action": "_StoreAction",
+      "default": 1.0,
+      "type": "float",
+      "nargs": null,
+      "const": null,
+      "choices": null,
+      "required": false,
+      "metavar": "F",
+      "help": "Length One Euro smoother floor cutoff (Hz) (default: 1.0).",
+      "group": "Ray Forming (Gazelle blend)"
+    },
+    {
+      "option_strings": [
+        "--len-beta"
+      ],
+      "dest": "len_beta",
+      "action": "_StoreAction",
+      "default": 0.3,
+      "type": "float",
+      "nargs": null,
+      "const": null,
+      "choices": null,
+      "required": false,
+      "metavar": "F",
+      "help": "Length One Euro responsiveness. Lower than direction by default so length holds steadier (default: 0.3).",
+      "group": "Ray Forming (Gazelle blend)"
+    },
+    {
+      "option_strings": [
+        "--len-hold-tau"
+      ],
+      "dest": "len_hold_tau",
+      "action": "_StoreAction",
+      "default": 5.0,
+      "type": "float",
+      "nargs": null,
+      "const": null,
+      "choices": null,
+      "required": false,
+      "metavar": "F",
+      "help": "Seconds the Gaze-LLE-derived ray length persists after an accepted inference before decaying back to the pitch/yaw baseline. Direction reverts quickly on its own; raise this to hold ray reach longer between inferences (default: 5.0).",
+      "group": "Ray Forming (Gazelle blend)"
+    },
+    {
+      "option_strings": [
+        "--depth-ray-length"
+      ],
+      "dest": "depth_ray_length",
+      "action": "_StoreTrueAction",
+      "default": false,
+      "type": null,
+      "nargs": 0,
+      "const": true,
+      "choices": null,
+      "required": false,
+      "metavar": null,
+      "help": "Use depth map to scale ray length based on scene geometry (default: off).",
+      "group": "Ray Forming (Gazelle blend)"
+    },
+    {
+      "option_strings": [
+        "--depth-length-min"
+      ],
+      "dest": "depth_length_min",
+      "action": "_StoreAction",
+      "default": 0.5,
+      "type": "float",
+      "nargs": null,
+      "const": null,
+      "choices": null,
+      "required": false,
+      "metavar": "F",
+      "help": "Ray length multiplier at depth=0 (nearest) (default: 0.5).",
+      "group": "Ray Forming (Gazelle blend)"
+    },
+    {
+      "option_strings": [
+        "--depth-length-max"
+      ],
+      "dest": "depth_length_max",
+      "action": "_StoreAction",
+      "default": 3.0,
+      "type": "float",
+      "nargs": null,
+      "const": null,
+      "choices": null,
+      "required": false,
+      "metavar": "F",
+      "help": "Ray length multiplier at depth=1 (farthest) (default: 3.0).",
+      "group": "Ray Forming (Gazelle blend)"
+    },
+    {
+      "option_strings": [
+        "--depth-belief-boost"
+      ],
+      "dest": "depth_belief_boost",
+      "action": "_StoreAction",
+      "default": 0.0,
+      "type": "float",
+      "nargs": null,
+      "const": null,
+      "choices": null,
+      "required": false,
+      "metavar": "F",
+      "help": "How much depth agreement boosts Gaze-LLE heatmap confidence in the belief update (default: 0.0).",
+      "group": "Ray Forming (Gazelle blend)"
+    },
+    {
+      "option_strings": [
+        "--joint-attention"
+      ],
+      "dest": "joint_attention",
+      "action": "_StoreTrueAction",
+      "default": false,
+      "type": null,
+      "nargs": 0,
+      "const": true,
+      "choices": null,
+      "required": false,
+      "metavar": null,
+      "help": "Enable joint-attention tracking.",
+      "group": "options"
+    },
+    {
+      "option_strings": [
+        "--ja-window"
+      ],
+      "dest": "ja_window",
+      "action": "_StoreAction",
+      "default": 0,
+      "type": "int",
+      "nargs": null,
+      "const": null,
+      "choices": null,
+      "required": false,
+      "metavar": "N",
+      "help": "Temporal consistency window (frames). 0 = disabled (default).",
+      "group": "options"
+    },
+    {
+      "option_strings": [
+        "--ja-window-thresh"
+      ],
+      "dest": "ja_window_thresh",
+      "action": "_StoreAction",
+      "default": 0.7,
+      "type": "float",
+      "nargs": null,
+      "const": null,
+      "choices": null,
+      "required": false,
+      "metavar": "F",
+      "help": null,
+      "group": "options"
+    },
+    {
+      "option_strings": [
+        "--ja-quorum"
+      ],
+      "dest": "ja_quorum",
+      "action": "_StoreAction",
+      "default": 1.0,
+      "type": "float",
+      "nargs": null,
+      "const": null,
+      "choices": null,
+      "required": false,
+      "metavar": "F",
+      "help": "Fraction of faces required for joint attention (default 1.0).",
+      "group": "options"
+    },
+    {
+      "option_strings": [
+        "--mutual-gaze"
+      ],
+      "dest": "mutual_gaze",
+      "action": "_StoreTrueAction",
+      "default": false,
+      "type": null,
+      "nargs": 0,
+      "const": true,
+      "choices": null,
+      "required": false,
+      "metavar": null,
+      "help": null,
+      "group": "options"
+    },
+    {
+      "option_strings": [
+        "--social-ref"
+      ],
+      "dest": "social_ref",
+      "action": "_StoreTrueAction",
+      "default": false,
+      "type": null,
+      "nargs": 0,
+      "const": true,
+      "choices": null,
+      "required": false,
+      "metavar": null,
+      "help": null,
+      "group": "options"
+    },
+    {
+      "option_strings": [
+        "--social-ref-window"
+      ],
+      "dest": "social_ref_window",
+      "action": "_StoreAction",
+      "default": 60,
+      "type": "int",
+      "nargs": null,
+      "const": null,
+      "choices": null,
+      "required": false,
+      "metavar": "N",
+      "help": null,
+      "group": "options"
+    },
+    {
+      "option_strings": [
+        "--gaze-follow"
+      ],
+      "dest": "gaze_follow",
+      "action": "_StoreTrueAction",
+      "default": false,
+      "type": null,
+      "nargs": 0,
+      "const": true,
+      "choices": null,
+      "required": false,
+      "metavar": null,
+      "help": null,
+      "group": "options"
+    },
+    {
+      "option_strings": [
+        "--gaze-follow-lag"
+      ],
+      "dest": "gaze_follow_lag",
+      "action": "_StoreAction",
+      "default": 30,
+      "type": "int",
+      "nargs": null,
+      "const": null,
+      "choices": null,
+      "required": false,
+      "metavar": "N",
+      "help": null,
+      "group": "options"
+    },
+    {
+      "option_strings": [
+        "--gaze-aversion"
+      ],
+      "dest": "gaze_aversion",
+      "action": "_StoreTrueAction",
+      "default": false,
+      "type": null,
+      "nargs": 0,
+      "const": true,
+      "choices": null,
+      "required": false,
+      "metavar": null,
+      "help": null,
+      "group": "options"
+    },
+    {
+      "option_strings": [
+        "--aversion-window"
+      ],
+      "dest": "aversion_window",
+      "action": "_StoreAction",
+      "default": 60,
+      "type": "int",
+      "nargs": null,
+      "const": null,
+      "choices": null,
+      "required": false,
+      "metavar": "N",
+      "help": null,
+      "group": "options"
+    },
+    {
+      "option_strings": [
+        "--aversion-conf"
+      ],
+      "dest": "aversion_conf",
+      "action": "_StoreAction",
+      "default": 0.5,
+      "type": "float",
+      "nargs": null,
+      "const": null,
+      "choices": null,
+      "required": false,
+      "metavar": "F",
+      "help": null,
+      "group": "options"
+    },
+    {
+      "option_strings": [
+        "--scanpath"
+      ],
+      "dest": "scanpath",
+      "action": "_StoreTrueAction",
+      "default": false,
+      "type": null,
+      "nargs": 0,
+      "const": true,
+      "choices": null,
+      "required": false,
+      "metavar": null,
+      "help": null,
+      "group": "options"
+    },
+    {
+      "option_strings": [
+        "--scanpath-dwell"
+      ],
+      "dest": "scanpath_dwell",
+      "action": "_StoreAction",
+      "default": 8,
+      "type": "int",
+      "nargs": null,
+      "const": null,
+      "choices": null,
+      "required": false,
+      "metavar": "N",
+      "help": null,
+      "group": "options"
+    },
+    {
+      "option_strings": [
+        "--gaze-leader"
+      ],
+      "dest": "gaze_leader",
+      "action": "_StoreTrueAction",
+      "default": false,
+      "type": null,
+      "nargs": 0,
+      "const": true,
+      "choices": null,
+      "required": false,
+      "metavar": null,
+      "help": null,
+      "group": "options"
+    },
+    {
+      "option_strings": [
+        "--gaze-leader-tips"
+      ],
+      "dest": "gaze_leader_tips",
+      "action": "_StoreTrueAction",
+      "default": false,
+      "type": null,
+      "nargs": 0,
+      "const": true,
+      "choices": null,
+      "required": false,
+      "metavar": null,
+      "help": "Also detect leadership via gaze-tip convergence (requires --gaze-tips).",
+      "group": "options"
+    },
+    {
+      "option_strings": [
+        "--gaze-leader-tip-lag"
+      ],
+      "dest": "gaze_leader_tip_lag",
+      "action": "_StoreAction",
+      "default": 15,
+      "type": "int",
+      "nargs": null,
+      "const": null,
+      "choices": null,
+      "required": false,
+      "metavar": "N",
+      "help": "Lookback frames for tip-arrival priority (default: 15).",
+      "group": "options"
+    },
+    {
+      "option_strings": [
+        "--attn-span"
+      ],
+      "dest": "attn_span",
+      "action": "_StoreTrueAction",
+      "default": false,
+      "type": null,
+      "nargs": 0,
+      "const": true,
+      "choices": null,
+      "required": false,
+      "metavar": null,
+      "help": "Track per-participant per-object average attention span (mean completed-glance duration). Most salient object shown in HUD.",
+      "group": "options"
+    },
+    {
+      "option_strings": [
+        "--all-phenomena"
+      ],
+      "dest": "all_phenomena",
+      "action": "_StoreTrueAction",
+      "default": false,
+      "type": null,
+      "nargs": 0,
+      "const": true,
+      "choices": null,
+      "required": false,
+      "metavar": null,
+      "help": "Enable all gaze-phenomena trackers at once.",
+      "group": "options"
+    },
+    {
+      "option_strings": [
+        "--gazelle-model"
+      ],
+      "dest": "gazelle_model",
+      "action": "_StoreAction",
+      "default": null,
+      "type": null,
+      "nargs": null,
+      "const": null,
+      "choices": null,
+      "required": false,
+      "metavar": "PATH",
+      "help": "Path to a Gazelle checkpoint (.pt).  Activates the Gazelle backend.",
+      "group": "Gazelle backend"
+    },
+    {
+      "option_strings": [
+        "--gazelle-name"
+      ],
+      "dest": "gazelle_name",
+      "action": "_StoreAction",
+      "default": "gazelle_dinov2_vitb14",
+      "type": null,
+      "nargs": null,
+      "const": null,
+      "choices": [
+        "gazelle_dinov2_vitb14",
+        "gazelle_dinov2_vitb14_inout",
+        "gazelle_dinov2_vitl14",
+        "gazelle_dinov2_vitl14_inout"
+      ],
+      "required": false,
+      "metavar": "NAME",
+      "help": "Gazelle model variant  (choices: gazelle_dinov2_vitb14, gazelle_dinov2_vitb14_inout, gazelle_dinov2_vitl14, gazelle_dinov2_vitl14_inout;  default: gazelle_dinov2_vitb14).",
+      "group": "Gazelle backend"
+    },
+    {
+      "option_strings": [
+        "--gazelle-inout-threshold"
+      ],
+      "dest": "gazelle_inout_threshold",
+      "action": "_StoreAction",
+      "default": 0.5,
+      "type": "float",
+      "nargs": null,
+      "const": null,
+      "choices": null,
+      "required": false,
+      "metavar": "F",
+      "help": "In/out-of-view confidence threshold for *_inout model variants.  No effect on non-inout models  (default: 0.5).",
+      "group": "Gazelle backend"
+    },
+    {
+      "option_strings": [
+        "--gazelle-device"
+      ],
+      "dest": "gazelle_device",
+      "action": "_StoreAction",
+      "default": "auto",
+      "type": null,
+      "nargs": null,
+      "const": null,
+      "choices": null,
+      "required": false,
+      "metavar": "DEV",
+      "help": "Compute device: auto, cpu, cuda, or mps.  'auto' selects CUDA > MPS > CPU  (default: auto).",
+      "group": "Gazelle backend"
+    },
+    {
+      "option_strings": [
+        "--gazelle-skip-frames"
+      ],
+      "dest": "gazelle_skip_frames",
+      "action": "_StoreAction",
+      "default": 0,
+      "type": "int",
+      "nargs": null,
+      "const": null,
+      "choices": null,
+      "required": false,
+      "metavar": "N",
+      "help": "Reuse the previous gaze result for N frames between inference runs.  0 = no skipping  (default: 0).",
+      "group": "Gazelle backend"
+    },
+    {
+      "option_strings": [
+        "--gazelle-fp16"
+      ],
+      "dest": "gazelle_fp16",
+      "action": "_StoreTrueAction",
+      "default": false,
+      "type": null,
+      "nargs": 0,
+      "const": true,
+      "choices": null,
+      "required": false,
+      "metavar": null,
+      "help": "Use half-precision (float16) inference on CUDA/MPS (ignored on CPU).",
+      "group": "Gazelle backend"
+    },
+    {
+      "option_strings": [
+        "--gazelle-compile"
+      ],
+      "dest": "gazelle_compile",
+      "action": "_StoreTrueAction",
+      "default": false,
+      "type": null,
+      "nargs": 0,
+      "const": true,
+      "choices": null,
+      "required": false,
+      "metavar": null,
+      "help": "Use torch.compile() for the Gazelle model (PyTorch 2.0+ only).",
+      "group": "Gazelle backend"
+    },
+    {
+      "option_strings": [
+        "--iris-refine"
+      ],
+      "dest": "iris_refine",
+      "action": "_StoreTrueAction",
+      "default": false,
+      "type": null,
+      "nargs": 0,
+      "const": true,
+      "choices": null,
+      "required": false,
+      "metavar": null,
+      "help": "Enable iris-based gaze refinement (wraps active backend).",
+      "group": "Iris-Refined Gaze"
+    },
+    {
+      "option_strings": [
+        "--iris-refine-weight"
+      ],
+      "dest": "iris_refine_weight",
+      "action": "_StoreAction",
+      "default": 0.3,
+      "type": "float",
+      "nargs": null,
+      "const": null,
+      "choices": null,
+      "required": false,
+      "metavar": "F",
+      "help": "Blending weight for iris correction (default: 0.3).",
+      "group": "Iris-Refined Gaze"
+    },
+    {
+      "option_strings": [
+        "--iris-refine-upscale"
+      ],
+      "dest": "iris_refine_upscale",
+      "action": "_StoreAction",
+      "default": 2.0,
+      "type": "float",
+      "nargs": null,
+      "const": null,
+      "choices": null,
+      "required": false,
+      "metavar": "F",
+      "help": "Upscale face crops before iris extraction (default: 2.0).",
+      "group": "Iris-Refined Gaze"
+    },
+    {
+      "option_strings": [
+        "--l2cs-model"
+      ],
+      "dest": "l2cs_model",
+      "action": "_StoreAction",
+      "default": null,
+      "type": null,
+      "nargs": null,
+      "const": null,
+      "choices": null,
+      "required": false,
+      "metavar": null,
+      "help": "Path to L2CS model weights (.pkl or .onnx)",
+      "group": "L2CS-Net backend"
+    },
+    {
+      "option_strings": [
+        "--l2cs-arch"
+      ],
+      "dest": "l2cs_arch",
+      "action": "_StoreAction",
+      "default": "ResNet50",
+      "type": null,
+      "nargs": null,
+      "const": null,
+      "choices": [
+        "ResNet18",
+        "ResNet34",
+        "ResNet50",
+        "ResNet101",
+        "ResNet152"
+      ],
+      "required": false,
+      "metavar": null,
+      "help": "Architecture (default: ResNet50)",
+      "group": "L2CS-Net backend"
+    },
+    {
+      "option_strings": [
+        "--l2cs-dataset"
+      ],
+      "dest": "l2cs_dataset",
+      "action": "_StoreAction",
+      "default": "gaze360",
+      "type": null,
+      "nargs": null,
+      "const": null,
+      "choices": null,
+      "required": false,
+      "metavar": null,
+      "help": "Dataset config key (default: gaze360)",
+      "group": "L2CS-Net backend"
+    },
+    {
+      "option_strings": [
+        "--mgaze-model"
+      ],
+      "dest": "mgaze_model",
+      "action": "_StoreAction",
+      "default": "Weights/MGaze/mobileone_s0_gaze.onnx",
+      "type": null,
+      "nargs": null,
+      "const": null,
+      "choices": null,
+      "required": false,
+      "metavar": null,
+      "help": "Path to MGaze model weights (.onnx or .pt)",
+      "group": "MGaze backend"
+    },
+    {
+      "option_strings": [
+        "--mgaze-arch"
+      ],
+      "dest": "mgaze_arch",
+      "action": "_StoreAction",
+      "default": null,
+      "type": null,
+      "nargs": null,
+      "const": null,
+      "choices": [
+        "resnet18",
+        "resnet34",
+        "resnet50",
+        "mobilenetv2",
+        "mobileone_s0",
+        "mobileone_s1",
+        "mobileone_s2",
+        "mobileone_s3",
+        "mobileone_s4"
+      ],
+      "required": false,
+      "metavar": null,
+      "help": "Architecture name (required for .pt models)",
+      "group": "MGaze backend"
+    },
+    {
+      "option_strings": [
+        "--mgaze-dataset"
+      ],
+      "dest": "mgaze_dataset",
+      "action": "_StoreAction",
+      "default": "gaze360",
+      "type": null,
+      "nargs": null,
+      "const": null,
+      "choices": null,
+      "required": false,
+      "metavar": null,
+      "help": "Dataset config key (default: gaze360)",
+      "group": "MGaze backend"
+    },
+    {
+      "option_strings": [
+        "--gaze-boost"
+      ],
+      "dest": "gaze_boost",
+      "action": "_StoreTrueAction",
+      "default": false,
+      "type": null,
+      "nargs": 0,
+      "const": true,
+      "choices": null,
+      "required": false,
+      "metavar": null,
+      "help": "Boost confidence of detections near gaze endpoints.",
+      "group": "Gaze Boost plugin"
+    },
+    {
+      "option_strings": [
+        "--gaze-boost-factor"
+      ],
+      "dest": "gaze_boost_factor",
+      "action": "_StoreAction",
+      "default": 1.5,
+      "type": "float",
+      "nargs": null,
+      "const": null,
+      "choices": null,
+      "required": false,
+      "metavar": null,
+      "help": "Multiplicative confidence boost (default: 1.5).",
+      "group": "Gaze Boost plugin"
+    },
+    {
+      "option_strings": [
+        "--gaze-boost-radius"
+      ],
+      "dest": "gaze_boost_radius",
+      "action": "_StoreAction",
+      "default": 100.0,
+      "type": "float",
+      "nargs": null,
+      "const": null,
+      "choices": null,
+      "required": false,
+      "metavar": null,
+      "help": "Pixel radius around gaze endpoints (default: 100).",
+      "group": "Gaze Boost plugin"
+    },
+    {
+      "option_strings": [
+        "--gaze-boost-min-conf"
+      ],
+      "dest": "gaze_boost_min_conf",
+      "action": "_StoreAction",
+      "default": 0.1,
+      "type": "float",
+      "nargs": null,
+      "const": null,
+      "choices": null,
+      "required": false,
+      "metavar": null,
+      "help": "Minimum YOLO conf for sub-threshold candidates (default: 0.10).",
+      "group": "Gaze Boost plugin"
+    },
+    {
+      "option_strings": [
+        "--gaze-boost-max-conf"
+      ],
+      "dest": "gaze_boost_max_conf",
+      "action": "_StoreAction",
+      "default": 0.95,
+      "type": "float",
+      "nargs": null,
+      "const": null,
+      "choices": null,
+      "required": false,
+      "metavar": null,
+      "help": "Cap on boosted confidence (default: 0.95).",
+      "group": "Gaze Boost plugin"
+    },
+    {
+      "option_strings": [
+        "--gaze-boost-classes"
+      ],
+      "dest": "gaze_boost_classes",
+      "action": "_StoreAction",
+      "default": null,
+      "type": null,
+      "nargs": "+",
+      "const": null,
+      "choices": null,
+      "required": false,
+      "metavar": null,
+      "help": "Only boost these class names (default: all non-person classes).",
+      "group": "Gaze Boost plugin"
+    },
+    {
+      "option_strings": [
+        "--eye-movement"
+      ],
+      "dest": "eye_movement",
+      "action": "_StoreTrueAction",
+      "default": false,
+      "type": null,
+      "nargs": 0,
+      "const": true,
+      "choices": null,
+      "required": false,
+      "metavar": null,
+      "help": "Enable eye movement classification.",
+      "group": "Eye Movement plugin"
+    },
+    {
+      "option_strings": [
+        "--em-source"
+      ],
+      "dest": "em_source",
+      "action": "_StoreAction",
+      "default": "gaze",
+      "type": null,
+      "nargs": null,
+      "const": null,
+      "choices": [
+        "gaze",
+        "iris"
+      ],
+      "required": false,
+      "metavar": null,
+      "help": "Velocity source (default: gaze).",
+      "group": "Eye Movement plugin"
+    },
+    {
+      "option_strings": [
+        "--em-saccade-thresh"
+      ],
+      "dest": "em_saccade_thresh",
+      "action": "_StoreAction",
+      "default": 30.0,
+      "type": "float",
+      "nargs": null,
+      "const": null,
+      "choices": null,
+      "required": false,
+      "metavar": "F",
+      "help": "Saccade threshold px/frame (default: 30.0).",
+      "group": "Eye Movement plugin"
+    },
+    {
+      "option_strings": [
+        "--em-fixation-thresh"
+      ],
+      "dest": "em_fixation_thresh",
+      "action": "_StoreAction",
+      "default": 10.0,
+      "type": "float",
+      "nargs": null,
+      "const": null,
+      "choices": null,
+      "required": false,
+      "metavar": "F",
+      "help": "Fixation threshold px/frame (default: 10.0).",
+      "group": "Eye Movement plugin"
+    },
+    {
+      "option_strings": [
+        "--em-min-fixation"
+      ],
+      "dest": "em_min_fixation",
+      "action": "_StoreAction",
+      "default": 4,
+      "type": "int",
+      "nargs": null,
+      "const": null,
+      "choices": null,
+      "required": false,
+      "metavar": "N",
+      "help": "Min fixation duration frames (default: 4).",
+      "group": "Eye Movement plugin"
+    },
+    {
+      "option_strings": [
+        "--em-velocity-window"
+      ],
+      "dest": "em_velocity_window",
+      "action": "_StoreAction",
+      "default": 3,
+      "type": "int",
+      "nargs": null,
+      "const": null,
+      "choices": null,
+      "required": false,
+      "metavar": "N",
+      "help": "Median filter window (default: 3).",
+      "group": "Eye Movement plugin"
+    },
+    {
+      "option_strings": [
+        "--novel-salience"
+      ],
+      "dest": "novel_salience",
+      "action": "_StoreTrueAction",
+      "default": false,
+      "type": null,
+      "nargs": 0,
+      "const": true,
+      "choices": null,
+      "required": false,
+      "metavar": null,
+      "help": "Enable novel-salience detection (rapid gaze-shift tracking).",
+      "group": "Novel Salience plugin"
+    },
+    {
+      "option_strings": [
+        "--ns-speed-thresh"
+      ],
+      "dest": "ns_speed_thresh",
+      "action": "_StoreAction",
+      "default": 40.0,
+      "type": "float",
+      "nargs": null,
+      "const": null,
+      "choices": null,
+      "required": false,
+      "metavar": "PX",
+      "help": "Gaze-endpoint speed threshold in pixels/frame to flag a novel-salience event (default: 40).  Lower = more sensitive.",
+      "group": "Novel Salience plugin"
+    },
+    {
+      "option_strings": [
+        "--ns-cooldown"
+      ],
+      "dest": "ns_cooldown",
+      "action": "_StoreAction",
+      "default": 20,
+      "type": "int",
+      "nargs": null,
+      "const": null,
+      "choices": null,
+      "required": false,
+      "metavar": "N",
+      "help": "Minimum frames between consecutive novel-salience events for the same face track (default: 20).",
+      "group": "Novel Salience plugin"
+    },
+    {
+      "option_strings": [
+        "--ns-history"
+      ],
+      "dest": "ns_history",
+      "action": "_StoreAction",
+      "default": 2,
+      "type": "int",
+      "nargs": null,
+      "const": null,
+      "choices": null,
+      "required": false,
+      "metavar": "N",
+      "help": "Sliding-window depth for velocity smoothing (default: 2).  1 = instantaneous; 3 = heavier smoothing.",
+      "group": "Novel Salience plugin"
+    },
+    {
+      "option_strings": [
+        "--ns-flash"
+      ],
+      "dest": "ns_flash",
+      "action": "_StoreAction",
+      "default": 12,
+      "type": "int",
+      "nargs": null,
+      "const": null,
+      "choices": null,
+      "required": false,
+      "metavar": "N",
+      "help": "Frames the visual saccade indicator persists after an event (default: 12).",
+      "group": "Novel Salience plugin"
+    },
+    {
+      "option_strings": [
+        "--pupillometry"
+      ],
+      "dest": "pupillometry",
+      "action": "_StoreTrueAction",
+      "default": false,
+      "type": null,
+      "nargs": 0,
+      "const": true,
+      "choices": null,
+      "required": false,
+      "metavar": null,
+      "help": "Enable pupillometry tracking.",
+      "group": "Pupillometry plugin"
+    },
+    {
+      "option_strings": [
+        "--pupil-mode"
+      ],
+      "dest": "pupil_mode",
+      "action": "_StoreAction",
+      "default": "rgb",
+      "type": null,
+      "nargs": null,
+      "const": null,
+      "choices": [
+        "rgb",
+        "ir"
+      ],
+      "required": false,
+      "metavar": null,
+      "help": "Measurement mode (default: rgb).",
+      "group": "Pupillometry plugin"
+    },
+    {
+      "option_strings": [
+        "--pupil-baseline"
+      ],
+      "dest": "pupil_baseline",
+      "action": "_StoreAction",
+      "default": 90,
+      "type": "int",
+      "nargs": null,
+      "const": null,
+      "choices": null,
+      "required": false,
+      "metavar": "N",
+      "help": "Baseline frames for calibration (default: 90).",
+      "group": "Pupillometry plugin"
+    },
+    {
+      "option_strings": [
+        "--pupil-upscale"
+      ],
+      "dest": "pupil_upscale",
+      "action": "_StoreAction",
+      "default": 2.0,
+      "type": "float",
+      "nargs": null,
+      "const": null,
+      "choices": null,
+      "required": false,
+      "metavar": "F",
+      "help": "Upscale factor for RGB mode (default: 2.0).",
+      "group": "Pupillometry plugin"
+    },
+    {
+      "option_strings": [
+        "--pupil-ir-thresh"
+      ],
+      "dest": "pupil_ir_thresh",
+      "action": "_StoreAction",
+      "default": 40,
+      "type": "int",
+      "nargs": null,
+      "const": null,
+      "choices": null,
+      "required": false,
+      "metavar": "N",
+      "help": "IR threshold for dark-pupil segmentation (default: 40).",
+      "group": "Pupillometry plugin"
+    },
+    {
+      "option_strings": [
+        "--pupil-filter"
+      ],
+      "dest": "pupil_filter",
+      "action": "_StoreAction",
+      "default": "kalman",
+      "type": null,
+      "nargs": null,
+      "const": null,
+      "choices": [
+        "kalman",
+        "ema"
+      ],
+      "required": false,
+      "metavar": null,
+      "help": "Ratio smoothing filter (default: kalman).",
+      "group": "Pupillometry plugin"
+    },
+    {
+      "option_strings": [
+        "--pupil-ema-alpha"
+      ],
+      "dest": "pupil_ema_alpha",
+      "action": "_StoreAction",
+      "default": 0.3,
+      "type": "float",
+      "nargs": null,
+      "const": null,
+      "choices": null,
+      "required": false,
+      "metavar": "F",
+      "help": "EMA smoothing alpha -- only used when --pupil-filter is ema (default: 0.3).",
+      "group": "Pupillometry plugin"
+    },
+    {
+      "option_strings": [
+        "--pupil-kalman-process-noise"
+      ],
+      "dest": "pupil_kalman_process_noise",
+      "action": "_StoreAction",
+      "default": 0.0001,
+      "type": "float",
+      "nargs": null,
+      "const": null,
+      "choices": null,
+      "required": false,
+      "metavar": "F",
+      "help": "Kalman process noise -- controls how fast the filter adapts to ratio changes. Only used when --pupil-filter is kalman (default: 0.0001).",
+      "group": "Pupillometry plugin"
+    },
+    {
+      "option_strings": [
+        "--pupil-kalman-meas-noise"
+      ],
+      "dest": "pupil_kalman_meas_noise",
+      "action": "_StoreAction",
+      "default": 0.01,
+      "type": "float",
+      "nargs": null,
+      "const": null,
+      "choices": null,
+      "required": false,
+      "metavar": "F",
+      "help": "Kalman measurement noise -- higher values smooth more aggressively. Only used when --pupil-filter is kalman (default: 0.01).",
+      "group": "Pupillometry plugin"
+    },
+    {
+      "option_strings": [
+        "--pupil-ear-thresh"
+      ],
+      "dest": "pupil_ear_thresh",
+      "action": "_StoreAction",
+      "default": 0.21,
+      "type": "float",
+      "nargs": null,
+      "const": null,
+      "choices": null,
+      "required": false,
+      "metavar": "F",
+      "help": "EAR threshold for blink detection (default: 0.21).",
+      "group": "Pupillometry plugin"
+    },
+    {
+      "option_strings": [
+        "--pupil-blink-frames"
+      ],
+      "dest": "pupil_blink_frames",
+      "action": "_StoreAction",
+      "default": 2,
+      "type": "int",
+      "nargs": null,
+      "const": null,
+      "choices": null,
+      "required": false,
+      "metavar": "N",
+      "help": "Min consecutive low-EAR frames for blink (default: 2).",
+      "group": "Pupillometry plugin"
+    },
+    {
+      "option_strings": [
+        "--pupil-outlier-window"
+      ],
+      "dest": "pupil_outlier_window",
+      "action": "_StoreAction",
+      "default": 15,
+      "type": "int",
+      "nargs": null,
+      "const": null,
+      "choices": null,
+      "required": false,
+      "metavar": "N",
+      "help": "Hampel outlier filter window size (default: 15).",
+      "group": "Pupillometry plugin"
+    },
+    {
+      "option_strings": [
+        "--pupil-per-eye"
+      ],
+      "dest": "pupil_per_eye",
+      "action": "_StoreTrueAction",
+      "default": false,
+      "type": null,
+      "nargs": 0,
+      "const": true,
+      "choices": null,
+      "required": false,
+      "metavar": null,
+      "help": "Enable per-eye (left/right) measurements.",
+      "group": "Pupillometry plugin"
+    }
+  ]
+}

@@ -1,0 +1,407 @@
+usage: MindSight -- Eye-Gaze Intersection Tracker [-h] [--source SOURCE] [--save [PATH]]
+                                                  [--log LOG] [--summary [PATH]]
+                                                  [--heatmap [PATH]] [--charts [PATH]]
+                                                  [--pipeline YAML] [--project DIR]
+                                                  [--participant-ids IDS] [--participant-csv CSV]
+                                                  [--aux-stream SOURCE:VIDEO_TYPE:LABEL:PIDS]
+                                                  [--aux-auto-detect] [--device DEVICE]
+                                                  [--anonymize {blur,black}]
+                                                  [--anonymize-padding FRAC] [--fast]
+                                                  [--skip-phenomena N] [--lite-overlay]
+                                                  [--no-dashboard] [--profile] [--depth]
+                                                  [--no-depth] [--depth-backend DEPTH_BACKEND]
+                                                  [--depth-input-size PX] [--depth-skip-frames N]
+                                                  [--depth-aware-scoring] [--depth-w-depth W]
+                                                  [--depth-sample-radius PX] [--model MODEL]
+                                                  [--conf CONF] [--classes CLASSES [CLASSES ...]]
+                                                  [--blacklist BLACKLIST [BLACKLIST ...]]
+                                                  [--skip-frames SKIP_FRAMES]
+                                                  [--detect-scale DETECT_SCALE]
+                                                  [--vp-file VP_FILE] [--vp-model VP_MODEL]
+                                                  [--obj-persistence N] [--merge-overlaps]
+                                                  [--merge-overlap-strategy {filter,merge,dynamic}]
+                                                  [--merge-overlap-threshold THR]
+                                                  [--ray-length RAY_LENGTH] [--conf-ray]
+                                                  [--gaze-tips] [--tip-radius TIP_RADIUS]
+                                                  [--adaptive-ray {off,extend,snap}]
+                                                  [--snap-dist SNAP_DIST]
+                                                  [--snap-bbox-scale SNAP_BBOX_SCALE]
+                                                  [--snap-w-dist SNAP_W_DIST]
+                                                  [--snap-w-angle SNAP_W_ANGLE]
+                                                  [--snap-w-size SNAP_W_SIZE]
+                                                  [--snap-w-intersect SNAP_W_INTERSECT]
+                                                  [--snap-w-temporal SNAP_W_TEMPORAL]
+                                                  [--snap-gate-angle DEG] [--snap-head-blend F]
+                                                  [--snap-quality-thresh F] [--snap-tip-dist PX]
+                                                  [--snap-tip-quality F] [--hit-conf-gate F]
+                                                  [--detect-extend PX]
+                                                  [--detect-extend-scope {objects,phenomena,both}]
+                                                  [--gaze-cone DEGREES] [--gaze-lock]
+                                                  [--dwell-frames DWELL_FRAMES]
+                                                  [--lock-dist LOCK_DIST] [--gaze-debug]
+                                                  [--snap-release-frames N]
+                                                  [--snap-engage-frames N]
+                                                  [--reid-grace-seconds S]
+                                                  [--forward-gaze-threshold DEG]
+                                                  [--smooth-snap {off,objects,gaze_tips,all}]
+                                                  [--smooth-snap-alpha F]
+                                                  [--rf-gazelle-model PATH]
+                                                  [--rf-gazelle-name NAME]
+                                                  [--rf-gazelle-interval N] [--min-call-gap N]
+                                                  [--fixation-v-threshold F]
+                                                  [--fixation-d-threshold F] [--dir-min-cutoff F]
+                                                  [--dir-beta F] [--len-min-cutoff F]
+                                                  [--len-beta F] [--len-hold-tau F]
+                                                  [--depth-ray-length] [--depth-length-min F]
+                                                  [--depth-length-max F] [--depth-belief-boost F]
+                                                  [--joint-attention] [--ja-window N]
+                                                  [--ja-window-thresh F] [--ja-quorum F]
+                                                  [--mutual-gaze] [--social-ref]
+                                                  [--social-ref-window N] [--gaze-follow]
+                                                  [--gaze-follow-lag N] [--gaze-aversion]
+                                                  [--aversion-window N] [--aversion-conf F]
+                                                  [--scanpath] [--scanpath-dwell N]
+                                                  [--gaze-leader] [--gaze-leader-tips]
+                                                  [--gaze-leader-tip-lag N] [--attn-span]
+                                                  [--all-phenomena] [--gazelle-model PATH]
+                                                  [--gazelle-name NAME]
+                                                  [--gazelle-inout-threshold F]
+                                                  [--gazelle-device DEV] [--gazelle-skip-frames N]
+                                                  [--gazelle-fp16] [--gazelle-compile]
+                                                  [--iris-refine] [--iris-refine-weight F]
+                                                  [--iris-refine-upscale F]
+                                                  [--l2cs-model L2CS_MODEL]
+                                                  [--l2cs-arch {ResNet18,ResNet34,ResNet50,ResNet101,ResNet152}]
+                                                  [--l2cs-dataset L2CS_DATASET]
+                                                  [--mgaze-model MGAZE_MODEL]
+                                                  [--mgaze-arch {resnet18,resnet34,resnet50,mobilenetv2,mobileone_s0,mobileone_s1,mobileone_s2,mobileone_s3,mobileone_s4}]
+                                                  [--mgaze-dataset MGAZE_DATASET] [--gaze-boost]
+                                                  [--gaze-boost-factor GAZE_BOOST_FACTOR]
+                                                  [--gaze-boost-radius GAZE_BOOST_RADIUS]
+                                                  [--gaze-boost-min-conf GAZE_BOOST_MIN_CONF]
+                                                  [--gaze-boost-max-conf GAZE_BOOST_MAX_CONF]
+                                                  [--gaze-boost-classes GAZE_BOOST_CLASSES [GAZE_BOOST_CLASSES ...]]
+                                                  [--eye-movement] [--em-source {gaze,iris}]
+                                                  [--em-saccade-thresh F] [--em-fixation-thresh F]
+                                                  [--em-min-fixation N] [--em-velocity-window N]
+                                                  [--novel-salience] [--ns-speed-thresh PX]
+                                                  [--ns-cooldown N] [--ns-history N]
+                                                  [--ns-flash N] [--pupillometry]
+                                                  [--pupil-mode {rgb,ir}] [--pupil-baseline N]
+                                                  [--pupil-upscale F] [--pupil-ir-thresh N]
+                                                  [--pupil-filter {kalman,ema}]
+                                                  [--pupil-ema-alpha F]
+                                                  [--pupil-kalman-process-noise F]
+                                                  [--pupil-kalman-meas-noise F]
+                                                  [--pupil-ear-thresh F] [--pupil-blink-frames N]
+                                                  [--pupil-outlier-window N] [--pupil-per-eye]
+
+options:
+  -h, --help            show this help message and exit
+  --source SOURCE       Video input source, defaults to webcam
+  --save [PATH]         Save annotated video. Omit a value to use
+                        Outputs/Video/[stem]_Video_Output.mp4, or supply a custom path.
+  --log LOG
+  --summary [PATH]      Save post-run summary CSV. Omit a value to use Outputs/CSV
+                        Files/[stem]_Summary_Output.csv, or supply a custom path.
+  --heatmap [PATH]      Save per-participant scene gaze heatmaps. Omit a value to use
+                        Outputs/heatmaps/[stem]_Heatmap_Output (one PNG per participant), or
+                        supply a custom directory/prefix path.
+  --charts [PATH]       Generate post-run time-series charts for each phenomena tracker. Omit a
+                        value to use Outputs/Charts/[stem]_Charts.png, or supply a custom path.
+  --pipeline YAML       Load pipeline configuration from a YAML file. CLI flags override YAML
+                        values.
+  --project DIR         Run in project mode: process all videos in DIR/Inputs/Videos/ using
+                        DIR/Pipeline/pipeline.yaml as config.
+  --participant-ids IDS
+                        Comma-separated participant labels for single-video mode. Positional:
+                        first label maps to track 0, second to track 1, etc. E.g. --participant-
+                        ids S70,S71,S72
+  --participant-csv CSV
+                        Path to a participant_ids.csv mapping video filenames to custom
+                        participant labels (see docs for format).
+  --aux-stream SOURCE:VIDEO_TYPE:LABEL:PIDS
+                        Auxiliary video stream. Format: SOURCE:VIDEO_TYPE:LABEL:PID1,PID2 where
+                        SOURCE is the file path, VIDEO_TYPE is one of
+                        eye_only/face_closeup/wide_closeup/custom, LABEL is a user-defined stream
+                        label, and PIDS is a comma-separated list of participant labels.
+                        Repeatable for multiple streams.
+  --aux-auto-detect     Enable automatic face detection on wide/face auxiliary streams (default:
+                        enabled).
+  --device DEVICE       Compute device for all backends: auto, cpu, cuda, or mps. 'auto' selects
+                        CUDA > MPS > CPU (default: auto).
+  --anonymize {blur,black}
+                        Anonymize faces in the output video: 'blur' applies heavy Gaussian blur,
+                        'black' fills with a solid rectangle.
+  --anonymize-padding FRAC
+                        Fraction of face bbox size added as padding for anonymization (default:
+                        0.3).
+  --model MODEL         Object Detection Model, defaults to yolov8n.pt
+  --conf CONF           Object detection confidence threshold, defaults to 0.35
+  --classes CLASSES [CLASSES ...]
+                        Specified YOLO Object Detection Classes Prompt
+  --blacklist BLACKLIST [BLACKLIST ...]
+                        Specified YOLO Object Detection Classes Blacklist
+  --skip-frames SKIP_FRAMES
+                        Frames between object detection. Higher = faster but less accurate.
+                        (Defaults to 1, i.e. process every frame)
+  --detect-scale DETECT_SCALE
+                        Detection scale for Object Recognition
+  --vp-file VP_FILE     Path to visual prompt file for use with YOLOE object detection models
+  --vp-model VP_MODEL   YOLOE model to use alongside visual prompting for object detection
+  --obj-persistence N   Dead-reckon object bboxes for N frames after they disappear (default 0).
+  --merge-overlaps      Merge or filter overlapping same-class detections.
+  --merge-overlap-strategy {filter,merge,dynamic}
+                        Overlap strategy: 'filter' keeps highest-conf box, 'merge' creates
+                        encompassing box, 'dynamic' chooses per-cluster based on confidence and
+                        size (default: dynamic).
+  --merge-overlap-threshold THR
+                        Overlap threshold to trigger merge (default: 0.7).
+  --ray-length RAY_LENGTH
+                        Gaze ray-length multiplier, default 1.0
+  --conf-ray            Dynamically adjust gaze ray-length based on gaze confidence value
+  --gaze-tips           Adds circular bounding-box to tip of gaze-rays, used to determine
+                        intersection between gaze-rays. Set radius with --tip-radius (default 80).
+  --tip-radius TIP_RADIUS
+                        Pixel radius for --gaze-tips (default 80)
+  --adaptive-ray {off,extend,snap}
+                        Adaptive ray mode: 'off' disables, 'extend' freely extends the ray toward
+                        the nearest object, 'snap' locks the endpoint to the object centre
+                        (default: off).
+  --snap-dist SNAP_DIST
+  --snap-bbox-scale SNAP_BBOX_SCALE
+                        Fraction of bbox half-diagonal added to snap radius (default 0.0)
+  --snap-w-dist SNAP_W_DIST
+                        Snap scoring weight for normalized distance penalty (default 1.0)
+  --snap-w-angle SNAP_W_ANGLE
+                        Snap scoring weight for angular deviation penalty (default 0.8)
+  --snap-w-size SNAP_W_SIZE
+                        Snap scoring weight for object size reward (default 0.0)
+  --snap-w-intersect SNAP_W_INTERSECT
+                        Snap scoring bonus for ray-bbox intersection (default 0.5)
+  --snap-w-temporal SNAP_W_TEMPORAL
+                        Snap scoring bonus for previous-frame target stickiness (default 0.3)
+  --snap-gate-angle DEG
+                        Hard angular cutoff in degrees: objects beyond this angle from the blended
+                        gaze+head direction are never snap candidates (default 60.0).
+  --snap-head-blend F   Blend factor for angular scoring: 0=pure gaze direction, 1=pure head
+                        orientation (default 0.3).
+  --snap-quality-thresh F
+                        Maximum score to accept a snap match. Higher values are more permissive.
+                        Set lower to reject poor matches (default 0.8).
+  --snap-tip-dist PX    Tip-snap distance threshold. -1 = use --snap-dist (default -1).
+  --snap-tip-quality F  Tip-snap quality threshold. -1 = use --snap-quality-thresh (default -1).
+  --hit-conf-gate F     Minimum per-face gaze confidence for ray-object hit detection. 0.0 =
+                        disabled (default).
+  --detect-extend PX    Extend gaze-object detection N pixels past the visual ray/cone endpoint. 0
+                        = detection matches visual exactly (default: 0.0).
+  --detect-extend-scope {objects,phenomena,both}
+                        Scope for --detect-extend: 'objects' extends only ray-object hit
+                        detection, 'phenomena' extends only phenomena tracking (mutual gaze,
+                        social ref), 'both' extends both (default: objects).
+  --gaze-cone DEGREES   Replaces standard gaze vectors with vision cones of a specified angle in
+                        degrees (disabled by default).
+  --gaze-lock           Enable fixation lock-on (default: off).
+  --dwell-frames DWELL_FRAMES
+  --lock-dist LOCK_DIST
+  --gaze-debug
+  --snap-release-frames N
+                        Frames of no-match before releasing the held snap target (default 5).
+  --snap-engage-frames N
+                        Frames of consistent match required before engaging snap for the first
+                        time. 0 = instant engage (default 0).
+  --reid-grace-seconds S
+                        Seconds a lost face track stays in the re-ID buffer (default 1.0).
+  --forward-gaze-threshold DEG
+                        Pitch/yaw angles below this (degrees) are treated as looking forward at
+                        the camera. Set to 0 to disable (default 5.0).
+  --smooth-snap {off,objects,gaze_tips,all}
+                        Smooth snap mode: smoothly interpolate the ray toward snap targets instead
+                        of jumping instantly. 'objects' = smooth object snaps only, 'gaze_tips' =
+                        smooth gaze-tip snaps only, 'all' = both (default: off).
+  --smooth-snap-alpha F
+                        EMA rate for smooth snap: lower = smoother/slower, higher = faster/more
+                        responsive (default: 0.20).
+  --joint-attention     Enable joint-attention tracking.
+  --ja-window N         Temporal consistency window (frames). 0 = disabled (default).
+  --ja-window-thresh F
+  --ja-quorum F         Fraction of faces required for joint attention (default 1.0).
+  --mutual-gaze
+  --social-ref
+  --social-ref-window N
+  --gaze-follow
+  --gaze-follow-lag N
+  --gaze-aversion
+  --aversion-window N
+  --aversion-conf F
+  --scanpath
+  --scanpath-dwell N
+  --gaze-leader
+  --gaze-leader-tips    Also detect leadership via gaze-tip convergence (requires --gaze-tips).
+  --gaze-leader-tip-lag N
+                        Lookback frames for tip-arrival priority (default: 15).
+  --attn-span           Track per-participant per-object average attention span (mean completed-
+                        glance duration). Most salient object shown in HUD.
+  --all-phenomena       Enable all gaze-phenomena trackers at once.
+
+Performance:
+  --fast                Enable bundled performance optimizations: skip phenomena on non-detection
+                        frames, throttle dashboard bridge, reduce GUI poll rate.
+  --skip-phenomena N    Run phenomena trackers only every N frames (0 = every frame). Independent
+                        of --skip-frames. (default: 0)
+  --lite-overlay        Minimal overlay: disable cone rendering, convergence markers, dwell arcs,
+                        and debug text. Keeps gaze arrows, boxes, badges.
+  --no-dashboard        Skip dashboard composition for maximum throughput. Displays the raw
+                        annotated frame only.
+  --profile             Print per-stage timing breakdown every 100 frames.
+
+Depth Estimation:
+  --depth               Enable monocular depth estimation.
+  --no-depth            Explicitly disable depth estimation.
+  --depth-backend DEPTH_BACKEND
+                        Depth model backend (default: midas_small).
+  --depth-input-size PX
+                        Depth model input resolution (default: 384).
+  --depth-skip-frames N
+                        Run depth every N detection cycles (default: 1).
+  --depth-aware-scoring
+                        Enable depth-weighted snap scoring.
+  --depth-w-depth W     Depth match weight in snap scoring (default: 0.4).
+  --depth-sample-radius PX
+                        Half-size of patch for depth sampling (default: 2).
+
+Ray Forming (Gazelle blend):
+  --rf-gazelle-model PATH
+                        Path to a Gaze-LLE checkpoint (.pt) for Gazelle blend ray forming. Used
+                        alongside a pitch/yaw backend (L2CS, MGaze, etc.) to periodically correct
+                        rays with Gaze-LLE heatmaps.
+  --rf-gazelle-name NAME
+                        Gaze-LLE model variant for ray forming (default: gazelle_dinov2_vitb14).
+  --rf-gazelle-interval N
+                        (Legacy) alias for --min-call-gap. If both are given, --min-call-gap wins.
+                        Kept so old scripts/YAMLs keep working (default: unset -> min_call_gap
+                        default).
+  --min-call-gap N      Minimum frames between Gaze-LLE inference calls. The scheduler also
+                        requires at least one participant to be fixating before firing (default:
+                        30).
+  --fixation-v-threshold F
+                        Smoothed pitch/yaw velocity (rad/frame) at which a face is treated as 50%
+                        fixating. Lower = safer anchoring (default: 0.04).
+  --fixation-d-threshold F
+                        Windowed pitch/yaw dispersion (rad) at which a face is treated as 50%
+                        fixating (default: 0.15).
+  --dir-min-cutoff F    Direction One Euro smoother floor cutoff (Hz). Lower = smoother at rest
+                        (default: 1.0).
+  --dir-beta F          Direction One Euro responsiveness. Higher = snaps to fast motion (default:
+                        0.5).
+  --len-min-cutoff F    Length One Euro smoother floor cutoff (Hz) (default: 1.0).
+  --len-beta F          Length One Euro responsiveness. Lower than direction by default so length
+                        holds steadier (default: 0.3).
+  --len-hold-tau F      Seconds the Gaze-LLE-derived ray length persists after an accepted
+                        inference before decaying back to the pitch/yaw baseline. Direction
+                        reverts quickly on its own; raise this to hold ray reach longer between
+                        inferences (default: 5.0).
+  --depth-ray-length    Use depth map to scale ray length based on scene geometry (default: off).
+  --depth-length-min F  Ray length multiplier at depth=0 (nearest) (default: 0.5).
+  --depth-length-max F  Ray length multiplier at depth=1 (farthest) (default: 3.0).
+  --depth-belief-boost F
+                        How much depth agreement boosts Gaze-LLE heatmap confidence in the belief
+                        update (default: 0.0).
+
+Gazelle backend:
+  --gazelle-model PATH  Path to a Gazelle checkpoint (.pt). Activates the Gazelle backend.
+  --gazelle-name NAME   Gazelle model variant (choices: gazelle_dinov2_vitb14,
+                        gazelle_dinov2_vitb14_inout, gazelle_dinov2_vitl14,
+                        gazelle_dinov2_vitl14_inout; default: gazelle_dinov2_vitb14).
+  --gazelle-inout-threshold F
+                        In/out-of-view confidence threshold for *_inout model variants. No effect
+                        on non-inout models (default: 0.5).
+  --gazelle-device DEV  Compute device: auto, cpu, cuda, or mps. 'auto' selects CUDA > MPS > CPU
+                        (default: auto).
+  --gazelle-skip-frames N
+                        Reuse the previous gaze result for N frames between inference runs. 0 = no
+                        skipping (default: 0).
+  --gazelle-fp16        Use half-precision (float16) inference on CUDA/MPS (ignored on CPU).
+  --gazelle-compile     Use torch.compile() for the Gazelle model (PyTorch 2.0+ only).
+
+Iris-Refined Gaze:
+  --iris-refine         Enable iris-based gaze refinement (wraps active backend).
+  --iris-refine-weight F
+                        Blending weight for iris correction (default: 0.3).
+  --iris-refine-upscale F
+                        Upscale face crops before iris extraction (default: 2.0).
+
+L2CS-Net backend:
+  --l2cs-model L2CS_MODEL
+                        Path to L2CS model weights (.pkl or .onnx)
+  --l2cs-arch {ResNet18,ResNet34,ResNet50,ResNet101,ResNet152}
+                        Architecture (default: ResNet50)
+  --l2cs-dataset L2CS_DATASET
+                        Dataset config key (default: gaze360)
+
+MGaze backend:
+  --mgaze-model MGAZE_MODEL
+                        Path to MGaze model weights (.onnx or .pt)
+  --mgaze-arch {resnet18,resnet34,resnet50,mobilenetv2,mobileone_s0,mobileone_s1,mobileone_s2,mobileone_s3,mobileone_s4}
+                        Architecture name (required for .pt models)
+  --mgaze-dataset MGAZE_DATASET
+                        Dataset config key (default: gaze360)
+
+Gaze Boost plugin:
+  --gaze-boost          Boost confidence of detections near gaze endpoints.
+  --gaze-boost-factor GAZE_BOOST_FACTOR
+                        Multiplicative confidence boost (default: 1.5).
+  --gaze-boost-radius GAZE_BOOST_RADIUS
+                        Pixel radius around gaze endpoints (default: 100).
+  --gaze-boost-min-conf GAZE_BOOST_MIN_CONF
+                        Minimum YOLO conf for sub-threshold candidates (default: 0.10).
+  --gaze-boost-max-conf GAZE_BOOST_MAX_CONF
+                        Cap on boosted confidence (default: 0.95).
+  --gaze-boost-classes GAZE_BOOST_CLASSES [GAZE_BOOST_CLASSES ...]
+                        Only boost these class names (default: all non-person classes).
+
+Eye Movement plugin:
+  --eye-movement        Enable eye movement classification.
+  --em-source {gaze,iris}
+                        Velocity source (default: gaze).
+  --em-saccade-thresh F
+                        Saccade threshold px/frame (default: 30.0).
+  --em-fixation-thresh F
+                        Fixation threshold px/frame (default: 10.0).
+  --em-min-fixation N   Min fixation duration frames (default: 4).
+  --em-velocity-window N
+                        Median filter window (default: 3).
+
+Novel Salience plugin:
+  --novel-salience      Enable novel-salience detection (rapid gaze-shift tracking).
+  --ns-speed-thresh PX  Gaze-endpoint speed threshold in pixels/frame to flag a novel-salience
+                        event (default: 40). Lower = more sensitive.
+  --ns-cooldown N       Minimum frames between consecutive novel-salience events for the same face
+                        track (default: 20).
+  --ns-history N        Sliding-window depth for velocity smoothing (default: 2). 1 =
+                        instantaneous; 3 = heavier smoothing.
+  --ns-flash N          Frames the visual saccade indicator persists after an event (default: 12).
+
+Pupillometry plugin:
+  --pupillometry        Enable pupillometry tracking.
+  --pupil-mode {rgb,ir}
+                        Measurement mode (default: rgb).
+  --pupil-baseline N    Baseline frames for calibration (default: 90).
+  --pupil-upscale F     Upscale factor for RGB mode (default: 2.0).
+  --pupil-ir-thresh N   IR threshold for dark-pupil segmentation (default: 40).
+  --pupil-filter {kalman,ema}
+                        Ratio smoothing filter (default: kalman).
+  --pupil-ema-alpha F   EMA smoothing alpha -- only used when --pupil-filter is ema (default:
+                        0.3).
+  --pupil-kalman-process-noise F
+                        Kalman process noise -- controls how fast the filter adapts to ratio
+                        changes. Only used when --pupil-filter is kalman (default: 0.0001).
+  --pupil-kalman-meas-noise F
+                        Kalman measurement noise -- higher values smooth more aggressively. Only
+                        used when --pupil-filter is kalman (default: 0.01).
+  --pupil-ear-thresh F  EAR threshold for blink detection (default: 0.21).
+  --pupil-blink-frames N
+                        Min consecutive low-EAR frames for blink (default: 2).
+  --pupil-outlier-window N
+                        Hampel outlier filter window size (default: 15).
+  --pupil-per-eye       Enable per-eye (left/right) measurements.
