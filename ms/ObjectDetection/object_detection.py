@@ -149,39 +149,6 @@ class ObjectPersistenceCache:
 # Detection parsing
 # ══════════════════════════════════════════════════════════════════════════════
 
-def add_arguments(parser) -> None:
-    """Register object-detection CLI flags onto *parser*."""
-    parser.add_argument("--model", default="yolov8n.pt",
-                        help="Object Detection Model, defaults to yolov8n.pt")
-    parser.add_argument("--conf", type=float, default=0.35,
-                        help="Object detection confidence threshold, defaults to 0.35")
-    parser.add_argument("--classes", nargs="+", default=[],
-                        help="Specified YOLO Object Detection Classes Prompt")
-    parser.add_argument("--blacklist", nargs="+", default=[],
-                        help="Specified YOLO Object Detection Classes Blacklist")
-    parser.add_argument("--skip-frames", type=int, default=1,
-                        help="Frames between object detection. Higher = faster but less accurate. "
-                             "(Defaults to 1, i.e. process every frame)")
-    parser.add_argument("--detect-scale", type=float, default=1.0,
-                        help="Detection scale for Object Recognition")
-    parser.add_argument("--vp-file", default=None,
-                        help="Path to visual prompt file for use with YOLOE object detection models")
-    parser.add_argument("--vp-model", default="yoloe-26l-seg.pt",
-                        help="YOLOE model to use alongside visual prompting for object detection")
-    parser.add_argument("--obj-persistence", type=int, default=0, metavar="N",
-                        help="Dead-reckon object bboxes for N frames after they disappear (default 0).")
-    parser.add_argument("--merge-overlaps", action="store_true", default=False,
-                        help="Merge or filter overlapping same-class detections.")
-    parser.add_argument("--merge-overlap-strategy",
-                        choices=["filter", "merge", "dynamic"],
-                        default="dynamic",
-                        help="Overlap strategy: 'filter' keeps highest-conf box, "
-                             "'merge' creates encompassing box, 'dynamic' chooses "
-                             "per-cluster based on confidence and size (default: dynamic).")
-    parser.add_argument("--merge-overlap-threshold", type=float, default=0.7,
-                        metavar="THR",
-                        help="Overlap threshold to trigger merge (default: 0.7).")
-
 
 def parse_dets(results, names, conf_thr, blacklist):
     """Convert raw YOLO result boxes to a list of object dicts.

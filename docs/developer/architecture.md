@@ -103,17 +103,21 @@ All of these are defined in `ms/pipeline_config.py` or in their respective modul
 
 ## CLI Argument Registration
 
-Each module owns its CLI flags through an `add_arguments(parser)` function. During startup, `MindSight.py` calls each module's registration function in turn:
+Core CLI flags are **generated from the pydantic schema** (`ms/config.py`). The
+ordered `FlagSpec` table in `ms/cli_flags.py` carries each flag's presentation
+(help, metavar, choices, group, order) while defaults and scalar types come from
+the schema field at build time, so the schema is the single source of truth for
+values. `ms/cli.py:_args` simply delegates to `cli_flags.parse_cli`.
 
 ```
-ObjectDetection  → add_arguments(parser)
-GazeTracking     → add_arguments(parser)
-Phenomena        → add_arguments(parser)
-DataCollection   → add_arguments(parser)
-Plugins (each)   → add_arguments(parser)
+ms/config.py (schema)  ─┐
+ms/cli_flags.py         ─┴─►  build_parser()  ─►  argparse parser
+Plugins (each)          ────►  add_arguments(parser)   # runtime, per plugin class
 ```
 
-This keeps flag definitions co-located with the code that consumes them. Plugins also participate: each discovered plugin can register its own flags, which appear alongside the built-in ones.
+Plugins still register their own flags at runtime through the
+`add_arguments(parser)` method on each discovered plugin class, so plugin flags
+appear alongside the generated core flags (this is the v1.0 paper contract).
 
 ## Per-Frame Sequence
 

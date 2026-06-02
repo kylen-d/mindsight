@@ -80,13 +80,11 @@ A dataclass holding all phenomena toggles and their parameters. `from_namespace(
 
 ## 4. CLI Argument Registration
 
-**File:** `phenomena_tracking.py`
-
-```
-add_arguments(parser)
-```
-
-Registers all phenomena-related flags on the `argparse` parser. This module also re-exports all tracker classes and helper functions for backward compatibility so that external code can import from a single location.
+Phenomena CLI flags are generated from the pydantic schema (`ms/config.py`) via
+the `FlagSpec` table in `ms/cli_flags.py`, alongside every other core flag (the
+old per-module `add_arguments(parser)` was removed in SP1.3). `phenomena_tracking.py`
+remains as a re-export shim for the tracker classes and helper functions so
+external code can import them from a single location.
 
 ## 5. Helper Functions
 

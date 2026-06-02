@@ -20,11 +20,10 @@ data never requires changing function signatures.
 
 CLI flags
 ---------
-Each submodule registers its own arguments via ``add_arguments(parser)``:
-
-  ms/ObjectDetection/object_detection.py  -> --model, --conf, --classes, etc.
-  ms/GazeTracking/gaze_processing.py      -> --mgaze-model, --ray-length, --gaze-cone, etc.
-  ms/Phenomena/phenomena_tracking.py       -> --mutual-gaze, --social-ref, --ja-window, etc.
+Core flags are generated from the pydantic schema (``ms/config.py``) via the
+``FlagSpec`` table in ``ms/cli_flags.py`` -- ``_args`` just delegates to
+``cli_flags.parse_cli``.  Plugins still contribute their own flags at runtime
+through the ``add_arguments(parser)`` method on each registered plugin class.
 
 Run ``python MindSight.py --help`` for the full list.
 
