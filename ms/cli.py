@@ -34,12 +34,11 @@ Base pipeline: YOLO objects -> RetinaFace faces -> gaze estimation ->
 """
 
 
-import argparse
 from pathlib import Path
 
+from ms.cli_flags import parse_cli
 from ms.GazeTracking.gaze_factory import create_gaze_engine
 from ms.ObjectDetection.model_factory import create_face_detector, create_yolo_detector
-from ms.Phenomena.phenomena_tracking import add_arguments as _add_phenomena_arguments
 
 # -- Extracted run loop --------------------------------------------------------
 # The per-frame orchestrator and video/webcam loop live in ms.pipeline now.
@@ -68,144 +67,13 @@ from Plugins import (
 # ==============================================================================
 
 def _args(argv=None):
-    from ms.GazeTracking.gaze_processing import add_arguments as _add_gaze_args
-    from ms.ObjectDetection.object_detection import add_arguments as _add_det_args
+    """Parse argv into a namespace with ``_explicit_cli`` attached.
 
-    p = argparse.ArgumentParser("MindSight -- Eye-Gaze Intersection Tracker")
-
-    # -- Orchestration-level flags ---------------------------------------------
-    p.add_argument("--source", default="0",
-                   help="Video input source, defaults to webcam")
-    p.add_argument("--save", nargs="?", const=True, default=None, metavar="PATH",
-                   help="Save annotated video. Omit a value to use "
-                        "Outputs/Video/[stem]_Video_Output.mp4, or supply a custom path.")
-    p.add_argument("--log", default=None)
-    p.add_argument("--summary", nargs="?", const=True, default=None, metavar="PATH",
-                   help="Save post-run summary CSV. Omit a value to use "
-                        "Outputs/CSV Files/[stem]_Summary_Output.csv, or supply a custom path.")
-    p.add_argument("--heatmap", nargs="?", const=True, default=None, metavar="PATH",
-                   help="Save per-participant scene gaze heatmaps. Omit a value to use "
-                        "Outputs/heatmaps/[stem]_Heatmap_Output (one PNG per participant), "
-                        "or supply a custom directory/prefix path.")
-    p.add_argument("--charts", nargs="?", const=True, default=None, metavar="PATH",
-                   help="Generate post-run time-series charts for each phenomena tracker. "
-                        "Omit a value to use Outputs/Charts/[stem]_Charts.png, "
-                        "or supply a custom path.")
-    p.add_argument("--pipeline", default=None, metavar="YAML",
-                   help="Load pipeline configuration from a YAML file. "
-                        "CLI flags override YAML values.")
-    p.add_argument("--project", default=None, metavar="DIR",
-                   help="Run in project mode: process all videos in DIR/Inputs/Videos/ "
-                        "using DIR/Pipeline/pipeline.yaml as config.")
-    p.add_argument("--participant-ids", default=None, metavar="IDS",
-                   help="Comma-separated participant labels for single-video mode. "
-                        "Positional: first label maps to track 0, second to track 1, "
-                        "etc. E.g. --participant-ids S70,S71,S72")
-    p.add_argument("--participant-csv", default=None, metavar="CSV",
-                   help="Path to a participant_ids.csv mapping video filenames "
-                        "to custom participant labels (see docs for format).")
-    p.add_argument("--aux-stream", action="append", default=None,
-                   dest="aux_streams_raw",
-                   metavar="SOURCE:VIDEO_TYPE:LABEL:PIDS",
-                   help="Auxiliary video stream. "
-                        "Format: SOURCE:VIDEO_TYPE:LABEL:PID1,PID2 where "
-                        "SOURCE is the file path, VIDEO_TYPE is one of "
-                        "eye_only/face_closeup/wide_closeup/custom, "
-                        "LABEL is a user-defined stream label, and PIDS "
-                        "is a comma-separated list of participant labels. "
-                        "Repeatable for multiple streams.")
-    p.add_argument("--aux-auto-detect", action="store_true", default=True,
-                   help="Enable automatic face detection on wide/face "
-                        "auxiliary streams (default: enabled).")
-
-    p.add_argument("--device", default="auto",
-                   help="Compute device for all backends: auto, cpu, cuda, "
-                        "or mps.  'auto' selects CUDA > MPS > CPU  (default: auto).")
-    p.add_argument("--anonymize", choices=["blur", "black"], default=None,
-                   help="Anonymize faces in the output video: 'blur' applies "
-                        "heavy Gaussian blur, 'black' fills with a solid rectangle.")
-    p.add_argument("--anonymize-padding", type=float, default=0.3, metavar="FRAC",
-                   help="Fraction of face bbox size added as padding for "
-                        "anonymization (default: 0.3).")
-
-    # -- Performance flags -----------------------------------------------------
-    perf = p.add_argument_group("Performance")
-    perf.add_argument(
-        "--fast", action="store_true", default=False,
-        help="Enable bundled performance optimizations: skip phenomena on "
-             "non-detection frames, throttle dashboard bridge, reduce GUI "
-             "poll rate.")
-    perf.add_argument(
-        "--skip-phenomena", type=int, default=0, metavar="N",
-        help="Run phenomena trackers only every N frames (0 = every frame). "
-             "Independent of --skip-frames.  (default: 0)")
-    perf.add_argument(
-        "--lite-overlay", action="store_true", default=False,
-        help="Minimal overlay: disable cone rendering, convergence markers, "
-             "dwell arcs, and debug text.  Keeps gaze arrows, boxes, badges.")
-    perf.add_argument(
-        "--no-dashboard", action="store_true", default=False,
-        help="Skip dashboard composition for maximum throughput. "
-             "Displays the raw annotated frame only.")
-    perf.add_argument(
-        "--profile", action="store_true", default=False,
-        help="Print per-stage timing breakdown every 100 frames.")
-
-    # -- Depth estimation flags ------------------------------------------------
-    depth_grp = p.add_argument_group("Depth Estimation")
-    depth_grp.add_argument("--depth", action="store_true", default=False,
-                           help="Enable monocular depth estimation.")
-    depth_grp.add_argument("--no-depth", action="store_true", default=False,
-                           help="Explicitly disable depth estimation.")
-    depth_grp.add_argument("--depth-backend", default="midas_small",
-                           help="Depth model backend (default: midas_small).")
-    depth_grp.add_argument("--depth-input-size", type=int, default=384,
-                           metavar="PX",
-                           help="Depth model input resolution (default: 384).")
-    depth_grp.add_argument("--depth-skip-frames", type=int, default=1,
-                           metavar="N",
-                           help="Run depth every N detection cycles (default: 1).")
-    depth_grp.add_argument("--depth-aware-scoring", action="store_true",
-                           default=False,
-                           help="Enable depth-weighted snap scoring.")
-    depth_grp.add_argument("--depth-w-depth", type=float, default=0.4,
-                           metavar="W",
-                           help="Depth match weight in snap scoring (default: 0.4).")
-    depth_grp.add_argument("--depth-sample-radius", type=int, default=2,
-                           metavar="PX",
-                           help="Half-size of patch for depth sampling (default: 2).")
-
-    # -- Delegate to submodules ------------------------------------------------
-    _add_det_args(p)
-    _add_gaze_args(p)
-    _add_phenomena_arguments(p)
-
-    # ---- Plugin-contributed arguments ----------------------------------------
-    # Plugins receive the root parser so they can create their own argument
-    # groups internally (argparse forbids nested groups).
-    for _pname in _gaze_registry.names():
-        _gaze_registry.get(_pname).add_arguments(p)
-    for _pname in _od_registry.names():
-        _od_registry.get(_pname).add_arguments(p)
-    for _pname in _phenomena_registry.names():
-        _phenomena_registry.get(_pname).add_arguments(p)
-
-    # -- Explicit-flag detection ----------------------------------------------
-    # argparse cannot tell a user-typed flag from one left at its default, so
-    # pipeline_loader would otherwise have to guess (the _is_default heuristic)
-    # which YAML values may overwrite a namespace attribute.  We resolve this
-    # exactly: temporarily suppress every action's default and re-parse, so the
-    # resulting namespace contains ONLY the dests the user actually supplied.
-    _saved_defaults = [(a, a.default) for a in p._actions]
-    for _action, _ in _saved_defaults:
-        _action.default = argparse.SUPPRESS
-    _suppressed_ns, _ = p.parse_known_args(argv)
-    for _action, _default in _saved_defaults:
-        _action.default = _default
-
-    ns = p.parse_args(argv)
-    ns._explicit_cli = frozenset(vars(_suppressed_ns))
-    return ns
+    The parser is generated from the pydantic schema + the FlagSpec table in
+    ``ms.cli_flags``; this remains the public entry point (GUI and tests
+    import it), with an identical returned-namespace shape.
+    """
+    return parse_cli(argv)
 
 
 def _build_from_args(args):
