@@ -278,8 +278,8 @@ def run_project(project_dir: str | Path, run_fn, build_fn, args_ns) -> None:
     args_ns : Namespace
         The parsed argparse namespace (with pipeline config already merged).
     """
+    from ms.config_compat import load_pipeline
     from ms.pipeline_config import OutputConfig
-    from ms.pipeline_loader import load_pipeline
 
     project = Path(project_dir).resolve()
 

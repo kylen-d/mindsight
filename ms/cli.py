@@ -223,7 +223,7 @@ def main():
 
     # Apply pipeline YAML if specified (CLI flags take precedence)
     if args.pipeline:
-        from ms.pipeline_loader import load_pipeline
+        from ms.config_compat import load_pipeline
         load_pipeline(args.pipeline, args)
         print(f"Loaded pipeline config: {args.pipeline}")
 
