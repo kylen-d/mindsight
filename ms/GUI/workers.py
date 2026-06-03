@@ -3,9 +3,10 @@ GUI/workers.py — Background worker threads for the MindSight GUI.
 
 Workers
 -------
-GazeWorker          -- Namespace-driven: calls ``_build_from_args(ns)`` then
-                       ``run()`` with full CLI feature parity (phenomena,
-                       plugins, heatmaps, and all config flags).
+GazeWorker          -- Namespace-driven: builds models via
+                       ``ms.pipeline.build_from_namespace(ns)`` then consumes
+                       ``Pipeline.run`` (FrameResult stream) with full CLI
+                       feature parity (phenomena, plugins, heatmaps, flags).
 VPInferenceWorker   -- Runs YOLOE inference on a batch of images using a
                        Visual Prompt file or text-class prompts.
 ProjectWorker       -- Batch-processes all videos in a MindSight project
@@ -29,14 +30,15 @@ from .widgets import load_vp_file, vp_to_yoloe_args
 # ══════════════════════════════════════════════════════════════════════════════
 
 class GazeWorker(threading.Thread):
-    """Loads models via ``_build_from_args()`` and runs the full MindSight pipeline.
+    """Builds models via ``build_from_namespace`` and drives ``Pipeline.run``.
 
     Accepts an ``argparse.Namespace`` with the same attribute names as the CLI
     produces, so every CLI feature (phenomena, plugins, heatmaps, etc.) works
     automatically without manual plumbing.
 
-    Frames are pushed to *frame_q* by monkey-patching ``cv2.imshow`` so the
-    GUI can display them without touching core pipeline code.
+    Each :class:`~ms.pipeline.FrameResult`'s ``annotated`` frame is pushed to
+    *frame_q* for the GUI to display; the worker's stop Event is translated into
+    a per-frame :class:`~ms.pipeline.CancelToken` (no cv2 monkeypatching).
     """
 
     def __init__(self, ns: Namespace, frame_q: queue.Queue, log_q: queue.Queue,
@@ -67,86 +69,78 @@ class GazeWorker(threading.Thread):
             self.frame_q.put(None)  # sentinel: worker is done
 
     def _main(self):
-        import time as _time
-
-        import cv2
-
-        from ms.cli import _build_from_args, run
+        from ms.constants import IMAGE_EXTS
+        from ms.pipeline import (
+            CancelToken,
+            Pipeline,
+            RunOptions,
+            build_from_namespace,
+        )
 
         self._log("Initializing models...")
 
         # Build all models, config objects, and plugins from the namespace —
-        # this is the same code path the CLI uses, giving automatic feature parity.
+        # same model wiring the CLI uses, giving automatic feature parity.
         (yolo, face_det, gaze_eng, gaze_cfg, det_cfg, tracker_cfg,
          output_cfg, active_plugins, phenomena_cfg,
          detection_plugins, depth_cfg, depth_backend,
-         gazelle_provider, ray_cfg) = _build_from_args(self.ns)
+         gazelle_provider, ray_cfg) = build_from_namespace(self.ns)
 
         self._log("Models loaded — starting pipeline...")
 
-        # ── Redirect cv2 display into the GUI ────────────────────────────────
-        _orig_imshow      = cv2.imshow
-        _orig_waitkey     = cv2.waitKey
-        _orig_destroy_all = cv2.destroyAllWindows
-        _orig_destroy_win = cv2.destroyWindow
+        # Inject the live dashboard bridge as a phenomena plugin so it is fed
+        # INSIDE the loop (honoring the phenomena-skip / --fast throttle).
+        _fast = getattr(self.ns, 'fast', False)
+        if self.dashboard_q is not None:
+            from .live_dashboard_bridge import LiveDashboardBridge
+            bridge = LiveDashboardBridge(
+                self.dashboard_q,
+                throttle=6 if _fast else 0,
+            )
+            if active_plugins is None:
+                active_plugins = []
+            active_plugins.append(bridge)
 
-        _frame_q = self.frame_q
-        _stop_ev = self._stop
+        source = self.ns.source
+        try:
+            source = int(source)
+        except (ValueError, TypeError):
+            pass
 
-        def _gui_imshow(_, frame):
+        pipeline = Pipeline(
+            yolo=yolo, face_det=face_det, gaze_eng=gaze_eng,
+            gaze_cfg=gaze_cfg, det_cfg=det_cfg, tracker_cfg=tracker_cfg,
+            output_cfg=output_cfg, plugin_instances=active_plugins,
+            detection_plugins=detection_plugins, phenomena_cfg=phenomena_cfg,
+            depth_cfg=depth_cfg, depth_backend=depth_backend,
+            gazelle_provider=gazelle_provider, ray_cfg=ray_cfg,
+        )
+        options = RunOptions(
+            fast_mode=_fast,
+            skip_phenomena=getattr(self.ns, 'skip_phenomena', 0),
+            lite_overlay=getattr(self.ns, 'lite_overlay', False),
+            no_dashboard=getattr(self.ns, 'no_dashboard', False),
+            profile=getattr(self.ns, 'profile', False),
+        )
+
+        # Pump annotated frames to the GUI; translate the stop Event into a
+        # per-frame CancelToken.  Never break -- iterate to StopIteration so the
+        # pipeline's finally + post-run summaries finalize all outputs on cancel.
+        cancel = CancelToken()
+        for result in pipeline.run(source, options=options, cancel=cancel):
             try:
-                _frame_q.put_nowait(frame.copy())
+                self.frame_q.put_nowait(result.annotated.copy())
             except queue.Full:
                 pass
+            if self._stop.is_set():
+                cancel.cancel()
 
-        def _gui_waitkey(delay):
-            if delay == 0:
-                while not _stop_ev.is_set():
-                    _time.sleep(0.05)
-                return ord('q')
-            return ord('q') if _stop_ev.is_set() else 1
-
-        cv2.imshow            = _gui_imshow
-        cv2.waitKey           = _gui_waitkey
-        cv2.destroyAllWindows = lambda: None
-        cv2.destroyWindow     = lambda *_: None
-
-        try:
-            # Inject live dashboard bridge when running in GUI mode
-            _fast = getattr(self.ns, 'fast', False)
-            if self.dashboard_q is not None:
-                from .live_dashboard_bridge import LiveDashboardBridge
-                bridge = LiveDashboardBridge(
-                    self.dashboard_q,
-                    throttle=6 if _fast else 0,
-                )
-                if active_plugins is None:
-                    active_plugins = []
-                active_plugins.append(bridge)
-
-            source = self.ns.source
-            try:
-                source = int(source)
-            except (ValueError, TypeError):
-                pass
-
-            run(source, yolo, face_det, gaze_eng,
-                gaze_cfg, det_cfg, tracker_cfg, output_cfg,
-                plugin_instances=active_plugins,
-                detection_plugins=detection_plugins,
-                phenomena_cfg=phenomena_cfg,
-                fast_mode=_fast,
-                skip_phenomena=getattr(self.ns, 'skip_phenomena', 0),
-                lite_overlay=getattr(self.ns, 'lite_overlay', False),
-                no_dashboard=getattr(self.ns, 'no_dashboard', False),
-                profile=getattr(self.ns, 'profile', False),
-                depth_cfg=depth_cfg, depth_backend=depth_backend,
-                gazelle_provider=gazelle_provider, ray_cfg=ray_cfg)
-        finally:
-            cv2.imshow            = _orig_imshow
-            cv2.waitKey           = _orig_waitkey
-            cv2.destroyAllWindows = _orig_destroy_all
-            cv2.destroyWindow     = _orig_destroy_win
+        # Image sources yield a single frame; legacy GUI behavior kept the image
+        # displayed until Stop -- preserve that (block until stopped).
+        is_image = (isinstance(source, str)
+                    and Path(source).suffix.lower() in IMAGE_EXTS)
+        if is_image:
+            self._stop.wait()
 
 
 # ══════════════════════════════════════════════════════════════════════════════
