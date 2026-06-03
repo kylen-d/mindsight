@@ -190,10 +190,9 @@ def _run_image(source, *, yolo, face_det, gaze_eng, gaze_cfg, det_cfg,
         out = Path(source).stem + "_gaze.jpg"
         cv2.imwrite(out, display)
         print(f"Saved \u2192 {out}")
-    cv2.imshow("MindSight", display)
-    print("Press any key to close.")
-    cv2.waitKey(0)
-    cv2.destroyAllWindows()
+    # Display (imshow / "Press any key" / waitKey / destroyAllWindows) is done by
+    # run_to_completion, so the generator stays display-free for GUI consumers.
+    return display, ctx
 
 
 # ==============================================================================
@@ -367,13 +366,19 @@ def _run_video(source, *, yolo, face_det, gaze_eng,
 
     # -- Static image mode -----------------------------------------------------
     if is_image:
-        return _run_image(source, yolo=yolo, face_det=face_det, gaze_eng=gaze_eng,
-                          gaze_cfg=gaze_cfg, det_cfg=det_cfg, output_cfg=output_cfg,
-                          phenomena_cfg=phenomena_cfg,
-                          detection_plugins=detection_plugins,
-                          ja_mode_str=ja_mode_str,
-                          depth_cfg=depth_cfg, depth_backend=depth_backend,
-                          gazelle_provider=gazelle_provider, ray_cfg=ray_cfg)
+        display, ctx = _run_image(source, yolo=yolo, face_det=face_det,
+                                  gaze_eng=gaze_eng, gaze_cfg=gaze_cfg,
+                                  det_cfg=det_cfg, output_cfg=output_cfg,
+                                  phenomena_cfg=phenomena_cfg,
+                                  detection_plugins=detection_plugins,
+                                  ja_mode_str=ja_mode_str,
+                                  depth_cfg=depth_cfg, depth_backend=depth_backend,
+                                  gazelle_provider=gazelle_provider, ray_cfg=ray_cfg)
+        yield FrameResult(
+            frame_no=0, t_seconds=0.0, fps=0.0, total_frames=1,
+            annotated=display, faces=ctx.get('face_track_ids', []),
+            hits=ctx.get('hits'), events=ctx['hit_events'], context=ctx)
+        return
 
     # -- Video / webcam loop ---------------------------------------------------
     cap, _fps = open_video_source(source)
@@ -652,7 +657,8 @@ def _run_video(source, *, yolo, face_det, gaze_eng,
             writer.release()
             finalize_video(video_path)
         if log_fh:  log_fh.close()
-        cv2.destroyAllWindows()
+        # Window teardown (cv2.destroyAllWindows) is the display driver's job --
+        # run_to_completion owns it, so the generator stays display-free.
 
     # Post-run phenomena summaries
     post_run_summary(all_trackers, total_frames, pid_map=output_cfg.pid_map)
@@ -672,17 +678,28 @@ def _run_video(source, *, yolo, face_det, gaze_eng,
 def run_to_completion(pipeline, source, *, options=None, cancel=None):
     """Drive ``pipeline.run`` to the end, reproducing the CLI display loop.
 
-    Displays each frame with ``cv2.imshow`` and honors 'q' to quit by tripping
-    the cancel token, so the run finalizes cleanly through the pipeline's normal
-    post-run paths.  A fresh :class:`CancelToken` is created when none is passed
-    (the CLI case); GUI callers pass their own so they can cancel externally.
+    Owns ALL display: video/webcam frames are shown with ``cv2.imshow`` and 'q'
+    trips the cancel token (finalizing cleanly through the pipeline's post-run
+    paths); a single still image is shown then blocks on ``waitKey(0)`` --
+    reproducing the legacy CLI stdout order.  Window teardown
+    (``cv2.destroyAllWindows``) happens here, so ``pipeline.run`` stays
+    display-free for GUI consumers.  A fresh :class:`CancelToken` is created
+    when none is passed (the CLI case); GUI callers pass their own.
     """
     if cancel is None:
         cancel = CancelToken()
-    for result in pipeline.run(source, options=options, cancel=cancel):
-        cv2.imshow("MindSight", result.annotated)
-        if cv2.waitKey(1) & 0xFF == ord('q'):
-            cancel.cancel()
+    is_image = (isinstance(source, str)
+                and Path(source).suffix.lower() in IMAGE_EXTS)
+    try:
+        for result in pipeline.run(source, options=options, cancel=cancel):
+            cv2.imshow("MindSight", result.annotated)
+            if is_image:
+                print("Press any key to close.")
+                cv2.waitKey(0)
+            elif cv2.waitKey(1) & 0xFF == ord('q'):
+                cancel.cancel()
+    finally:
+        cv2.destroyAllWindows()
 
 
 def run(source, yolo, face_det, gaze_eng,
@@ -714,3 +731,15 @@ def run(source, yolo, face_det, gaze_eng,
         lite_overlay=lite_overlay, no_dashboard=no_dashboard, profile=profile,
     )
     return run_to_completion(pipeline, source, options=options)
+
+
+def build_from_namespace(ns):
+    """Build models + config dataclasses from an argparse-style namespace.
+
+    Public home for what ``ms.cli._build_from_args`` does; the body still lives
+    in ms/cli.py until SP1.5 gives model wiring a proper module.  Returns the
+    same 14-tuple ``_build_from_args`` returns.  GUI workers call this so they
+    never import ``ms.cli`` privates.
+    """
+    from ms.cli import _build_from_args   # lazy: ms.cli imports ms.pipeline
+    return _build_from_args(ns)

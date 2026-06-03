@@ -110,6 +110,33 @@ def test_cancellation_stops_and_finalizes(built, tmp_path):
     assert summary_path.exists() and summary_path.stat().st_size > 0
 
 
+def test_image_source_yields_one_frameresult(built, tmp_path):
+    """A still-image source yields exactly one FrameResult and needs no display
+    (imshow/waitKey live in run_to_completion now, not the generator)."""
+    import cv2
+
+    from ms.pipeline import FrameResult
+    _ns, tup = built
+    # grab frame 0 of the sample clip as a .jpg
+    cap = cv2.VideoCapture(str(VIDEO))
+    ok, frame = cap.read()
+    cap.release()
+    assert ok
+    jpg = tmp_path / "frame.jpg"
+    cv2.imwrite(str(jpg), frame)
+
+    pipeline = _make_pipeline(tup)
+    results = list(pipeline.run(str(jpg)))
+
+    assert len(results) == 1
+    r = results[0]
+    assert isinstance(r, FrameResult)
+    assert r.frame_no == 0
+    assert r.total_frames == 1
+    assert r.annotated is not None
+    assert r.context is not None
+
+
 def test_from_config_matches_direct(built):
     """Pipeline.from_config (unified schema path) yields the same config
     dataclasses the direct dataclass constructor holds."""
