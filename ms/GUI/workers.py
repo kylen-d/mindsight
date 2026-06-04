@@ -187,14 +187,15 @@ class ProjectWorker(threading.Thread):
             self.frame_q.put(None)
 
     def _main(self):
-        import time as _time
-
-        import cv2
-
-        from ms.cli import _build_from_args, run
+        from ms.config_compat import load_pipeline
+        from ms.pipeline import (
+            CancelToken,
+            Pipeline,
+            RunOptions,
+            build_from_namespace,
+        )
         from ms.pipeline_config import OutputConfig
-        from ms.pipeline_loader import load_pipeline
-        from project_runner import (
+        from ms.project_runner import (
             discover_aux_streams,
             discover_participant_ids,
             discover_sources,
@@ -257,7 +258,7 @@ class ProjectWorker(threading.Thread):
         (yolo, face_det, gaze_eng, gaze_cfg, det_cfg, tracker_cfg,
          output_cfg, active_plugins, phenomena_cfg,
          detection_plugins, depth_cfg, depth_backend,
-         gazelle_provider, ray_cfg) = _build_from_args(self.ns)
+         gazelle_provider, ray_cfg) = build_from_namespace(self.ns)
 
         # Resolve output root
         if pcfg and pcfg.output:
@@ -269,107 +270,90 @@ class ProjectWorker(threading.Thread):
         self._log(f"Output root: {out_root}")
         self.progress_q.put({"type": "start", "total": len(sources)})
 
-        # Redirect cv2 display
-        _orig_imshow = cv2.imshow
-        _orig_waitkey = cv2.waitKey
-        _orig_destroy_all = cv2.destroyAllWindows
-        _orig_destroy_win = cv2.destroyWindow
-        _frame_q = self.frame_q
-        _stop_ev = self._stop
+        options = RunOptions(
+            fast_mode=getattr(self.ns, 'fast', False),
+            skip_phenomena=getattr(self.ns, 'skip_phenomena', 0),
+            lite_overlay=getattr(self.ns, 'lite_overlay', False),
+            no_dashboard=getattr(self.ns, 'no_dashboard', False),
+            profile=getattr(self.ns, 'profile', False),
+        )
 
-        def _gui_imshow(_, frame):
-            try:
-                _frame_q.put_nowait(frame.copy())
-            except queue.Full:
-                pass
+        for i, source in enumerate(sources):
+            if self._stop.is_set():
+                break
+            self._log(f"\n[{i+1}/{len(sources)}] Processing: {source.name}")
+            self.progress_q.put({
+                "type": "progress",
+                "current": i + 1,
+                "total": len(sources),
+                "source_name": source.name,
+            })
 
-        def _gui_waitkey(delay):
-            if delay == 0:
-                while not _stop_ev.is_set():
-                    _time.sleep(0.05)
-                return ord('q')
-            return ord('q') if _stop_ev.is_set() else 1
+            paths = project_output_paths(project, source, pcfg)
+            video_pid_map = pid_maps.get(source.name) if pid_maps else None
 
-        cv2.imshow = _gui_imshow
-        cv2.waitKey = _gui_waitkey
-        cv2.destroyAllWindows = lambda: None
-        cv2.destroyWindow = lambda *_: None
+            # Build condition string for this video
+            video_tags = (pcfg.conditions.get(source.name, [])
+                          if pcfg else [])
+            conditions_str = "|".join(video_tags) if video_tags else ""
 
-        try:
-            for i, source in enumerate(sources):
-                if self._stop.is_set():
-                    break
-                self._log(f"\n[{i+1}/{len(sources)}] Processing: {source.name}")
-                self.progress_q.put({
-                    "type": "progress",
-                    "current": i + 1,
-                    "total": len(sources),
-                    "source_name": source.name,
-                })
-
-                paths = project_output_paths(project, source, pcfg)
-                video_pid_map = pid_maps.get(source.name) if pid_maps else None
-
-                # Build condition string for this video
-                video_tags = (pcfg.conditions.get(source.name, [])
-                              if pcfg else [])
-                conditions_str = "|".join(video_tags) if video_tags else ""
-
-                run_output = OutputConfig(
-                    save=paths['save'],
-                    log_path=paths['log'],
-                    summary_path=paths['summary'],
-                    heatmap_path=paths['heatmap'],
-                    pid_map=video_pid_map,
-                    aux_streams=aux_streams if aux_streams else None,
-                    video_name=source.stem,
-                    conditions=conditions_str,
-                )
-
-                try:
-                    run(str(source), yolo, face_det, gaze_eng,
-                        gaze_cfg, det_cfg, tracker_cfg, run_output,
-                        plugin_instances=active_plugins,
-                        detection_plugins=detection_plugins,
-                        phenomena_cfg=phenomena_cfg,
-                        fast_mode=getattr(self.ns, 'fast', False),
-                        skip_phenomena=getattr(self.ns, 'skip_phenomena', 0),
-                        lite_overlay=getattr(self.ns, 'lite_overlay', False),
-                        no_dashboard=getattr(self.ns, 'no_dashboard', False),
-                        profile=getattr(self.ns, 'profile', False),
-                        depth_cfg=depth_cfg, depth_backend=depth_backend,
-                gazelle_provider=gazelle_provider, ray_cfg=ray_cfg)
-                except Exception as exc:
-                    self._log(f"Error processing {source.name}: {exc}")
-
-            # ── Post-processing: global and per-condition CSVs ───────────
-            csv_dir = out_root / "CSV Files"
-            self._log("\nGenerating global CSVs...")
-            from ms.DataCollection.global_csv import (
-                generate_condition_csvs,
-                generate_global_csv,
+            run_output = OutputConfig(
+                save=paths['save'],
+                log_path=paths['log'],
+                summary_path=paths['summary'],
+                heatmap_path=paths['heatmap'],
+                pid_map=video_pid_map,
+                aux_streams=aux_streams if aux_streams else None,
+                video_name=source.stem,
+                conditions=conditions_str,
             )
 
-            global_summary = generate_global_csv(csv_dir, "summary")
-            global_events = generate_global_csv(csv_dir, "events")
+            # Per-video Pipeline sharing the once-built models; fresh cancel
+            # token per video (stop finalizes the current video cleanly).
+            video_pipeline = Pipeline(
+                yolo=yolo, face_det=face_det, gaze_eng=gaze_eng,
+                gaze_cfg=gaze_cfg, det_cfg=det_cfg, tracker_cfg=tracker_cfg,
+                output_cfg=run_output, plugin_instances=active_plugins,
+                detection_plugins=detection_plugins, phenomena_cfg=phenomena_cfg,
+                depth_cfg=depth_cfg, depth_backend=depth_backend,
+                gazelle_provider=gazelle_provider, ray_cfg=ray_cfg,
+            )
+            cancel = CancelToken()
+            try:
+                for result in video_pipeline.run(str(source), options=options,
+                                                 cancel=cancel):
+                    try:
+                        self.frame_q.put_nowait(result.annotated.copy())
+                    except queue.Full:
+                        pass
+                    if self._stop.is_set():
+                        cancel.cancel()
+            except Exception as exc:
+                self._log(f"Error processing {source.name}: {exc}")
 
-            if pcfg and pcfg.conditions:
-                condition_dir = out_root / "By Condition"
-                condition_dir.mkdir(parents=True, exist_ok=True)
-                if global_summary:
-                    generate_condition_csvs(
-                        global_summary, condition_dir, "summary")
-                if global_events:
-                    generate_condition_csvs(
-                        global_events, condition_dir, "events")
+        # ── Post-processing: global and per-condition CSVs ───────────
+        csv_dir = out_root / "CSV Files"
+        self._log("\nGenerating global CSVs...")
+        from ms.DataCollection.global_csv import (
+            generate_condition_csvs,
+            generate_global_csv,
+        )
 
-            self.progress_q.put({"type": "done"})
-            self._log(f"\nProject complete. Outputs in: {out_root}")
-        finally:
-            cv2.imshow = _orig_imshow
-            cv2.waitKey = _orig_waitkey
-            cv2.destroyAllWindows = _orig_destroy_all
-            cv2.destroyWindow = _orig_destroy_win
+        global_summary = generate_global_csv(csv_dir, "summary")
+        global_events = generate_global_csv(csv_dir, "events")
+
+        if pcfg and pcfg.conditions:
+            condition_dir = out_root / "By Condition"
+            condition_dir.mkdir(parents=True, exist_ok=True)
+            if global_summary:
+                generate_condition_csvs(
+                    global_summary, condition_dir, "summary")
+            if global_events:
+                generate_condition_csvs(
+                    global_events, condition_dir, "events")
+
+        self.progress_q.put({"type": "done"})
+        self._log(f"\nProject complete. Outputs in: {out_root}")
 
 
 # ══════════════════════════════════════════════════════════════════════════════

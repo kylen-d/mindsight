@@ -153,10 +153,6 @@ def test_gaze_worker_streams_and_cancels(qapp, tmp_path):
         win.close()
 
 
-@pytest.mark.xfail(strict=True,
-                   reason="GUI project mode broken on main: workers.py imports "
-                          "top-level 'project_runner' (moved to ms.project_runner "
-                          "in c95903b); fixed + un-xfailed in SP1.4 step 4")
 def test_project_worker_runs_and_cancels(qapp, tmp_path):
     import shutil
 

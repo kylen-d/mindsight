@@ -278,7 +278,7 @@ class ProjectTab(QWidget):
     def _validate_project(self, path_str: str):
         """Validate the project directory and populate all UI panels."""
         try:
-            from project_runner import (
+            from ms.project_runner import (
                 discover_sources,
                 load_project_config,
                 validate_project,
@@ -520,7 +520,7 @@ class ProjectTab(QWidget):
             QMessageBox.warning(
                 self, "Error", "No project loaded.")
             return
-        from project_runner import save_project_config
+        from ms.project_runner import save_project_config
         cfg = self._build_project_config()
         path = save_project_config(self._project_path, cfg)
         self._dirty = False
