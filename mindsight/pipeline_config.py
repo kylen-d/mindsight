@@ -1,0 +1,374 @@
+"""
+pipeline_config.py — Dataclass-based configuration for the MindSight pipeline.
+
+Groups the many parameters of ``process_frame()`` and ``run()`` into a small
+number of opaque config objects so that adding a new parameter no longer
+requires touching every call site.
+
+Includes ``FrameContext``, the mutable per-frame data carrier that flows
+through all pipeline stages.  Each stage reads what it needs and writes its
+results; plugins access only the keys they care about via ``**kwargs``.
+
+See also ``Phenomena/phenomena_config.py`` for phenomena-specific config.
+"""
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+from enum import Enum
+from pathlib import Path
+from typing import Optional
+
+# Re-export RayFormingConfig for convenience — the canonical definition lives
+# in ms.PostProcessing.RayForming.ray_config but callers of pipeline_config
+# should be able to import it from here alongside GazeConfig.
+from mindsight.PostProcessing.RayForming.ray_config import RayFormingConfig  # noqa: F401
+
+# ══════════════════════════════════════════════════════════════════════════════
+# Participant-ID display helper
+# ══════════════════════════════════════════════════════════════════════════════
+
+def resolve_display_pid(track_id: int,
+                        pid_map: Optional[dict[int, str]] = None) -> str:
+    """Return the display label for an internal track ID.
+
+    If *pid_map* is provided and contains *track_id*, the custom label is
+    returned.  Otherwise falls back to ``"P{track_id}"``.
+    """
+    if pid_map and track_id in pid_map:
+        return pid_map[track_id]
+    return f"P{track_id}"
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# Per-frame pipeline context
+# ══════════════════════════════════════════════════════════════════════════════
+
+class FrameContext:
+    """Mutable context passed through all pipeline stages.
+
+    Each stage reads what it needs and writes its results.
+    Plugins access only the keys they care about.
+
+    Supports dict-like access::
+
+        ctx = FrameContext(frame=img, frame_no=42)
+        ctx['objects'] = detected_objects
+        objs = ctx.get('objects', [])
+        if 'hits' in ctx: ...
+    """
+
+    __slots__ = ('data',)
+
+    def __init__(self, frame=None, frame_no: int = 0, **kwargs):
+        self.data: dict = {'frame': frame, 'frame_no': frame_no, **kwargs}
+
+    def __getitem__(self, key):
+        return self.data[key]
+
+    def __setitem__(self, key, val):
+        self.data[key] = val
+
+    def __contains__(self, key):
+        return key in self.data
+
+    def get(self, key, default=None):
+        return self.data.get(key, default)
+
+    def update(self, mapping):
+        self.data.update(mapping)
+
+    def as_kwargs(self) -> dict:
+        """Return a shallow copy of the context data for ``**kwargs`` unpacking."""
+        return dict(self.data)
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# Gaze configuration
+# ══════════════════════════════════════════════════════════════════════════════
+
+@dataclass
+class GazeConfig:
+    """All gaze-estimation and ray-intersection tuning parameters."""
+
+    ray_length: float = 1.0
+    adaptive_ray: str = "off"          # "off", "extend", or "snap"
+    snap_dist: float = 150.0
+    snap_bbox_scale: float = 0.0      # fraction of bbox half-diag added to snap radius
+    # Scoring weights
+    snap_w_dist: float = 1.0          # normalized distance penalty
+    snap_w_angle: float = 0.8         # angular deviation penalty
+    snap_w_size: float = 0.0          # object size reward (off by default)
+    snap_w_intersect: float = 0.5     # ray-bbox intersection bonus
+    snap_w_temporal: float = 0.3      # previous-target stickiness
+    # Angular plausibility
+    snap_gate_angle: float = 60.0     # hard angular cutoff (degrees)
+    snap_head_blend: float = 0.3      # 0=pure gaze, 1=pure head
+    # Quality gating
+    snap_quality_thresh: float = 0.8  # max score to accept a match
+    # Tip snap overrides (-1 = use shared value)
+    snap_tip_dist: float = -1.0
+    snap_tip_quality: float = -1.0
+    # Other
+    conf_ray: bool = False
+    gaze_tips: bool = False
+    tip_radius: int = 80
+    gaze_cone_angle: float = 0.0
+    hit_conf_gate: float = 0.0
+    detect_extend: float = 0.0            # extra pixels past visual ray (0 = visual parity)
+    detect_extend_scope: str = "objects"   # "objects", "phenomena", or "both"
+    ja_quorum: float = 1.0
+    gaze_debug: bool = False
+    forward_gaze_threshold: float = 5.0
+    smooth_snap: str = "off"              # "off", "objects", "gaze_tips", or "all"
+    smooth_snap_alpha: float = 0.20
+
+    @classmethod
+    def from_namespace(cls, ns) -> GazeConfig:
+        """Construct from an ``argparse.Namespace``."""
+        return cls(
+            ray_length=ns.ray_length,
+            adaptive_ray=ns.adaptive_ray,
+            snap_dist=ns.snap_dist,
+            snap_bbox_scale=getattr(ns, 'snap_bbox_scale', 0.0),
+            snap_w_dist=getattr(ns, 'snap_w_dist', 1.0),
+            snap_w_angle=getattr(ns, 'snap_w_angle', 0.8),
+            snap_w_size=getattr(ns, 'snap_w_size', 0.0),
+            snap_w_intersect=getattr(ns, 'snap_w_intersect', 0.5),
+            snap_w_temporal=getattr(ns, 'snap_w_temporal', 0.3),
+            snap_gate_angle=getattr(ns, 'snap_gate_angle', 60.0),
+            snap_head_blend=getattr(ns, 'snap_head_blend', 0.3),
+            snap_quality_thresh=getattr(ns, 'snap_quality_thresh', 0.8),
+            snap_tip_dist=getattr(ns, 'snap_tip_dist', -1.0),
+            snap_tip_quality=getattr(ns, 'snap_tip_quality', -1.0),
+            conf_ray=ns.conf_ray,
+            gaze_tips=ns.gaze_tips,
+            tip_radius=ns.tip_radius,
+            gaze_cone_angle=ns.gaze_cone,
+            hit_conf_gate=getattr(ns, 'hit_conf_gate', 0.0),
+            detect_extend=getattr(ns, 'detect_extend', 0.0),
+            detect_extend_scope=getattr(ns, 'detect_extend_scope', 'objects'),
+            ja_quorum=ns.ja_quorum,
+            gaze_debug=ns.gaze_debug,
+            forward_gaze_threshold=ns.forward_gaze_threshold,
+            smooth_snap=getattr(ns, 'smooth_snap', 'off'),
+            smooth_snap_alpha=getattr(ns, 'smooth_snap_alpha', 0.20),
+        )
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# Detection configuration
+# ══════════════════════════════════════════════════════════════════════════════
+
+@dataclass
+class DetectionConfig:
+    """Object-detection parameters passed through to YOLO."""
+
+    conf: float = 0.35
+    class_ids: list | None = None
+    blacklist: set = field(default_factory=set)
+    detect_scale: float = 1.0
+    merge_overlaps: bool = False
+    merge_overlap_strategy: str = 'dynamic'
+    merge_overlap_threshold: float = 0.7
+
+    @classmethod
+    def from_namespace(cls, ns, class_ids, blacklist) -> DetectionConfig:
+        """Construct from an ``argparse.Namespace`` plus resolved IDs/blacklist."""
+        return cls(
+            conf=ns.conf,
+            class_ids=class_ids,
+            blacklist=blacklist,
+            detect_scale=ns.detect_scale,
+            merge_overlaps=getattr(ns, 'merge_overlaps', False),
+            merge_overlap_strategy=getattr(ns, 'merge_overlap_strategy', 'filter'),
+            merge_overlap_threshold=getattr(ns, 'merge_overlap_threshold', 0.7),
+        )
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# Tracker construction configuration
+# ══════════════════════════════════════════════════════════════════════════════
+
+@dataclass
+class TrackerConfig:
+    """Parameters used by ``run()`` to construct per-run tracker instances."""
+
+    gaze_lock: bool = False
+    dwell_frames: int = 15
+    lock_dist: int = 100
+    skip_frames: int = 1
+    obj_persistence: int = 0
+    snap_release_frames: int = 5
+    snap_engage_frames: int = 0
+    reid_grace_seconds: float = 1.0
+    reid_max_dist: int = 200
+
+    @classmethod
+    def from_namespace(cls, ns) -> TrackerConfig:
+        """Construct from an ``argparse.Namespace``."""
+        return cls(
+            gaze_lock=ns.gaze_lock,
+            dwell_frames=ns.dwell_frames,
+            lock_dist=ns.lock_dist,
+            skip_frames=ns.skip_frames,
+            obj_persistence=ns.obj_persistence,
+            snap_release_frames=getattr(ns, 'snap_release_frames', 5),
+            snap_engage_frames=getattr(ns, 'snap_engage_frames', 0),
+            reid_grace_seconds=ns.reid_grace_seconds,
+            reid_max_dist=getattr(ns, 'reid_max_dist', 200),
+        )
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# Depth estimation configuration
+# ══════════════════════════════════════════════════════════════════════════════
+
+@dataclass
+class DepthConfig:
+    """Monocular depth estimation parameters."""
+
+    enabled: bool = False
+    backend: str = "midas_small"
+    input_size: int = 384             # model input resolution (smaller = faster)
+    skip_frames: int = 1              # run depth every N detection cycles
+    depth_aware_scoring: bool = False  # opt-in snap scoring modification
+    snap_w_depth: float = 0.4         # scoring weight (only used when above is True)
+    gaze_sample_radius: int = 2       # half-size of patch for depth_at_gaze sampling
+
+    @classmethod
+    def from_namespace(cls, ns) -> DepthConfig:
+        """Construct from an ``argparse.Namespace``."""
+        return cls(
+            enabled=getattr(ns, 'depth', False),
+            backend=getattr(ns, 'depth_backend', 'midas_small'),
+            input_size=getattr(ns, 'depth_input_size', 384),
+            skip_frames=getattr(ns, 'depth_skip_frames', 1),
+            depth_aware_scoring=getattr(ns, 'depth_aware_scoring', False),
+            snap_w_depth=getattr(ns, 'depth_w_depth', 0.4),
+            gaze_sample_radius=getattr(ns, 'depth_sample_radius', 2),
+        )
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# Output configuration
+# ══════════════════════════════════════════════════════════════════════════════
+
+class VideoType(str, Enum):
+    """Classification of auxiliary video stream content."""
+
+    WIDE_CLOSEUP = "wide_closeup"    # multiple participants in view
+    FACE_CLOSEUP = "face_closeup"    # single person face
+    EYE_ONLY = "eye_only"            # single person eye region
+    CUSTOM = "custom"                # arbitrary user-defined type
+
+
+@dataclass
+class AuxStreamConfig:
+    """Configuration for a single auxiliary video stream.
+
+    Auxiliary streams are optional video feeds (e.g. a dedicated
+    eye-tracking camera, a wide-angle room camera, or a first-person-view
+    camera) that are frame-synchronised with the main source.  They are
+    exposed in ``FrameContext['aux_frames']`` for consumption by plugins.
+
+    Each stream declares its ``video_type`` (how the video is framed) and
+    the ``participants`` visible in it.  Plugins declare preferred video
+    types via ``preferred_video_types`` and the system auto-routes
+    matching streams, with user config overrides.
+    """
+
+    source: str                        # file path or device index string
+    video_type: VideoType              # how the video is framed
+    stream_label: str                  # user-defined label (e.g. "left_eye_cam")
+    participants: list[str]            # participant labels visible in this stream
+    auto_detect_faces: bool = True     # run face detection on WIDE/FACE streams
+
+
+def find_aux_frame(
+    aux_frames: dict,
+    pid: str,
+    *,
+    video_type: VideoType | None = None,
+    stream_label: str | None = None,
+):
+    """Find the best matching auxiliary frame for a participant.
+
+    Searches *aux_frames* (keyed by ``(pid, stream_label, video_type)``)
+    for the given participant.  Optionally filters by *video_type* and/or
+    *stream_label*.  Returns the first matching frame, or ``None``.
+    """
+    for (apid, alabel, avtype), frame in aux_frames.items():
+        if apid != pid:
+            continue
+        if video_type is not None and avtype != video_type:
+            continue
+        if stream_label is not None and alabel != stream_label:
+            continue
+        if frame is not None:
+            return frame
+    return None
+
+
+@dataclass
+class OutputConfig:
+    """Paths and flags controlling run-loop outputs (video, CSV, heatmaps)."""
+
+    save: bool | str | None = None
+    log_path: str | None = None
+    summary_path: str | None = None
+    heatmap_path: str | None = None
+    charts_path: bool | str | None = None
+    pid_map: dict[int, str] | None = None
+    aux_streams: list[AuxStreamConfig] | None = None
+    anonymize: str | None = None          # "blur" or "black"; None = disabled
+    anonymize_padding: float = 0.3        # fraction of bbox size added as margin
+    video_name: str | None = None         # source video stem (project mode only)
+    conditions: str | None = None         # pipe-delimited tags (project mode only)
+
+    @classmethod
+    def from_namespace(cls, ns) -> OutputConfig:
+        """Construct from an ``argparse.Namespace``."""
+        return cls(
+            save=ns.save,
+            log_path=ns.log,
+            summary_path=ns.summary,
+            heatmap_path=ns.heatmap,
+            charts_path=getattr(ns, 'charts', None),
+            pid_map=getattr(ns, 'pid_map', None),
+            aux_streams=getattr(ns, 'aux_streams', None),
+            anonymize=getattr(ns, 'anonymize', None),
+            anonymize_padding=getattr(ns, 'anonymize_padding', 0.3),
+        )
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# Project-level configuration (loaded from project.yaml)
+# ══════════════════════════════════════════════════════════════════════════════
+
+@dataclass
+class ProjectOutputConfig:
+    """Controls where project-level outputs are written."""
+
+    directory: str | None = None          # output root (absolute or relative to project)
+
+    def resolve_root(self, project: Path) -> Path:
+        """Return the resolved output root directory."""
+        if self.directory:
+            out = Path(self.directory)
+            return out if out.is_absolute() else project / out
+        return project / "Outputs"
+
+
+@dataclass
+class ProjectConfig:
+    """Project metadata loaded from ``project.yaml``.
+
+    Stores study-level information (condition tags, participant labels,
+    output settings) that is orthogonal to pipeline processing parameters
+    stored in ``pipeline.yaml``.
+    """
+
+    pipeline_path: str | None = None
+    conditions: dict[str, list[str]] = field(default_factory=dict)
+    participants: dict[str, dict[int, str]] = field(default_factory=dict)
+    output: ProjectOutputConfig = field(default_factory=ProjectOutputConfig)
