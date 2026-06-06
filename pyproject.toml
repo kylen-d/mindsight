@@ -61,7 +61,7 @@ ignore = [
 
 [tool.ruff.lint.per-file-ignores]
 "ms/GazeTracking/Backends/MGaze/MGaze_Tracking.py" = ["E402"]
-"ms/ObjectDetection/model_factory.py" = ["E402"]
+"mindsight/ObjectDetection/model_factory.py" = ["E402"]
 "Plugins/GazeTracking/Gazelle/gazelle_backend.py" = ["E402"]
 
 [tool.pytest.ini_options]
