@@ -1,9 +1,2 @@
-"""
-ms.io -- Input/output boundary for the pipeline.
-
-- ``sources``: primary video/image/webcam capture + auxiliary-stream handling.
-- ``writers``: annotated-video writer + per-frame event-CSV handles.
-
-These modules isolate all file/device IO from the pipeline logic so the
-GUI-consumable ``Pipeline`` API can own its own IO lifecycle.
-"""
+"""[SP1.5 shim] package moved to mindsight.io; delete in SP1.6."""
+from mindsight.io import *  # noqa: F401,F403
