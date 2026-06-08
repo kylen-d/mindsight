@@ -46,7 +46,7 @@ line_length = 99
 line-length = 99
 target-version = "py310"
 extend-exclude = [
-    "ms/GazeTracking/Backends/MGaze/gaze-estimation",  # upstream third-party code
+    "mindsight/GazeTracking/Backends/MGaze/gaze-estimation",  # upstream third-party code
     "Plugins/GazeTracking/Gazelle/gazelle",  # upstream third-party code
 ]
 
@@ -60,7 +60,7 @@ ignore = [
 ]
 
 [tool.ruff.lint.per-file-ignores]
-"ms/GazeTracking/Backends/MGaze/MGaze_Tracking.py" = ["E402"]
+"mindsight/GazeTracking/Backends/MGaze/MGaze_Tracking.py" = ["E402"]
 "mindsight/ObjectDetection/model_factory.py" = ["E402"]
 "Plugins/GazeTracking/Gazelle/gazelle_backend.py" = ["E402"]
 
