@@ -8,7 +8,7 @@ public names so existing imports keep working; new code should import from
 ``ms.config_compat``.  Slated for removal in SP1.6 with the other legacy shims.
 """
 
-from ms.config_compat import (  # noqa: F401
+from mindsight.config_compat import (  # noqa: F401
     _flatten,
     _is_default,
     load_pipeline,
