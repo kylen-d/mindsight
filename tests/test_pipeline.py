@@ -33,17 +33,18 @@ pytestmark = [
 @pytest.fixture(scope="module")
 def built():
     """Build models + config dataclasses exactly as the CLI does (default cfg)."""
-    from ms.cli import _args, _build_from_args
+    from ms.cli import _args
+    from mindsight.factory import build_from_namespace
     ns = _args(["--source", str(VIDEO), "--no-dashboard"])
     try:
-        tup = _build_from_args(ns)
+        tup = build_from_namespace(ns)
     except Exception as exc:  # missing weights / backends in this environment
         pytest.skip(f"could not build pipeline models: {exc}")
     return ns, tup
 
 
 def _make_pipeline(tup, **output_overrides):
-    """Assemble a Pipeline from the _build_from_args tuple, optionally
+    """Assemble a Pipeline from the build_from_namespace tuple, optionally
     overriding OutputConfig fields (e.g. log/summary paths)."""
     from ms.pipeline import Pipeline
     (yolo, face_det, gaze_eng, gaze_cfg, det_cfg, tracker_cfg, output_cfg,

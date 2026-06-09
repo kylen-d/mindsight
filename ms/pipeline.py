@@ -736,10 +736,9 @@ def run(source, yolo, face_det, gaze_eng,
 def build_from_namespace(ns):
     """Build models + config dataclasses from an argparse-style namespace.
 
-    Public home for what ``ms.cli._build_from_args`` does; the body still lives
-    in ms/cli.py until SP1.5 gives model wiring a proper module.  Returns the
-    same 14-tuple ``_build_from_args`` returns.  GUI workers call this so they
-    never import ``ms.cli`` privates.
+    Delegates to mindsight.factory.build_from_namespace (the model-wiring home
+    since SP1.5).  Returns the same 14-tuple.  GUI workers call this so they
+    never import model-wiring privates.
     """
-    from ms.cli import _build_from_args   # lazy: ms.cli imports ms.pipeline
-    return _build_from_args(ns)
+    from mindsight.factory import build_from_namespace as _factory_build
+    return _factory_build(ns)
