@@ -1,9 +1,9 @@
 """
-ms.io.sources -- Input sources for the pipeline.
+mindsight.io.sources -- Input sources for the pipeline.
 
 Owns the primary capture (video file / image / webcam) and the auxiliary
 video-stream lifecycle: open, per-frame read, and face-detection enrichment.
-Extracted from mindsight.cli / ms.pipeline as part of the SP1.2 io extraction; the
+Extracted from mindsight.cli / mindsight.pipeline as part of the SP1.2 io extraction; the
 aux-stream helpers are moved verbatim, so behavior is byte-identical.
 """
 

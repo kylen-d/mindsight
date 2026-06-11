@@ -1,1 +1,1 @@
-"""ms.PostProcessing — Post-processing modules for the MindSight pipeline."""
+"""mindsight.PostProcessing — Post-processing modules for the MindSight pipeline."""

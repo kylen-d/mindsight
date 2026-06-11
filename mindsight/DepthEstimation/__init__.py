@@ -1,5 +1,5 @@
 """
-ms.DepthEstimation -- Monocular depth estimation pipeline stage.
+mindsight.DepthEstimation -- Monocular depth estimation pipeline stage.
 
 Provides a ``DepthBackend`` protocol and a lightweight MiDaS implementation
 for injecting per-frame depth maps into the MindSight pipeline.

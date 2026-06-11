@@ -1,4 +1,4 @@
-"""ms.gui -- Launch the MindSight graphical user interface."""
+"""mindsight.gui -- Launch the MindSight graphical user interface."""
 
 from mindsight.GUI.main_window import main
 

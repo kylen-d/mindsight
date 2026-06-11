@@ -1,12 +1,12 @@
 """
-ms.cli_flags -- Schema-generated argparse frontend.
+mindsight.cli_flags -- Schema-generated argparse frontend.
 
 The MindSight CLI parser is built from an ordered ``FlagSpec`` table
 (``CORE_FLAGS``) rather than hand-written ``add_argument`` calls.  The table was
 generated once from the live legacy parser (scripts/capture_cli_parser_spec.py)
 and frozen here -- it carries presentation (help/metavar/nargs/const/choices/
 group/order); the VALUES (default + scalar type) come from the pydantic schema
-in ``ms.config`` at build time, so the schema stays the single source of truth
+in ``mindsight.config`` at build time, so the schema stays the single source of truth
 for defaults.  Two flags (``--min-call-gap`` / ``--rf-gazelle-interval``) carry
 an explicit ``default=None`` because ``resolve_min_call_gap`` needs None to
 detect "unset"; every other schema-backed flag's default is the schema default.
@@ -247,7 +247,7 @@ def build_parser() -> argparse.ArgumentParser:
 def parse_cli(argv=None):
     """Parse argv and attach ``_explicit_cli`` (the dests the user actually
     typed), via the SUPPRESS double-parse moved verbatim from the legacy
-    ``ms.cli._args``.  YAML precedence in the loader depends on this set."""
+    ``mindsight.cli._args``.  YAML precedence in the loader depends on this set."""
     parser = build_parser()
 
     # argparse cannot tell a user-typed flag from a default; suppress every

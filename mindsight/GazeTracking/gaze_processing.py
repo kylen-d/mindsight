@@ -4,7 +4,7 @@ GazeTracking/gaze_processing.py — Generic gaze utilities shared across all bac
 Contains backend-agnostic tools for temporal smoothing, track re-identification,
 and eye-landmark extraction.  Also re-exports the post-processing tools
 (snap scoring, fixation lock-on, tip-snapping, ray-bbox intersection) that
-now live in ``ms.PostProcessing.RayForming`` for backward compatibility.
+now live in ``mindsight.PostProcessing.RayForming`` for backward compatibility.
 
 Plugins can extend this module's functionality by subclassing ``GazeToolkit``
 and overriding or adding methods.  The coordinator passes the active toolkit

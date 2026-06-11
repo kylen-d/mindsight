@@ -1,9 +1,9 @@
 """
-ms.pipeline -- Extracted MindSight run loop (frame loop + per-frame stages).
+mindsight.pipeline -- Extracted MindSight run loop (frame loop + per-frame stages).
 
-This module holds the code that was historically embedded in ``ms.cli``: the
+This module holds the code that was historically embedded in ``mindsight.cli``: the
 per-frame ``process_frame`` orchestrator, the auxiliary-stream helpers, the
-static-image path, and the video/webcam ``run`` loop.  ``ms.cli`` now imports
+static-image path, and the video/webcam ``run`` loop.  ``mindsight.cli`` now imports
 ``run`` from here and remains the thin CLI/model-wiring layer.
 
 The public surface is a GUI-consumable ``Pipeline`` (a generator over
@@ -262,7 +262,7 @@ class Pipeline:
 
     Build it from the existing config dataclasses (what
     ``cli._build_from_args`` produces) or, equivalently, from a unified
-    :class:`~ms.config.PipelineConfig` via :meth:`from_config`.  :meth:`run` is
+    :class:`~mindsight.config.PipelineConfig` via :meth:`from_config`.  :meth:`run` is
     a generator over :class:`FrameResult`; :func:`run_to_completion` drives it
     the way the CLI does.
     """

@@ -19,7 +19,7 @@ from pathlib import Path
 from typing import Optional
 
 # Re-export RayFormingConfig for convenience — the canonical definition lives
-# in ms.PostProcessing.RayForming.ray_config but callers of pipeline_config
+# in mindsight.PostProcessing.RayForming.ray_config but callers of pipeline_config
 # should be able to import it from here alongside GazeConfig.
 from mindsight.PostProcessing.RayForming.ray_config import RayFormingConfig  # noqa: F401
 

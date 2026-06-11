@@ -1,6 +1,6 @@
 """
 config_compat.py -- Compatibility layer between today's CLI/YAML spellings
-and the unified ``ms.config.PipelineConfig`` schema (SP1.1).
+and the unified ``mindsight.config.PipelineConfig`` schema (SP1.1).
 
 Three frozen tables map every existing knob onto schema paths:
 
@@ -712,7 +712,7 @@ def load_pipeline(path: str | Path, ns: Namespace | None = None) -> Namespace:
         ns = Namespace()
 
     # Precedence source of truth.  When the CLI parser attached ``_explicit_cli``
-    # (the exact set of user-typed dests, see ms.cli._args), YAML applies to
+    # (the exact set of user-typed dests, see mindsight.cli._args), YAML applies to
     # every dest the user did NOT type and the _is_default heuristic is bypassed.
     # GUI-constructed / synthetic namespaces lack the attr and keep the legacy
     # _is_default path unchanged.

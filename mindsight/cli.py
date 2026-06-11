@@ -1,5 +1,5 @@
 """
-ms.cli -- Main program; orchestrates the full gaze-tracking pipeline.
+mindsight.cli -- Main program; orchestrates the full gaze-tracking pipeline.
 
 Architecture
 ------------
@@ -37,7 +37,7 @@ from mindsight.cli_flags import parse_cli
 from mindsight.factory import build_from_namespace
 
 # -- Extracted run loop --------------------------------------------------------
-# The per-frame orchestrator and video/webcam loop live in ms.pipeline now.
+# The per-frame orchestrator and video/webcam loop live in mindsight.pipeline now.
 # ``run`` stays importable from mindsight.cli for backward compatibility (GUI workers,
 # project_runner, tests) with an identical signature.
 from mindsight.pipeline import run
@@ -51,7 +51,7 @@ def _args(argv=None):
     """Parse argv into a namespace with ``_explicit_cli`` attached.
 
     The parser is generated from the pydantic schema + the FlagSpec table in
-    ``ms.cli_flags``; this remains the public entry point (GUI and tests
+    ``mindsight.cli_flags``; this remains the public entry point (GUI and tests
     import it), with an identical returned-namespace shape.
     """
     return parse_cli(argv)

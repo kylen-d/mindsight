@@ -1,5 +1,5 @@
 """
-ms.io -- Input/output boundary for the pipeline.
+mindsight.io -- Input/output boundary for the pipeline.
 
 - ``sources``: primary video/image/webcam capture + auxiliary-stream handling.
 - ``writers``: annotated-video writer + per-frame event-CSV handles.

@@ -3,34 +3,34 @@ config.py -- Unified pydantic-v2 schema for every MindSight pipeline parameter.
 
 This is the single source of truth introduced in SP1.1.  Each section model
 mirrors an existing runtime dataclass field-for-field (same names, types, and
-defaults) so that ``ms.config_compat.to_dataclasses()`` can reconstruct the
+defaults) so that ``mindsight.config_compat.to_dataclasses()`` can reconstruct the
 exact objects the pipeline consumes today:
 
     section       mirrors dataclass
     ---------     -----------------------------------------------------------
-    detection     ms.pipeline_config.DetectionConfig
-    gaze          ms.pipeline_config.GazeConfig
-    tracker       ms.pipeline_config.TrackerConfig
-    rayforming    ms.PostProcessing.RayForming.ray_config.RayFormingConfig
-    depth         ms.pipeline_config.DepthConfig
-    phenomena     ms.Phenomena.phenomena_config.PhenomenaConfig
-    output        ms.pipeline_config.OutputConfig
-    project       ms.pipeline_config.ProjectConfig
+    detection     mindsight.pipeline_config.DetectionConfig
+    gaze          mindsight.pipeline_config.GazeConfig
+    tracker       mindsight.pipeline_config.TrackerConfig
+    rayforming    mindsight.PostProcessing.RayForming.ray_config.RayFormingConfig
+    depth         mindsight.pipeline_config.DepthConfig
+    phenomena     mindsight.Phenomena.phenomena_config.PhenomenaConfig
+    output        mindsight.pipeline_config.OutputConfig
+    project       mindsight.pipeline_config.ProjectConfig
 
 Field metadata: fields whose argparse ``dest`` matches the field name carry
 ``json_schema_extra={"cli": "--the-flag"}``.  Flags whose dest differs from
-the schema field name live in ``ms.config_compat.CLI_ALIASES`` instead, and
+the schema field name live in ``mindsight.config_compat.CLI_ALIASES`` instead, and
 flags with no schema home are documented in
-``ms.config_compat.EXCLUDED_CLI_FLAGS``.
+``mindsight.config_compat.EXCLUDED_CLI_FLAGS``.
 
 Several argparse dests feed MORE THAN ONE schema field (e.g. ``ray_length``
 populates both ``gaze.ray_length`` and ``rayforming.ray_length``, exactly as
 the existing ``from_namespace`` classmethods do).  The canonical ``cli``
 metadata lives on the primary owner; the mirrors are listed in
-``ms.config_compat.PATH_MIRRORS``.
+``mindsight.config_compat.PATH_MIRRORS``.
 
 Weight paths are stored exactly as given -- resolution stays in
-``ms.weights.resolve_weight()`` / the model factories.
+``mindsight.weights.resolve_weight()`` / the model factories.
 
 SP1.2 note: ``PipelineConfig.from_namespace(ns)`` is the bridge for
 ``Pipeline(cfg)`` while the CLI/GUI still produce argparse namespaces.  It
@@ -60,7 +60,7 @@ _FORBID = ConfigDict(extra="forbid")
 # ══════════════════════════════════════════════════════════════════════════════
 
 class DetectionSection(BaseModel):
-    """Mirrors ms.pipeline_config.DetectionConfig."""
+    """Mirrors mindsight.pipeline_config.DetectionConfig."""
 
     model_config = _FORBID
 
@@ -95,7 +95,7 @@ class DetectionSection(BaseModel):
 
 
 class GazeSection(BaseModel):
-    """Mirrors ms.pipeline_config.GazeConfig."""
+    """Mirrors mindsight.pipeline_config.GazeConfig."""
 
     model_config = _FORBID
 
@@ -130,7 +130,7 @@ class GazeSection(BaseModel):
 
 
 class TrackerSection(BaseModel):
-    """Mirrors ms.pipeline_config.TrackerConfig."""
+    """Mirrors mindsight.pipeline_config.TrackerConfig."""
 
     model_config = _FORBID
 
@@ -146,7 +146,7 @@ class TrackerSection(BaseModel):
 
 
 class RayFormingSection(BaseModel):
-    """Mirrors ms.PostProcessing.RayForming.ray_config.RayFormingConfig.
+    """Mirrors mindsight.PostProcessing.RayForming.ray_config.RayFormingConfig.
 
     Many fields here are populated from the SAME argparse dest as a gaze /
     tracker / depth field (RayFormingConfig.from_namespace reads the shared
@@ -221,7 +221,7 @@ class RayFormingSection(BaseModel):
 
 
 class DepthSection(BaseModel):
-    """Mirrors ms.pipeline_config.DepthConfig.
+    """Mirrors mindsight.pipeline_config.DepthConfig.
 
     All dests here except depth_aware_scoring are prefixed ('depth',
     'depth_backend', ...) while the field names are not, so the flags live in
@@ -241,7 +241,7 @@ class DepthSection(BaseModel):
 
 
 class PhenomenaSection(BaseModel):
-    """Mirrors ms.Phenomena.phenomena_config.PhenomenaConfig.
+    """Mirrors mindsight.Phenomena.phenomena_config.PhenomenaConfig.
 
     ``--all-phenomena`` is a transient expander (handled inside
     from_namespace, like PhenomenaConfig.from_namespace does); it has no
@@ -271,7 +271,7 @@ class PhenomenaSection(BaseModel):
 
 
 class AuxStream(BaseModel):
-    """Mirrors ms.pipeline_config.AuxStreamConfig."""
+    """Mirrors mindsight.pipeline_config.AuxStreamConfig."""
 
     model_config = _FORBID
 
@@ -283,7 +283,7 @@ class AuxStream(BaseModel):
 
 
 class OutputSection(BaseModel):
-    """Mirrors ms.pipeline_config.OutputConfig."""
+    """Mirrors mindsight.pipeline_config.OutputConfig."""
 
     model_config = _FORBID
 
@@ -304,7 +304,7 @@ class OutputSection(BaseModel):
 
 
 class ProjectOutputSection(BaseModel):
-    """Mirrors ms.pipeline_config.ProjectOutputConfig."""
+    """Mirrors mindsight.pipeline_config.ProjectOutputConfig."""
 
     model_config = _FORBID
 
@@ -312,7 +312,7 @@ class ProjectOutputSection(BaseModel):
 
 
 class ProjectSection(BaseModel):
-    """Mirrors ms.pipeline_config.ProjectConfig (loaded from project.yaml)."""
+    """Mirrors mindsight.pipeline_config.ProjectConfig (loaded from project.yaml)."""
 
     model_config = _FORBID
 

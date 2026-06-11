@@ -2,7 +2,7 @@
 GazeTracking/gaze_pipeline.py — Run-loop gaze step (plugin coordinator).
 
 Delegates gaze estimation to the active plugin, then applies unified ray
-forming via ``ms.PostProcessing.RayForming``.  When a ``GazelleProvider``
+forming via ``mindsight.PostProcessing.RayForming``.  When a ``GazelleProvider``
 is available on the context, periodic Gaze-LLE heatmap inference and belief
 blending are applied as a core pipeline feature.
 

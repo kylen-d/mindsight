@@ -4,7 +4,7 @@ GUI/workers.py — Background worker threads for the MindSight GUI.
 Workers
 -------
 GazeWorker          -- Namespace-driven: builds models via
-                       ``ms.pipeline.build_from_namespace(ns)`` then consumes
+                       ``mindsight.pipeline.build_from_namespace(ns)`` then consumes
                        ``Pipeline.run`` (FrameResult stream) with full CLI
                        feature parity (phenomena, plugins, heatmaps, flags).
 VPInferenceWorker   -- Runs YOLOE inference on a batch of images using a
@@ -36,9 +36,9 @@ class GazeWorker(threading.Thread):
     produces, so every CLI feature (phenomena, plugins, heatmaps, etc.) works
     automatically without manual plumbing.
 
-    Each :class:`~ms.pipeline.FrameResult`'s ``annotated`` frame is pushed to
+    Each :class:`~mindsight.pipeline.FrameResult`'s ``annotated`` frame is pushed to
     *frame_q* for the GUI to display; the worker's stop Event is translated into
-    a per-frame :class:`~ms.pipeline.CancelToken` (no cv2 monkeypatching).
+    a per-frame :class:`~mindsight.pipeline.CancelToken` (no cv2 monkeypatching).
     """
 
     def __init__(self, ns: Namespace, frame_q: queue.Queue, log_q: queue.Queue,
