@@ -13,7 +13,10 @@ detect "unset"; every other schema-backed flag's default is the schema default.
 
 Plugins keep contributing flags via ``add_arguments(parser)`` (paper contract):
 ``build_parser`` calls the gaze / object-detection / phenomena registries after
-the core table, in the same order the legacy ``_args`` did.
+the core table, in the same order the legacy ``_args`` did.  MGaze is a core
+backend (not a registry plugin) since SP1.6, so ``build_parser`` calls its
+``add_arguments`` explicitly, right after the gaze registry loop, to preserve
+the legacy flag order.
 
 ``parse_cli`` reproduces the SUPPRESS double-parse that records exactly the
 flags the user typed (``ns._explicit_cli``) -- the YAML-precedence mechanism.
@@ -236,6 +239,10 @@ def build_parser() -> argparse.ArgumentParser:
     # Plugin-contributed arguments (paper contract) -- same order as legacy _args.
     for _pname in _gaze_registry.names():
         _gaze_registry.get(_pname).add_arguments(parser)
+    # Core gaze backend flags (MGaze is core since SP1.6, not a registry plugin;
+    # added here, after registry gaze plugins, to preserve the legacy flag order).
+    from mindsight.GazeTracking.Backends.MGaze.MGaze_Tracking import MGazePlugin
+    MGazePlugin.add_arguments(parser)
     for _pname in _od_registry.names():
         _od_registry.get(_pname).add_arguments(parser)
     for _pname in _phenomena_registry.names():

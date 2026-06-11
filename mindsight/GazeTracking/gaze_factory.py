@@ -8,7 +8,8 @@ Resolution order
 -----------------
 1. Explicit *backend* name (e.g. ``"gazelle"``, ``"mgaze"``).
 2. Each registered gaze plugin's ``from_args()`` (non-fallback first).
-3. Fallback plugins (``is_fallback = True``, e.g. MGaze).
+3. Fallback plugins (``is_fallback = True``).
+4. The built-in MGaze core backend (final fallback).
 """
 from Plugins import gaze_registry
 
@@ -36,6 +37,11 @@ def create_gaze_engine(
     """
     # 1. Explicit backend requested (e.g. by GUI)
     if backend is not None:
+        if backend == "mgaze":
+            from mindsight.GazeTracking.Backends.MGaze.MGaze_Tracking import (
+                MGazePlugin,
+            )
+            return MGazePlugin(**backend_kwargs)
         pcls = gaze_registry.get(backend)
         return pcls(**backend_kwargs)
 
@@ -69,7 +75,21 @@ def create_gaze_engine(
             if eng is not None:
                 return eng
 
+    # 4. Built-in core backend (MGaze) -- final fallback
+    if plugin_args is not None:
+        from mindsight.GazeTracking.Backends.MGaze.MGaze_Tracking import (
+            MGazePlugin,
+        )
+        try:
+            eng = MGazePlugin.from_args(plugin_args)
+        except Exception as exc:
+            raise RuntimeError(
+                f"Core gaze backend 'mgaze' failed to initialize: {exc}"
+            ) from exc
+        if eng is not None:
+            return eng
+
     raise RuntimeError(
         "No gaze backend could be activated. "
-        f"Available plugins: {gaze_registry.names()}"
+        f"Available plugins: {gaze_registry.names()}; core fallback: mgaze"
     )

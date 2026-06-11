@@ -18,12 +18,6 @@ def test_package_shim_reexport():
     assert A is B
 
 
-def test_backend_discovery_intact():
-    """T1/Template B: the Backends discover still registers mgaze + l2cs."""
-    from Plugins import gaze_registry
-    assert {"mgaze", "l2cs"} <= set(gaze_registry.names())
-
-
 def test_user_plugin_contract():
     """The documented third-party import surface stays importable via shims."""
     from ms.pipeline_config import resolve_display_pid  # noqa: F401

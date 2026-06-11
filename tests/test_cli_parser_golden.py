@@ -6,8 +6,8 @@ test exercises the generated parser through ``ms.cli._args`` and proves it
 reproduces every flag, default, type, nargs/const, choice, group, and help line.
 
 The census is also pinned here so drift in the schema/alias/exclusion tables --
-which drive generation -- is caught: 151 actions = 105 core (71 schema-cli + 12
-CLI_ALIASES + 22 excluded) + 46 plugin.
+which drive generation -- is caught: 148 actions = 105 core (71 schema-cli + 12
+CLI_ALIASES + 22 excluded) + 43 plugin.
 """
 
 import json
@@ -52,8 +52,8 @@ def test_parser_prog_and_action_count():
     spec = _live_spec()
     golden = _load_golden()
     assert spec["prog"] == golden["prog"]
-    assert len(spec["actions"]) == 151
-    assert len(golden["actions"]) == 151
+    assert len(spec["actions"]) == 148
+    assert len(golden["actions"]) == 148
 
 
 def test_parser_spec_matches_golden():
@@ -76,7 +76,7 @@ def test_help_output_matches_golden():
 
 def test_census_partition_welds_to_tables():
     """The 105 core flags partition exactly into schema-cli / alias / excluded,
-    and the plugin groups supply the remaining 46 -- the invariant generation
+    and the plugin groups supply the remaining 43 -- the invariant generation
     relies on."""
     from mindsight.config import PipelineConfig
     from mindsight.config_compat import CLI_ALIASES, EXCLUDED_CLI_FLAGS
@@ -85,7 +85,7 @@ def test_census_partition_welds_to_tables():
     core = [a for a in spec["actions"] if a["group"] in CORE_GROUPS]
     plugin = [a for a in spec["actions"] if a["group"] not in CORE_GROUPS]
     assert len(core) == 105
-    assert len(plugin) == 46
+    assert len(plugin) == 43
 
     schema_cli: set[str] = set()
 

@@ -105,12 +105,15 @@ class TestPluginBaseClasses:
 
 class TestPluginDiscovery:
 
-    def test_real_gaze_registry_discovers_backends(self):
-        """The actual gaze_registry should find at least mgaze and l2cs."""
+    def test_real_gaze_registry_plugins_only(self):
+        """The gaze_registry lists only real plugins; core backends (MGaze)
+        are resolved by gaze_factory, not discovered here (SP1.6)."""
         from Plugins import gaze_registry
         names = gaze_registry.names()
-        assert "mgaze" in names
-        assert "l2cs" in names
+        assert "gazelle" in names
+        assert "iris_refined" in names
+        assert "mgaze" not in names
+        assert "l2cs" not in names
 
     def test_real_phenomena_registry_has_entries(self):
         """The actual phenomena_registry should discover at least one tracker."""

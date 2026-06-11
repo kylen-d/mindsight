@@ -79,7 +79,8 @@ def get_parser():
 
 
 def get_plugin_dests() -> set[str]:
-    """Dests contributed by registry plugins (out of schema scope)."""
+    """Dests contributed by registry plugins, plus core-backend flags that live
+    outside both the schema and the registries (MGaze since SP1.6)."""
     from mindsight.GUI.arg_introspector import FakeArgumentParser
     from Plugins import (
         gaze_registry,
@@ -97,6 +98,12 @@ def get_plugin_dests() -> set[str]:
             except Exception:
                 continue
             dests.update(spec.dest for spec in fake.specs)
+
+    # Core gaze backend (MGaze) -- resolved by gaze_factory, not the registry.
+    from mindsight.GazeTracking.Backends.MGaze.MGaze_Tracking import MGazePlugin
+    fake = FakeArgumentParser()
+    MGazePlugin.add_arguments(fake)
+    dests.update(spec.dest for spec in fake.specs)
     return dests
 
 
@@ -109,7 +116,7 @@ KNOWN_PLUGIN_DESTS = {
     "gazelle_device", "gazelle_skip_frames", "gazelle_fp16",
     "gazelle_compile",
     "iris_refine", "iris_refine_weight", "iris_refine_upscale",
-    "l2cs_model", "l2cs_arch", "l2cs_dataset",
+    # core backend (MGaze)
     "mgaze_model", "mgaze_arch", "mgaze_dataset",
     # object detection plugins
     "gaze_boost", "gaze_boost_factor", "gaze_boost_radius",

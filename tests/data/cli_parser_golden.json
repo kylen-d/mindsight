@@ -719,7 +719,7 @@
       "dest": "adaptive_ray",
       "action": "_StoreAction",
       "default": "off",
-      "type": "str",
+      "type": null,
       "nargs": null,
       "const": null,
       "choices": [
@@ -963,7 +963,7 @@
       "dest": "detect_extend_scope",
       "action": "_StoreAction",
       "default": "objects",
-      "type": "str",
+      "type": null,
       "nargs": null,
       "const": null,
       "choices": [
@@ -1127,7 +1127,7 @@
       "dest": "smooth_snap",
       "action": "_StoreAction",
       "default": "off",
-      "type": "str",
+      "type": null,
       "nargs": null,
       "const": null,
       "choices": [
@@ -1870,60 +1870,6 @@
       "metavar": "F",
       "help": "Upscale face crops before iris extraction (default: 2.0).",
       "group": "Iris-Refined Gaze"
-    },
-    {
-      "option_strings": [
-        "--l2cs-model"
-      ],
-      "dest": "l2cs_model",
-      "action": "_StoreAction",
-      "default": null,
-      "type": null,
-      "nargs": null,
-      "const": null,
-      "choices": null,
-      "required": false,
-      "metavar": null,
-      "help": "Path to L2CS model weights (.pkl or .onnx)",
-      "group": "L2CS-Net backend"
-    },
-    {
-      "option_strings": [
-        "--l2cs-arch"
-      ],
-      "dest": "l2cs_arch",
-      "action": "_StoreAction",
-      "default": "ResNet50",
-      "type": null,
-      "nargs": null,
-      "const": null,
-      "choices": [
-        "ResNet18",
-        "ResNet34",
-        "ResNet50",
-        "ResNet101",
-        "ResNet152"
-      ],
-      "required": false,
-      "metavar": null,
-      "help": "Architecture (default: ResNet50)",
-      "group": "L2CS-Net backend"
-    },
-    {
-      "option_strings": [
-        "--l2cs-dataset"
-      ],
-      "dest": "l2cs_dataset",
-      "action": "_StoreAction",
-      "default": "gaze360",
-      "type": null,
-      "nargs": null,
-      "const": null,
-      "choices": null,
-      "required": false,
-      "metavar": null,
-      "help": "Dataset config key (default: gaze360)",
-      "group": "L2CS-Net backend"
     },
     {
       "option_strings": [

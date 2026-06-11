@@ -614,11 +614,6 @@ _PLUGINS_ROOT = Path(__file__).parent
 gaze_registry = PluginRegistry()
 gaze_registry.discover(_PLUGINS_ROOT / "GazeTracking", namespace="Plugins.GazeTracking")
 
-#: Built-in backends under ``GazeTracking/Backends/``.
-gaze_registry.discover(
-    _PLUGINS_ROOT.parent / "ms" / "GazeTracking" / "Backends",
-    namespace="ms.GazeTracking.Backends",
-)
 
 #: Registry for :class:`ObjectDetectionPlugin` backends (``Plugins/ObjectDetection/``).
 object_detection_registry = PluginRegistry()
