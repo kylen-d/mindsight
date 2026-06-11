@@ -60,7 +60,7 @@ import math
 import cv2
 import numpy as np
 
-from ms.pipeline_config import resolve_display_pid
+from mindsight.pipeline_config import resolve_display_pid
 from Plugins import PhenomenaPlugin
 
 
@@ -68,7 +68,7 @@ from Plugins import PhenomenaPlugin
 # Imported lazily inside methods that need them so the plugin loads even when
 # the DataCollection package has not been fully initialized yet.
 def _dash():
-    from ms.DataCollection.dashboard_output import (
+    from mindsight.DataCollection.dashboard_output import (
         _DASH_DIM,
         _dash_line_h,
         _draw_panel_section,

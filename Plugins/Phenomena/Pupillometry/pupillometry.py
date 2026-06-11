@@ -17,13 +17,13 @@ import collections
 import cv2
 import numpy as np
 
-from ms.pipeline_config import VideoType, resolve_display_pid
+from mindsight.pipeline_config import VideoType, resolve_display_pid
 from Plugins import PhenomenaPlugin
 
 
 # Dashboard drawing helpers (lazy import)
 def _dash():
-    from ms.DataCollection.dashboard_output import (
+    from mindsight.DataCollection.dashboard_output import (
         _DASH_DIM,
         _dash_line_h,
         _draw_panel_section,
@@ -200,7 +200,7 @@ class PupillometryTracker(PhenomenaPlugin):
             from Plugins.Phenomena.Pupillometry.iris_extraction import measure_ir
             return measure_ir(face_crop, threshold=self._ir_threshold)
         else:
-            from ms.utils.mediapipe_face import extract_iris_data
+            from mindsight.utils.mediapipe_face import extract_iris_data
             from Plugins.Phenomena.Pupillometry.iris_extraction import measure_rgb
             iris_data = extract_iris_data(face_crop)
             return measure_rgb(face_crop, iris_data, upscale=self._upscale)
@@ -208,7 +208,7 @@ class PupillometryTracker(PhenomenaPlugin):
     def _check_blink(self, face_crop, tid, frame_no):
         """Check for blink via EAR. Returns True if blinking."""
         from Plugins.Phenomena.Pupillometry.iris_extraction import compute_ear
-        from ms.utils.mediapipe_face import extract_iris_data
+        from mindsight.utils.mediapipe_face import extract_iris_data
 
         iris_data = extract_iris_data(face_crop)
         ear = compute_ear(iris_data)
@@ -533,7 +533,7 @@ class PupillometryTracker(PhenomenaPlugin):
 
     def dashboard_widget(self):
         try:
-            from ms.GUI.eye_tracking_widget import EyeTrackingWidget
+            from mindsight.GUI.eye_tracking_widget import EyeTrackingWidget
             self._eye_widget = EyeTrackingWidget()
             return self._eye_widget
         except ImportError:

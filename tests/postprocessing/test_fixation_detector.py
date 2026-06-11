@@ -12,8 +12,8 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from ms.PostProcessing.RayForming.py_history import PYHistoryBuffer
-from ms.PostProcessing.RayForming.fixation_detector import FixationDetector
+from mindsight.PostProcessing.RayForming.py_history import PYHistoryBuffer
+from mindsight.PostProcessing.RayForming.fixation_detector import FixationDetector
 
 
 def _feed(det, buf, direction_generator, n):

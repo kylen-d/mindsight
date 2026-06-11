@@ -82,7 +82,7 @@ class GazeEstimationGazelle(GazePlugin):
         self._has_inout = model_name.endswith("_inout")
 
         # ── Device selection ─────────────────────────────────────────────
-        from ms.utils.device import resolve_device
+        from mindsight.utils.device import resolve_device
         self.device = resolve_device(device)
 
         model, _tf = get_gazelle_model(model_name)
@@ -285,7 +285,7 @@ class GazeEstimationGazelle(GazePlugin):
     @classmethod
     def from_args(cls, args):
         """Return an initialized instance if ``--gazelle-model`` was given, else ``None``."""
-        from ms.weights import resolve_weight
+        from mindsight.weights import resolve_weight
         ckpt = getattr(args, "gazelle_model", None)
         if not ckpt:
             return None

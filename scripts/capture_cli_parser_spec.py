@@ -34,7 +34,7 @@ def capture_parser(argv=None):
 
     argparse.ArgumentParser.parse_known_args = hook
     try:
-        from ms.cli import _args
+        from mindsight.cli import _args
         _args(argv or [])
     finally:
         argparse.ArgumentParser.parse_known_args = orig

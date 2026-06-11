@@ -62,7 +62,7 @@ class IrisRefinedGaze(GazePlugin):
             result = self._inner.run_pipeline(**kwargs)
         else:
             # Fallback: use default scene pipeline from gaze_pipeline module
-            from ms.GazeTracking.gaze_pipeline import _default_scene_pipeline
+            from mindsight.GazeTracking.gaze_pipeline import _default_scene_pipeline
             result = _default_scene_pipeline(
                 frame, kwargs.get('faces', []), self._inner
             )
@@ -84,7 +84,7 @@ class IrisRefinedGaze(GazePlugin):
     def _apply_iris_corrections(self, frame, persons_gaze, face_bboxes):
         """Apply iris-position-based corrections to each face's gaze estimate."""
         try:
-            from ms.utils.mediapipe_face import extract_iris_data
+            from mindsight.utils.mediapipe_face import extract_iris_data
         except ImportError:
             return persons_gaze
 
@@ -191,7 +191,7 @@ class IrisRefinedGaze(GazePlugin):
 
         # Load the inner backend by creating the engine without iris-refine
         # to avoid infinite recursion.
-        from ms.GazeTracking.gaze_factory import create_gaze_engine
+        from mindsight.GazeTracking.gaze_factory import create_gaze_engine
 
         # Temporarily disable iris_refine to get the actual backend
         args.iris_refine = False

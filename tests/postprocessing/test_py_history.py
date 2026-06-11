@@ -4,7 +4,7 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from ms.PostProcessing.RayForming.py_history import PYHistoryBuffer
+from mindsight.PostProcessing.RayForming.py_history import PYHistoryBuffer
 
 
 def test_new_buffer_is_unstable():

@@ -211,7 +211,7 @@ MindSight/
 ├── MindSight_GUI.py              # GUI entry point (thin wrapper)
 ├── pyproject.toml                # Package config, console_scripts, linter settings
 │
-├── ms/                           # Core package (pip install -e .)
+├── mindsight/                    # Core package (pip install -e .)
 │   ├── cli.py                    # CLI orchestrator (main pipeline logic)
 │   ├── gui.py                    # GUI launcher
 │   ├── constants.py              # Shared constants (colours, thresholds)

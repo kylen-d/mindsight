@@ -33,7 +33,7 @@ pytestmark = [
 @pytest.fixture(scope="module")
 def built():
     """Build models + config dataclasses exactly as the CLI does (default cfg)."""
-    from ms.cli import _args
+    from mindsight.cli import _args
     from mindsight.factory import build_from_namespace
     ns = _args(["--source", str(VIDEO), "--no-dashboard"])
     try:
@@ -46,7 +46,7 @@ def built():
 def _make_pipeline(tup, **output_overrides):
     """Assemble a Pipeline from the build_from_namespace tuple, optionally
     overriding OutputConfig fields (e.g. log/summary paths)."""
-    from ms.pipeline import Pipeline
+    from mindsight.pipeline import Pipeline
     (yolo, face_det, gaze_eng, gaze_cfg, det_cfg, tracker_cfg, output_cfg,
      active_plugins, phenomena_cfg, detection_plugins, depth_cfg,
      depth_backend, gazelle_provider, ray_cfg) = tup
@@ -63,7 +63,7 @@ def _make_pipeline(tup, **output_overrides):
 
 
 def test_pipeline_yields_every_frame(built):
-    from ms.pipeline import FrameResult, RunOptions
+    from mindsight.pipeline import FrameResult, RunOptions
     _ns, tup = built
     pipeline = _make_pipeline(tup)
 
@@ -85,7 +85,7 @@ def test_pipeline_yields_every_frame(built):
 
 
 def test_cancellation_stops_and_finalizes(built, tmp_path):
-    from ms.pipeline import CancelToken, RunOptions
+    from mindsight.pipeline import CancelToken, RunOptions
     _ns, tup = built
     log_path = tmp_path / "events.csv"
     summary_path = tmp_path / "summary.csv"
@@ -116,7 +116,7 @@ def test_image_source_yields_one_frameresult(built, tmp_path):
     (imshow/waitKey live in run_to_completion now, not the generator)."""
     import cv2
 
-    from ms.pipeline import FrameResult
+    from mindsight.pipeline import FrameResult
     _ns, tup = built
     # grab frame 0 of the sample clip as a .jpg
     cap = cv2.VideoCapture(str(VIDEO))
@@ -141,8 +141,8 @@ def test_image_source_yields_one_frameresult(built, tmp_path):
 def test_from_config_matches_direct(built):
     """Pipeline.from_config (unified schema path) yields the same config
     dataclasses the direct dataclass constructor holds."""
-    from ms.config import PipelineConfig
-    from ms.pipeline import Pipeline
+    from mindsight.config import PipelineConfig
+    from mindsight.pipeline import Pipeline
     ns, tup = built
     (yolo, face_det, gaze_eng, gaze_cfg, det_cfg, tracker_cfg, output_cfg,
      active_plugins, phenomena_cfg, detection_plugins, depth_cfg,

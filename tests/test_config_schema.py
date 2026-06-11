@@ -15,7 +15,7 @@ import sys
 import pytest
 from pydantic import ValidationError
 
-from ms.config import (
+from mindsight.config import (
     AuxStream,
     DepthSection,
     DetectionSection,
@@ -28,9 +28,9 @@ from ms.config import (
     RayFormingSection,
     TrackerSection,
 )
-from ms.config_compat import CLI_ALIASES, EXCLUDED_CLI_FLAGS
-from ms.Phenomena.phenomena_config import PhenomenaConfig
-from ms.pipeline_config import (
+from mindsight.config_compat import CLI_ALIASES, EXCLUDED_CLI_FLAGS
+from mindsight.Phenomena.phenomena_config import PhenomenaConfig
+from mindsight.pipeline_config import (
     AuxStreamConfig,
     DepthConfig,
     DetectionConfig,
@@ -40,7 +40,7 @@ from ms.pipeline_config import (
     ProjectOutputConfig,
     TrackerConfig,
 )
-from ms.PostProcessing.RayForming.ray_config import RayFormingConfig
+from mindsight.PostProcessing.RayForming.ray_config import RayFormingConfig
 
 # ══════════════════════════════════════════════════════════════════════════════
 # Live parser capture (shared with test_config_equivalence via import)
@@ -60,7 +60,7 @@ def get_parser():
     if _PARSER is None:
         import argparse
 
-        from ms.cli import _args
+        from mindsight.cli import _args
 
         box = {}
         orig = argparse.ArgumentParser.parse_args
@@ -80,7 +80,7 @@ def get_parser():
 
 def get_plugin_dests() -> set[str]:
     """Dests contributed by registry plugins (out of schema scope)."""
-    from ms.GUI.arg_introspector import FakeArgumentParser
+    from mindsight.GUI.arg_introspector import FakeArgumentParser
     from Plugins import (
         gaze_registry,
         object_detection_registry,
@@ -347,7 +347,7 @@ def test_canonical_hash_ignores_set_insertion_order():
 def test_canonical_hash_deterministic_across_processes():
     """Hash must survive hash-randomization (fresh interpreter, new seed)."""
     code = (
-        "from ms.config import PipelineConfig\n"
+        "from mindsight.config import PipelineConfig\n"
         "cfg = PipelineConfig(detection={'blacklist': {'tv', 'laptop', 'person'}},\n"
         "                     gaze={'ray_length': 1.5})\n"
         "print(cfg.canonical_hash())\n"

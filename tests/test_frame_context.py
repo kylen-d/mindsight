@@ -3,7 +3,7 @@
 import numpy as np
 import pytest
 
-from ms.pipeline_config import FrameContext
+from mindsight.pipeline_config import FrameContext
 
 
 class TestFrameContextInit:

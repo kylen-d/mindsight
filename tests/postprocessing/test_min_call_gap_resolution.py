@@ -5,7 +5,7 @@ from __future__ import annotations
 
 from argparse import Namespace
 
-from ms.PostProcessing.RayForming.ray_config import resolve_min_call_gap
+from mindsight.PostProcessing.RayForming.ray_config import resolve_min_call_gap
 
 
 def test_explicit_min_call_gap_wins():

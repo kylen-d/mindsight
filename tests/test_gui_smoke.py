@@ -74,8 +74,8 @@ def _collect_frames(frame_q, log_q, *, want, deadline_s):
 
 
 def test_main_window_launches_and_loads_config(qapp):
-    from ms.config_compat import load_pipeline
-    from ms.GUI.main_window import MainWindow
+    from mindsight.config_compat import load_pipeline
+    from mindsight.GUI.main_window import MainWindow
 
     win = MainWindow()
     try:
@@ -95,8 +95,8 @@ def test_main_window_launches_and_loads_config(qapp):
 
 
 def test_gaze_worker_streams_and_cancels(qapp, tmp_path):
-    from ms.GUI.main_window import MainWindow
-    from ms.GUI.workers import GazeWorker
+    from mindsight.GUI.main_window import MainWindow
+    from mindsight.GUI.workers import GazeWorker
 
     win = MainWindow()
     try:
@@ -156,8 +156,8 @@ def test_gaze_worker_streams_and_cancels(qapp, tmp_path):
 def test_project_worker_runs_and_cancels(qapp, tmp_path):
     import shutil
 
-    from ms.GUI.main_window import MainWindow
-    from ms.GUI.workers import ProjectWorker
+    from mindsight.GUI.main_window import MainWindow
+    from mindsight.GUI.workers import ProjectWorker
 
     proj = tmp_path / "proj"
     (proj / "Inputs" / "Videos").mkdir(parents=True)

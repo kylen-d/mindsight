@@ -34,10 +34,10 @@ from pathlib import Path
 
 import pytest
 
-from ms.config import PipelineConfig
-from ms.config_compat import load_yaml, to_dataclasses
-from ms.Phenomena.phenomena_config import PhenomenaConfig
-from ms.pipeline_config import (
+from mindsight.config import PipelineConfig
+from mindsight.config_compat import load_yaml, to_dataclasses
+from mindsight.Phenomena.phenomena_config import PhenomenaConfig
+from mindsight.pipeline_config import (
     AuxStreamConfig,
     DepthConfig,
     DetectionConfig,
@@ -47,8 +47,8 @@ from ms.pipeline_config import (
     TrackerConfig,
     VideoType,
 )
-from ms.pipeline_loader import load_pipeline
-from ms.PostProcessing.RayForming.ray_config import RayFormingConfig
+from mindsight.config_compat import load_pipeline
+from mindsight.PostProcessing.RayForming.ray_config import RayFormingConfig
 from tests.test_config_schema import get_parser
 
 REPO_ROOT = Path(__file__).resolve().parents[1]

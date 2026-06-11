@@ -20,7 +20,7 @@ sys.path.insert(0, str(REPO_ROOT / "scripts"))
 
 from capture_cli_parser_spec import format_help_pinned, parser_spec  # noqa: E402
 
-from ms.cli_flags import (  # noqa: E402
+from mindsight.cli_flags import (  # noqa: E402
     _FROM_SCHEMA,
     CORE_FLAGS,
     build_parser,
@@ -57,8 +57,8 @@ def test_generated_help_matches_golden():
 
 
 def test_flagspec_table_welds_to_schema_and_tables():
-    from ms.config import PipelineConfig
-    from ms.config_compat import CLI_ALIASES, EXCLUDED_CLI_FLAGS
+    from mindsight.config import PipelineConfig
+    from mindsight.config_compat import CLI_ALIASES, EXCLUDED_CLI_FLAGS
 
     assert len(CORE_FLAGS) == 105
 

@@ -4,7 +4,7 @@ import csv
 
 import pytest
 
-from ms.DataCollection.csv_output import resolve_summary_path, write_summary_csv
+from mindsight.DataCollection.csv_output import resolve_summary_path, write_summary_csv
 
 
 class TestResolveSummaryPath:

@@ -16,13 +16,13 @@ from __future__ import annotations
 import cv2
 import numpy as np
 
-from ms.pipeline_config import resolve_display_pid
+from mindsight.pipeline_config import resolve_display_pid
 from Plugins import PhenomenaPlugin
 from Plugins.Phenomena.EyeMovement.classifiers import EyeState, IVTClassifier
 
 
 def _dash():
-    from ms.DataCollection.dashboard_output import (
+    from mindsight.DataCollection.dashboard_output import (
         _DASH_DIM,
         _dash_line_h,
         _draw_panel_section,
@@ -88,7 +88,7 @@ class EyeMovementTracker(PhenomenaPlugin):
 
     def _iris_position(self, frame, bbox, fi, aux_frames, pid_map):
         """Compute iris center position relative to eye socket (iris mode)."""
-        from ms.utils.mediapipe_face import extract_iris_data
+        from mindsight.utils.mediapipe_face import extract_iris_data
 
         # Get face crop
         if frame is None or bbox is None:

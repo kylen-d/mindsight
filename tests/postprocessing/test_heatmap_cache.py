@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from ms.PostProcessing.RayForming.heatmap_cache import HeatmapCache
+from mindsight.PostProcessing.RayForming.heatmap_cache import HeatmapCache
 
 
 def _hm():

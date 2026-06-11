@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from ms.pipeline_loader import _flatten, _is_default, load_pipeline
+from mindsight.config_compat import _flatten, _is_default, load_pipeline
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 
@@ -340,7 +340,7 @@ def test_args_yaml_honored_over_unset_flags_source_wins():
     """Parse real argv through ms.cli._args, then apply the repo pipeline YAML
     exactly as main() does.  The explicitly-typed --source must survive while
     unset flags take their YAML values (the whole point of Fix 1)."""
-    from ms.cli import _args
+    from mindsight.cli import _args
 
     argv = ["--pipeline", "test_pipeline.yaml", "--source", "x.mp4"]
     ns = _args(argv)

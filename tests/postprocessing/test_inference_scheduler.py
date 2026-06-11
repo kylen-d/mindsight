@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from ms.PostProcessing.RayForming.inference_scheduler import InferenceScheduler
+from mindsight.PostProcessing.RayForming.inference_scheduler import InferenceScheduler
 
 
 PYD = np.array([1.0, 0.0])  # canonical constant direction for fixation tests

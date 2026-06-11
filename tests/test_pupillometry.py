@@ -17,7 +17,7 @@ class TestMeasureRGB:
 
     def test_returns_none_for_invalid_iris(self):
         from Plugins.Phenomena.Pupillometry.iris_extraction import measure_rgb
-        from ms.utils.mediapipe_face import IrisData
+        from mindsight.utils.mediapipe_face import IrisData
         crop = np.zeros((100, 100, 3), dtype=np.uint8)
         iris = IrisData()  # all invalid
         assert measure_rgb(crop, iris) is None
@@ -25,7 +25,7 @@ class TestMeasureRGB:
     def test_valid_measurement_returns_ratio(self):
         """Synthetic iris data should produce a valid pupil/iris ratio."""
         from Plugins.Phenomena.Pupillometry.iris_extraction import measure_rgb
-        from ms.utils.mediapipe_face import IrisData
+        from mindsight.utils.mediapipe_face import IrisData
 
         # Create a synthetic face crop with a dark circle (pupil) on gray bg
         crop = np.full((200, 200, 3), 128, dtype=np.uint8)
@@ -330,7 +330,7 @@ class TestPerEyeMeasurements:
     def test_per_eye_result_from_measure_rgb(self):
         """measure_rgb should include left_ratio and right_ratio keys."""
         from Plugins.Phenomena.Pupillometry.iris_extraction import measure_rgb
-        from ms.utils.mediapipe_face import IrisData
+        from mindsight.utils.mediapipe_face import IrisData
         import cv2
 
         crop = np.full((200, 200, 3), 128, dtype=np.uint8)
@@ -378,18 +378,18 @@ class TestVideoTypeEnum:
     """Tests for the VideoType enum."""
 
     def test_enum_values(self):
-        from ms.pipeline_config import VideoType
+        from mindsight.pipeline_config import VideoType
         assert VideoType.EYE_ONLY.value == "eye_only"
         assert VideoType.FACE_CLOSEUP.value == "face_closeup"
         assert VideoType.WIDE_CLOSEUP.value == "wide_closeup"
         assert VideoType.CUSTOM.value == "custom"
 
     def test_enum_from_string(self):
-        from ms.pipeline_config import VideoType
+        from mindsight.pipeline_config import VideoType
         assert VideoType("eye_only") == VideoType.EYE_ONLY
 
     def test_enum_is_string_comparable(self):
-        from ms.pipeline_config import VideoType
+        from mindsight.pipeline_config import VideoType
         assert VideoType.EYE_ONLY == "eye_only"
 
 
@@ -397,7 +397,7 @@ class TestAuxStreamConfig:
     """Tests for the new AuxStreamConfig dataclass."""
 
     def test_construction(self):
-        from ms.pipeline_config import AuxStreamConfig, VideoType
+        from mindsight.pipeline_config import AuxStreamConfig, VideoType
         cfg = AuxStreamConfig(
             source="/path/to/video.mp4",
             video_type=VideoType.EYE_ONLY,
@@ -410,7 +410,7 @@ class TestAuxStreamConfig:
         assert cfg.auto_detect_faces is True
 
     def test_multi_participant(self):
-        from ms.pipeline_config import AuxStreamConfig, VideoType
+        from mindsight.pipeline_config import AuxStreamConfig, VideoType
         cfg = AuxStreamConfig(
             source="/path/to/wide.mp4",
             video_type=VideoType.WIDE_CLOSEUP,
@@ -424,14 +424,14 @@ class TestFindAuxFrame:
     """Tests for find_aux_frame helper."""
 
     def test_find_by_pid(self):
-        from ms.pipeline_config import VideoType, find_aux_frame
+        from mindsight.pipeline_config import VideoType, find_aux_frame
         frame = np.zeros((10, 10, 3))
         aux = {("S70", "eye_cam", VideoType.EYE_ONLY): frame}
         result = find_aux_frame(aux, "S70")
         assert result is frame
 
     def test_find_by_video_type(self):
-        from ms.pipeline_config import VideoType, find_aux_frame
+        from mindsight.pipeline_config import VideoType, find_aux_frame
         frame1 = np.zeros((10, 10, 3))
         frame2 = np.ones((10, 10, 3))
         aux = {
@@ -442,6 +442,6 @@ class TestFindAuxFrame:
         assert result is frame1
 
     def test_returns_none_when_not_found(self):
-        from ms.pipeline_config import VideoType, find_aux_frame
+        from mindsight.pipeline_config import VideoType, find_aux_frame
         aux = {("S70", "eye_cam", VideoType.EYE_ONLY): np.zeros((10, 10, 3))}
         assert find_aux_frame(aux, "S71") is None

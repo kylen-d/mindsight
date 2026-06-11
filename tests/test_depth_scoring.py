@@ -4,12 +4,12 @@ snap_score, and hit_event depth enrichment."""
 import numpy as np
 import pytest
 
-from ms.utils.geometry import sample_depth_patch
-from ms.GazeTracking.gaze_processing import (
+from mindsight.utils.geometry import sample_depth_patch
+from mindsight.GazeTracking.gaze_processing import (
     compute_ray_intersections,
     snap_score,
 )
-from ms.pipeline_config import GazeConfig
+from mindsight.pipeline_config import GazeConfig
 
 
 # ── sample_depth_patch ──────────────────────────────────────────────────────

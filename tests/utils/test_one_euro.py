@@ -9,7 +9,7 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from ms.utils.one_euro import OneEuroFilter
+from mindsight.utils.one_euro import OneEuroFilter
 
 
 def test_first_sample_returns_input_unchanged():

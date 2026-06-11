@@ -178,7 +178,7 @@ class MGazePlugin(GazePlugin):
         return self._engine.estimate(face_bgr)
 
     def run_pipeline(self, **kwargs):
-        from ms.GazeTracking.pitchyaw_pipeline import run_pitchyaw_pipeline
+        from mindsight.GazeTracking.pitchyaw_pipeline import run_pitchyaw_pipeline
         return run_pitchyaw_pipeline(gaze_eng=self, **kwargs)
 ```
 
@@ -194,7 +194,7 @@ Any per-face plugin that outputs `(pitch, yaw, confidence)` can use this shared 
 
 ```python
 def run_pipeline(self, **kwargs):
-    from ms.GazeTracking.pitchyaw_pipeline import run_pitchyaw_pipeline
+    from mindsight.GazeTracking.pitchyaw_pipeline import run_pitchyaw_pipeline
     return run_pitchyaw_pipeline(gaze_eng=self, **kwargs)
 ```
 
@@ -307,7 +307,7 @@ class MyGazeBackend(GazePlugin):
 
     def run_pipeline(self, **kwargs):
         """Delegate to the shared per-face pipeline."""
-        from ms.GazeTracking.pitchyaw_pipeline import run_pitchyaw_pipeline
+        from mindsight.GazeTracking.pitchyaw_pipeline import run_pitchyaw_pipeline
         return run_pitchyaw_pipeline(gaze_eng=self, **kwargs)
 
     @classmethod

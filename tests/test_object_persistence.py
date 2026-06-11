@@ -2,8 +2,8 @@
 
 import pytest
 
-from ms.ObjectDetection.detection import Detection
-from ms.ObjectDetection.object_detection import ObjectPersistenceCache
+from mindsight.ObjectDetection.detection import Detection
+from mindsight.ObjectDetection.object_detection import ObjectPersistenceCache
 
 
 def _det(cls="person", x1=0, y1=0, x2=100, y2=100, conf=0.9):

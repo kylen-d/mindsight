@@ -3,7 +3,7 @@
 import numpy as np
 import pytest
 
-from ms.GazeTracking.gaze_processing import (
+from mindsight.GazeTracking.gaze_processing import (
     GazeLockTracker,
     GazeSmootherReID,
     SnapTemporalState,
@@ -209,7 +209,7 @@ class TestSnapScore:
             quality_thresh=2.0)
         assert matched_with_t is not None
         # A's center is around (210, 0)
-        from ms.utils.geometry import bbox_center
+        from mindsight.utils.geometry import bbox_center
         a_ctr = bbox_center(obj_a)
         assert np.allclose(bbox_center(matched_with_t), a_ctr)
 
@@ -280,7 +280,7 @@ class TestSnapScore:
             face_center=face_ctr, frame_diag=1000.0,
             quality_thresh=2.0)
         assert found is True
-        from ms.utils.geometry import bbox_center
+        from mindsight.utils.geometry import bbox_center
         assert np.allclose(ctr, bbox_center(obj_hit))
 
     def test_size_weight_prefers_larger(self):
@@ -298,7 +298,7 @@ class TestSnapScore:
             face_center=face_ctr, frame_diag=1000.0,
             quality_thresh=2.0)
         assert matched is not None
-        from ms.utils.geometry import bbox_center
+        from mindsight.utils.geometry import bbox_center
         assert np.allclose(bbox_center(matched), bbox_center(obj_large))
 
 
@@ -392,7 +392,7 @@ class TestTipSnapIndependence:
         # This is tested at the config level -- snap_tip_dist=-1 resolves to
         # snap_dist before calling snap_score(). Just verify the resolution
         # logic matches.
-        from ms.pipeline_config import GazeConfig
+        from mindsight.pipeline_config import GazeConfig
         cfg = GazeConfig(snap_dist=200.0, snap_tip_dist=-1.0,
                          snap_quality_thresh=0.8, snap_tip_quality=-1.0)
         tip_dist = cfg.snap_tip_dist if cfg.snap_tip_dist >= 0 else cfg.snap_dist

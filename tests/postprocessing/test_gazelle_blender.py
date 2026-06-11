@@ -12,8 +12,8 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from ms.PostProcessing.RayForming.gazelle_blender import GazeLLEBlender
-from ms.PostProcessing.RayForming.ray_config import RayFormingConfig
+from mindsight.PostProcessing.RayForming.gazelle_blender import GazeLLEBlender
+from mindsight.PostProcessing.RayForming.ray_config import RayFormingConfig
 
 
 ORIGIN = np.array([320.0, 240.0])
@@ -143,7 +143,7 @@ def test_prune_removes_track_state():
 def test_conf_ray_scales_py_length():
     """With conf_ray on and trust=0, blender length matches the
     confidence-scaled fallback, not the raw ray_length."""
-    from ms.constants import CR_MIN, CR_MAX
+    from mindsight.constants import CR_MIN, CR_MAX
     b = _make_blender(conf_ray=True, len_min_cutoff=100.0)
     # gaze_conf=0.5 -> rl = ray_length * (CR_MIN + 0.5*(CR_MAX-CR_MIN))
     endpoint = b.update(

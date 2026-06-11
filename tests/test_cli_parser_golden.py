@@ -78,8 +78,8 @@ def test_census_partition_welds_to_tables():
     """The 105 core flags partition exactly into schema-cli / alias / excluded,
     and the plugin groups supply the remaining 46 -- the invariant generation
     relies on."""
-    from ms.config import PipelineConfig
-    from ms.config_compat import CLI_ALIASES, EXCLUDED_CLI_FLAGS
+    from mindsight.config import PipelineConfig
+    from mindsight.config_compat import CLI_ALIASES, EXCLUDED_CLI_FLAGS
 
     spec = _live_spec()
     core = [a for a in spec["actions"] if a["group"] in CORE_GROUPS]

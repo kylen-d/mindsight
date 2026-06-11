@@ -83,7 +83,7 @@ class MyTracker(PhenomenaPlugin):
 
     def dashboard_section(self, panel, y: int, line_h: int) -> int:
         """Draw a section in the side panel.  Return new y after the section."""
-        from ms.DataCollection.dashboard_output import _DASH_DIM, _draw_panel_section
+        from mindsight.DataCollection.dashboard_output import _DASH_DIM, _draw_panel_section
         rows = [("--", _DASH_DIM)]
         return _draw_panel_section(
             panel, y, "MY TRACKER", (200, 200, 200), rows, line_h)
