@@ -1,5 +1,2 @@
-"""Project batch-processing tab -- decomposed into section widgets."""
-
-from .project_tab import ProjectTab
-
-__all__ = ["ProjectTab"]
+"""[SP1.5 shim] package moved to mindsight.GUI.project_tab; delete in SP1.6."""
+from mindsight.GUI.project_tab import *  # noqa: F401,F403

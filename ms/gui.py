@@ -1,6 +1,4 @@
-"""ms.gui -- Launch the MindSight graphical user interface."""
-
-from ms.GUI.main_window import main
-
-if __name__ == "__main__":
-    main()
+"""[SP1.5 shim] moved to mindsight.gui; delete in SP1.6."""
+import sys
+import mindsight.gui
+sys.modules[__name__] = mindsight.gui
