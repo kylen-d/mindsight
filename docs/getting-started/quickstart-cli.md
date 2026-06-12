@@ -111,12 +111,6 @@ python MindSight.py --source video.mp4 --charts
 
 The default backend is **MGaze**. To use an alternative:
 
-**L2CS:**
-
-```bash
-python MindSight.py --source video.mp4 --l2cs-model weights.pkl
-```
-
 **Gazelle:**
 
 ```bash

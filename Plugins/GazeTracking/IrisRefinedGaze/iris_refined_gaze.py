@@ -10,7 +10,7 @@ eye rotation independent of head pose.  This signal refines the backend's
 coarse head-based gaze estimates, especially for fine eye movements within
 a stable head pose.
 
-Usage: ``--gaze-backend l2cs --iris-refine``
+Usage: ``--iris-refine`` (wraps the active per-face backend)
 """
 
 from __future__ import annotations

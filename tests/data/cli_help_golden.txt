@@ -270,8 +270,8 @@ Depth Estimation:
 Ray Forming (Gazelle blend):
   --rf-gazelle-model PATH
                         Path to a Gaze-LLE checkpoint (.pt) for Gazelle blend ray forming. Used
-                        alongside a pitch/yaw backend (L2CS, MGaze, etc.) to periodically correct
-                        rays with Gaze-LLE heatmaps.
+                        alongside a pitch/yaw backend (MGaze, etc.) to periodically correct rays
+                        with Gaze-LLE heatmaps.
   --rf-gazelle-name NAME
                         Gaze-LLE model variant for ray forming (default: gazelle_dinov2_vitb14).
   --rf-gazelle-interval N

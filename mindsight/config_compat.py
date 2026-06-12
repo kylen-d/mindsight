@@ -76,7 +76,7 @@ CLI_ALIASES: dict[str, str] = {
 }
 
 # Core flags deliberately outside the schema.  flag -> reason.
-# (Plugin-registered flags -- L2CS/MGaze/Gazelle backends, iris refine,
+# (Plugin-registered flags -- MGaze/Gazelle backends, iris refine,
 # gaze boost, eye movement, novel salience, pupillometry -- are excluded
 # wholesale; the completeness test discovers them via the plugin registries
 # so new plugins never need edits here.)

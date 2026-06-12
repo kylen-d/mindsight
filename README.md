@@ -71,7 +71,7 @@ Each phenomenon has its own tuning parameters — see the [phenomena guide](http
 
 ### Highly Extensible
 
-- **Gaze Backend Plugins** — supports and includes MGaze out of the box, with ONNX, PyTorch, L2CS-Net, and Gazelle backends, and allows custom gaze estimation backends through the plugin system
+- **Gaze Backend Plugins** — supports and includes MGaze out of the box, with ONNX, PyTorch, and Gazelle backends, and allows custom gaze estimation backends through the plugin system
 - **Object Detection Plugins** — custom detection post-processing (e.g. the included GazeBoost plugin)
 - **Phenomena Plugins** — user-written plugins to detect custom phenomena alongside the default pack
 - **Data Collection Plugins** — user-written plugins for custom data output in addition to video, CSV, heatmaps, and charts
@@ -102,7 +102,7 @@ Camera / Video / Image
   RetinaFace ──────► face bounding boxes
         │
         ▼
-  Gaze Estimator ──► pitch + yaw per face  (MGaze / L2CS / Gazelle)
+  Gaze Estimator ──► pitch + yaw per face  (MGaze / Gazelle)
         │
         ▼
   Ray–BBox Intersection ──► hit list  (face_idx, object_idx)
@@ -191,8 +191,6 @@ python scripts/download_weights.py            # all backends
 python scripts/download_weights.py --backend MGaze   # specific backend
 ```
 
-For L2CS-Net, download weights to `Weights/L2CS/` and pass the path via `--l2cs-model`.
-
 For Gazelle, download a checkpoint separately and pass it via `--gazelle-model`.
 
 ### 5. YOLO weights
@@ -231,7 +229,7 @@ MindSight/
 │   │   ├── gaze_pipeline.py      # Gaze step coordinator (ctx-based)
 │   │   ├── gaze_processing.py    # GazeSmootherReID, snap, lock-on
 │   │   ├── gaze_factory.py       # Gaze engine factory
-│   │   └── Backends/             # Built-in gaze backends (MGaze, L2CS)
+│   │   └── Backends/             # Built-in gaze backends (MGaze)
 │   │
 │   ├── Phenomena/
 │   │   ├── phenomena_pipeline.py # Phenomena step (ctx-based unified loop)
@@ -298,9 +296,6 @@ python MindSight.py --source video.mp4 --joint-attention --mutual-gaze
 # Enable all phenomena trackers at once
 python MindSight.py --source video.mp4 --all-phenomena --save --log events.csv --summary
 
-# Use L2CS-Net for higher accuracy gaze estimation
-python MindSight.py --source video.mp4 --l2cs-model weights/l2cs.pkl
-
 # Use gaze cone mode instead of a single ray
 python MindSight.py --source video.mp4 --gaze-cone 15
 
@@ -366,7 +361,6 @@ The table below covers the most commonly used flags. For the **complete referenc
 | Argument | Description |
 |---|---|
 | `--mgaze-model` | MGaze: ONNX or `.pt` gaze weights (default backend) |
-| `--l2cs-model` | L2CS-Net: Path to `.pkl` or `.onnx` weights |
 | `--gazelle-model` | Gazelle: Path to checkpoint; switches to scene-level backend |
 
 #### Phenomena
@@ -476,7 +470,7 @@ A graphical front-end for all `MindSight.py` functionality.
 
 - **Source** — camera index, video file, or image file
 - **Detection mode** — YOLO (text classes) or YOLOE Visual Prompt
-- **Gaze backend** — MGaze, L2CS-Net, or Gazelle
+- **Gaze backend** — MGaze or Gazelle
 - **Device selector** — auto, CPU, CUDA, or MPS
 - **Gaze parameters** — ray length, adaptive ray, gaze cone, lock-on, etc.
 - **Phenomena panel** — toggle individual phenomena trackers
@@ -618,14 +612,10 @@ Labels appear in CSV output and on-screen overlays.
 |---|---|---|---|
 | **MGaze ONNX** (default) | `--mgaze-model` with `.onnx` path | ~11 MAE | Fastest; uses CoreML on Apple Silicon, CUDA on NVIDIA, CPU otherwise |
 | **MGaze PyTorch** | `--mgaze-model` with `.pt` + `--mgaze-arch` | ~11 MAE | Requires `--mgaze-arch` to identify the architecture |
-| **L2CS-Net** | `--l2cs-model <weights>` | ~3.92 MAE | ResNet50 with dual classification heads; ~3x more accurate than MGaze on MPIIGaze |
 | **Gazelle** | `--gazelle-model <ckpt.pt>` | — | Scene-level DINOv2 model; processes all faces in a single forward pass; outputs a gaze heatmap |
 
 **MGaze architectures** (`--mgaze-arch`):
 `resnet18`, `resnet34`, `resnet50`, `mobilenetv2`, `mobileone_s0`–`s4`
-
-**L2CS-Net architectures** (`--l2cs-arch`):
-`ResNet18`, `ResNet34`, `ResNet50` (default), `ResNet101`, `ResNet152`
 
 **Gazelle model variants** (`--gazelle-name`):
 `gazelle_dinov2_vitb14`, `gazelle_dinov2_vitl14`, `gazelle_dinov2_vitb14_inout`, `gazelle_dinov2_vitl14_inout`

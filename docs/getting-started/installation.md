@@ -85,7 +85,6 @@ python scripts/download_weights.py --dry-run         # preview only
 |---------|--------|-------|
 | **MGaze** (default) | Download script | ONNX + PyTorch variants in `Weights/MGaze/` |
 | **Gazelle** | Download script | Checkpoints in `Weights/Gazelle/` |
-| **L2CS** | Manual | Download from [L2CS-Net](https://github.com/Ahmednull/L2CS-Net), place in `Weights/L2CS/` |
 | **YOLO** | Auto (Ultralytics) | Downloaded on first use, cached in `Weights/YOLO/` |
 
 ---

@@ -80,9 +80,6 @@ All flags accepted by `python MindSight.py`. Run `python MindSight.py --help` fo
 | `--mgaze-model` | str | (built-in ONNX path) | Path to MGaze model (`.onnx` or `.pt`). Inference mode auto-detected from extension. |
 | `--mgaze-arch` | str | None | MGaze backbone architecture override |
 | `--mgaze-dataset` | str | `"gaze360"` | Dataset the MGaze model was trained on |
-| `--l2cs-model` | str | None | Path to L2CS model file (enables L2CS backend) |
-| `--l2cs-arch` | str | `"ResNet50"` | L2CS backbone architecture |
-| `--l2cs-dataset` | str | `"gaze360"` | Dataset the L2CS model was trained on |
 | `--gazelle-model` | str | None | Path to Gazelle model file (enables Gazelle backend) |
 | `--gazelle-name` | str | `"gazelle_dinov2_vitb14"` | Gazelle model variant name |
 | `--gazelle-inout-threshold` | float | `0.5` | Gazelle in-frame / out-of-frame gaze threshold |

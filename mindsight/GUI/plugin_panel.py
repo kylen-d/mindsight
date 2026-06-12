@@ -45,8 +45,6 @@ _HANDLED_DESTS = {
     "conf_ray", "gaze_tips", "tip_radius",
     "gaze_cone", "gaze_lock", "dwell_frames", "lock_dist", "gaze_debug",
     "snap_release_frames", "snap_engage_frames", "reid_grace_seconds",
-    # L2CS-Net
-    "l2cs_model", "l2cs_arch", "l2cs_dataset",
     # Gazelle
     "gazelle_model", "gazelle_name", "gazelle_inout_threshold",
     "gazelle_device", "gazelle_skip_frames", "gazelle_fp16", "gazelle_compile",

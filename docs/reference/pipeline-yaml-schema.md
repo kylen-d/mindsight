@@ -150,10 +150,10 @@ The `plugins` section is a pass-through: keys are mapped directly to argparse at
 plugins:
   gazelle-model: /path/to/gazelle.pt
   gazelle-name: gazelle_dinov2_vitb14
-  l2cs-model: /path/to/l2cs.pkl
+  iris-refine: true
 ```
 
-The above sets `ns.gazelle_model`, `ns.gazelle_name`, and `ns.l2cs_model`.
+The above sets `ns.gazelle_model`, `ns.gazelle_name`, and `ns.iris_refine`. Unknown `plugins:` keys are passed through as namespace attributes and silently ignored if no backend consumes them.
 
 ---
 

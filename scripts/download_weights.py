@@ -5,7 +5,7 @@ scripts/download_weights.py — Download model weights for MindSight backends.
 Usage:
     python scripts/download_weights.py             # download all backends
     python scripts/download_weights.py --backend MGaze
-    python scripts/download_weights.py --backend YOLO --backend L2CS
+    python scripts/download_weights.py --backend YOLO --backend Gazelle
     python scripts/download_weights.py --dry-run    # show what would be downloaded
 """
 from __future__ import annotations
@@ -48,9 +48,6 @@ MANIFEST: list[tuple[str, str, str]] = [
     ("Gazelle", "gazelle_dinov2_vitl14_inout.pt",
      f"{GAZELLE_BASE}/gazelle_dinov2_vitl14_inout.pt"),
 ]
-
-# L2CS does not have a public download URL — user must obtain weights
-# manually. See: https://github.com/Ahmednull/L2CS-Net
 
 # YOLO weights are auto-downloaded by Ultralytics at runtime.
 # MobileClip weights must be obtained separately.
@@ -136,10 +133,6 @@ def main():
             parts.append(f"{failed} failed")
         print(f"\nDone: {', '.join(parts)}.")
 
-    # Remind about manual-download backends
-    print("\nNote: L2CS weights must be downloaded manually.")
-    print("  See: https://github.com/Ahmednull/L2CS-Net")
-    print("  Place in: Weights/L2CS/")
     print("\nYOLO weights are auto-downloaded at runtime.")
 
     if failed:

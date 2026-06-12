@@ -1170,7 +1170,7 @@
       "choices": null,
       "required": false,
       "metavar": "PATH",
-      "help": "Path to a Gaze-LLE checkpoint (.pt) for Gazelle blend ray forming. Used alongside a pitch/yaw backend (L2CS, MGaze, etc.) to periodically correct rays with Gaze-LLE heatmaps.",
+      "help": "Path to a Gaze-LLE checkpoint (.pt) for Gazelle blend ray forming. Used alongside a pitch/yaw backend (MGaze, etc.) to periodically correct rays with Gaze-LLE heatmaps.",
       "group": "Ray Forming (Gazelle blend)"
     },
     {

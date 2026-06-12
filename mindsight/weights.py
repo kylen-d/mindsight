@@ -19,7 +19,7 @@ def resolve_weight(backend: str, filename: str) -> Path:
     Parameters
     ----------
     backend : str
-        Subdirectory name under ``Weights/`` (e.g. ``"YOLO"``, ``"L2CS"``).
+        Subdirectory name under ``Weights/`` (e.g. ``"YOLO"``, ``"MGaze"``).
     filename : str
         Model filename or path.  Bare filenames are resolved against
         ``Weights/{backend}/``.  Paths with directory components (relative

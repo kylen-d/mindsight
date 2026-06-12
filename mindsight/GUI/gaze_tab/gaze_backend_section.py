@@ -1,4 +1,4 @@
-"""Gaze backend selection and configuration (MGaze, L2CS, Gazelle)."""
+"""Gaze backend selection and configuration (MGaze, Gazelle)."""
 
 from __future__ import annotations
 
@@ -19,12 +19,6 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
-from mindsight.GazeTracking.Backends.L2CS.L2CS_Config import (
-    ARCH_CHOICES as L2CS_ARCHS,
-)
-from mindsight.GazeTracking.Backends.L2CS.L2CS_Config import (
-    DEFAULT_MODEL as L2CS_DEFAULT_MODEL,
-)
 from mindsight.GazeTracking.Backends.MGaze.MGaze_Config import DEFAULT_ONNX_MODEL
 
 from ..widgets import _browse_btn, _hrow
@@ -54,13 +48,11 @@ class GazeBackendSection(QWidget):
         g = QGroupBox("Gaze Backend")
         vl = QVBoxLayout(g)
 
-        # Row 1: MGaze, L2CS, Gazelle
+        # Row 1: MGaze, Gazelle
         rb_row1 = _hrow()
         self._rb_mgaze = QRadioButton("MGaze")
         self._rb_mgaze.setChecked(True)
         rb_row1.layout().addWidget(self._rb_mgaze)
-        self._rb_l2cs = QRadioButton("L2CS-Net")
-        rb_row1.layout().addWidget(self._rb_l2cs)
         self._rb_gazelle = QRadioButton("Gazelle")
         rb_row1.layout().addWidget(self._rb_gazelle)
         rb_row1.layout().addStretch(1)
@@ -95,25 +87,6 @@ class GazeBackendSection(QWidget):
         awl.addRow("Dataset:", self._gaze_dataset)
         self._arch_widget.setVisible(False)
         vl.addWidget(self._arch_widget)
-
-        # -- L2CS-Net widget --
-        self._l2cs_widget = QWidget()
-        l2l = QFormLayout(self._l2cs_widget)
-        l2l.setContentsMargins(0, 0, 0, 0)
-        self._l2cs_model = QLineEdit(L2CS_DEFAULT_MODEL)
-        l2m_btn = _browse_btn()
-        l2m_btn.clicked.connect(
-            lambda: self._browse_to(self._l2cs_model, "*.pkl *.pt *.onnx"))
-        l2l.addRow("Model:", _hrow(self._l2cs_model, l2m_btn))
-        self._l2cs_arch = QComboBox()
-        self._l2cs_arch.addItems(L2CS_ARCHS)
-        self._l2cs_arch.setCurrentText("ResNet50")
-        self._l2cs_dataset = QComboBox()
-        self._l2cs_dataset.addItems(GAZE_DATASETS)
-        l2l.addRow("Arch:", self._l2cs_arch)
-        l2l.addRow("Dataset:", self._l2cs_dataset)
-        self._l2cs_widget.setVisible(False)
-        vl.addWidget(self._l2cs_widget)
 
         # -- Gazelle widget --
         self._gazelle_widget = QWidget()
@@ -159,11 +132,9 @@ class GazeBackendSection(QWidget):
         # Enforce mutual exclusion
         self._backend_group = QButtonGroup(self)
         self._backend_group.addButton(self._rb_mgaze)
-        self._backend_group.addButton(self._rb_l2cs)
         self._backend_group.addButton(self._rb_gazelle)
 
         self._rb_mgaze.toggled.connect(self._refresh_backend)
-        self._rb_l2cs.toggled.connect(self._refresh_backend)
         self._rb_gazelle.toggled.connect(self._refresh_backend)
         lay.addWidget(g)
 
@@ -174,7 +145,6 @@ class GazeBackendSection(QWidget):
         self._mgaze_widget.setVisible(is_mgaze)
         mgaze_path = self._gaze_model.text().strip().lower()
         self._arch_widget.setVisible(is_mgaze and mgaze_path.endswith('.pt'))
-        self._l2cs_widget.setVisible(self._rb_l2cs.isChecked())
         self._gazelle_widget.setVisible(self._rb_gazelle.isChecked())
 
     def _browse_to(self, line_edit: QLineEdit, filt: str = "*"):
@@ -186,8 +156,6 @@ class GazeBackendSection(QWidget):
     def selected_backend(self) -> str:
         if self._rb_gazelle.isChecked():
             return "gazelle"
-        if self._rb_l2cs.isChecked():
-            return "l2cs"
         return "mgaze"
 
     # -- Namespace interface --------------------------------------------------
@@ -204,10 +172,6 @@ class GazeBackendSection(QWidget):
                         and mgaze_model.lower().endswith('.pt')
                         else None),
             mgaze_dataset=self._gaze_dataset.currentText(),
-            l2cs_model=(self._l2cs_model.text().strip()
-                        if backend == "l2cs" else None),
-            l2cs_arch=self._l2cs_arch.currentText(),
-            l2cs_dataset=self._l2cs_dataset.currentText(),
             gazelle_model=(self._gazelle_ckpt.text().strip()
                            if backend == "gazelle" else None),
             gazelle_name=self._gazelle_name.currentText(),
@@ -220,14 +184,10 @@ class GazeBackendSection(QWidget):
 
     def apply_namespace(self, ns: Namespace):
         gazelle_model = getattr(ns, 'gazelle_model', None)
-        l2cs_model = getattr(ns, 'l2cs_model', None)
         mgaze_arch = getattr(ns, 'mgaze_arch', None)
         if gazelle_model:
             self._rb_gazelle.setChecked(True)
             self._gazelle_ckpt.setText(str(gazelle_model))
-        elif l2cs_model:
-            self._rb_l2cs.setChecked(True)
-            self._l2cs_model.setText(str(l2cs_model))
         elif mgaze_arch:
             self._rb_mgaze.setChecked(True)
             self._gaze_arch.setCurrentText(str(mgaze_arch))
@@ -240,13 +200,6 @@ class GazeBackendSection(QWidget):
         self._gaze_dataset.setCurrentText(
             str(getattr(ns, 'mgaze_dataset', 'gaze360')))
 
-        if l2cs_model:
-            self._l2cs_model.setText(str(l2cs_model))
-        l2cs_arch = getattr(ns, 'l2cs_arch', 'ResNet50')
-        if l2cs_arch:
-            self._l2cs_arch.setCurrentText(str(l2cs_arch))
-        self._l2cs_dataset.setCurrentText(
-            str(getattr(ns, 'l2cs_dataset', 'gaze360')))
         self._gazelle_name.setCurrentText(
             str(getattr(ns, 'gazelle_name', GAZELLE_NAMES[0])))
         self._gazelle_inout.setValue(
