@@ -225,7 +225,7 @@ class JointAttentionTracker(PhenomenaPlugin):
 
     @classmethod
     def add_arguments(cls, parser) -> None:
-        pass  # JA args are handled by phenomena_tracking.py
+        pass  # JA args are schema-generated (cli_flags)
 
     @classmethod
     def from_args(cls, args):

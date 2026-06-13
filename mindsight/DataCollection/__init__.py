@@ -6,8 +6,6 @@ event logging, post-run summary CSV generation, and per-participant
 gaze heatmap output.
 """
 
-from mindsight.io.writers import finalize_video, open_video_writer
-
 from .csv_output import write_summary_csv
 from .dashboard_output import compose_dashboard, draw_overlay
 from .data_pipeline import collect_frame_data, finalize_run
@@ -19,8 +17,6 @@ __all__ = [
     "finalize_run",
     "draw_overlay",
     "compose_dashboard",
-    "open_video_writer",
-    "finalize_video",
     "write_summary_csv",
     "save_heatmaps",
     "generate_global_csv",

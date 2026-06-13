@@ -10,7 +10,6 @@ The phenomena engine is spread across four files:
 |---|---|
 | `phenomena_pipeline.py` | Per-frame coordinator and lifecycle manager |
 | `phenomena_config.py` | Configuration dataclass with all toggles and parameters |
-| `phenomena_tracking.py` | CLI argument registration and re-exports for backward compatibility |
 | `helpers.py` | Shared utility functions (joint attention, gaze convergence) |
 
 ## 2. Phenomena Pipeline
@@ -82,9 +81,7 @@ A dataclass holding all phenomena toggles and their parameters. `from_namespace(
 
 Phenomena CLI flags are generated from the pydantic schema (`ms/config.py`) via
 the `FlagSpec` table in `ms/cli_flags.py`, alongside every other core flag (the
-old per-module `add_arguments(parser)` was removed in SP1.3). `phenomena_tracking.py`
-remains as a re-export shim for the tracker classes and helper functions so
-external code can import them from a single location.
+old per-module `add_arguments(parser)` was removed in SP1.3).
 
 ## 5. Helper Functions
 

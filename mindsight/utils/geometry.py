@@ -2,7 +2,7 @@
 utils/geometry.py — Shared ray-geometry and spatial utilities.
 
 Functions here are used by both the gaze pipeline (gaze_processing.py,
-gaze_pipeline.py) and the phenomena pipeline (phenomena_tracking.py).
+gaze_pipeline.py) and the phenomena pipeline (phenomena_pipeline.py).
 Centralising them avoids cross-module coupling and exposes previously
 private helpers through a neutral import path.
 """

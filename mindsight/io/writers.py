@@ -5,7 +5,6 @@ Owns the annotated-video writer (mp4v + optional ffmpeg H.264 remux) and the
 per-frame event-CSV handle.  ``open_video_writer`` and ``finalize_video`` were
 historically defined in ``mindsight.DataCollection.dashboard_output``; they are pure
 IO (not drawing) and moved here as part of the SP1.2 io extraction.
-``mindsight.DataCollection`` re-exports them for backward compatibility.
 """
 
 import csv

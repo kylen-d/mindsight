@@ -27,7 +27,6 @@ graph TD
     GP --> GI[mindsight/GazeTracking/__init__]
     GP --> GBE[mindsight/GazeTracking/Backends/*]
 
-    PP --> PT[mindsight/Phenomena/phenomena_tracking]
     PP --> PC[mindsight/Phenomena/phenomena_config]
     PP --> PH[mindsight/Phenomena/helpers]
     PP --> PD[mindsight/Phenomena/Default/*]

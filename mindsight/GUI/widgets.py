@@ -26,8 +26,6 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
-from mindsight.constants import IMAGE_EXTS  # noqa: F401  (re-export for convenience)
-
 # ── Project root (ms/GUI/ -> ms/ -> project root) ───────────────────────────
 _HERE = Path(__file__).resolve().parent.parent.parent
 
