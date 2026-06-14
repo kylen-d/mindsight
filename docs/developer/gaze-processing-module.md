@@ -104,7 +104,7 @@ Adaptive snap with hysteresis to prevent rapid switching between snap targets.
 
 ## 6. Ray Geometry
 
-**Files:** `ms/GazeTracking/gaze_processing.py`, `ms/utils/geometry.py`
+**Files:** `mindsight/GazeTracking/gaze_processing.py`, `mindsight/utils/geometry.py`
 
 | Function | Signature | Description |
 |---|---|---|

@@ -1,6 +1,6 @@
 # Mutual Gaze
 
-**Source:** `ms/Phenomena/Default/mutual_gaze.py`
+**Source:** `mindsight/Phenomena/Default/mutual_gaze.py`
 
 ## What It Is
 

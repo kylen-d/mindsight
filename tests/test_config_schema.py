@@ -1,4 +1,4 @@
-"""Tests for ms/config.py -- the unified pydantic schema (SP1.1).
+"""Tests for mindsight/config.py -- the unified pydantic schema (SP1.1).
 
 Covers:
 * section models mirror the runtime dataclasses (names + defaults),

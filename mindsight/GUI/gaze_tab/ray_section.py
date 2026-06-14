@@ -130,7 +130,7 @@ class RaySection(QWidget):
 
         # -- Belief map tuning (fixation-aware scheduler + One Euro) -----
         # 3 default-visible knobs; the rest live in a collapsed Advanced
-        # group.  See ms/PostProcessing/RayForming/gazelle_blender.py and
+        # group.  See mindsight/PostProcessing/RayForming/gazelle_blender.py and
         # the design spec for what each controls.
         lbl_belief = QLabel("Scheduling & Smoothing")
         lbl_belief.setStyleSheet(

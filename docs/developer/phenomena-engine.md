@@ -79,8 +79,8 @@ A dataclass holding all phenomena toggles and their parameters. `from_namespace(
 
 ## 4. CLI Argument Registration
 
-Phenomena CLI flags are generated from the pydantic schema (`ms/config.py`) via
-the `FlagSpec` table in `ms/cli_flags.py`, alongside every other core flag (the
+Phenomena CLI flags are generated from the pydantic schema (`mindsight/config.py`) via
+the `FlagSpec` table in `mindsight/cli_flags.py`, alongside every other core flag (the
 old per-module `add_arguments(parser)` was removed in SP1.3).
 
 ## 5. Helper Functions

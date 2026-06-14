@@ -166,7 +166,7 @@ def estimate_frame(self, frame_bgr, face_bboxes_px: list) -> list:
 
 ### Custom Pipeline (Advanced)
 
-Override `run_pipeline()` for full control over face cropping, estimation, temporal smoothing, and ray construction. When implemented, the coordinator in `ms/GazeTracking/gaze_pipeline.py` calls this instead of the default per-face or scene handler.
+Override `run_pipeline()` for full control over face cropping, estimation, temporal smoothing, and ray construction. When implemented, the coordinator in `mindsight/GazeTracking/gaze_pipeline.py` calls this instead of the default per-face or scene handler.
 
 ```python
 def run_pipeline(self, **kwargs):

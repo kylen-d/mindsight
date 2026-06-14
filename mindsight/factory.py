@@ -2,7 +2,7 @@
 mindsight.factory -- Model wiring.
 
 Build live models + config dataclasses from a parsed argparse-style namespace.
-Extracted from the ms/cli.py ``_build_from_args`` factory in SP1.5.
+Extracted from the legacy cli.py ``_build_from_args`` factory in SP1.5.
 """
 
 

@@ -26,7 +26,7 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
-# ── Project root (ms/GUI/ -> ms/ -> project root) ───────────────────────────
+# ── Project root (mindsight/GUI/ -> mindsight/ -> project root) ──────────────
 _HERE = Path(__file__).resolve().parent.parent.parent
 
 VP_EXT = ".vp.json"

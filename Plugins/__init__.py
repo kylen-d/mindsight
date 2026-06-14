@@ -186,7 +186,7 @@ class GazePlugin(ABC):
     Override ``run_pipeline()`` to provide a self-contained pipeline that
     handles estimation, smoothing, and ray construction.  The coordinator
     in ``GazeTracking/gaze_pipeline.py`` will call it instead of the default
-    per-face / scene handler.  See ``Plugins/Gaze/MGaze/`` for an example.
+    per-face / scene handler.  See ``Plugins/GazeTracking/Gazelle/`` for an example.
     """
 
     name: str = ""

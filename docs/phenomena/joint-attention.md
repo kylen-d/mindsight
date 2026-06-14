@@ -1,6 +1,6 @@
 # Joint Attention
 
-**Source:** `ms/Phenomena/Default/joint_attention.py`
+**Source:** `mindsight/Phenomena/Default/joint_attention.py`
 
 ## What It Is
 

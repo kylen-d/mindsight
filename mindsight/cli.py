@@ -6,10 +6,10 @@ Architecture
 The four logical stages of the run loop are each implemented in their own
 module so that user plugins can swap out individual steps:
 
-  ms/ObjectDetection/detection_pipeline.py  -> YOLO detection step
-  ms/GazeTracking/gaze_pipeline.py          -> face detection + gaze + intersection
-  ms/Phenomena/phenomena_pipeline.py        -> phenomena tracker init / update / summary
-  ms/DataCollection/data_pipeline.py        -> CSV logging, look counts, heatmaps
+  mindsight/ObjectDetection/detection_pipeline.py  -> YOLO detection step
+  mindsight/GazeTracking/gaze_pipeline.py          -> face detection + gaze + intersection
+  mindsight/Phenomena/phenomena_pipeline.py        -> phenomena tracker init / update / summary
+  mindsight/DataCollection/data_pipeline.py        -> CSV logging, look counts, heatmaps
 
 This file is the thin orchestrator: it wires the stages together and owns
 the CLI, model loading, and display loop.
@@ -20,8 +20,8 @@ data never requires changing function signatures.
 
 CLI flags
 ---------
-Core flags are generated from the pydantic schema (``ms/config.py``) via the
-``FlagSpec`` table in ``ms/cli_flags.py`` -- ``_args`` just delegates to
+Core flags are generated from the pydantic schema (``mindsight/config.py``) via the
+``FlagSpec`` table in ``mindsight/cli_flags.py`` -- ``_args`` just delegates to
 ``cli_flags.parse_cli``.  Plugins still contribute their own flags at runtime
 through the ``add_arguments(parser)`` method on each registered plugin class.
 

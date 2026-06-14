@@ -54,4 +54,4 @@ python MindSight.py --source video.mp4 --attn-span
 
 ---
 
-Source: `ms/Phenomena/Default/attention_span.py`
+Source: `mindsight/Phenomena/Default/attention_span.py`

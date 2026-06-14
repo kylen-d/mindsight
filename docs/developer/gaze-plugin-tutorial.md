@@ -4,7 +4,7 @@
 
 This tutorial covers all three gaze plugin patterns by walking through real backends that ship with MindSight:
 
-- **[Part A — Per-face mode:](#part-a-per-face-backend-mgaze)** The MGaze backend (`ms/GazeTracking/Backends/MGaze/MGaze_Tracking.py`), which crops each face and estimates pitch/yaw angles independently.
+- **[Part A — Per-face mode:](#part-a-per-face-backend-mgaze)** The MGaze backend (`mindsight/GazeTracking/Backends/MGaze/MGaze_Tracking.py`), which crops each face and estimates pitch/yaw angles independently.
 - **[Part B — Scene-level mode:](#part-b-scene-level-backend-gazelle)** The Gazelle backend (`Plugins/GazeTracking/Gazelle/gazelle_backend.py`), which processes the full frame and all faces in a single DINOv2 forward pass.
 - **[Part C — Composite / processing augmentation:](#part-c-composite-backend-temporarily-removed)** Previously demonstrated via the GazelleSnap plugin, which was removed in v0.8. A replacement composite-plugin example is TODO.
 
@@ -29,14 +29,14 @@ Choose your mode based on what your model produces. If it outputs pitch/yaw angl
 
 The MGaze plugin is MindSight's default gaze backend. It supports both ONNX and PyTorch inference, wrapping the vendored `gaze-estimation` library. It demonstrates the per-face pattern where `estimate()` receives a single cropped face and returns pitch/yaw angles.
 
-**Source:** `ms/GazeTracking/Backends/MGaze/MGaze_Tracking.py`
+**Source:** `mindsight/GazeTracking/Backends/MGaze/MGaze_Tracking.py`
 
 ---
 
 ## A1. File Structure
 
 ```
-ms/GazeTracking/Backends/MGaze/
+mindsight/GazeTracking/Backends/MGaze/
 ├── __init__.py
 ├── MGaze_Tracking.py       # PLUGIN_CLASS = MGazePlugin
 ├── MGaze_Config.py         # DEFAULT_ONNX_MODEL, ARCH_CHOICES, DATA_CONFIG
@@ -52,7 +52,7 @@ ms/GazeTracking/Backends/MGaze/
 ```
 
 !!! note
-    MGaze lives under `ms/GazeTracking/Backends/` (not `Plugins/GazeTracking/`). The gaze registry discovers both locations — built-in backends from `ms/GazeTracking/Backends/` and external plugins from `Plugins/GazeTracking/`.
+    MGaze is a built-in core backend (resolved directly by `create_gaze_engine` since v1.0, not registered as a plugin); its code lives under `mindsight/GazeTracking/Backends/MGaze/`. The gaze registry scans `Plugins/GazeTracking/` only, for external plugins.
 
 ---
 
@@ -533,6 +533,6 @@ PLUGIN_CLASS = GazeEstimationGazelle  # scene-level
 
 ## Part C: Composite Backend (temporarily removed)
 
-> **Removed in v0.8.** The previous Part C used the GazelleSnap plugin as a worked example of a composite backend -- a plugin that combines per-face gaze estimation with post-processing features like ray forming and heatmap blending. GazelleSnap was deprecated (its features were folded into the core `ms/PostProcessing/RayForming/` pipeline) and deleted in v0.8.
+> **Removed in v0.8.** The previous Part C used the GazelleSnap plugin as a worked example of a composite backend -- a plugin that combines per-face gaze estimation with post-processing features like ray forming and heatmap blending. GazelleSnap was deprecated (its features were folded into the core `mindsight/PostProcessing/RayForming/` pipeline) and deleted in v0.8.
 >
-> A replacement composite-plugin example (likely rewritten around one of the surviving plugins such as IrisRefinedGaze) is TODO. In the meantime, read Parts A and B for the per-face and scene-level patterns, and skim `ms/PostProcessing/RayForming/gazelle_provider.py` for the core integration pattern that replaced GazelleSnap.
+> A replacement composite-plugin example (likely rewritten around one of the surviving plugins such as IrisRefinedGaze) is TODO. In the meantime, read Parts A and B for the per-face and scene-level patterns, and skim `mindsight/PostProcessing/RayForming/gazelle_provider.py` for the core integration pattern that replaced GazelleSnap.
