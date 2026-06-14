@@ -5,10 +5,8 @@ import numpy as np
 import pytest
 
 from mindsight.utils.geometry import sample_depth_patch
-from mindsight.GazeTracking.gaze_processing import (
-    compute_ray_intersections,
-    snap_score,
-)
+from mindsight.PostProcessing.RayForming.hit_detection import compute_ray_intersections
+from mindsight.PostProcessing.RayForming.object_snap import snap_score
 from mindsight.pipeline_config import GazeConfig
 
 

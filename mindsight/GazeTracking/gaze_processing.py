@@ -2,9 +2,9 @@
 GazeTracking/gaze_processing.py — Generic gaze utilities shared across all backends.
 
 Contains backend-agnostic tools for temporal smoothing, track re-identification,
-and eye-landmark extraction.  Also re-exports the post-processing tools
-(snap scoring, fixation lock-on, tip-snapping, ray-bbox intersection) that
-now live in ``mindsight.PostProcessing.RayForming`` for backward compatibility.
+and eye-landmark extraction.  The post-processing tools (snap scoring, fixation
+lock-on, tip-snapping, ray-bbox intersection) live in
+``mindsight.PostProcessing.RayForming``.
 
 Plugins can extend this module's functionality by subclassing ``GazeToolkit``
 and overriding or adding methods.  The coordinator passes the active toolkit
@@ -25,26 +25,8 @@ import cv2
 import numpy as np
 
 from mindsight.constants import SMOOTH_ALPHA
-
-# ══════════════════════════════════════════════════════════════════════════════
-# Backward-compat re-exports from mindsight.PostProcessing.RayForming
-# ══════════════════════════════════════════════════════════════════════════════
-# These were originally defined in this file and have been moved to the
-# unified RayForming module.  Re-exported here so existing imports continue
-# to work.
-from mindsight.PostProcessing.RayForming.object_snap import (  # noqa: F401, E402
-    SmoothSnapTracker,
-    SnapTemporalState,
-    snap_score,
-    apply_tip_snapping,
-)
-from mindsight.PostProcessing.RayForming.fixation import (     # noqa: F401, E402
-    GazeLockTracker,
-    apply_lock_on,
-)
-from mindsight.PostProcessing.RayForming.hit_detection import ( # noqa: F401, E402
-    compute_ray_intersections,
-)
+from mindsight.PostProcessing.RayForming.fixation import GazeLockTracker
+from mindsight.PostProcessing.RayForming.object_snap import SnapTemporalState, snap_score
 
 # ══════════════════════════════════════════════════════════════════════════════
 # Eye-landmark helper

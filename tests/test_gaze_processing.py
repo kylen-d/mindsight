@@ -3,9 +3,9 @@
 import numpy as np
 import pytest
 
-from mindsight.GazeTracking.gaze_processing import (
-    GazeLockTracker,
-    GazeSmootherReID,
+from mindsight.GazeTracking.gaze_processing import GazeSmootherReID
+from mindsight.PostProcessing.RayForming.fixation import GazeLockTracker
+from mindsight.PostProcessing.RayForming.object_snap import (
     SnapTemporalState,
     snap_score,
 )

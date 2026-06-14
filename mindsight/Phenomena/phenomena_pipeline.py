@@ -18,7 +18,6 @@ Usage
         init_phenomena_trackers,
         update_phenomena_step,
         post_run_summary,
-        joint_attention, gaze_convergence,
     )
 
     builtin_trackers = init_phenomena_trackers(phenomena_cfg)
@@ -43,7 +42,6 @@ from mindsight.Phenomena.Default import (
     ScanpathTracker,
     SocialReferenceTracker,
 )
-from mindsight.Phenomena.helpers import gaze_convergence, joint_attention  # noqa: F401 — re-exported
 from mindsight.Phenomena.phenomena_config import PhenomenaConfig
 
 

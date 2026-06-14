@@ -17,8 +17,8 @@ from mindsight.constants import CR_MAX, CR_MIN, EYE_CONF_THRESH
 from mindsight.GazeTracking.gaze_processing import (
     _faces_as_objects,
     _get_eye_center,
-    snap_score,
 )
+from mindsight.PostProcessing.RayForming.object_snap import snap_score
 from mindsight.utils.geometry import pitch_yaw_to_2d
 
 

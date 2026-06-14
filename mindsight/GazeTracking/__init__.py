@@ -7,12 +7,9 @@ smoothing with ReID, snap-to-object scoring, and dwell-based gaze locking.
 
 from .gaze_factory import create_gaze_engine
 from .gaze_pipeline import run_gaze_step
-from .gaze_processing import (
-    GazeLockTracker,
-    GazeSmootherReID,
-    GazeToolkit,
-    SnapTemporalState,
-)
+from .gaze_processing import GazeSmootherReID, GazeToolkit
+from mindsight.PostProcessing.RayForming.fixation import GazeLockTracker
+from mindsight.PostProcessing.RayForming.object_snap import SnapTemporalState
 from .pitchyaw_pipeline import run_pitchyaw_pipeline
 
 __all__ = [

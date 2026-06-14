@@ -40,18 +40,17 @@ from mindsight.io.sources import (
 )
 from mindsight.io.writers import finalize_video, open_event_log, open_video_writer
 from mindsight.GazeTracking.gaze_pipeline import run_gaze_step
-from mindsight.GazeTracking.gaze_processing import (
-    GazeLockTracker,
-    GazeSmootherReID,
+from mindsight.GazeTracking.gaze_processing import GazeSmootherReID
+from mindsight.PostProcessing.RayForming.fixation import GazeLockTracker
+from mindsight.PostProcessing.RayForming.object_snap import (
     SmoothSnapTracker,
     SnapTemporalState,
 )
 from mindsight.ObjectDetection.detection_pipeline import run_detection_step
 from mindsight.ObjectDetection.object_detection import ObjectPersistenceCache
+from mindsight.Phenomena.helpers import gaze_convergence, joint_attention
 from mindsight.Phenomena.phenomena_pipeline import (
-    gaze_convergence,
     init_phenomena_trackers,
-    joint_attention,
     post_run_summary,
     update_phenomena_step,
 )

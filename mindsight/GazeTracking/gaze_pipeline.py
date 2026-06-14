@@ -25,10 +25,10 @@ from mindsight.constants import EYE_CONF_THRESH
 from mindsight.GazeTracking.gaze_processing import (
     _faces_as_objects,
     _get_eye_center,
-    apply_lock_on,
-    apply_tip_snapping,
-    compute_ray_intersections,
 )
+from mindsight.PostProcessing.RayForming.fixation import apply_lock_on
+from mindsight.PostProcessing.RayForming.hit_detection import compute_ray_intersections
+from mindsight.PostProcessing.RayForming.object_snap import apply_tip_snapping
 from mindsight.pipeline_config import GazeConfig
 from mindsight.PostProcessing.RayForming import (
     RawGaze,
