@@ -215,7 +215,8 @@ MindSight/
 │   ├── constants.py              # Shared constants (colours, thresholds)
 │   ├── pipeline_config.py        # Config dataclasses + FrameContext
 │   ├── config_compat.py          # YAML pipeline config loader
-│   ├── project_runner.py         # Project-based batch processing
+│   ├── project/
+│   │   └── runner.py            # Project-based batch processing
 │   ├── participant_ids.py        # Participant label mapping
 │   ├── weights.py                # Centralized weight file resolution
 │   │
@@ -237,7 +238,7 @@ MindSight/
 │   │   ├── helpers.py            # joint_attention, gaze_convergence
 │   │   └── Default/              # Built-in phenomena pack
 │   │
-│   ├── DataCollection/
+│   ├── outputs/
 │   │   ├── data_pipeline.py      # CSV logging, heatmap accumulation
 │   │   ├── dashboard_output.py   # Frame overlay + dashboard compositor
 │   │   ├── csv_output.py         # Summary CSV writer

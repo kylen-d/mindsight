@@ -18,7 +18,7 @@ graph TD
     MS[MindSight.py] --> DP[mindsight/ObjectDetection/detection_pipeline]
     MS --> GP[mindsight/GazeTracking/gaze_pipeline]
     MS --> PP[mindsight/Phenomena/phenomena_pipeline]
-    MS --> DC[mindsight/DataCollection/data_pipeline]
+    MS --> DC[mindsight/outputs/data_pipeline]
 
     DP --> OD[mindsight/ObjectDetection/object_detection]
     DP --> MF[mindsight/ObjectDetection/model_factory]
@@ -31,9 +31,9 @@ graph TD
     PP --> PH[mindsight/Phenomena/helpers]
     PP --> PD[mindsight/Phenomena/Default/*]
 
-    DC --> CSV[mindsight/DataCollection/csv_output]
-    DC --> HM[mindsight/DataCollection/heatmap_output]
-    DC --> DB[mindsight/DataCollection/dashboard_output]
+    DC --> CSV[mindsight/outputs/csv_output]
+    DC --> HM[mindsight/outputs/heatmap_output]
+    DC --> DB[mindsight/outputs/dashboard_output]
 
     MS --> CFG[mindsight/pipeline_config.py]
     MS --> PLG[Plugins/__init__.py]
@@ -84,7 +84,7 @@ Factory function that reads the argparse namespace and instantiates the correct 
 | Detection | `run_detection_step(ctx, ...)` | `mindsight/ObjectDetection/detection_pipeline.py` |
 | Gaze | `run_gaze_step(ctx, ...)` | `mindsight/GazeTracking/gaze_pipeline.py` |
 | Phenomena | `update_phenomena_step(ctx)` | `mindsight/Phenomena/phenomena_pipeline.py` |
-| Data Collection | `collect_frame_data(ctx, ...)` | `mindsight/DataCollection/data_pipeline.py` |
+| Data Collection | `collect_frame_data(ctx, ...)` | `mindsight/outputs/data_pipeline.py` |
 
 Each stage reads from and writes to the `FrameContext`. See [FrameContext Reference](frame-context.md) for the full key registry.
 
