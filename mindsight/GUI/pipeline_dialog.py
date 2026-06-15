@@ -69,7 +69,7 @@ def export_pipeline(parent, ns: Namespace) -> bool:
 def _namespace_to_yaml_dict(ns: Namespace) -> dict:
     """Convert a Namespace to a structured YAML dict matching the pipeline format.
 
-    Reverses the flattening done by pipeline_loader to produce a readable,
+    Reverses the flattening done by the YAML pipeline loader to produce a readable,
     structured YAML file with detection, gaze, output, and phenomena sections.
     """
     d = vars(ns) if hasattr(ns, '__dict__') else {}

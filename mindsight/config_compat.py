@@ -18,7 +18,7 @@ live loader + ``from_namespace`` route would put it.
 
 ``load_yaml(path)`` applies a pipeline YAML over SCHEMA DEFAULTS -- i.e. the
 value a YAML author wrote always wins over a default.  Note this is the
-*intended* semantics; the legacy ``pipeline_loader.load_pipeline`` merges
+*intended* semantics; the legacy ``load_pipeline`` (bottom of this module) merges
 into a live namespace and its ``_is_default`` heuristic silently skips any
 key whose namespace value is truthy (see tests/test_config_equivalence.py
 for the pinned side-by-side).  Unknown keys are silently ignored, exactly
@@ -26,7 +26,7 @@ like the legacy loader.
 
 ``to_dataclasses(cfg)`` reconstructs the 8 existing config dataclasses.
 Live model objects (YOLO, GazelleProvider, depth backend, plugins) are NOT
-config -- ``cli._build_from_args`` keeps building those.
+config -- ``factory.build_from_namespace`` keeps building those.
 
 The legacy loader itself is untouched; it is retired in SP1.3.
 """
@@ -155,7 +155,7 @@ PATH_MIRRORS: dict[str, tuple[str, ...]] = {
 }
 
 # ══════════════════════════════════════════════════════════════════════════════
-# YAML key tables (legacy pipeline_loader._YAML_MAP spellings)
+# YAML key tables (spellings inherited from the old loader's _YAML_MAP)
 # ══════════════════════════════════════════════════════════════════════════════
 
 # old YAML key -> canonical schema path.
@@ -215,7 +215,7 @@ YAML_ALIASES: dict[str, str] = {
     "depth.gaze_sample_radius":  "depth.gaze_sample_radius",
 }
 
-# Legacy YAML keys recognized by pipeline_loader._YAML_MAP that have no
+# Legacy YAML keys recognized by the old loader's _YAML_MAP that have no
 # schema home.  key -> reason.  (They keep working through the legacy
 # loader until SP1.3; a future `migrate` command will warn on them.)
 YAML_UNMAPPED: dict[str, str] = {
@@ -236,7 +236,7 @@ YAML_UNMAPPED: dict[str, str] = {
     "gaze.adaptive_snap":        "legacy shim input for boolean gaze.adaptive_ray",
 }
 
-# Phenomena list-format tables (mirror pipeline_loader._PHENOMENA_TOGGLES /
+# Phenomena list-format tables (mirror the old loader's _PHENOMENA_TOGGLES /
 # _PHENOMENA_PARAMS, but targeting schema paths).
 PHENOMENA_TOGGLE_PATHS: dict[str, str] = {
     "mutual_gaze":        "phenomena.mutual_gaze",
@@ -348,7 +348,7 @@ def load_yaml(path: str | Path) -> PipelineConfig:
         value = flat[yaml_key]
         # Legacy shim: old YAMLs used adaptive_ray: true/false plus an
         # adaptive_snap boolean; new spelling is the "off"/"extend"/"snap"
-        # enum (pipeline_loader.load_pipeline lines ~235-243).
+        # enum (handled the same way by the legacy load_pipeline below).
         if yaml_key == "gaze.adaptive_ray" and isinstance(value, bool):
             if value:
                 value = "snap" if flat.get("gaze.adaptive_snap", False) else "extend"
@@ -572,7 +572,7 @@ def to_dataclasses(cfg: PipelineConfig) -> tuple[
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# Legacy namespace loader  (moved verbatim from mindsight.pipeline_loader, SP1.3)
+# Legacy namespace loader  (moved verbatim from the deleted pipeline_loader module, SP1.3)
 # ══════════════════════════════════════════════════════════════════════════════
 # The GUI (empty-namespace route) and the CLI (default-namespace + _explicit_cli
 # route) both merge a pipeline YAML into a live argparse namespace here.  This is

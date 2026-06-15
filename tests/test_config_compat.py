@@ -1,4 +1,4 @@
-"""Tests for pipeline_loader.py -- YAML pipeline config loading."""
+"""Tests for config_compat.py -- YAML pipeline config loading."""
 
 from argparse import Namespace
 from pathlib import Path

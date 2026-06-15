@@ -10,7 +10,7 @@ MindSight uses **pytest** for its test suite. All test files live in the `tests/
 |------|----------------|
 | `test_geometry.py` | Ray intersection math, pitch/yaw conversions, and coordinate transforms |
 | `test_frame_context.py` | FrameContext API -- creation, attribute access, and data attachment |
-| `test_pipeline_loader.py` | YAML loading, key mapping, CLI-override precedence |
+| `test_config_compat.py` | YAML loading, key mapping, CLI-override precedence |
 | `test_phenomena_trackers.py` | Tracker `update()` calls, output format, and edge cases |
 
 ## Running Tests

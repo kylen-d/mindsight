@@ -214,7 +214,7 @@ MindSight/
 │   ├── gui.py                    # GUI launcher
 │   ├── constants.py              # Shared constants (colours, thresholds)
 │   ├── pipeline_config.py        # Config dataclasses + FrameContext
-│   ├── pipeline_loader.py        # YAML pipeline config loader
+│   ├── config_compat.py          # YAML pipeline config loader
 │   ├── project_runner.py         # Project-based batch processing
 │   ├── participant_ids.py        # Participant label mapping
 │   ├── weights.py                # Centralized weight file resolution
