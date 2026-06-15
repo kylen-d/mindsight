@@ -37,7 +37,7 @@ Pull only what you need — your plugin doesn't break if new keys are added.
 
 Dashboard drawing helpers
 -------------------------
-Import from ``DataCollection.dashboard_output``:
+Import from ``mindsight.outputs.dashboard_output``:
     _draw_panel_section(panel, y, title, title_col, rows, line_h) -> int
     _DASH_DIM  (colour for placeholder text)
 """
@@ -83,7 +83,7 @@ class MyTracker(PhenomenaPlugin):
 
     def dashboard_section(self, panel, y: int, line_h: int) -> int:
         """Draw a section in the side panel.  Return new y after the section."""
-        from mindsight.DataCollection.dashboard_output import _DASH_DIM, _draw_panel_section
+        from mindsight.outputs.dashboard_output import _DASH_DIM, _draw_panel_section
         rows = [("--", _DASH_DIM)]
         return _draw_panel_section(
             panel, y, "MY TRACKER", (200, 200, 200), rows, line_h)

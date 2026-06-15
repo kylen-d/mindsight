@@ -1,5 +1,5 @@
 """
-DataCollection/dashboard_matplotlib.py — Matplotlib-based dashboard renderer.
+outputs/dashboard_matplotlib.py — Matplotlib-based dashboard renderer.
 
 Replaces the raw OpenCV side-panel drawing with a clean, styled matplotlib
 composite.  Renders dashboard panels as numpy arrays compatible with

@@ -3,7 +3,7 @@ from collections import deque
 
 import numpy as np
 
-from mindsight.DataCollection.dashboard_output import _DASH_DIM, _draw_panel_section
+from mindsight.outputs.dashboard_output import _DASH_DIM, _draw_panel_section
 from mindsight.pipeline_config import resolve_display_pid
 from Plugins import PhenomenaPlugin
 

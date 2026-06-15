@@ -321,7 +321,7 @@ class PhenomenaPlugin(ABC):
 
     Drawing helpers (for ``dashboard_section``)
     -------------------------------------------
-    Import from ``DataCollection.dashboard_output``:
+    Import from ``mindsight.outputs.dashboard_output``:
         _draw_panel_section(panel, y, title, title_col, rows, line_h) -> int
         _dash_line_h() -> int
         _DASH_HEAD, _DASH_DIM  (colour constants)

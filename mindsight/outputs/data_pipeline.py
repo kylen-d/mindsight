@@ -1,5 +1,5 @@
 """
-DataCollection/data_pipeline.py — Run-loop data collection step.
+outputs/data_pipeline.py — Run-loop data collection step.
 
 Extracts per-frame event logging, look-count accumulation, heatmap data
 gathering, and post-run file output (summary CSV, heatmap images) from the
@@ -8,7 +8,7 @@ touching MindSight.py.
 
 Usage
 -----
-    from DataCollection.data_pipeline import collect_frame_data, finalize_run
+    from mindsight.outputs.data_pipeline import collect_frame_data, finalize_run
 
     # Inside the frame loop:
     collect_frame_data(ctx, log_csv=log_csv, frame_no=frame_no,
@@ -19,10 +19,10 @@ Usage
     finalize_run(ctx)
 """
 
-from mindsight.DataCollection.chart_output import generate_run_charts, resolve_chart_path
-from mindsight.DataCollection.csv_output import resolve_summary_path, write_summary_csv
-from mindsight.DataCollection.dashboard_output import apply_face_anonymization
-from mindsight.DataCollection.heatmap_output import extract_mid_frame, resolve_heatmap_path, save_heatmaps
+from mindsight.outputs.chart_output import generate_run_charts, resolve_chart_path
+from mindsight.outputs.csv_output import resolve_summary_path, write_summary_csv
+from mindsight.outputs.dashboard_output import apply_face_anonymization
+from mindsight.outputs.heatmap_output import extract_mid_frame, resolve_heatmap_path, save_heatmaps
 from mindsight.pipeline_config import resolve_display_pid
 
 

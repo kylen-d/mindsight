@@ -9,7 +9,7 @@ module so that user plugins can swap out individual steps:
   mindsight/ObjectDetection/detection_pipeline.py  -> YOLO detection step
   mindsight/GazeTracking/gaze_pipeline.py          -> face detection + gaze + intersection
   mindsight/Phenomena/phenomena_pipeline.py        -> phenomena tracker init / update / summary
-  mindsight/DataCollection/data_pipeline.py        -> CSV logging, look counts, heatmaps
+  mindsight/outputs/data_pipeline.py        -> CSV logging, look counts, heatmaps
 
 This file is the thin orchestrator: it wires the stages together and owns
 the CLI, model loading, and display loop.

@@ -1,5 +1,5 @@
 """
-DataCollection — Output and data-recording pipeline stage.
+outputs — Output and data-recording pipeline stage.
 
 Handles frame overlay rendering (dashboard annotations), per-frame CSV
 event logging, post-run summary CSV generation, and per-participant

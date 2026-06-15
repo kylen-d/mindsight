@@ -23,7 +23,7 @@ from Plugins import PhenomenaPlugin
 
 # Dashboard drawing helpers (lazy import)
 def _dash():
-    from mindsight.DataCollection.dashboard_output import (
+    from mindsight.outputs.dashboard_output import (
         _DASH_DIM,
         _dash_line_h,
         _draw_panel_section,

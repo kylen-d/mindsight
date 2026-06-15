@@ -1,5 +1,5 @@
 """
-DataCollection/global_csv.py — Project-level CSV aggregation.
+outputs/global_csv.py — Project-level CSV aggregation.
 
 After all per-video processing is complete, this module:
 1. Combines per-video CSVs into a single Global CSV (summary and/or events).

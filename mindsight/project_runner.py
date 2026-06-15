@@ -403,7 +403,7 @@ def run_project(project_dir: str | Path, run_fn, build_fn, args_ns) -> None:
     # ── Post-processing: generate global and per-condition CSVs ──────────
     csv_dir = out_root / "CSV Files"
     print("\nGenerating global CSVs...")
-    from mindsight.DataCollection.global_csv import generate_condition_csvs, generate_global_csv
+    from mindsight.outputs.global_csv import generate_condition_csvs, generate_global_csv
 
     global_summary = generate_global_csv(csv_dir, "summary")
     global_events = generate_global_csv(csv_dir, "events")

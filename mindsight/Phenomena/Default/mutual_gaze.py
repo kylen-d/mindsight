@@ -1,7 +1,7 @@
 """Phenomena/Default/mutual_gaze.py — Dyadic mutual gaze (eye contact) detection."""
 import numpy as np
 
-from mindsight.DataCollection.dashboard_output import _DASH_DIM, _draw_panel_section
+from mindsight.outputs.dashboard_output import _DASH_DIM, _draw_panel_section
 from mindsight.pipeline_config import resolve_display_pid
 from Plugins import PhenomenaPlugin
 from mindsight.utils.geometry import extend_ray, ray_hits_box

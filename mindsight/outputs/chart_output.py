@@ -1,5 +1,5 @@
 """
-DataCollection/chart_output.py — Post-run chart generation for phenomena trackers.
+outputs/chart_output.py — Post-run chart generation for phenomena trackers.
 
 Generates matplotlib time-series charts after a run completes, saved alongside
 CSV summary and heatmap outputs.  Each tracker that implements ``time_series_data()``

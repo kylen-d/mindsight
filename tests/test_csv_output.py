@@ -1,10 +1,10 @@
-"""Tests for DataCollection/csv_output.py -- summary CSV writing."""
+"""Tests for outputs/csv_output.py -- summary CSV writing."""
 
 import csv
 
 import pytest
 
-from mindsight.DataCollection.csv_output import resolve_summary_path, write_summary_csv
+from mindsight.outputs.csv_output import resolve_summary_path, write_summary_csv
 
 
 class TestResolveSummaryPath:

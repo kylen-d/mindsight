@@ -1,5 +1,5 @@
 """
-DataCollection/heatmap_output.py — Per-participant scene-based gaze heatmaps.
+outputs/heatmap_output.py — Per-participant scene-based gaze heatmaps.
 
 Responsibilities
 ----------------

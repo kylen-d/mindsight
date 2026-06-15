@@ -1,5 +1,5 @@
 """
-DataCollection/dashboard_output.py — Display dashboard and frame overlay.
+outputs/dashboard_output.py — Display dashboard and frame overlay.
 
 Responsibilities
 ----------------
@@ -517,7 +517,7 @@ def compose_dashboard(ctx, **kwargs):
     """
     global _mpl_renderer
     if _mpl_renderer is None:
-        from mindsight.DataCollection.dashboard_matplotlib import DashboardRenderer
+        from mindsight.outputs.dashboard_matplotlib import DashboardRenderer
         _mpl_renderer = DashboardRenderer()
 
     return _mpl_renderer.render(ctx['frame'], ctx)

@@ -334,7 +334,7 @@ class ProjectWorker(threading.Thread):
         # ── Post-processing: global and per-condition CSVs ───────────
         csv_dir = out_root / "CSV Files"
         self._log("\nGenerating global CSVs...")
-        from mindsight.DataCollection.global_csv import (
+        from mindsight.outputs.global_csv import (
             generate_condition_csvs,
             generate_global_csv,
         )

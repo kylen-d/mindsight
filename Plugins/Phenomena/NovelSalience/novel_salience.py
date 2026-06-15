@@ -68,7 +68,7 @@ from Plugins import PhenomenaPlugin
 # Imported lazily inside methods that need them so the plugin loads even when
 # the DataCollection package has not been fully initialized yet.
 def _dash():
-    from mindsight.DataCollection.dashboard_output import (
+    from mindsight.outputs.dashboard_output import (
         _DASH_DIM,
         _dash_line_h,
         _draw_panel_section,

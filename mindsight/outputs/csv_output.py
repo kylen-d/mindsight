@@ -1,5 +1,5 @@
 """
-DataCollection/csv_output.py — CSV output and data recording.
+outputs/csv_output.py — CSV output and data recording.
 
 Responsibilities
 ----------------

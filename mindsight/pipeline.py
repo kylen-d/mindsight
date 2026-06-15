@@ -24,13 +24,13 @@ from pathlib import Path
 import cv2
 
 from mindsight.constants import IMAGE_EXTS
-from mindsight.DataCollection.dashboard_output import (
+from mindsight.outputs.dashboard_output import (
     AnonSmoother,
     apply_face_anonymization,
     compose_dashboard,
     draw_overlay,
 )
-from mindsight.DataCollection.data_pipeline import collect_frame_data, finalize_run
+from mindsight.outputs.data_pipeline import collect_frame_data, finalize_run
 from mindsight.io.sources import (
     enrich_aux_with_face_detection,
     open_aux_streams,
