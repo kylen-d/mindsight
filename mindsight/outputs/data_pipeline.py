@@ -55,9 +55,11 @@ def collect_frame_data(ctx, *, log_csv, frame_no: int,
         pid_map = ctx.get('pid_map')
         video_name = ctx.get('video_name')
         conditions = ctx.get('conditions', '')
+        fps = ctx.get('video_fps') or 0.0
+        t_seconds = f"{frame_no / fps:.3f}" if fps else ""
         for ev in hit_events:
             b = ev['bbox']
-            row = [frame_no, ev['face_idx'], ev['object'],
+            row = [frame_no, t_seconds, ev['face_idx'], ev['object'],
                    f"{ev['object_conf']:.3f}",
                    b[0], b[1], b[2], b[3],
                    1 if is_joint else 0,

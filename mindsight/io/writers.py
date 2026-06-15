@@ -96,7 +96,7 @@ def open_event_log(output_cfg):
         return None, None
     log_fh  = open(output_cfg.log_path, "w", newline="")
     log_csv = csv.writer(log_fh)
-    header = ["frame","face_idx","object","object_conf",
+    header = ["frame","t_seconds","face_idx","object","object_conf",
               "bbox_x1","bbox_y1","bbox_x2","bbox_y2",
               "joint_attention","joint_attention_confirmed",
               "participant_label"]
