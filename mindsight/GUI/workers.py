@@ -150,7 +150,7 @@ class GazeWorker(threading.Thread):
 class ProjectWorker(threading.Thread):
     """Batch-processes all videos in a MindSight project directory.
 
-    Wraps ``project_runner.run_project()`` with progress reporting via
+    Wraps ``project.runner.run_project()`` with progress reporting via
     *progress_q*.  Each progress event is a dict with keys:
       - ``type``: "start", "progress", "done", "error"
       - ``current``, ``total``, ``source_name`` (for progress events)
@@ -195,7 +195,7 @@ class ProjectWorker(threading.Thread):
             build_from_namespace,
         )
         from mindsight.pipeline_config import OutputConfig
-        from mindsight.project_runner import (
+        from mindsight.project.runner import (
             discover_aux_streams,
             discover_participant_ids,
             discover_sources,

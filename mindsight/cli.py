@@ -39,7 +39,7 @@ from mindsight.factory import build_from_namespace
 # -- Extracted run loop --------------------------------------------------------
 # The per-frame orchestrator and video/webcam loop live in mindsight.pipeline now.
 # ``run`` stays importable from mindsight.cli for backward compatibility (GUI workers,
-# project_runner, tests) with an identical signature.
+# project.runner, tests) with an identical signature.
 from mindsight.pipeline import run
 
 
@@ -68,7 +68,7 @@ def main():
 
     # Project mode: batch-process all videos in a project directory
     if args.project:
-        from mindsight.project_runner import run_project
+        from mindsight.project.runner import run_project
         run_project(args.project, run, build_from_namespace, args)
         return
 

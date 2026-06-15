@@ -1,5 +1,5 @@
 """
-project_runner.py — Project-based batch processing for MindSight.
+project/runner.py — Project-based batch processing for MindSight.
 
 A Project is a directory with a standard layout::
 

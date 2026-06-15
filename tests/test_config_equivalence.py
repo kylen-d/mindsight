@@ -181,7 +181,7 @@ REPO_YAMLS = [
     "Projects/ExampleProject/Pipeline/pipeline.yaml",
     "Projects/ExampleProject/Pipeline/pipeline_example.yaml",
     # NOT Projects/ExampleProject/project.yaml -- that is a project.yaml
-    # consumed by project_runner.load_project_config, not a pipeline YAML.
+    # consumed by project.runner.load_project_config, not a pipeline YAML.
 ]
 
 SYNTHETIC_YAMLS = {

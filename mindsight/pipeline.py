@@ -713,7 +713,7 @@ def run(source, yolo, face_det, gaze_eng,
         gazelle_provider=None, ray_cfg=None):
     """Backward-compatible entry point: build a :class:`Pipeline` and drive it.
 
-    Signature is unchanged so the GUI workers, project_runner, and CLI keep
+    Signature is unchanged so the GUI workers, project.runner, and CLI keep
     calling it exactly as before; it now assembles a Pipeline + RunOptions and
     defers to :func:`run_to_completion`.
     """
