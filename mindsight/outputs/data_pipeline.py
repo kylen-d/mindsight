@@ -131,7 +131,7 @@ def finalize_run(ctx, **kwargs) -> None:
     charts_path = ctx.get('charts_path')
     resolved_charts = resolve_chart_path(charts_path, source)
     if resolved_charts:
-        fps = ctx.get('fps', 30.0)
+        fps = ctx.get('video_fps') or ctx.get('fps', 30.0)
         data_plugins = ctx.get('data_plugins', [])
         generate_run_charts(
             resolved_charts, all_trackers, total_frames, fps,

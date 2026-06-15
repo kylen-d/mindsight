@@ -666,7 +666,6 @@ def _run_video(source, *, yolo, face_det, gaze_eng,
     run_ctx = FrameContext(frame_no=frame_no, **run_ctx_base)
     run_ctx['total_frames'] = total_frames
     run_ctx['total_hits'] = total_hits
-    run_ctx['fps'] = run_ctx_base.get('fps', 30.0)
     finalize_run(run_ctx)
 
 

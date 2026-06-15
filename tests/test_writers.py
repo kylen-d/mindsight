@@ -7,7 +7,8 @@ outputs/data_pipeline.collect_frame_data (per-frame row values).
 import csv
 
 from mindsight.io.writers import open_event_log
-from mindsight.outputs.data_pipeline import collect_frame_data
+from mindsight.outputs import data_pipeline
+from mindsight.outputs.data_pipeline import collect_frame_data, finalize_run
 from mindsight.pipeline_config import OutputConfig
 
 # trimmed.mp4's real cv2 CAP_PROP_FPS -- NON-integer; never hand-compute with 30.0.
@@ -123,3 +124,41 @@ class TestCollectFrameDataTSeconds:
         assert row[1] == "a|b"
         assert row[2] == "6"          # frame
         assert row[3] == f"{6 / TRIMMED_FPS:.3f}"  # t_seconds core col 3
+
+
+class TestFinalizeRunFps:
+    """finalize_run must hand generate_run_charts the REAL video fps
+    (ctx['video_fps']), not the hard-coded 30.0 default (latent bug fixed
+    in SP2 Step 6)."""
+
+    def _run(self, monkeypatch, ctx, tmp_path):
+        captured = {}
+
+        def fake_charts(output_path, all_trackers, total_frames, fps,
+                        pid_map=None, data_plugins=None):
+            captured["fps"] = fps
+            return []
+
+        monkeypatch.setattr(data_pipeline, "generate_run_charts", fake_charts)
+        ctx.setdefault("charts_path", str(tmp_path / "charts.png"))
+        ctx.setdefault("source", "clip.mp4")
+        finalize_run(ctx)
+        return captured
+
+    def test_uses_real_video_fps(self, monkeypatch, tmp_path):
+        captured = self._run(
+            monkeypatch,
+            {"video_fps": TRIMMED_FPS, "total_frames": 100}, tmp_path)
+        assert captured["fps"] == TRIMMED_FPS
+
+    def test_falls_back_to_thirty_when_no_fps(self, monkeypatch, tmp_path):
+        captured = self._run(
+            monkeypatch, {"total_frames": 100}, tmp_path)
+        assert captured["fps"] == 30.0
+
+    def test_video_fps_wins_over_stale_fps_key(self, monkeypatch, tmp_path):
+        captured = self._run(
+            monkeypatch,
+            {"video_fps": TRIMMED_FPS, "fps": 30.0, "total_frames": 100},
+            tmp_path)
+        assert captured["fps"] == TRIMMED_FPS
