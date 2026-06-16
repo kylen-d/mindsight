@@ -329,6 +329,17 @@ class PhenomenaPlugin(ABC):
 
     name: str = ""
 
+    @property
+    def summary_label(self) -> str:
+        """Phenomenon label for the tidy ``{stem}_summary.csv`` tables.
+
+        Defaults to :attr:`name`.  Override with a plain-string class attribute
+        (e.g. ``summary_label = "gaze_following"``) to present a prettier label
+        in the ``phenomenon`` column without renaming ``name`` -- which keys the
+        registries, CLI flags, and dashboards and must stay stable.
+        """
+        return self.name
+
     #: Which dashboard panel to draw into: ``"left"`` or ``"right"``.
     dashboard_panel: str = "right"
 
@@ -456,7 +467,7 @@ class PhenomenaPlugin(ABC):
         *Optional.*  Return tidy scalar-metric rows for ``{stem}_summary.csv``.
 
         Each element is a ``dict`` with keys:
-            phenomenon  : str  — optional; defaults to ``self.name``.
+            phenomenon  : str  — optional; defaults to ``self.summary_label``.
             participant : str  — display PID or ``""``.
             partner     : str  — second PID (e.g. gaze-following follower)
                                  or ``""``.

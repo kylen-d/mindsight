@@ -19,6 +19,7 @@ class AttentionSpanTracker(PhenomenaPlugin):
     """
 
     name = "attn_span"
+    summary_label = "attention_span"
     dashboard_panel = "right"
     _COLOUR = (80, 255, 200)
 

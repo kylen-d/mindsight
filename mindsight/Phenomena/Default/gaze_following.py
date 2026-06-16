@@ -15,6 +15,7 @@ class GazeFollowingTracker(PhenomenaPlugin):
     """
 
     name = "gaze_follow"
+    summary_label = "gaze_following"
     dashboard_panel = "left"
     _COLOUR = (80, 200, 255)
 

@@ -369,3 +369,28 @@ class TestAttentionSpanTracker:
         }
         result = t.update(**kwargs)
         assert isinstance(result, dict)
+
+
+class TestSummaryLabels:
+    """The four terse trackers present prettified phenomenon labels in the
+    tidy summary tables without renaming their `name` attr (which keys
+    registries/flags/dashboards)."""
+
+    def test_prettified_labels(self):
+        from mindsight.Phenomena.Default.gaze_following import (
+            GazeFollowingTracker,
+        )
+        from mindsight.Phenomena.Default.gaze_leadership import (
+            GazeLeadershipTracker,
+        )
+        from mindsight.Phenomena.Default.social_referencing import (
+            SocialReferenceTracker,
+        )
+        assert GazeFollowingTracker().name == "gaze_follow"
+        assert GazeFollowingTracker().summary_label == "gaze_following"
+        assert GazeLeadershipTracker().name == "gaze_leader"
+        assert GazeLeadershipTracker().summary_label == "gaze_leadership"
+        assert SocialReferenceTracker().name == "social_ref"
+        assert SocialReferenceTracker().summary_label == "social_referencing"
+        assert AttentionSpanTracker().name == "attn_span"
+        assert AttentionSpanTracker().summary_label == "attention_span"

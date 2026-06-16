@@ -16,6 +16,7 @@ class SocialReferenceTracker(PhenomenaPlugin):
     """
 
     name = "social_ref"
+    summary_label = "social_referencing"
     dashboard_panel = "left"
     _COLOUR = (100, 255, 130)
 

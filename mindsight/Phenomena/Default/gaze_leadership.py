@@ -18,6 +18,7 @@ class GazeLeadershipTracker(PhenomenaPlugin):
     """
 
     name = "gaze_leader"
+    summary_label = "gaze_leadership"
     dashboard_panel = "right"
     _COLOUR = (255, 210, 60)
 

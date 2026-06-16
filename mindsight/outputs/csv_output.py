@@ -111,7 +111,8 @@ def write_summary_tables(path, total_frames, fps, look_counts,
 
     # Tracker scalar metrics.
     for tracker in (all_trackers or []):
-        default_name = getattr(tracker, 'name', '')
+        default_name = (getattr(tracker, 'summary_label', None)
+                        or getattr(tracker, 'name', ''))
         for m in tracker.summary_metrics(total_frames, fps, pid_map=pid_map):
             _emit(m.get('phenomenon', default_name),
                   m.get('participant', ''), m.get('partner', ''),

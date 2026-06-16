@@ -201,3 +201,45 @@ class TestTrackerHooks:
         rows = _read(out)[1:]
         keys = [(r[2], r[3], r[4], r[5], r[6]) for r in rows]
         assert keys == sorted(keys)
+
+
+class _LabelledTracker(PhenomenaPlugin):
+    name = "terse_name"
+    summary_label = "pretty_label"
+
+    def summary_metrics(self, total_frames, fps, *, pid_map=None):
+        return [
+            {"participant": "P0", "partner": "", "object": "",
+             "metric": "event_count", "value": 3},
+        ]
+
+
+class TestSummaryLabel:
+
+    def test_default_label_is_name(self):
+        # Base property: summary_label defaults to name when not overridden.
+        assert _FakeTracker().summary_label == "fake_metric"
+
+    def test_override_label_is_used_as_phenomenon(self, tmp_path):
+        out = tmp_path / "vid_summary.csv"
+        write_summary_tables(str(out), 100, 100.0, {},
+                             all_trackers=[_LabelledTracker()])
+        rows = _read(out)[1:]
+        assert len(rows) == 1
+        # phenomenon column takes the summary_label, NOT the terse name.
+        assert rows[0][2] == "pretty_label"
+
+    def test_explicit_phenomenon_still_wins_over_label(self, tmp_path):
+        class _Explicit(PhenomenaPlugin):
+            name = "terse_name"
+            summary_label = "pretty_label"
+
+            def summary_metrics(self, total_frames, fps, *, pid_map=None):
+                return [{"phenomenon": "explicit", "participant": "P0",
+                         "partner": "", "object": "", "metric": "m",
+                         "value": 1}]
+
+        out = tmp_path / "vid_summary.csv"
+        write_summary_tables(str(out), 100, 100.0, {},
+                             all_trackers=[_Explicit()])
+        assert _read(out)[1][2] == "explicit"
