@@ -84,6 +84,8 @@ def main():
      detection_plugins, depth_cfg, depth_backend,
      gazelle_provider, ray_cfg) = build_from_namespace(args)
 
+    from mindsight.outputs import provenance
+    started = provenance.utcnow_iso()
     run(source, yolo, face_det, gaze_eng,
         gaze_cfg, det_cfg, tracker_cfg, output_cfg,
         plugin_instances=active_plugins,
@@ -96,6 +98,19 @@ def main():
         profile=args.profile,
         depth_cfg=depth_cfg, depth_backend=depth_backend,
         gazelle_provider=gazelle_provider, ray_cfg=ray_cfg)
+
+    # Per-run provenance manifest (D8): written only when a file output is
+    # configured; located next to the summary/log/saved-video (Q4).
+    outputs = provenance.resolve_single_source_outputs(args, source)
+    manifest_path = provenance.manifest_path_for(outputs)
+    if manifest_path:
+        from mindsight.config import PipelineConfig
+        provenance.write_run_manifest(
+            manifest_path, ns=args,
+            config=PipelineConfig.from_namespace(args),
+            source=source, output_paths=outputs,
+            started=started, finished=provenance.utcnow_iso(),
+            status="completed")
 
 
 if __name__ == "__main__":

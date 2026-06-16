@@ -126,6 +126,8 @@ class GazeWorker(threading.Thread):
         # Pump annotated frames to the GUI; translate the stop Event into a
         # per-frame CancelToken.  Never break -- iterate to StopIteration so the
         # pipeline's finally + post-run summaries finalize all outputs on cancel.
+        from mindsight.outputs import provenance
+        started = provenance.utcnow_iso()
         cancel = CancelToken()
         for result in pipeline.run(source, options=options, cancel=cancel):
             try:
@@ -134,6 +136,19 @@ class GazeWorker(threading.Thread):
                 pass
             if self._stop.is_set():
                 cancel.cancel()
+
+        # Per-run provenance manifest (D8): only when a file output is
+        # configured; located next to the summary/log/saved-video (Q4).
+        outputs = provenance.resolve_single_source_outputs(self.ns, source)
+        manifest_path = provenance.manifest_path_for(outputs)
+        if manifest_path:
+            from mindsight.config import PipelineConfig
+            provenance.write_run_manifest(
+                manifest_path, ns=self.ns,
+                config=PipelineConfig.from_namespace(self.ns),
+                source=source, output_paths=outputs,
+                started=started, finished=provenance.utcnow_iso(),
+                status="completed")
 
         # Image sources yield a single frame; legacy GUI behavior kept the image
         # displayed until Stop -- preserve that (block until stopped).
@@ -278,6 +293,11 @@ class ProjectWorker(threading.Thread):
             profile=getattr(self.ns, 'profile', False),
         )
 
+        # Provenance config is batch-level (models built once).
+        from mindsight.config import PipelineConfig
+        from mindsight.outputs import provenance
+        manifest_config = PipelineConfig.from_namespace(self.ns)
+
         for i, source in enumerate(sources):
             if self._stop.is_set():
                 break
@@ -319,6 +339,8 @@ class ProjectWorker(threading.Thread):
                 gazelle_provider=gazelle_provider, ray_cfg=ray_cfg,
             )
             cancel = CancelToken()
+            started = provenance.utcnow_iso()
+            status, error = "completed", None
             try:
                 for result in video_pipeline.run(str(source), options=options,
                                                  cancel=cancel):
@@ -330,6 +352,16 @@ class ProjectWorker(threading.Thread):
                         cancel.cancel()
             except Exception as exc:
                 self._log(f"Error processing {source.name}: {exc}")
+                status, error = "error", str(exc)
+
+            # Per-video provenance manifest (D8/Q4).
+            manifest_path = (Path(paths['summary']).parent
+                             / f"{source.stem}_manifest.json")
+            provenance.write_run_manifest(
+                str(manifest_path), ns=self.ns, config=manifest_config,
+                source=source, output_paths=paths,
+                started=started, finished=provenance.utcnow_iso(),
+                status=status, error=error)
 
         # ── Post-processing: global and per-condition CSVs ───────────
         csv_dir = out_root / "CSV Files"

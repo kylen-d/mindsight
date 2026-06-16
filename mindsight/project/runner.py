@@ -359,6 +359,12 @@ def run_project(project_dir: str | Path, run_fn, build_fn, args_ns) -> None:
     print(f"Output root: {out_root}")
     print("=" * 60)
 
+    # Provenance config is batch-level (models built once); per-video source /
+    # output_paths / status are recorded per manifest.
+    from mindsight.config import PipelineConfig
+    from mindsight.outputs import provenance
+    manifest_config = PipelineConfig.from_namespace(args_ns)
+
     for i, source in enumerate(sources, 1):
         print(f"\n[{i}/{len(sources)}] Processing: {source.name}")
         print("-" * 40)
@@ -383,6 +389,8 @@ def run_project(project_dir: str | Path, run_fn, build_fn, args_ns) -> None:
             conditions=conditions_str,
         )
 
+        started = provenance.utcnow_iso()
+        status, error = "completed", None
         try:
             run_fn(str(source), yolo, face_det, gaze_eng,
                    gaze_cfg, det_cfg, tracker_cfg, run_output,
@@ -398,6 +406,17 @@ def run_project(project_dir: str | Path, run_fn, build_fn, args_ns) -> None:
                    gazelle_provider=gazelle_provider, ray_cfg=ray_cfg)
         except Exception as exc:
             print(f"Error processing {source.name}: {exc}")
+            status, error = "error", str(exc)
+
+        # Per-video provenance manifest (D8): Outputs/CSV Files/{stem}_manifest.json
+        # (Q4). Written on success AND on error (status recorded either way).
+        manifest_path = Path(paths['summary']).parent / f"{source.stem}_manifest.json"
+        provenance.write_run_manifest(
+            str(manifest_path), ns=args_ns, config=manifest_config,
+            source=source, output_paths=paths,
+            started=started, finished=provenance.utcnow_iso(),
+            status=status, error=error)
+        if status == "error":
             continue
 
     # ── Post-processing: generate global and per-condition CSVs ──────────
