@@ -488,9 +488,9 @@ class ProjectTab(QWidget):
             self._output_info.setText("No sources loaded")
             return
         tags = self._conditions.get_all_tags()
-        lines = [f"Per-video: {n} Summary + {n} Events CSVs"]
+        lines = [f"Per-video: {n} summary + {n} Events CSVs"]
         lines.append(
-            "Global: Global_Summary.csv + Global_Events.csv")
+            "Global: Global_summary.csv + Global_Events.csv")
         if tags:
             lines.append(
                 f"By Condition: {len(tags)} tag(s) \u2192 "

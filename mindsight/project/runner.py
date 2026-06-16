@@ -256,7 +256,7 @@ def project_output_paths(project: Path, source: Path,
     return {
         'save':    str(out_root / "Videos" / f"{stem}_Video_Output.mp4"),
         'log':     str(out_root / "CSV Files" / f"{stem}_Events.csv"),
-        'summary': str(out_root / "CSV Files" / f"{stem}_Summary.csv"),
+        'summary': str(out_root / "CSV Files" / f"{stem}_summary.csv"),
         'heatmap': str(out_root / f"{stem}_Heatmap"),
     }
 
@@ -403,17 +403,17 @@ def run_project(project_dir: str | Path, run_fn, build_fn, args_ns) -> None:
     # ── Post-processing: generate global and per-condition CSVs ──────────
     csv_dir = out_root / "CSV Files"
     print("\nGenerating global CSVs...")
-    from mindsight.outputs.global_csv import generate_condition_csvs, generate_global_csv
+    from mindsight.outputs.global_csv import (
+        GLOBAL_TABLES,
+        generate_condition_csvs,
+        generate_global_csv,
+    )
 
-    global_summary = generate_global_csv(csv_dir, "summary")
-    global_events = generate_global_csv(csv_dir, "events")
-
-    if project_cfg and project_cfg.conditions:
-        condition_dir = out_root / "By Condition"
-        condition_dir.mkdir(parents=True, exist_ok=True)
-        if global_summary:
-            generate_condition_csvs(global_summary, condition_dir, "summary")
-        if global_events:
-            generate_condition_csvs(global_events, condition_dir, "events")
+    split = bool(project_cfg and project_cfg.conditions)
+    condition_dir = out_root / "By Condition"
+    for suffix, out_name in GLOBAL_TABLES:
+        global_path = generate_global_csv(csv_dir, suffix, out_name)
+        if split and global_path:
+            generate_condition_csvs(global_path, condition_dir, suffix)
 
     print(f"\nProject complete. Outputs in: {out_root}")

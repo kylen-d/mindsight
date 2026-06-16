@@ -195,7 +195,7 @@ def test_project_worker_runs_and_cancels(qapp, tmp_path):
         assert None in events, "no None sentinel on progress_q"
         assert any(isinstance(e, dict) and e.get("type") == "done"
                    for e in events)
-        summ = proj / "Outputs" / "CSV Files" / "trimmed_Summary.csv"
+        summ = proj / "Outputs" / "CSV Files" / "trimmed_summary.csv"
         assert summ.exists()
     finally:
         if win._project_tab._worker and win._project_tab._worker.is_alive():

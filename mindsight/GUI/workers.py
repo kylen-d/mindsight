@@ -335,22 +335,17 @@ class ProjectWorker(threading.Thread):
         csv_dir = out_root / "CSV Files"
         self._log("\nGenerating global CSVs...")
         from mindsight.outputs.global_csv import (
+            GLOBAL_TABLES,
             generate_condition_csvs,
             generate_global_csv,
         )
 
-        global_summary = generate_global_csv(csv_dir, "summary")
-        global_events = generate_global_csv(csv_dir, "events")
-
-        if pcfg and pcfg.conditions:
-            condition_dir = out_root / "By Condition"
-            condition_dir.mkdir(parents=True, exist_ok=True)
-            if global_summary:
-                generate_condition_csvs(
-                    global_summary, condition_dir, "summary")
-            if global_events:
-                generate_condition_csvs(
-                    global_events, condition_dir, "events")
+        split = bool(pcfg and pcfg.conditions)
+        condition_dir = out_root / "By Condition"
+        for suffix, out_name in GLOBAL_TABLES:
+            global_path = generate_global_csv(csv_dir, suffix, out_name)
+            if split and global_path:
+                generate_condition_csvs(global_path, condition_dir, suffix)
 
         self.progress_q.put({"type": "done"})
         self._log(f"\nProject complete. Outputs in: {out_root}")
