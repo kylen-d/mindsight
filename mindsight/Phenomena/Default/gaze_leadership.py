@@ -133,15 +133,13 @@ class GazeLeadershipTracker(PhenomenaPlugin):
             "empty_text": "--",
         }
 
-    def csv_rows(self, total_frames, *, pid_map=None):
-        if not self.lead_counts:
-            return []
-        rows = [["category", "participant", "object",
-                 "frames_active", "total_frames", "value_pct"]]
-        for fi, cnt in sorted(self.lead_counts.items()):
-            rows.append(["gaze_leadership", resolve_display_pid(fi, pid_map),
-                         "", cnt, total_frames, ""])
-        return rows
+    def summary_metrics(self, total_frames, fps, *, pid_map=None):
+        return [
+            {"participant": resolve_display_pid(fi, pid_map),
+             "partner": "", "object": "",
+             "metric": "event_count", "value": cnt}
+            for fi, cnt in sorted(self.lead_counts.items())
+        ]
 
     def console_summary(self, total_frames, *, pid_map=None):
         if not self.lead_counts:

@@ -273,47 +273,55 @@ class EyeMovementTracker(PhenomenaPlugin):
 
     # ── CSV output ────────────────────────────────────────────────────────────
 
-    def csv_rows(self, total_frames: int, *, pid_map=None) -> list:
+    def summary_metrics(self, total_frames: int, fps: float, *,
+                        pid_map=None) -> list:
+        """Per-participant fixation/saccade scalar metrics."""
+        rows = []
+        for tid in sorted(self._classifiers):
+            plbl = resolve_display_pid(tid, pid_map)
+            # Finalize classifier to capture last segment.
+            self._classifiers[tid].finalize(total_frames)
+            stats = self._classifiers[tid].summary_stats()
+            mfd = stats['mean_fixation_duration']
+            mfd_sec = f"{mfd / fps:.3f}" if fps else ""
+            metrics = [
+                ("fixation_count", stats['fixation_count']),
+                ("saccade_count", stats['saccade_count']),
+                ("mean_fixation_duration_frames", f"{mfd:.1f}"),
+                ("mean_fixation_duration_seconds", mfd_sec),
+                ("mean_saccade_velocity",
+                 f"{stats['mean_saccade_velocity']:.1f}"),
+                ("fixation_pct", f"{stats['fixation_pct']:.1f}"),
+                ("saccade_pct", f"{stats['saccade_pct']:.1f}"),
+            ]
+            for name, val in metrics:
+                rows.append({"participant": plbl, "partner": "", "object": "",
+                             "metric": name, "value": val})
+        return rows
+
+    def summary_tables(self, total_frames: int, fps: float, *,
+                       pid_map=None) -> dict:
+        """One typed stream file of per-participant eye-movement events."""
         has_events = any(c.events for c in self._classifiers.values())
         if not has_events:
-            return []
-
-        rows: list[list] = [
-            [],
-            ["eye_movement_events"],
-            ["participant", "event_type", "start_frame", "end_frame",
-             "duration_frames", "peak_velocity"],
-        ]
+            return {}
+        header = ["participant", "event_type", "start_frame", "end_frame",
+                  "start_seconds", "end_seconds", "duration_seconds",
+                  "peak_velocity"]
+        rows: list[list] = []
         for tid in sorted(self._classifiers):
             plbl = resolve_display_pid(tid, pid_map)
             for ev in self._classifiers[tid].events:
+                sf, ef = ev['start_frame'], ev['end_frame']
+                df = ev['duration_frames']
                 rows.append([
-                    plbl, ev['type'], ev['start_frame'], ev['end_frame'],
-                    ev['duration_frames'], f"{ev['peak_velocity']:.2f}",
+                    plbl, ev['type'], sf, ef,
+                    f"{sf / fps:.3f}" if fps else "",
+                    f"{ef / fps:.3f}" if fps else "",
+                    f"{df / fps:.3f}" if fps else "",
+                    f"{ev['peak_velocity']:.2f}",
                 ])
-
-        # Summary
-        rows.append([])
-        rows.append(["eye_movement_summary"])
-        rows.append(["participant", "fixation_count", "saccade_count",
-                      "mean_fixation_duration", "mean_saccade_velocity",
-                      "fixation_pct", "saccade_pct"])
-        for tid in sorted(self._classifiers):
-            plbl = resolve_display_pid(tid, pid_map)
-            # Finalize classifier to capture last segment
-            self._classifiers[tid].finalize(total_frames)
-            stats = self._classifiers[tid].summary_stats()
-            rows.append([
-                plbl,
-                stats['fixation_count'],
-                stats['saccade_count'],
-                f"{stats['mean_fixation_duration']:.1f}",
-                f"{stats['mean_saccade_velocity']:.1f}",
-                f"{stats['fixation_pct']:.1f}",
-                f"{stats['saccade_pct']:.1f}",
-            ])
-
-        return rows
+        return {"eye_movement_events": (header, rows)}
 
     def console_summary(self, total_frames: int, *, pid_map=None) -> str | None:
         if not self._classifiers:

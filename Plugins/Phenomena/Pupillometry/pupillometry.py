@@ -613,26 +613,57 @@ class PupillometryTracker(PhenomenaPlugin):
 
     # ── CSV output ────────────────────────────────────────────────────────────
 
-    def csv_rows(self, total_frames: int, *, pid_map=None) -> list:
-        if not any(self._ts_frames.values()):
-            return []
+    def summary_metrics(self, total_frames: int, fps: float, *,
+                        pid_map=None) -> list:
+        """Per-participant pupillometry + blink scalar metrics."""
+        rows = []
+        for tid in sorted(self._ts_frames):
+            plbl = resolve_display_pid(tid, pid_map)
+            baseline = self._baselines.get(tid)
+            dils = [d for d in self._ts_dilation.get(tid, [])
+                    if not np.isnan(d)]
+            if not dils:
+                continue
+            blinks = self._blink_counts.get(tid, 0)
+            bdurs = self._blink_durations.get(tid, [])
+            mean_bdur = float(np.mean(bdurs)) if bdurs else 0.0
+            total_sec = total_frames / fps if fps else 0.0
+            bpm = blinks * 60.0 / total_sec if total_sec > 0 else 0.0
+            bdur_sec = f"{mean_bdur / fps:.3f}" if fps else ""
+            metrics = [
+                ("baseline_ratio", f"{baseline:.4f}" if baseline else ""),
+                ("mean_dilation_pct", f"{np.mean(dils):.2f}"),
+                ("std_dilation_pct", f"{np.std(dils):.2f}"),
+                ("max_dilation_pct", f"{np.max(np.abs(dils)):.2f}"),
+                ("n_valid_frames", self._valid_counts.get(tid, 0)),
+                ("total_blinks", blinks),
+                ("mean_blink_duration_frames", f"{mean_bdur:.1f}"),
+                ("mean_blink_duration_seconds", bdur_sec),
+                ("blinks_per_minute", f"{bpm:.1f}"),
+            ]
+            for name, val in metrics:
+                rows.append({"participant": plbl, "partner": "", "object": "",
+                             "metric": name, "value": val})
+        return rows
 
-        # Time-series header
-        header = ["frame_no", "participant", "pupil_iris_ratio",
+    def summary_tables(self, total_frames: int, fps: float, *,
+                       pid_map=None) -> dict:
+        """Pupillometry timeseries + blink-events stream files."""
+        if not any(self._ts_frames.values()):
+            return {}
+        tables: dict = {}
+
+        header = ["frame", "t_seconds", "participant", "pupil_iris_ratio",
                   "dilation_pct", "valid"]
         if self._per_eye:
             header.extend(["left_ratio", "right_ratio"])
-
-        rows: list[list] = [
-            [],
-            ["pupillometry_timeseries"],
-            header,
-        ]
+        ts_rows: list[list] = []
         for tid in sorted(self._ts_frames):
             plbl = resolve_display_pid(tid, pid_map)
             for i, fno in enumerate(self._ts_frames[tid]):
+                t = f"{fno / fps:.3f}" if fps else ""
                 row = [
-                    fno, plbl,
+                    fno, t, plbl,
                     f"{self._ts_ratios[tid][i]:.4f}",
                     f"{self._ts_dilation[tid][i]:.2f}",
                     self._ts_valid[tid][i] if i < len(self._ts_valid[tid]) else 1,
@@ -642,52 +673,27 @@ class PupillometryTracker(PhenomenaPlugin):
                     rr = self._ts_ratios_right.get(tid, [])
                     row.append(f"{lr[i]:.4f}" if i < len(lr) and not np.isnan(lr[i]) else "")
                     row.append(f"{rr[i]:.4f}" if i < len(rr) and not np.isnan(rr[i]) else "")
-                rows.append(row)
+                ts_rows.append(row)
+        if ts_rows:
+            tables["pupillometry_timeseries"] = (header, ts_rows)
 
-        # Summary
-        rows.append([])
-        rows.append(["pupillometry_summary"])
-        rows.append(["participant", "baseline_ratio", "mean_dilation_pct",
-                      "std_dilation_pct", "max_dilation_pct", "n_valid_frames",
-                      "total_blinks", "mean_blink_duration_frames",
-                      "blinks_per_minute"])
-        for tid in sorted(self._ts_frames):
-            plbl = resolve_display_pid(tid, pid_map)
-            baseline = self._baselines.get(tid)
-            dils = [d for d in self._ts_dilation.get(tid, [])
-                    if not np.isnan(d)]
-            blinks = self._blink_counts.get(tid, 0)
-            bdurs = self._blink_durations.get(tid, [])
-            mean_bdur = np.mean(bdurs) if bdurs else 0
-            total_sec = total_frames / self._fps if self._fps > 0 else 1
-            bpm = blinks * 60.0 / total_sec if total_sec > 0 else 0
-
-            if dils:
-                rows.append([
-                    plbl,
-                    f"{baseline:.4f}" if baseline else "",
-                    f"{np.mean(dils):.2f}",
-                    f"{np.std(dils):.2f}",
-                    f"{np.max(np.abs(dils)):.2f}",
-                    self._valid_counts.get(tid, 0),
-                    blinks,
-                    f"{mean_bdur:.1f}",
-                    f"{bpm:.1f}",
-                ])
-
-        # Blink events section
-        rows.append([])
-        rows.append(["blink_events"])
-        rows.append(["participant", "blink_start_frame", "blink_duration_frames"])
+        blink_rows: list[list] = []
         for tid in sorted(self._blink_timestamps):
             plbl = resolve_display_pid(tid, pid_map)
             timestamps = self._blink_timestamps[tid]
             durations = self._blink_durations[tid]
             for i, start in enumerate(timestamps):
                 dur = durations[i] if i < len(durations) else ""
-                rows.append([plbl, start, dur])
+                start_sec = f"{start / fps:.3f}" if fps else ""
+                dur_sec = f"{dur / fps:.3f}" if (fps and dur != "") else ""
+                blink_rows.append([plbl, start, start_sec, dur, dur_sec])
+        if blink_rows:
+            tables["pupillometry_blinks"] = (
+                ["participant", "blink_start_frame", "blink_start_seconds",
+                 "blink_duration_frames", "blink_duration_seconds"],
+                blink_rows)
 
-        return rows
+        return tables
 
     def console_summary(self, total_frames: int, *, pid_map=None) -> str | None:
         if not any(self._ts_frames.values()):

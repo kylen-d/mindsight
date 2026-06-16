@@ -108,10 +108,10 @@ class TestPupillometryTracker:
         )
         assert isinstance(result, dict)
 
-    def test_csv_rows_empty_when_no_data(self):
+    def test_summary_hooks_empty_when_no_data(self):
         t = self._make_tracker()
-        rows = t.csv_rows(100)
-        assert rows == []
+        assert t.summary_metrics(100, 30.0) == []
+        assert t.summary_tables(100, 30.0) == {}
 
     def test_console_summary_none_when_no_data(self):
         t = self._make_tracker()
@@ -297,11 +297,15 @@ class TestBlinkDetection:
         t._blink_counts[0] = 1
         t._blink_timestamps[0] = [5]
         t._blink_durations[0] = [2]
-        rows = t.csv_rows(100)
-        # Should contain blink_events section
-        flat = [str(cell) for row in rows for cell in row]
-        assert "blink_events" in flat
-        assert "total_blinks" in flat or any("blink" in str(r) for r in rows[0:20] if r)
+        tables = t.summary_tables(100, 100.0)
+        # Blink events surface as their own typed stream table.
+        assert "pupillometry_blinks" in tables
+        header, brows = tables["pupillometry_blinks"]
+        assert "blink_start_frame" in header
+        assert brows[0][1] == 5  # blink_start_frame value
+        # total_blinks surfaces as a scalar metric.
+        metrics = {m['metric'] for m in t.summary_metrics(100, 100.0)}
+        assert "total_blinks" in metrics
 
 
 class TestOutlierRejection:
@@ -367,9 +371,9 @@ class TestPerEyeMeasurements:
         t._blink_counts[0] = 0
         t._blink_timestamps[0] = []
         t._blink_durations[0] = []
-        rows = t.csv_rows(100)
-        # Header row should have left_ratio and right_ratio
-        header = rows[2]  # [[], [section], [header]]
+        tables = t.summary_tables(100, 100.0)
+        header, _rows = tables["pupillometry_timeseries"]
+        # Header should carry per-eye ratio columns.
         assert "left_ratio" in header
         assert "right_ratio" in header
 

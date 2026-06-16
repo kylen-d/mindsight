@@ -9,7 +9,7 @@ The tracker handles:
 1. Temporal sliding-window confirmation of raw JA events
 2. Running percentage (confirmed frames / total frames)
 3. Dashboard card rendering via dashboard_data()
-4. CSV summary via csv_rows()
+4. CSV summary via summary_metrics()
 5. Post-run charts via time_series_data()
 6. Live dashboard metrics via latest_metrics()
 7. Console summary via console_summary()
@@ -175,14 +175,20 @@ class JointAttentionTracker(PhenomenaPlugin):
             'empty_text': 'No joint attention',
         }
 
-    def csv_rows(self, total_frames, *, pid_map=None):
+    def summary_metrics(self, total_frames, fps, *, pid_map=None):
         tf = total_frames or self._total_frames
-        pct = self._confirmed_frames / tf * 100 if tf else 0.0
+        if not tf:
+            return []
+        frames = self._confirmed_frames
+        pct = frames / tf * 100
+        sec = f"{frames / fps:.3f}" if fps else ""
         return [
-            ["category", "participant", "object",
-             "frames_active", "total_frames", "value_pct"],
-            ["joint_attention", "all", "",
-             self._confirmed_frames, tf, f"{pct:.4f}"],
+            {"participant": "all", "partner": "", "object": "",
+             "metric": "frames_active", "value": frames},
+            {"participant": "all", "partner": "", "object": "",
+             "metric": "seconds_active", "value": sec},
+            {"participant": "all", "partner": "", "object": "",
+             "metric": "pct_of_video", "value": f"{pct:.4f}"},
         ]
 
     def time_series_data(self):

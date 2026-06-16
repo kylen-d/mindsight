@@ -6,7 +6,7 @@ event logging, post-run summary CSV generation, and per-participant
 gaze heatmap output.
 """
 
-from .csv_output import write_summary_csv
+from .csv_output import write_summary_tables
 from .dashboard_output import compose_dashboard, draw_overlay
 from .data_pipeline import collect_frame_data, finalize_run
 from .global_csv import generate_condition_csvs, generate_global_csv
@@ -17,7 +17,7 @@ __all__ = [
     "finalize_run",
     "draw_overlay",
     "compose_dashboard",
-    "write_summary_csv",
+    "write_summary_tables",
     "save_heatmaps",
     "generate_global_csv",
     "generate_condition_csvs",

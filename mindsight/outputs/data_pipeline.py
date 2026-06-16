@@ -20,7 +20,7 @@ Usage
 """
 
 from mindsight.outputs.chart_output import generate_run_charts, resolve_chart_path
-from mindsight.outputs.csv_output import resolve_summary_path, write_summary_csv
+from mindsight.outputs.csv_output import resolve_summary_path, write_summary_tables
 from mindsight.outputs.dashboard_output import apply_face_anonymization
 from mindsight.outputs.heatmap_output import extract_mid_frame, resolve_heatmap_path, save_heatmaps
 from mindsight.pipeline_config import resolve_display_pid
@@ -102,8 +102,9 @@ def finalize_run(ctx, **kwargs) -> None:
 
     resolved_summary = resolve_summary_path(summary_path, source)
     if resolved_summary:
-        write_summary_csv(
-            resolved_summary, total_frames, look_counts,
+        fps = ctx.get('video_fps') or 0.0
+        write_summary_tables(
+            resolved_summary, total_frames, fps, look_counts,
             all_trackers=all_trackers, pid_map=pid_map,
             video_name=ctx.get('video_name'),
             conditions=ctx.get('conditions', ''))

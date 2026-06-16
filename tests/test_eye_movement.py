@@ -207,10 +207,10 @@ class TestEyeMovementTracker:
         # Should not crash, state stays fixation
         assert t._current_states.get(0, EyeState.FIXATION) == EyeState.FIXATION
 
-    def test_csv_rows_empty_when_no_data(self):
+    def test_summary_hooks_empty_when_no_data(self):
         t = self._make_tracker()
-        rows = t.csv_rows(100)
-        assert rows == []
+        assert t.summary_metrics(100, 30.0) == []
+        assert t.summary_tables(100, 30.0) == {}
 
     def test_add_arguments(self):
         import argparse

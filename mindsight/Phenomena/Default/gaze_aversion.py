@@ -73,16 +73,17 @@ class GazeAversionTracker(PhenomenaPlugin):
             "empty_text": "--",
         }
 
-    def csv_rows(self, total_frames, *, pid_map=None):
+    def summary_metrics(self, total_frames, fps, *, pid_map=None):
         active = [(k, cnt) for k, cnt in self._no_look.items()
                   if cnt >= self.window]
-        if not active:
-            return []
-        rows = [["category", "participant", "object",
-                 "frames_active", "total_frames", "value_pct"]]
+        rows = []
         for (fi, cls), cnt in sorted(active):
-            rows.append(["gaze_aversion", resolve_display_pid(fi, pid_map),
-                         cls, cnt, total_frames, ""])
+            pid = resolve_display_pid(fi, pid_map)
+            sec = f"{cnt / fps:.3f}" if fps else ""
+            rows.append({"participant": pid, "partner": "", "object": cls,
+                         "metric": "frames_active", "value": cnt})
+            rows.append({"participant": pid, "partner": "", "object": cls,
+                         "metric": "seconds_active", "value": sec})
         return rows
 
     def time_series_data(self):

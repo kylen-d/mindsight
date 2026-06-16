@@ -115,18 +115,16 @@ class SocialReferenceTracker(PhenomenaPlugin):
             "empty_text": "--",
         }
 
-    def csv_rows(self, total_frames, *, pid_map=None):
-        if not self.event_log:
-            return []
-        rows = [["category", "participant", "object",
-                 "frames_active", "total_frames", "value_pct"]]
+    def summary_metrics(self, total_frames, fps, *, pid_map=None):
         counts: dict = {}
         for ev in self.event_log:
             counts[ev['face_idx']] = counts.get(ev['face_idx'], 0) + 1
-        for fi, cnt in sorted(counts.items()):
-            rows.append(["social_reference", resolve_display_pid(fi, pid_map),
-                         "", cnt, total_frames, ""])
-        return rows
+        return [
+            {"participant": resolve_display_pid(fi, pid_map),
+             "partner": "", "object": "",
+             "metric": "event_count", "value": cnt}
+            for fi, cnt in sorted(counts.items())
+        ]
 
     def console_summary(self, total_frames, *, pid_map=None):
         if not self.event_log:

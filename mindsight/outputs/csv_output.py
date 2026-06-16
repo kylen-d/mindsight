@@ -1,47 +1,44 @@
 """
-outputs/csv_output.py — CSV output and data recording.
+outputs/csv_output.py — Tidy long-format summary CSV output.
 
 Responsibilities
 ----------------
-- write_summary_csv: writes a post-run multi-section CSV summarising all
-  phenomena metrics collected during a session (joint attention, look-time,
-  mutual gaze, social referencing, gaze following, attentional synchrony,
-  gaze aversion, scanpaths, and gaze leadership).
+- write_summary_tables: writes the post-run summary as tidy long-format
+  tables. One scalar-metrics file ``{stem}_summary.csv`` holds every scalar
+  phenomenon metric (columns
+  ``video_name,conditions,phenomenon,participant,partner,object,metric,value``);
+  each event/timeseries stream (scanpath, novel-salience events, eye-movement
+  events, pupillometry timeseries, …) gets its own typed
+  ``{stem}_<stream>.csv`` file, written only when it has data.
+
+  Trackers contribute scalar rows via ``PhenomenaPlugin.summary_metrics`` and
+  streams via ``PhenomenaPlugin.summary_tables``.  A plugin that still
+  overrides only the legacy ``csv_rows`` hook has its rows dumped verbatim to
+  ``{stem}_plugin_{name}.csv``.  Object look-time is emitted by this writer
+  itself (it is not a tracker).
 """
 
 import csv
+import re
 from pathlib import Path
 
 from mindsight.constants import OUTPUTS_ROOT as _OUTPUTS_ROOT
 from mindsight.pipeline_config import resolve_display_pid
+from Plugins import PhenomenaPlugin
 
-# Logical grouping of tracker sections in summary CSV.
-# Tracker names map to PhenomenaPlugin.name attributes.
-_TRACKER_GROUPS = [
-    ("Dyadic Interactions",
-     ["joint_attention", "mutual_gaze", "social_referencing", "gaze_follow"]),
-    ("Individual Gaze Behaviour",
-     ["attn_span", "gaze_aversion", "scanpath"]),
-    ("Group Dynamics",
-     ["gaze_leadership"]),
-]
+# Header for the scalar-metrics file. Identical in single and project mode
+# (video_name/conditions are empty strings in single mode) so Global concat is
+# a pure append.
+_SUMMARY_HEADER = ["video_name", "conditions", "phenomenon", "participant",
+                   "partner", "object", "metric", "value"]
 
-_TRACKER_DISPLAY_NAMES = {
-    "joint_attention": "Joint Attention",
-    "mutual_gaze": "Mutual Gaze",
-    "social_referencing": "Social Referencing",
-    "gaze_follow": "Gaze Following",
-    "attn_span": "Attention Span",
-    "gaze_aversion": "Gaze Aversion",
-    "scanpath": "Scanpath",
-    "gaze_leadership": "Gaze Leadership",
-}
+_SUMMARY_SUFFIX_RE = re.compile(r"_summary$", re.IGNORECASE)
 
 
 def resolve_summary_path(summary_arg, source) -> "str | None":
     """Resolve the --summary flag value to a concrete file path or None.
 
-    summary_arg : True  → Outputs/CSV Files/[stem]_Summary_Output.csv
+    summary_arg : True  → Outputs/CSV Files/[stem]_summary.csv
                   str   → that path
                   None/False → None (no summary written)
     source      : video file path (str/Path) or webcam index (int).
@@ -50,100 +47,118 @@ def resolve_summary_path(summary_arg, source) -> "str | None":
         return None
     if summary_arg is True:
         stem = Path(str(source)).stem if not isinstance(source, int) else "webcam"
-        return str(_OUTPUTS_ROOT / "CSV Files" / f"{stem}_Summary_Output.csv")
+        return str(_OUTPUTS_ROOT / "CSV Files" / f"{stem}_summary.csv")
     return summary_arg
 
 
-def write_summary_csv(path, total_frames, look_counts,
-                      all_trackers=None, pid_map=None,
-                      video_name=None, conditions=''):
-    """Write a post-run summary CSV to *path*.
+def _seconds(frames, fps) -> str:
+    """Format a frame count as seconds (3 dp), or "" when fps is unknown."""
+    if not fps:
+        return ""
+    return f"{frames / fps:.3f}"
+
+
+def _stream_base(summary_path: Path) -> "tuple[Path, str]":
+    """Return (parent_dir, base_stem) for deriving stream filenames.
+
+    ``.../trimmed_summary.csv`` → (.../, "trimmed"); a summary path that does
+    not end in ``_summary`` falls back to its full stem.
+    """
+    stem = summary_path.stem
+    base = _SUMMARY_SUFFIX_RE.sub("", stem)
+    return summary_path.parent, base
+
+
+def write_summary_tables(path, total_frames, fps, look_counts,
+                         all_trackers=None, pid_map=None,
+                         video_name=None, conditions=''):
+    """Write the tidy summary file set rooted at *path*.
 
     Parameters
     ----------
-    path          : output file path (str or Path).
+    path          : scalar-metrics output file path (str or Path). Stream files
+                    are written alongside it as ``{base}_<stream>.csv``.
     total_frames  : total number of processed frames.
+    fps           : primary source frame rate (for seconds conversions).
     look_counts   : dict mapping (face_idx, obj_cls) -> frame count.
     all_trackers  : list of PhenomenaPlugin instances (built-in + external).
-                    Each tracker contributes its own CSV section via csv_rows().
-                    JointAttentionTracker contributes the JA section automatically.
     video_name    : source video stem (str) or None for single-video mode.
     conditions    : pipe-delimited condition tags (str) or empty string.
     """
-    # When video_name is set, prepend video_name and conditions to every data row.
-    _has_project_cols = video_name is not None
+    vname = video_name if video_name is not None else ""
+    conds = conditions or ""
+    prefix = [vname, conds]
 
-    # Header rows from tracker csv_rows() start with "category"
-    _HEADER_MARKERS = {"category"}
+    summary_path = Path(path)
+    parent, base = _stream_base(summary_path)
 
-    def _prefix(row):
-        """Prepend project columns to a data row if in project mode."""
-        if not _has_project_cols or not row or str(row[0]).startswith('#'):
-            return row
-        # Tracker sub-header rows: prepend column names, not values
-        if row[0] in _HEADER_MARKERS:
-            return ["video_name", "conditions"] + row
-        return [video_name, conditions] + row
+    # ── Scalar metrics ────────────────────────────────────────────────────────
+    scalar_rows: list[list] = []
 
-    rows = []
+    def _emit(phenomenon, participant, partner, obj, metric, value):
+        scalar_rows.append([phenomenon, participant, partner, obj,
+                            metric, value])
 
-    # ── Object look-time (built-in, not a tracker) ────────────────────────────
-    rows.append(["# SECTION: Object Look Time"])
-    header = ["category", "participant", "object",
-              "frames_active", "total_frames", "value_pct"]
-    if _has_project_cols:
-        header = ["video_name", "conditions"] + header
-    rows.append(header)
+    # Object look-time (built-in, not a tracker).
     for (face_idx, obj_cls), count in sorted(look_counts.items()):
+        pid = resolve_display_pid(face_idx, pid_map)
         pct = count / total_frames * 100 if total_frames else 0.0
-        rows.append(_prefix(["object_look_time", resolve_display_pid(face_idx, pid_map),
-                             obj_cls, count, total_frames, f"{pct:.4f}"]))
+        _emit("object_look_time", pid, "", obj_cls, "frames_active", count)
+        _emit("object_look_time", pid, "", obj_cls, "seconds_active",
+              _seconds(count, fps))
+        _emit("object_look_time", pid, "", obj_cls, "pct_of_video",
+              f"{pct:.4f}")
 
-    # ── Grouped tracker sections (built-in + external plugins) ───────────────
-    # Build name→tracker lookup for ordering
-    tracker_map = {}
+    # Tracker scalar metrics.
     for tracker in (all_trackers or []):
-        tracker_map[getattr(tracker, 'name', '')] = tracker
+        default_name = getattr(tracker, 'name', '')
+        for m in tracker.summary_metrics(total_frames, fps, pid_map=pid_map):
+            _emit(m.get('phenomenon', default_name),
+                  m.get('participant', ''), m.get('partner', ''),
+                  m.get('object', ''), m['metric'], m['value'])
 
-    emitted = set()
-    for group_name, tracker_names in _TRACKER_GROUPS:
-        group_started = False
-        for tname in tracker_names:
-            tracker = tracker_map.get(tname)
-            if tracker is None:
-                continue
-            tracker_rows = tracker.csv_rows(total_frames, pid_map=pid_map)
-            if not tracker_rows:
-                continue
-            if not group_started:
-                rows.append([])
-                rows.append([f"# GROUP: {group_name}"])
-                group_started = True
-            display = _TRACKER_DISPLAY_NAMES.get(tname, tname.replace('_', ' ').title())
-            rows.append([])
-            rows.append([f"# SECTION: {display}"])
-            rows.extend(_prefix(r) for r in tracker_rows)
-            emitted.add(tname)
+    # Deterministic order: phenomenon, participant, partner, object, metric.
+    scalar_rows.sort(key=lambda r: (str(r[0]), str(r[1]), str(r[2]),
+                                    str(r[3]), str(r[4])))
 
-    # Any trackers not in the known groups (external plugins)
-    other_started = False
+    summary_path.parent.mkdir(parents=True, exist_ok=True)
+    with open(summary_path, "w", newline="") as fh:
+        writer = csv.writer(fh)
+        writer.writerow(_SUMMARY_HEADER)
+        for r in scalar_rows:
+            writer.writerow(prefix + r)
+    print(f"Summary → {summary_path}")
+
+    # ── Stream tables ─────────────────────────────────────────────────────────
     for tracker in (all_trackers or []):
-        tname = getattr(tracker, 'name', '')
-        if tname in emitted:
-            continue
-        tracker_rows = tracker.csv_rows(total_frames, pid_map=pid_map)
-        if not tracker_rows:
-            continue
-        if not other_started:
-            rows.append([])
-            rows.append(["# GROUP: Other"])
-            other_started = True
-        display = tname.replace('_', ' ').title()
-        rows.append([])
-        rows.append([f"# SECTION: {display}"])
-        rows.extend(_prefix(r) for r in tracker_rows)
+        tables = tracker.summary_tables(total_frames, fps, pid_map=pid_map)
+        for table_name, (header, rows) in tables.items():
+            if not rows:
+                continue
+            out_path = parent / f"{base}_{table_name}.csv"
+            with open(out_path, "w", newline="") as fh:
+                writer = csv.writer(fh)
+                writer.writerow(["video_name", "conditions"] + list(header))
+                for r in rows:
+                    writer.writerow(prefix + list(r))
+            print(f"  Stream → {out_path}")
 
-    Path(path).parent.mkdir(parents=True, exist_ok=True)
-    with open(path, "w", newline="") as fh:
-        csv.writer(fh).writerows(rows)
-    print(f"Summary \u2192 {path}")
+    # ── Legacy csv_rows passthrough ───────────────────────────────────────────
+    # A plugin overriding ONLY the legacy csv_rows hook (neither tidy hook) has
+    # its rows dumped verbatim so third-party plugins keep producing output.
+    for tracker in (all_trackers or []):
+        t = type(tracker)
+        overrides_legacy = t.csv_rows is not PhenomenaPlugin.csv_rows
+        overrides_tidy = (
+            t.summary_metrics is not PhenomenaPlugin.summary_metrics
+            or t.summary_tables is not PhenomenaPlugin.summary_tables)
+        if not overrides_legacy or overrides_tidy:
+            continue
+        rows = tracker.csv_rows(total_frames, pid_map=pid_map)
+        if not rows:
+            continue
+        name = getattr(tracker, 'name', 'plugin') or 'plugin'
+        out_path = parent / f"{base}_plugin_{name}.csv"
+        with open(out_path, "w", newline="") as fh:
+            csv.writer(fh).writerows(rows)
+        print(f"  Plugin (legacy) → {out_path}")

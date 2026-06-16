@@ -82,20 +82,24 @@ class GazeFollowingTracker(PhenomenaPlugin):
             "empty_text": "--",
         }
 
-    def csv_rows(self, total_frames, *, pid_map=None):
-        if not self.event_log:
-            return []
-        rows = [["category", "leader", "follower",
-                 "event_count", "total_frames", "avg_lag_frames"]]
+    def summary_metrics(self, total_frames, fps, *, pid_map=None):
         pair_evts: dict = {}
         for ev in self.event_log:
             k = (ev['leader'], ev['follower'])
             pair_evts.setdefault(k, []).append(ev['lag_frames'])
+        rows = []
         for (leader, follower), lags in sorted(pair_evts.items()):
-            rows.append(["gaze_following",
-                         resolve_display_pid(leader, pid_map),
-                         resolve_display_pid(follower, pid_map),
-                         len(lags), total_frames, f"{np.mean(lags):.1f}"])
+            lead = resolve_display_pid(leader, pid_map)
+            foll = resolve_display_pid(follower, pid_map)
+            mean_lag = float(np.mean(lags))
+            sec = f"{mean_lag / fps:.3f}" if fps else ""
+            rows.append({"participant": lead, "partner": foll, "object": "",
+                         "metric": "event_count", "value": len(lags)})
+            rows.append({"participant": lead, "partner": foll, "object": "",
+                         "metric": "mean_lag_frames",
+                         "value": f"{mean_lag:.1f}"})
+            rows.append({"participant": lead, "partner": foll, "object": "",
+                         "metric": "mean_lag_seconds", "value": sec})
         return rows
 
     def console_summary(self, total_frames, *, pid_map=None):

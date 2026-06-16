@@ -81,17 +81,19 @@ class MutualGazeTracker(PhenomenaPlugin):
             "empty_text": "--",
         }
 
-    def csv_rows(self, total_frames, *, pid_map=None):
-        if not self.pair_counts:
-            return []
-        rows = [["category", "participant", "object",
-                 "frames_active", "total_frames", "value_pct"]]
+    def summary_metrics(self, total_frames, fps, *, pid_map=None):
+        rows = []
         for (i, j), cnt in sorted(self.pair_counts.items()):
             pct = cnt / total_frames * 100 if total_frames else 0.0
             pi = resolve_display_pid(i, pid_map)
             pj = resolve_display_pid(j, pid_map)
-            rows.append(["mutual_gaze", f"{pi}<->{pj}", "",
-                         cnt, total_frames, f"{pct:.4f}"])
+            sec = f"{cnt / fps:.3f}" if fps else ""
+            rows.append({"participant": pi, "partner": pj, "object": "",
+                         "metric": "frames_active", "value": cnt})
+            rows.append({"participant": pi, "partner": pj, "object": "",
+                         "metric": "seconds_active", "value": sec})
+            rows.append({"participant": pi, "partner": pj, "object": "",
+                         "metric": "pct_of_video", "value": f"{pct:.4f}"})
         return rows
 
     def console_summary(self, total_frames, *, pid_map=None):

@@ -115,19 +115,22 @@ class TestMutualGazeTracker:
         )
         assert result['pairs'] == set()
 
-    def test_csv_rows_empty(self):
-        """csv_rows returns empty list when no mutual gaze was detected."""
+    def test_summary_metrics_empty(self):
+        """summary_metrics returns [] when no mutual gaze was detected."""
         t = MutualGazeTracker()
-        assert t.csv_rows(100) == []
+        assert t.summary_metrics(100, 30.0) == []
 
-    def test_csv_rows_with_data(self):
-        """csv_rows returns header + data rows after mutual gaze."""
+    def test_summary_metrics_with_data(self):
+        """summary_metrics yields tidy metric dicts after mutual gaze."""
         t = MutualGazeTracker()
         t.pair_counts[(0, 1)] = 10
-        rows = t.csv_rows(100)
-        assert len(rows) == 2  # header + 1 data row
-        assert rows[0][0] == "category"
-        assert rows[1][0] == "mutual_gaze"
+        rows = t.summary_metrics(100, 100.0)
+        metrics = {r['metric']: r for r in rows}
+        assert metrics['frames_active']['value'] == 10
+        assert metrics['seconds_active']['value'] == "0.100"
+        assert metrics['pct_of_video']['value'] == "10.0000"
+        assert rows[0]['participant'] == "P0"
+        assert rows[0]['partner'] == "P1"
 
 
 # ══════════════════════════════════════════════════════════════════════════════

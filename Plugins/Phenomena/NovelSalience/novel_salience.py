@@ -353,26 +353,35 @@ class NovelSalienceTracker(PhenomenaPlugin):
 
     # ── CSV output ────────────────────────────────────────────────────────────
 
-    def csv_rows(self, total_frames: int, *, pid_map=None) -> list:
-        """
-        Return one CSV section with all recorded novel-salience events.
-
-        Columns: category, frame_no, face_id, direction,
-                 speed_px, speed_deg, delta_x, delta_y
-        """
-        if not self.events:
-            return []
-
-        rows: list[list] = [
-            [],  # blank separator
-            ["novel_salience_events"],
-            ["category", "frame_no", "face_id", "direction",
-             "speed_px", "speed_deg", "delta_x", "delta_y"],
-        ]
+    def summary_metrics(self, total_frames: int, fps: float, *,
+                        pid_map=None) -> list:
+        """Per-participant event_count + rate_pct scalar metrics."""
+        counts: dict[int, int] = {}
         for ev in self.events:
+            counts[ev['face_id']] = counts.get(ev['face_id'], 0) + 1
+        rows = []
+        for fid, cnt in sorted(counts.items()):
+            rate = cnt / total_frames * 100 if total_frames else 0.0
+            pid = resolve_display_pid(fid, pid_map)
+            rows.append({"participant": pid, "partner": "", "object": "",
+                         "metric": "event_count", "value": cnt})
+            rows.append({"participant": pid, "partner": "", "object": "",
+                         "metric": "rate_pct", "value": f"{rate:.4f}"})
+        return rows
+
+    def summary_tables(self, total_frames: int, fps: float, *,
+                       pid_map=None) -> dict:
+        """One typed stream file of all recorded novel-salience events."""
+        if not self.events:
+            return {}
+        header = ["frame", "t_seconds", "participant", "direction",
+                  "speed_px", "speed_deg", "delta_x", "delta_y"]
+        rows: list[list] = []
+        for ev in self.events:
+            frame = ev['frame_no']
+            t = f"{frame / fps:.3f}" if fps else ""
             rows.append([
-                "novel_salience",
-                ev['frame_no'],
+                frame, t,
                 resolve_display_pid(ev['face_id'], pid_map),
                 ev['direction'],
                 f"{ev['speed_px']:.2f}",
@@ -380,20 +389,7 @@ class NovelSalienceTracker(PhenomenaPlugin):
                 f"{ev['delta_x']:.2f}",
                 f"{ev['delta_y']:.2f}",
             ])
-
-        # Summary row: total events per face
-        counts: dict[int, int] = {}
-        for ev in self.events:
-            counts[ev['face_id']] = counts.get(ev['face_id'], 0) + 1
-        rows.append([])
-        rows.append(["novel_salience_summary", "face_id", "event_count",
-                     "total_frames", "rate_pct"])
-        for fid, cnt in sorted(counts.items()):
-            rate = cnt / total_frames * 100 if total_frames else 0.0
-            rows.append(["novel_salience_summary",
-                         resolve_display_pid(fid, pid_map), cnt,
-                         total_frames, f"{rate:.4f}"])
-        return rows
+        return {"novel_salience_events": (header, rows)}
 
     # ── CLI protocol ──────────────────────────────────────────────────────────
 

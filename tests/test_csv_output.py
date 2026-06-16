@@ -1,10 +1,20 @@
-"""Tests for outputs/csv_output.py -- summary CSV writing."""
+"""Tests for outputs/csv_output.py -- tidy long-format summary writer."""
 
 import csv
 
-import pytest
+from mindsight.outputs.csv_output import (
+    resolve_summary_path,
+    write_summary_tables,
+)
+from Plugins import PhenomenaPlugin
 
-from mindsight.outputs.csv_output import resolve_summary_path, write_summary_csv
+_HEADER = ["video_name", "conditions", "phenomenon", "participant",
+           "partner", "object", "metric", "value"]
+
+
+def _read(path):
+    with open(path, newline="") as f:
+        return list(csv.reader(f))
 
 
 class TestResolveSummaryPath:
@@ -22,101 +32,172 @@ class TestResolveSummaryPath:
         result = resolve_summary_path(True, "my_video.mp4")
         assert result is not None
         assert "my_video" in result
-        assert result.endswith(".csv")
+        assert result.endswith("_summary.csv")
 
     def test_true_with_webcam(self):
         result = resolve_summary_path(True, 0)
         assert "webcam" in result
 
 
-class TestWriteSummaryCsv:
+class TestSummaryHeaderAndLookTime:
 
-    def test_basic_write(self, tmp_path):
-        out = tmp_path / "summary.csv"
-        look_counts = {(0, "person"): 50, (0, "cat"): 20}
-        write_summary_csv(str(out), total_frames=100,
-                          look_counts=look_counts)
-        assert out.exists()
-        content = out.read_text()
-        assert "Object Look Time" in content
-        assert "person" in content
-        assert "cat" in content
+    def test_header_row(self, tmp_path):
+        out = tmp_path / "vid_summary.csv"
+        write_summary_tables(str(out), total_frames=100, fps=100.0,
+                             look_counts={})
+        rows = _read(out)
+        assert rows[0] == _HEADER
+        # No data rows when there is nothing to report.
+        assert len(rows) == 1
 
-    def test_correct_column_count(self, tmp_path):
-        out = tmp_path / "summary.csv"
-        look_counts = {(0, "person"): 30}
-        write_summary_csv(str(out), total_frames=100,
-                          look_counts=look_counts)
-        with open(out) as f:
-            reader = csv.reader(f)
-            rows = list(reader)
-        # Header row
-        header = rows[1]
-        assert "category" in header
-        assert "participant" in header
-        assert "object" in header
-        # Data row should have same number of columns as header
-        data = rows[2]
-        assert len(data) == len(header)
+    def test_header_identical_single_and_project(self, tmp_path):
+        single = tmp_path / "s_summary.csv"
+        proj = tmp_path / "p_summary.csv"
+        write_summary_tables(str(single), 100, 100.0, {(0, "cat"): 10})
+        write_summary_tables(str(proj), 100, 100.0, {(0, "cat"): 10},
+                             video_name="clip", conditions="A|B")
+        assert _read(single)[0] == _read(proj)[0] == _HEADER
 
-    def test_percentage_calculation(self, tmp_path):
-        out = tmp_path / "summary.csv"
-        look_counts = {(0, "ball"): 25}
-        write_summary_csv(str(out), total_frames=100,
-                          look_counts=look_counts)
-        with open(out) as f:
-            reader = csv.reader(f)
-            rows = list(reader)
-        data_row = rows[2]
-        pct = float(data_row[-1])
-        assert pct == pytest.approx(25.0, abs=0.1)
+    def test_object_look_time_three_metrics(self, tmp_path):
+        out = tmp_path / "vid_summary.csv"
+        write_summary_tables(str(out), total_frames=100, fps=100.0,
+                             look_counts={(0, "ball"): 50})
+        rows = _read(out)[1:]
+        by_metric = {r[6]: r for r in rows}
+        assert set(by_metric) == {"frames_active", "seconds_active",
+                                  "pct_of_video"}
+        assert by_metric["frames_active"][7] == "50"
+        # 50 frames / 100 fps = 0.500 s
+        assert by_metric["seconds_active"][7] == "0.500"
+        # 50 / 100 * 100 = 50.0000 %
+        assert by_metric["pct_of_video"][7] == "50.0000"
+        # phenomenon / participant / object columns
+        assert by_metric["frames_active"][2] == "object_look_time"
+        assert by_metric["frames_active"][3] == "P0"
+        assert by_metric["frames_active"][5] == "ball"
 
-    def test_empty_look_counts(self, tmp_path):
-        out = tmp_path / "summary.csv"
-        write_summary_csv(str(out), total_frames=100,
-                          look_counts={})
-        assert out.exists()
+    def test_single_mode_prefix_empty(self, tmp_path):
+        out = tmp_path / "vid_summary.csv"
+        write_summary_tables(str(out), 100, 100.0, {(0, "cat"): 10})
+        data = _read(out)[1]
+        assert data[0] == "" and data[1] == ""
+
+    def test_project_mode_prefix_filled(self, tmp_path):
+        out = tmp_path / "vid_summary.csv"
+        write_summary_tables(str(out), 100, 100.0, {(0, "cat"): 10},
+                             video_name="myclip", conditions="cond_a|cond_b")
+        data = _read(out)[1]
+        assert data[0] == "myclip"
+        assert data[1] == "cond_a|cond_b"
+
+    def test_zero_fps_blank_seconds(self, tmp_path):
+        out = tmp_path / "vid_summary.csv"
+        write_summary_tables(str(out), 100, 0.0, {(0, "cat"): 10})
+        rows = _read(out)[1:]
+        sec = [r for r in rows if r[6] == "seconds_active"][0]
+        assert sec[7] == ""
 
     def test_creates_parent_dirs(self, tmp_path):
-        out = tmp_path / "deep" / "nested" / "summary.csv"
-        write_summary_csv(str(out), total_frames=10,
-                          look_counts={(0, "x"): 5})
+        out = tmp_path / "deep" / "nested" / "x_summary.csv"
+        write_summary_tables(str(out), 10, 100.0, {(0, "x"): 5})
         assert out.exists()
 
-    def test_with_tracker(self, tmp_path):
-        """A tracker that provides csv_rows should appear in output."""
 
-        class FakeTracker:
-            name = "mutual_gaze"
+class _FakeTracker(PhenomenaPlugin):
+    name = "fake_metric"
 
-            def csv_rows(self, total_frames, pid_map=None):
+    def summary_metrics(self, total_frames, fps, *, pid_map=None):
+        return [
+            {"participant": "P0", "partner": "P1", "object": "",
+             "metric": "event_count", "value": 7},
+        ]
+
+
+class _FakeStreamTracker(PhenomenaPlugin):
+    name = "fake_stream"
+
+    def summary_tables(self, total_frames, fps, *, pid_map=None):
+        return {"my_stream": (["participant", "idx"],
+                              [["P0", 0], ["P0", 1]])}
+
+
+class _LegacyTracker(PhenomenaPlugin):
+    name = "legacy_thing"
+
+    def csv_rows(self, total_frames, *, pid_map=None):
+        return [["category", "value"], ["legacy_thing", "99"]]
+
+
+class TestTrackerHooks:
+
+    def test_summary_metrics_row_emitted(self, tmp_path):
+        out = tmp_path / "vid_summary.csv"
+        write_summary_tables(str(out), 100, 100.0, {},
+                             all_trackers=[_FakeTracker()])
+        rows = _read(out)[1:]
+        assert len(rows) == 1
+        r = rows[0]
+        # phenomenon defaults to tracker name
+        assert r[2] == "fake_metric"
+        assert r[3] == "P0" and r[4] == "P1"
+        assert r[6] == "event_count" and r[7] == "7"
+
+    def test_stream_table_written_to_own_file(self, tmp_path):
+        out = tmp_path / "vid_summary.csv"
+        write_summary_tables(str(out), 100, 100.0, {},
+                             all_trackers=[_FakeStreamTracker()],
+                             video_name="vid", conditions="C")
+        stream = tmp_path / "vid_my_stream.csv"
+        assert stream.exists()
+        rows = _read(stream)
+        assert rows[0] == ["video_name", "conditions", "participant", "idx"]
+        assert rows[1] == ["vid", "C", "P0", "0"]
+        assert rows[2] == ["vid", "C", "P0", "1"]
+
+    def test_empty_stream_not_written(self, tmp_path):
+        class _Empty(PhenomenaPlugin):
+            name = "empty_stream"
+
+            def summary_tables(self, total_frames, fps, *, pid_map=None):
+                return {"nothing": (["a"], [])}
+
+        out = tmp_path / "vid_summary.csv"
+        write_summary_tables(str(out), 100, 100.0, {},
+                             all_trackers=[_Empty()])
+        assert not (tmp_path / "vid_nothing.csv").exists()
+
+    def test_legacy_csv_rows_passthrough(self, tmp_path):
+        out = tmp_path / "vid_summary.csv"
+        write_summary_tables(str(out), 100, 100.0, {},
+                             all_trackers=[_LegacyTracker()])
+        passthrough = tmp_path / "vid_plugin_legacy_thing.csv"
+        assert passthrough.exists()
+        rows = _read(passthrough)
+        assert rows[0] == ["category", "value"]
+        assert rows[1] == ["legacy_thing", "99"]
+
+    def test_tidy_tracker_no_passthrough_file(self, tmp_path):
+        # A tracker implementing tidy hooks must NOT get a passthrough file.
+        out = tmp_path / "vid_summary.csv"
+        write_summary_tables(str(out), 100, 100.0, {},
+                             all_trackers=[_FakeTracker()])
+        assert not (tmp_path / "vid_plugin_fake_metric.csv").exists()
+
+    def test_deterministic_sort(self, tmp_path):
+        class _Multi(PhenomenaPlugin):
+            name = "z_pheno"
+
+            def summary_metrics(self, total_frames, fps, *, pid_map=None):
                 return [
-                    ["category", "value"],
-                    ["mutual_gaze", "42"],
+                    {"participant": "P1", "partner": "", "object": "",
+                     "metric": "b", "value": 1},
+                    {"participant": "P0", "partner": "", "object": "",
+                     "metric": "a", "value": 2},
                 ]
 
-        out = tmp_path / "summary.csv"
-        write_summary_csv(str(out), total_frames=100,
-                          look_counts={(0, "obj"): 10},
-                          all_trackers=[FakeTracker()])
-        content = out.read_text()
-        assert "Mutual Gaze" in content
-        assert "42" in content
-
-    def test_project_mode_columns(self, tmp_path):
-        out = tmp_path / "summary.csv"
-        look_counts = {(0, "person"): 10}
-        write_summary_csv(
-            str(out), total_frames=50,
-            look_counts=look_counts,
-            video_name="test_video",
-            conditions="cond_a|cond_b")
-        with open(out) as f:
-            reader = csv.reader(f)
-            rows = list(reader)
-        header = rows[1]
-        assert header[0] == "video_name"
-        assert header[1] == "conditions"
-        data = rows[2]
-        assert data[0] == "test_video"
-        assert data[1] == "cond_a|cond_b"
+        out = tmp_path / "vid_summary.csv"
+        write_summary_tables(str(out), 100, 100.0, {(0, "obj"): 5},
+                             all_trackers=[_Multi()])
+        rows = _read(out)[1:]
+        keys = [(r[2], r[3], r[4], r[5], r[6]) for r in rows]
+        assert keys == sorted(keys)

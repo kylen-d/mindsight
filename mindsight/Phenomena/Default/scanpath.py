@@ -98,16 +98,23 @@ class ScanpathTracker(PhenomenaPlugin):
             "empty_text": "--",
         }
 
-    def csv_rows(self, total_frames, *, pid_map=None):
-        if not self.scanpaths:
-            return []
-        rows = [["category", "participant", "object",
-                 "frames_active", "total_frames", "value_pct"]]
+    def summary_metrics(self, total_frames, fps, *, pid_map=None):
+        return [
+            {"participant": resolve_display_pid(fi, pid_map),
+             "partner": "", "object": "",
+             "metric": "fixation_count", "value": len(path_entries)}
+            for fi, path_entries in sorted(self.scanpaths.items())
+        ]
+
+    def summary_tables(self, total_frames, fps, *, pid_map=None):
+        rows = []
         for fi, path_entries in sorted(self.scanpaths.items()):
-            seq = ";".join(cls for cls, _ in path_entries)
-            rows.append(["scanpath", resolve_display_pid(fi, pid_map), seq,
-                         len(path_entries), total_frames, ""])
-        return rows
+            pid = resolve_display_pid(fi, pid_map)
+            for idx, (cls, _) in enumerate(path_entries):
+                rows.append([pid, idx, cls])
+        if not rows:
+            return {}
+        return {"scanpath": (["participant", "fixation_index", "object"], rows)}
 
     def time_series_data(self):
         if not self._history:

@@ -450,9 +450,57 @@ class PhenomenaPlugin(ABC):
                 'rows': [],
                 'empty_text': '--'}
 
+    def summary_metrics(self, total_frames: int, fps: float, *,
+                        pid_map=None) -> list:
+        """
+        *Optional.*  Return tidy scalar-metric rows for ``{stem}_summary.csv``.
+
+        Each element is a ``dict`` with keys:
+            phenomenon  : str  — optional; defaults to ``self.name``.
+            participant : str  — display PID or ``""``.
+            partner     : str  — second PID (e.g. gaze-following follower)
+                                 or ``""``.
+            object      : str  — object label or ``""``.
+            metric      : str  — snake_case metric name; encode the unit in the
+                                 name (``*_frames`` / ``*_seconds`` / ``*_pct``).
+            value       : numeric or pre-formatted string.
+
+        The writer emits one long-format row per dict with columns
+        ``video_name,conditions,phenomenon,participant,partner,object,metric,
+        value``.  This is the preferred hook; prefer it over the legacy
+        :meth:`csv_rows`.  Base default returns ``[]``.
+
+        *fps* is the primary source's frame rate (for seconds conversions);
+        *pid_map* maps internal track IDs to custom participant labels.
+        """
+        return []
+
+    def summary_tables(self, total_frames: int, fps: float, *,
+                       pid_map=None) -> dict:
+        """
+        *Optional.*  Return tidy event/timeseries stream tables.
+
+        Returns a ``dict`` mapping ``table_name -> (header, rows)`` where
+        *header* is a ``list[str]`` of core column names and *rows* is a
+        ``list[list]``.  Each table is written to ``{stem}_{table_name}.csv``
+        with ``video_name``/``conditions`` prepended by the writer.  Only
+        return tables that have data.  Base default returns ``{}``.
+
+        *fps* / *pid_map* as for :meth:`summary_metrics`.
+        """
+        return {}
+
     def csv_rows(self, total_frames: int, *, pid_map=None) -> list:
         """
-        *Optional.*  Return rows to append to the post-run summary CSV.
+        *Optional, legacy.*  Return rows to append to the post-run summary CSV.
+
+        .. deprecated:: 1.0
+            Superseded by :meth:`summary_metrics` / :meth:`summary_tables`
+            (tidy long-format output).  A plugin that overrides *only* this
+            method (and neither tidy hook) still produces output: the writer
+            dumps its rows verbatim to ``{stem}_plugin_{name}.csv`` so
+            third-party plugins written against the old paper contract keep
+            working.
 
         Each row is a list of values (strings or numbers).  Include a blank
         row and a header row before data rows for readability.
