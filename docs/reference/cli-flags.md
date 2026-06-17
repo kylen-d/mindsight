@@ -16,6 +16,7 @@ All flags accepted by `python MindSight.py`. Run `python MindSight.py --help` fo
 | `--charts` | str (optional) | None | Path to save chart images (omit value for auto-named file) |
 | `--pipeline` | str | None | Path to a `pipeline.yaml` configuration file |
 | `--project` | str | None | Path to a MindSight project directory |
+| `--no-resume` | flag | off | Reprocess every project video, ignoring the resume ledger (does not archive prior outputs) |
 | `--participant-ids` | str | None | Comma-separated participant ID assignments (e.g. `"1:Alice,2:Bob"`) |
 | `--participant-csv` | str | None | CSV file mapping track IDs to participant labels |
 | `--aux-stream` | str (repeatable) | [] | Auxiliary stream in `PID:TYPE:SOURCE` format (may be specified multiple times) |

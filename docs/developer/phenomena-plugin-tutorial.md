@@ -247,27 +247,54 @@ Same data, but drawn directly onto the panel `ndarray` using `_draw_panel_sectio
 
 ## CSV Output
 
-`csv_rows()` produces two sections:
+NovelSalience emits **tidy** output through the two summary hooks: per-face scalar
+metrics via `summary_metrics()`, and the full per-event log via `summary_tables()`.
 
-### Per-event detail
+### Per-face scalar metrics -- `summary_metrics()`
 
+```python
+def summary_metrics(self, total_frames, fps, *, pid_map=None) -> list:
+    counts = {}
+    for ev in self.events:
+        counts[ev['face_id']] = counts.get(ev['face_id'], 0) + 1
+    rows = []
+    for fid, cnt in sorted(counts.items()):
+        rate = cnt / total_frames * 100 if total_frames else 0.0
+        pid  = resolve_display_pid(fid, pid_map)
+        rows.append({"participant": pid, "metric": "event_count", "value": cnt})
+        rows.append({"participant": pid, "metric": "rate_pct", "value": f"{rate:.4f}"})
+    return rows
 ```
-novel_salience_events
-category, frame_no, face_id, direction, speed_px, speed_deg, delta_x, delta_y
-novel_salience, 142, P1, LEFT, 53.21, 4.12, -48.30, 22.10
-novel_salience, 207, P2, DOWN, 61.88, 5.03, 12.44, 60.62
-...
+
+Each dict becomes one row of `{stem}_summary.csv`. The `phenomenon` column defaults
+to the tracker's `summary_label` (`novel_salience`); `partner` and `object` default
+to empty strings.
+
+### Per-event stream -- `summary_tables()`
+
+```python
+def summary_tables(self, total_frames, fps, *, pid_map=None) -> dict:
+    if not self.events:
+        return {}
+    header = ["frame", "t_seconds", "participant", "direction",
+              "speed_px", "speed_deg", "delta_x", "delta_y"]
+    rows = []
+    for ev in self.events:
+        frame = ev['frame_no']
+        t = f"{frame / fps:.3f}" if fps else ""
+        rows.append([frame, t, resolve_display_pid(ev['face_id'], pid_map),
+                     ev['direction'], f"{ev['speed_px']:.2f}", ...])
+    return {"novel_salience_events": (header, rows)}
 ```
 
-### Per-face summary
+The table name (`novel_salience_events`) becomes the file suffix, so this writes
+`{stem}_novel_salience_events.csv` -- one typed row per event, with `t_seconds`
+derived from the source frame rate. Both hooks use `resolve_display_pid(track_id,
+pid_map)` to convert internal track IDs into human-readable participant labels.
 
-```
-novel_salience_summary, face_id, event_count, total_frames, rate_pct
-novel_salience_summary, P1, 8, 3600, 0.2222
-novel_salience_summary, P2, 3, 3600, 0.0833
-```
-
-Uses `resolve_display_pid(track_id, pid_map)` to convert internal track IDs into human-readable participant labels.
+> The legacy `csv_rows()` hook still exists for backward compatibility. A plugin
+> that overrides only `csv_rows` has its rows dumped verbatim to
+> `{stem}_plugin_{name}.csv`; new plugins should use the tidy hooks above.
 
 ---
 

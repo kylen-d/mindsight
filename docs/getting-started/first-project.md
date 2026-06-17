@@ -61,18 +61,50 @@ python MindSight.py --project Projects/MyFirstProject/
 
 MindSight will load the pipeline configuration, discover all videos in `Inputs/Videos/`, and process each one sequentially. Progress is logged to the console.
 
+### Resuming an interrupted batch
+
+Project runs **resume by default**. MindSight keeps a per-batch ledger at
+`Outputs/_run/ledger.json` recording each video's status. If a batch is interrupted
+(a crash, a `kill`, or a machine reboot), just re-run the same command: videos that
+already finished with an unchanged configuration are skipped, and processing picks
+up where it left off. You will see a line like `[3/30] Skipping session_003.mp4
+(done, config unchanged)` for each skipped video.
+
+If you change the pipeline configuration (or the input video), the affected videos
+are reprocessed automatically -- their previous outputs are moved into
+`Outputs/_run/superseded/<timestamp>_<video>/` first, so nothing is silently
+overwritten.
+
+To force a full reprocess regardless of the ledger, pass `--no-resume`:
+
+```bash
+python MindSight.py --project Projects/MyFirstProject/ --no-resume
+```
+
+`--no-resume` reprocesses every video in place and does **not** archive prior
+outputs -- it is the "I know what I'm doing" escape hatch.
+
 ## Step 5: Inspect the Outputs
 
 After processing completes, the `Outputs/` directory contains:
 
-- **CSV Files/** -- One summary CSV per video with per-frame gaze data, object detections, hit events, and Joint Attention occurrences.
+- **CSV Files/** -- per video: a tidy scalar summary (`{stem}_summary.csv`), a
+  per-frame event log (`{stem}_Events.csv`), any per-stream tables
+  (`{stem}_scanpath.csv`, `{stem}_novel_salience_events.csv`, etc.), and a
+  provenance manifest (`{stem}_manifest.json`). Across the batch: `Global_*.csv`
+  aggregates and a `By Condition/` split for each study condition tag.
 - **Videos/** -- Annotated versions of each input video with gaze rays, bounding boxes, and phenomenon overlays rendered on every frame.
-- **heatmaps/** -- Gaze heatmap images showing where attention was concentrated across each video.
+- **{stem}_Heatmap/** -- Gaze heatmap images showing where attention was concentrated across each video.
+- **_run/** -- Batch bookkeeping: the resume `ledger.json` and any `superseded/`
+  outputs from reprocessed videos (see [Resuming an interrupted batch](#resuming-an-interrupted-batch)).
 
-Open a CSV file to examine the raw data:
+Every CSV is tidy long-format (one typed column per field), so it loads directly into
+R or pandas. The `{stem}_manifest.json` records exactly what produced each video's
+data -- the full config, a run-identity hash, model-weight hashes, and library
+versions -- so results are always traceable. Open a summary file to examine it:
 
 ```bash
-head -20 Projects/MyFirstProject/Outputs/CSV\ Files/session_001.csv
+head -20 Projects/MyFirstProject/Outputs/CSV\ Files/session_001_summary.csv
 ```
 
 Play an annotated video to visually verify the tracking results.

@@ -340,21 +340,39 @@ def dashboard_data(self, *, pid_map=None) -> dict:
 
 ### CSV Output
 
-Implement `csv_rows()` to append rows to the post-run summary CSV:
+MindSight writes **tidy long-format** CSVs. Contribute scalar metrics via
+`summary_metrics()` and per-event/per-frame streams via `summary_tables()`.
 
 ```python
-def csv_rows(self, total_frames: int, *, pid_map=None) -> list:
+def summary_metrics(self, total_frames: int, fps: float, *, pid_map=None) -> list:
+    """Scalar rows for {stem}_summary.csv (one dict per metric)."""
     if not self._events:
         return []
     return [
-        [],                                     # blank separator line
-        ["my_tracker_events"],                   # section header
-        ["category", "frame_no", "value"],       # column header
-        *[["event", e['frame'], e['val']] for e in self._events],
+        {"participant": "all", "metric": "event_count", "value": len(self._events)},
     ]
+
+def summary_tables(self, total_frames: int, fps: float, *, pid_map=None) -> dict:
+    """Typed stream tables: {table_name: (header, rows)}."""
+    if not self._events:
+        return {}
+    header = ["frame", "t_seconds", "value"]
+    rows = [[e['frame'], f"{e['frame'] / fps:.3f}" if fps else "", e['val']]
+            for e in self._events]
+    return {"my_tracker_events": (header, rows)}   # -> {stem}_my_tracker_events.csv
 ```
 
-The pattern is: blank row, section-name row, column-header row, then data rows. Return an empty list if there is nothing to write.
+- **`summary_metrics`** -- each dict has `metric` and `value` plus optional
+  `phenomenon` (defaults to `summary_label`), `participant`, `partner`, `object`.
+  Encode units in the metric name (`*_frames` / `*_seconds` / `*_pct`).
+- **`summary_tables`** -- the table name becomes the output file suffix; return only
+  tables that have data.
+
+Return an empty `[]` / `{}` if there is nothing to write.
+
+> **Legacy `csv_rows`.** The old `csv_rows()` hook still works: a plugin that
+> overrides only `csv_rows` (and neither tidy hook) gets its rows dumped verbatim to
+> `{stem}_plugin_{name}.csv`. Prefer the tidy hooks for new plugins.
 
 ### Optional Methods
 
@@ -363,11 +381,15 @@ These methods have default (no-op) implementations in `PhenomenaPlugin`. Overrid
 | Method | Purpose |
 |--------|---------|
 | `draw_frame(frame)` | Annotate the video frame in-place (called after `update`). |
+| `summary_metrics(total_frames, fps, *, pid_map)` | Return tidy scalar-metric dicts for `{stem}_summary.csv`. |
+| `summary_tables(total_frames, fps, *, pid_map)` | Return typed stream tables (`{name: (header, rows)}`). |
+| `summary_label` | Class attribute -- prettified phenomenon label (defaults to `name`). |
 | `console_summary(total_frames, *, pid_map)` | Return a string for post-run stdout output. |
 | `time_series_data()` | Return time-series data for post-run chart generation. |
 | `latest_metric()` | Return the current-frame scalar metric value for live charting. |
 | `latest_metrics()` | Return a dict of per-series metric values for the live dashboard. |
 | `dashboard_widget()` | Return a custom QWidget for the GUI dashboard, or `None`. |
+| `csv_rows(total_frames, *, pid_map)` | *Legacy.* Rows dumped verbatim to `{stem}_plugin_{name}.csv`. |
 
 For a complete worked example, see [Phenomena Plugin Tutorial](phenomena-plugin-tutorial.md).
 

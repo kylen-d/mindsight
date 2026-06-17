@@ -148,13 +148,63 @@ Return structured data for the GUI dashboard. `pid_map` maps track IDs to partic
 ---
 
 ```python
+def summary_metrics(
+    self,
+    total_frames: int,
+    fps: float,
+    *,
+    pid_map: Dict[int, str] = None,
+) -> List[dict]:
+```
+Return tidy scalar-metric rows for `{stem}_summary.csv`. Each dict has keys
+`phenomenon` (optional; defaults to `self.summary_label`), `participant`, `partner`,
+`object`, `metric` (snake_case, unit encoded in the name -- `*_frames` / `*_seconds`
+/ `*_pct`), and `value` (numeric). The writer emits one long-format row per dict with
+columns `video_name,conditions,phenomenon,participant,partner,object,metric,value`.
+`fps` is the source frame rate (for seconds conversions). Default returns `[]`. This
+is the preferred scalar-output hook.
+
+---
+
+```python
+def summary_tables(
+    self,
+    total_frames: int,
+    fps: float,
+    *,
+    pid_map: Dict[int, str] = None,
+) -> Dict[str, tuple]:
+```
+Return tidy event/timeseries stream tables as `{table_name: (header, rows)}`, where
+`header` is a `list[str]` of core column names and `rows` is a `list[list]`. Each
+table is written to `{stem}_{table_name}.csv` with `video_name`/`conditions`
+prepended by the writer. Return only tables that have data. Default returns `{}`.
+
+---
+
+```python
+def summary_label  # class attribute / property
+```
+The prettified phenomenon label used in `{stem}_summary.csv`. Defaults to `self.name`;
+override with a plain-string class attribute when the terse registry `name` reads
+poorly for analysts (e.g. `gaze_follow` -> `gaze_following`). The `name` attribute is
+unchanged (it keys registries, flags, and dashboards).
+
+---
+
+```python
 def csv_rows(
     self,
     total_frames: int,
-    pid_map: Dict[int, str],
+    *,
+    pid_map: Dict[int, str] = None,
 ) -> List[dict]:
 ```
-Return a list of dicts suitable for CSV output. Each dict is one row.
+**Legacy.** Superseded by `summary_metrics` / `summary_tables`. Return a list of rows
+for CSV output. A plugin that overrides *only* this hook (and neither tidy hook) still
+produces output: the writer dumps its rows verbatim to `{stem}_plugin_{name}.csv`, so
+third-party plugins written against the old paper contract keep working. Default
+returns `[]`.
 
 ---
 
