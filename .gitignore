@@ -12,8 +12,9 @@ build/
 # Testing
 .pytest_cache/
 
-# Runtime outputs
-Outputs/
+# Runtime outputs (anchored: mindsight/outputs/ is source, must stay visible)
+/Outputs/
+Projects/*/Outputs/
 heatmaps/
 
 # Model weights -- all backends store weights in Weights/{backend}/
