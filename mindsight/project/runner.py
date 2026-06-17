@@ -363,12 +363,20 @@ def run_project(project_dir: str | Path, run_fn, build_fn, args_ns) -> None:
     # output_paths / status are recorded per manifest.
     from mindsight.config import PipelineConfig
     from mindsight.outputs import provenance
+    from mindsight.project.ledger import Ledger, compute_video_hash
     manifest_config = PipelineConfig.from_namespace(args_ns)
 
-    for i, source in enumerate(sources, 1):
-        print(f"\n[{i}/{len(sources)}] Processing: {source.name}")
-        print("-" * 40)
+    # Resume ledger (D9): compute the batch config_hash ONCE (models are built
+    # once per batch); per-video hashes + status are consulted/recorded below.
+    # --no-resume bypasses `decide` entirely (still rewrites the ledger, never
+    # archives).
+    no_resume = bool(getattr(args_ns, "no_resume", False))
+    batch_weights = provenance.collect_weights(args_ns)
+    config_hash = provenance.run_identity(
+        args_ns, config=manifest_config, weights=batch_weights)
+    ledger = Ledger.load(out_root)
 
+    for i, source in enumerate(sources, 1):
         # Override output paths for this source
         paths = project_output_paths(project, source, project_cfg)
         video_pid_map = pid_maps.get(source.name) if pid_maps else None
@@ -377,6 +385,24 @@ def run_project(project_dir: str | Path, run_fn, build_fn, args_ns) -> None:
         video_tags = (project_cfg.conditions.get(source.name, [])
                       if project_cfg else [])
         conditions_str = "|".join(video_tags) if video_tags else ""
+
+        # Consult the ledger (unless --no-resume): skip unchanged done videos,
+        # archive superseded outputs on a config/source change.
+        video_hash = compute_video_hash(
+            source, pid_map=video_pid_map, conditions=conditions_str,
+            aux_streams=aux_streams if aux_streams else None)
+        hashes = (config_hash, video_hash)
+        if not no_resume:
+            decision = ledger.decide(source.name, hashes)
+            if decision == "skip":
+                print(f"[{i}/{len(sources)}] Skipping {source.name} "
+                      f"(done, config unchanged)")
+                continue
+            if decision == "redo_archive":
+                ledger.archive(source.name)
+
+        print(f"\n[{i}/{len(sources)}] Processing: {source.name}")
+        print("-" * 40)
 
         run_output = OutputConfig(
             save=paths['save'],
@@ -389,6 +415,9 @@ def run_project(project_dir: str | Path, run_fn, build_fn, args_ns) -> None:
             conditions=conditions_str,
         )
 
+        # Mark in_progress BEFORE run_fn so a kill -9 mid-run is recoverable
+        # (T8: never marked from inside the Pipeline generator).
+        ledger.mark_started(source.name, hashes, paths)
         started = provenance.utcnow_iso()
         status, error = "completed", None
         try:
@@ -416,8 +445,12 @@ def run_project(project_dir: str | Path, run_fn, build_fn, args_ns) -> None:
             source=source, output_paths=paths,
             started=started, finished=provenance.utcnow_iso(),
             status=status, error=error)
+        # Record terminal ledger state AFTER the orchestration layer returns
+        # (T8: done/error is the layer's decision, not the generator's).
         if status == "error":
+            ledger.mark_error(source.name, error)
             continue
+        ledger.mark_done(source.name, str(manifest_path))
 
     # ── Post-processing: generate global and per-condition CSVs ──────────
     csv_dir = out_root / "CSV Files"

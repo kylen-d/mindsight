@@ -296,18 +296,20 @@ class ProjectWorker(threading.Thread):
         # Provenance config is batch-level (models built once).
         from mindsight.config import PipelineConfig
         from mindsight.outputs import provenance
+        from mindsight.project.ledger import Ledger, compute_video_hash
         manifest_config = PipelineConfig.from_namespace(self.ns)
+
+        # Resume ledger (D9): batch config_hash computed once; per-video hashes
+        # consulted/recorded below.  --no-resume bypasses `decide` entirely.
+        no_resume = bool(getattr(self.ns, "no_resume", False))
+        batch_weights = provenance.collect_weights(self.ns)
+        config_hash = provenance.run_identity(
+            self.ns, config=manifest_config, weights=batch_weights)
+        ledger = Ledger.load(out_root)
 
         for i, source in enumerate(sources):
             if self._stop.is_set():
                 break
-            self._log(f"\n[{i+1}/{len(sources)}] Processing: {source.name}")
-            self.progress_q.put({
-                "type": "progress",
-                "current": i + 1,
-                "total": len(sources),
-                "source_name": source.name,
-            })
 
             paths = project_output_paths(project, source, pcfg)
             video_pid_map = pid_maps.get(source.name) if pid_maps else None
@@ -316,6 +318,29 @@ class ProjectWorker(threading.Thread):
             video_tags = (pcfg.conditions.get(source.name, [])
                           if pcfg else [])
             conditions_str = "|".join(video_tags) if video_tags else ""
+
+            # Consult the ledger (unless --no-resume): skip unchanged done
+            # videos, archive superseded outputs on a config/source change.
+            video_hash = compute_video_hash(
+                source, pid_map=video_pid_map, conditions=conditions_str,
+                aux_streams=aux_streams if aux_streams else None)
+            hashes = (config_hash, video_hash)
+            if not no_resume:
+                decision = ledger.decide(source.name, hashes)
+                if decision == "skip":
+                    self._log(f"[{i+1}/{len(sources)}] Skipping "
+                              f"{source.name} (done, config unchanged)")
+                    continue
+                if decision == "redo_archive":
+                    ledger.archive(source.name)
+
+            self._log(f"\n[{i+1}/{len(sources)}] Processing: {source.name}")
+            self.progress_q.put({
+                "type": "progress",
+                "current": i + 1,
+                "total": len(sources),
+                "source_name": source.name,
+            })
 
             run_output = OutputConfig(
                 save=paths['save'],
@@ -339,6 +364,9 @@ class ProjectWorker(threading.Thread):
                 gazelle_provider=gazelle_provider, ray_cfg=ray_cfg,
             )
             cancel = CancelToken()
+            # Mark in_progress BEFORE the run so a crash mid-video is
+            # recoverable (T8: never from inside the generator).
+            ledger.mark_started(source.name, hashes, paths)
             started = provenance.utcnow_iso()
             status, error = "completed", None
             try:
@@ -362,6 +390,11 @@ class ProjectWorker(threading.Thread):
                 source=source, output_paths=paths,
                 started=started, finished=provenance.utcnow_iso(),
                 status=status, error=error)
+            # Record terminal ledger state AFTER the run returns (T8).
+            if status == "error":
+                ledger.mark_error(source.name, error)
+            else:
+                ledger.mark_done(source.name, str(manifest_path))
 
         # ── Post-processing: global and per-condition CSVs ───────────
         csv_dir = out_root / "CSV Files"
