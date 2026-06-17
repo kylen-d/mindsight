@@ -131,6 +131,22 @@
     },
     {
       "option_strings": [
+        "--no-resume"
+      ],
+      "dest": "no_resume",
+      "action": "_StoreTrueAction",
+      "default": false,
+      "type": null,
+      "nargs": 0,
+      "const": true,
+      "choices": null,
+      "required": false,
+      "metavar": null,
+      "help": "Project mode: reprocess every video, ignoring the resume ledger. Does not archive prior outputs. Default resumes -- skipping videos whose ledger entry is done with an unchanged config.",
+      "group": "options"
+    },
+    {
+      "option_strings": [
         "--participant-ids"
       ],
       "dest": "participant_ids",

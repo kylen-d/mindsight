@@ -108,3 +108,12 @@ def test_config_change_archives_and_reprocesses(tmp_path):
     archived = list(superseded.iterdir())
     assert len(archived) == 1 and archived[0].name.endswith("_clip")
     assert (archived[0] / "clip_summary.csv").exists()
+
+
+def test_no_resume_reprocesses_without_archive(tmp_path):
+    proj = _project(tmp_path)
+    calls: list = []
+    run_project(proj, _make_run(calls), _build, parse_cli([]))
+    run_project(proj, _make_run(calls), _build, parse_cli(["--no-resume"]))
+    assert len(calls) == 2                       # everything reprocessed
+    assert not (proj / "Outputs" / "_run" / "superseded").exists()

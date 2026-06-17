@@ -1,7 +1,7 @@
 usage: MindSight -- Eye-Gaze Intersection Tracker [-h] [--source SOURCE] [--save [PATH]]
                                                   [--log LOG] [--summary [PATH]]
                                                   [--heatmap [PATH]] [--charts [PATH]]
-                                                  [--pipeline YAML] [--project DIR]
+                                                  [--pipeline YAML] [--project DIR] [--no-resume]
                                                   [--participant-ids IDS] [--participant-csv CSV]
                                                   [--aux-stream SOURCE:VIDEO_TYPE:LABEL:PIDS]
                                                   [--aux-auto-detect] [--device DEVICE]
@@ -110,6 +110,9 @@ options:
                         values.
   --project DIR         Run in project mode: process all videos in DIR/Inputs/Videos/ using
                         DIR/Pipeline/pipeline.yaml as config.
+  --no-resume           Project mode: reprocess every video, ignoring the resume ledger. Does not
+                        archive prior outputs. Default resumes -- skipping videos whose ledger
+                        entry is done with an unchanged config.
   --participant-ids IDS
                         Comma-separated participant labels for single-video mode. Positional:
                         first label maps to track 0, second to track 1, etc. E.g. --participant-
