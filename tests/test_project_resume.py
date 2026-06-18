@@ -1,18 +1,30 @@
-"""SP2.1 Batch E: run_project resume bookkeeping (slow).
+"""SP3.1 Batch B: iter_project_runs resume bookkeeping (slow).
 
-Drives ``mindsight.project.runner.run_project`` end-to-end with MONKEYPATCHED
-build/run functions (no real models) over a tiny cv2-generated clip, asserting
-the ledger's skip / reprocess / archive decisions.  The REAL end-to-end with
-models is the G-LEDGER gate; this pins the orchestration bookkeeping cheaply.
+Drives ``mindsight.project.runner.iter_project_runs`` end-to-end with the model
+build + per-video ``Pipeline`` MONKEYPATCHED (no real models) over a tiny
+cv2-generated clip, exhausting the event stream and asserting the ledger's
+skip / reprocess / archive decisions plus the emitted events.  The REAL
+end-to-end with models is the G-LEDGER gate; this pins the orchestration
+bookkeeping cheaply.
 """
 from __future__ import annotations
 
 import json
+from pathlib import Path
 
 import pytest
 
+import mindsight.pipeline as _pipeline_mod
 from mindsight.cli_flags import parse_cli
-from mindsight.project.runner import run_project
+from mindsight.project.events import (
+    BatchDone,
+    BatchStarted,
+    VideoArchived,
+    VideoDone,
+    VideoSkipped,
+    VideoStarted,
+)
+from mindsight.project.runner import iter_project_runs
 
 pytestmark = pytest.mark.slow
 
@@ -34,23 +46,39 @@ def _project(tmp_path):
     return proj
 
 
-def _build(ns):
-    """Stand-in for factory.build_from_namespace -> the 14-tuple run_project unpacks."""
-    return tuple([None] * 14)
+@pytest.fixture
+def fake_models(monkeypatch):
+    """Patch build_from_namespace -> the 14-tuple and Pipeline -> a stub that
+    records each source and writes minimal tidy per-video outputs (no models).
+
+    Returns the shared ``calls`` list (one entry per Pipeline.run invocation).
+    """
+    calls: list = []
+
+    def _build(_ns):
+        return tuple([None] * 14)
+
+    class _StubPipeline:
+        def __init__(self, *, output_cfg, **_kw):
+            self._out = output_cfg
+
+        def run(self, source, *, options=None, cancel=None):
+            calls.append(source)
+            summ = Path(self._out.summary_path)
+            summ.parent.mkdir(parents=True, exist_ok=True)
+            summ.write_text("video_name,conditions,phenomenon,participant,"
+                            "partner,object,metric,value\n")
+            Path(self._out.log_path).write_text("frame,t_seconds\n")
+            return iter(())          # a video with no yielded frames
+
+    monkeypatch.setattr(_pipeline_mod, "build_from_namespace", _build)
+    monkeypatch.setattr(_pipeline_mod, "Pipeline", _StubPipeline)
+    return calls
 
 
-def _make_run(calls):
-    """A run_fn stub that records calls and writes minimal tidy outputs."""
-    def _run(source, *args, **kwargs):
-        from pathlib import Path
-        run_output = args[6]          # (yolo..tracker_cfg) then run_output
-        calls.append(source)
-        summ = Path(run_output.summary_path)
-        summ.parent.mkdir(parents=True, exist_ok=True)
-        summ.write_text("video_name,conditions,phenomenon,participant,"
-                        "partner,object,metric,value\n")
-        Path(run_output.log_path).write_text("frame,t_seconds\n")
-    return _run
+def _run(proj, ns, *, resume=True):
+    """Exhaust the event stream, returning the list of emitted events."""
+    return list(iter_project_runs(proj, ns, resume=resume))
 
 
 def _ledger_data(proj):
@@ -58,11 +86,17 @@ def _ledger_data(proj):
     return json.loads(path.read_text())
 
 
-def test_first_run_marks_done(tmp_path):
+def test_first_run_marks_done(tmp_path, fake_models):
     proj = _project(tmp_path)
-    calls: list = []
-    run_project(proj, _make_run(calls), _build, parse_cli([]))
-    assert calls == [str(proj / "Inputs" / "Videos" / "clip.mp4")]
+    events = _run(proj, parse_cli([]))
+    assert fake_models == [str(proj / "Inputs" / "Videos" / "clip.mp4")]
+    # Event stream shape: BatchStarted, VideoStarted, VideoDone, BatchDone.
+    assert isinstance(events[0], BatchStarted) and events[0].total == 1
+    assert any(isinstance(e, VideoStarted) and e.run_id == "clip.mp4"
+               for e in events)
+    assert any(isinstance(e, VideoDone) and e.run_id == "clip.mp4"
+               for e in events)
+    assert isinstance(events[-1], BatchDone)
     data = _ledger_data(proj)
     rec = data["videos"]["clip.mp4"]
     assert data["ledger_version"] == 1
@@ -70,39 +104,41 @@ def test_first_run_marks_done(tmp_path):
     assert rec["manifest"].endswith("clip_manifest.json")
 
 
-def test_second_run_skips_unchanged(tmp_path, capsys):
+def test_second_run_skips_unchanged(tmp_path, capsys, fake_models):
     proj = _project(tmp_path)
-    calls: list = []
-    run_project(proj, _make_run(calls), _build, parse_cli([]))
-    assert len(calls) == 1
+    _run(proj, parse_cli([]))
+    assert len(fake_models) == 1
+    capsys.readouterr()
     # Second run, identical config -> skip.
-    run_project(proj, _make_run(calls), _build, parse_cli([]))
-    assert len(calls) == 1                      # run_fn NOT called again
+    events = _run(proj, parse_cli([]))
+    assert len(fake_models) == 1                 # Pipeline.run NOT called again
     assert "Skipping clip.mp4 (done, config unchanged)" in capsys.readouterr().out
+    assert any(isinstance(e, VideoSkipped) and e.run_id == "clip.mp4"
+               for e in events)
     assert _ledger_data(proj)["videos"]["clip.mp4"]["status"] == "done"
 
 
-def test_in_progress_is_reprocessed(tmp_path):
+def test_in_progress_is_reprocessed(tmp_path, fake_models):
     proj = _project(tmp_path)
-    calls: list = []
-    run_project(proj, _make_run(calls), _build, parse_cli([]))
+    _run(proj, parse_cli([]))
     # Simulate a kill -9 mid-run: force the record back to in_progress.
     path = proj / "Outputs" / "_run" / "ledger.json"
     data = json.loads(path.read_text())
     data["videos"]["clip.mp4"]["status"] = "in_progress"
     path.write_text(json.dumps(data))
-    run_project(proj, _make_run(calls), _build, parse_cli([]))
-    assert len(calls) == 2                       # reprocessed in place
+    _run(proj, parse_cli([]))
+    assert len(fake_models) == 2                  # reprocessed in place
     assert _ledger_data(proj)["videos"]["clip.mp4"]["status"] == "done"
 
 
-def test_config_change_archives_and_reprocesses(tmp_path):
+def test_config_change_archives_and_reprocesses(tmp_path, fake_models):
     proj = _project(tmp_path)
-    calls: list = []
-    run_project(proj, _make_run(calls), _build, parse_cli([]))
+    _run(proj, parse_cli([]))
     # A processing-config change flips config_hash -> redo_archive.
-    run_project(proj, _make_run(calls), _build, parse_cli(["--conf", "0.30"]))
-    assert len(calls) == 2
+    events = _run(proj, parse_cli(["--conf", "0.30"]))
+    assert len(fake_models) == 2
+    assert any(isinstance(e, VideoArchived) and e.run_id == "clip.mp4"
+               for e in events)
     superseded = proj / "Outputs" / "_run" / "superseded"
     assert superseded.is_dir()
     archived = list(superseded.iterdir())
@@ -110,10 +146,9 @@ def test_config_change_archives_and_reprocesses(tmp_path):
     assert (archived[0] / "clip_summary.csv").exists()
 
 
-def test_no_resume_reprocesses_without_archive(tmp_path):
+def test_no_resume_reprocesses_without_archive(tmp_path, fake_models):
     proj = _project(tmp_path)
-    calls: list = []
-    run_project(proj, _make_run(calls), _build, parse_cli([]))
-    run_project(proj, _make_run(calls), _build, parse_cli(["--no-resume"]))
-    assert len(calls) == 2                       # everything reprocessed
+    _run(proj, parse_cli([]))
+    _run(proj, parse_cli(["--no-resume"]), resume=False)
+    assert len(fake_models) == 2                  # everything reprocessed
     assert not (proj / "Outputs" / "_run" / "superseded").exists()

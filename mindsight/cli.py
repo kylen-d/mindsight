@@ -66,10 +66,34 @@ def main():
         load_pipeline(args.pipeline, args)
         print(f"Loaded pipeline config: {args.pipeline}")
 
-    # Project mode: batch-process all videos in a project directory
+    # Project mode: batch-process all videos in a project directory.  The CLI is
+    # a thin consumer of the event stream (D1): the iterator prints the batch
+    # narration + Done-lines and owns ledger/manifest/global-CSV machinery; the
+    # CLI only drives the cv2 display loop ('q' cancels the batch, T9).
     if args.project:
-        from mindsight.project.runner import run_project
-        run_project(args.project, run, build_from_namespace, args)
+        import cv2
+
+        from mindsight.pipeline import CancelToken
+        from mindsight.project.events import (
+            VideoDone,
+            VideoError,
+            VideoFrame,
+            VideoSkipped,
+        )
+        from mindsight.project.runner import iter_project_runs
+
+        cancel = CancelToken()
+        try:
+            for event in iter_project_runs(args.project, args, cancel=cancel,
+                                           resume=not args.no_resume):
+                if isinstance(event, VideoFrame):
+                    cv2.imshow("MindSight", event.result.annotated)
+                    if cv2.waitKey(1) & 0xFF == ord('q'):
+                        cancel.cancel()
+                elif isinstance(event, (VideoDone, VideoError, VideoSkipped)):
+                    cv2.destroyAllWindows()
+        finally:
+            cv2.destroyAllWindows()
         return
 
     # Single-source mode

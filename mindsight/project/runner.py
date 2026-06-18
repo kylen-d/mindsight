@@ -261,30 +261,70 @@ def project_output_paths(project: Path, source: Path,
     }
 
 
-def run_project(project_dir: str | Path, run_fn, build_fn, args_ns) -> None:
-    """
-    Run MindSight on all sources in a project directory.
+def iter_project_runs(project_dir: str | Path, ns, *, project_cfg=None,
+                      cancel=None, resume=True):
+    """Run every source in a project, yielding a :mod:`ProjectEvent <mindsight.project.events>` stream.
+
+    This is the SINGLE project-batch implementation (SP3.1 D1) consumed by both
+    ``cli.main --project`` and the GUI ``ProjectWorker``.  It performs the exact
+    sequence the pre-SP3 loop did -- load project config (only if not supplied),
+    validate, discover sources, load the pipeline YAML (passing *ns* through
+    untouched so the CLI/GUI YAML-precedence fork is preserved, T7), discover VP
+    / participant maps / aux streams, build the models ONCE, then per source
+    consult the resume ledger, run a per-video :class:`~mindsight.pipeline.Pipeline`
+    over the shared models, write the per-video manifest, and record the terminal
+    ledger state -- finally generating the global + per-condition CSVs.
+
+    The generator is display-free: it yields ``VideoFrame`` per processed frame
+    and never calls ``cv2.imshow`` or touches a queue.  The batch narration lines
+    are printed here (so the CLI transcript is unchanged); consumers layer their
+    own presentation on the events.
 
     Parameters
     ----------
     project_dir : str or Path
         Path to the project directory.
-    run_fn : callable
-        The ``run()`` function from MindSight.py.
-    build_fn : callable
-        A function that takes an argparse namespace and returns
-        (yolo, face_det, gaze_eng, gaze_cfg, det_cfg, tracker_cfg, output_cfg,
-         active_plugins, phenomena_cfg, detection_plugins).
-    args_ns : Namespace
-        The parsed argparse namespace (with pipeline config already merged).
+    ns : Namespace
+        The parsed namespace (pipeline YAML is merged into it here).  Passed to
+        ``load_pipeline`` and ``build_from_namespace`` UNCHANGED (T7/T4).
+    project_cfg : ProjectConfig or None
+        In-memory project config (the GUI's possibly-unsaved edits).  When
+        ``None`` the ``project.yaml`` on disk is loaded (the CLI path).
+    cancel : CancelToken or None
+        Batch-level cancel.  When cancelled, the current video finalizes cleanly
+        (T8) and the batch stops before the next source; global CSVs still run.
+    resume : bool
+        When ``False`` (``--no-resume`` / "Re-run all") the ledger ``decide`` is
+        bypassed entirely -- everything reprocesses, nothing is archived.
     """
+    from mindsight.config import PipelineConfig
     from mindsight.config_compat import load_pipeline
+    from mindsight.outputs import provenance
+    from mindsight.pipeline import (
+        CancelToken,
+        Pipeline,
+        RunOptions,
+        build_from_namespace,
+    )
     from mindsight.pipeline_config import OutputConfig
+    from mindsight.project.events import (
+        BatchDone,
+        BatchStarted,
+        VideoArchived,
+        VideoDone,
+        VideoError,
+        VideoFrame,
+        VideoSkipped,
+        VideoStarted,
+    )
+    from mindsight.project.ledger import Ledger, compute_video_hash
 
     project = Path(project_dir).resolve()
 
-    # Load project.yaml if it exists (study metadata: conditions, participants, output)
-    project_cfg = load_project_config(project)
+    # Load project.yaml ONLY if the caller did not supply one (the GUI passes an
+    # in-memory ProjectConfig with possibly-unsaved edits; the CLI passes None).
+    if project_cfg is None:
+        project_cfg = load_project_config(project)
 
     project = validate_project(project_dir, project_cfg)
     sources = discover_sources(project)
@@ -293,26 +333,28 @@ def run_project(project_dir: str | Path, run_fn, build_fn, args_ns) -> None:
         print(f"No media files found in {project / 'Inputs' / 'Videos'}")
         return
 
-    # Load pipeline YAML — project.yaml can override the default path
+    # Load pipeline YAML — project.yaml can override the default path.  ns is
+    # passed through untouched: the CLI/GUI _explicit_cli precedence fork lives
+    # inside load_pipeline and must stay forked (T7).
     if project_cfg and project_cfg.pipeline_path:
         pipeline_yaml = project / project_cfg.pipeline_path
     else:
         pipeline_yaml = project / "Pipeline" / "pipeline.yaml"
     if pipeline_yaml.exists():
-        load_pipeline(pipeline_yaml, args_ns)
+        load_pipeline(pipeline_yaml, ns)
         print(f"Loaded project pipeline: {pipeline_yaml}")
 
     # Apply project VP file if no CLI override
     vp = discover_vp_file(project)
-    if vp and not getattr(args_ns, 'vp_file', None):
-        args_ns.vp_file = vp
+    if vp and not getattr(ns, 'vp_file', None):
+        ns.vp_file = vp
         print(f"Using project VP file: {vp}")
 
-    # Build models once for the whole project
+    # Build models once for the whole project (14-tuple contract, T4)
     (yolo, face_det, gaze_eng, gaze_cfg, det_cfg, tracker_cfg, output_cfg,
      active_plugins, phenomena_cfg, detection_plugins,
      depth_cfg, depth_backend,
-     gazelle_provider, ray_cfg) = build_fn(args_ns)
+     gazelle_provider, ray_cfg) = build_from_namespace(ns)
 
     # Discover per-video participant ID mappings
     # project.yaml participants take precedence over participant_ids.csv
@@ -361,22 +403,34 @@ def run_project(project_dir: str | Path, run_fn, build_fn, args_ns) -> None:
 
     # Provenance config is batch-level (models built once); per-video source /
     # output_paths / status are recorded per manifest.
-    from mindsight.config import PipelineConfig
-    from mindsight.outputs import provenance
-    from mindsight.project.ledger import Ledger, compute_video_hash
-    manifest_config = PipelineConfig.from_namespace(args_ns)
+    manifest_config = PipelineConfig.from_namespace(ns)
 
     # Resume ledger (D9): compute the batch config_hash ONCE (models are built
     # once per batch); per-video hashes + status are consulted/recorded below.
-    # --no-resume bypasses `decide` entirely (still rewrites the ledger, never
+    # resume=False bypasses `decide` entirely (still rewrites the ledger, never
     # archives).
-    no_resume = bool(getattr(args_ns, "no_resume", False))
-    batch_weights = provenance.collect_weights(args_ns)
+    no_resume = not resume
+    batch_weights = provenance.collect_weights(ns)
     config_hash = provenance.run_identity(
-        args_ns, config=manifest_config, weights=batch_weights)
+        ns, config=manifest_config, weights=batch_weights)
     ledger = Ledger.load(out_root)
 
+    options = RunOptions(
+        fast_mode=getattr(ns, 'fast', False),
+        skip_phenomena=getattr(ns, 'skip_phenomena', 0),
+        lite_overlay=getattr(ns, 'lite_overlay', False),
+        no_dashboard=getattr(ns, 'no_dashboard', False),
+        profile=getattr(ns, 'profile', False),
+    )
+
+    yield BatchStarted(total=len(sources), out_root=out_root)
+
     for i, source in enumerate(sources, 1):
+        # Batch-level cancel: stop before the next source (the previous video
+        # finalized cleanly through its own cancel token); global CSVs still run.
+        if cancel is not None and cancel.cancelled:
+            break
+
         # Override output paths for this source
         paths = project_output_paths(project, source, project_cfg)
         video_pid_map = pid_maps.get(source.name) if pid_maps else None
@@ -386,8 +440,8 @@ def run_project(project_dir: str | Path, run_fn, build_fn, args_ns) -> None:
                       if project_cfg else [])
         conditions_str = "|".join(video_tags) if video_tags else ""
 
-        # Consult the ledger (unless --no-resume): skip unchanged done videos,
-        # archive superseded outputs on a config/source change.
+        # Consult the ledger (unless resume disabled): skip unchanged done
+        # videos, archive superseded outputs on a config/source change.
         video_hash = compute_video_hash(
             source, pid_map=video_pid_map, conditions=conditions_str,
             aux_streams=aux_streams if aux_streams else None)
@@ -397,12 +451,17 @@ def run_project(project_dir: str | Path, run_fn, build_fn, args_ns) -> None:
             if decision == "skip":
                 print(f"[{i}/{len(sources)}] Skipping {source.name} "
                       f"(done, config unchanged)")
+                yield VideoSkipped(run_id=source.name,
+                                   reason="done, config unchanged")
                 continue
             if decision == "redo_archive":
-                ledger.archive(source.name)
+                dest = ledger.archive(source.name)
+                yield VideoArchived(run_id=source.name, dest=dest)
 
         print(f"\n[{i}/{len(sources)}] Processing: {source.name}")
         print("-" * 40)
+        yield VideoStarted(index=i, total=len(sources),
+                           run_id=source.name, source=source)
 
         run_output = OutputConfig(
             save=paths['save'],
@@ -415,24 +474,30 @@ def run_project(project_dir: str | Path, run_fn, build_fn, args_ns) -> None:
             conditions=conditions_str,
         )
 
-        # Mark in_progress BEFORE run_fn so a kill -9 mid-run is recoverable
+        # Per-video Pipeline sharing the once-built models; fresh cancel token
+        # per video (batch cancel is mirrored into it so the current video
+        # finalizes through the normal post-run paths, T8).
+        video_pipeline = Pipeline(
+            yolo=yolo, face_det=face_det, gaze_eng=gaze_eng,
+            gaze_cfg=gaze_cfg, det_cfg=det_cfg, tracker_cfg=tracker_cfg,
+            output_cfg=run_output, plugin_instances=active_plugins,
+            detection_plugins=detection_plugins, phenomena_cfg=phenomena_cfg,
+            depth_cfg=depth_cfg, depth_backend=depth_backend,
+            gazelle_provider=gazelle_provider, ray_cfg=ray_cfg,
+        )
+        video_cancel = CancelToken()
+
+        # Mark in_progress BEFORE the run so a kill -9 mid-run is recoverable
         # (T8: never marked from inside the Pipeline generator).
         ledger.mark_started(source.name, hashes, paths)
         started = provenance.utcnow_iso()
         status, error = "completed", None
         try:
-            run_fn(str(source), yolo, face_det, gaze_eng,
-                   gaze_cfg, det_cfg, tracker_cfg, run_output,
-                   plugin_instances=active_plugins,
-                   detection_plugins=detection_plugins,
-                   phenomena_cfg=phenomena_cfg,
-                   fast_mode=getattr(args_ns, 'fast', False),
-                   skip_phenomena=getattr(args_ns, 'skip_phenomena', 0),
-                   lite_overlay=getattr(args_ns, 'lite_overlay', False),
-                   no_dashboard=getattr(args_ns, 'no_dashboard', False),
-                   profile=getattr(args_ns, 'profile', False),
-                   depth_cfg=depth_cfg, depth_backend=depth_backend,
-                   gazelle_provider=gazelle_provider, ray_cfg=ray_cfg)
+            for result in video_pipeline.run(str(source), options=options,
+                                             cancel=video_cancel):
+                yield VideoFrame(run_id=source.name, result=result)
+                if cancel is not None and cancel.cancelled:
+                    video_cancel.cancel()
         except Exception as exc:
             print(f"Error processing {source.name}: {exc}")
             status, error = "error", str(exc)
@@ -441,7 +506,7 @@ def run_project(project_dir: str | Path, run_fn, build_fn, args_ns) -> None:
         # (Q4). Written on success AND on error (status recorded either way).
         manifest_path = Path(paths['summary']).parent / f"{source.stem}_manifest.json"
         provenance.write_run_manifest(
-            str(manifest_path), ns=args_ns, config=manifest_config,
+            str(manifest_path), ns=ns, config=manifest_config,
             source=source, output_paths=paths,
             started=started, finished=provenance.utcnow_iso(),
             status=status, error=error)
@@ -449,8 +514,10 @@ def run_project(project_dir: str | Path, run_fn, build_fn, args_ns) -> None:
         # (T8: done/error is the layer's decision, not the generator's).
         if status == "error":
             ledger.mark_error(source.name, error)
+            yield VideoError(run_id=source.name, error=error)
             continue
         ledger.mark_done(source.name, str(manifest_path))
+        yield VideoDone(run_id=source.name, manifest_path=str(manifest_path))
 
     # ── Post-processing: generate global and per-condition CSVs ──────────
     csv_dir = out_root / "CSV Files"
@@ -469,3 +536,4 @@ def run_project(project_dir: str | Path, run_fn, build_fn, args_ns) -> None:
             generate_condition_csvs(global_path, condition_dir, suffix)
 
     print(f"\nProject complete. Outputs in: {out_root}")
+    yield BatchDone(out_root=out_root)
