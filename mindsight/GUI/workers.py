@@ -165,10 +165,15 @@ class GazeWorker(threading.Thread):
 class ProjectWorker(threading.Thread):
     """Batch-processes all videos in a MindSight project directory.
 
-    Wraps ``project.runner.run_project()`` with progress reporting via
-    *progress_q*.  Each progress event is a dict with keys:
+    Thin consumer of ``project.runner.iter_project_runs`` (the single project-run
+    implementation, SP3.1 D1): it owns NO discovery / ledger / manifest /
+    global-CSV logic, only the translation of the ``ProjectEvent`` stream onto
+    the GUI queues.  Each progress event is a dict with keys:
       - ``type``: "start", "progress", "done", "error"
       - ``current``, ``total``, ``source_name`` (for progress events)
+
+    The worker's stop Event trips the iterator's batch ``CancelToken`` so the
+    current video finalizes cleanly through the pipeline's post-run paths (T8).
     """
 
     def __init__(self, project_dir: str, ns: Namespace,
@@ -202,218 +207,64 @@ class ProjectWorker(threading.Thread):
             self.frame_q.put(None)
 
     def _main(self):
-        from mindsight.config_compat import load_pipeline
-        from mindsight.pipeline import (
-            CancelToken,
-            Pipeline,
-            RunOptions,
-            build_from_namespace,
+        from mindsight.pipeline import CancelToken
+        from mindsight.project.events import (
+            BatchDone,
+            BatchStarted,
+            VideoError,
+            VideoFrame,
+            VideoSkipped,
+            VideoStarted,
         )
-        from mindsight.pipeline_config import OutputConfig
-        from mindsight.project.runner import (
-            discover_aux_streams,
-            discover_participant_ids,
-            discover_sources,
-            discover_vp_file,
-            project_output_paths,
-            validate_project,
-        )
+        from mindsight.project.runner import iter_project_runs
 
-        pcfg = self.project_cfg  # may be None
+        # Batch-level cancel: the stop Event trips it so the current video
+        # finalizes through the pipeline's post-run paths (T8/T9).
+        cancel = CancelToken()
+        resume = not getattr(self.ns, "no_resume", False)
 
-        project = validate_project(self.project_dir, pcfg)
-        sources = discover_sources(project)
-        if not sources:
-            self._log("No media files found in project.")
-            return
-
-        # Load pipeline YAML — project config can override the default path
-        if pcfg and pcfg.pipeline_path:
-            pipeline_yaml = project / pcfg.pipeline_path
-        else:
-            pipeline_yaml = project / "Pipeline" / "pipeline.yaml"
-        if pipeline_yaml.exists():
-            load_pipeline(pipeline_yaml, self.ns)
-            self._log(f"Loaded project pipeline: {pipeline_yaml}")
-
-        # Apply project VP file if no CLI override
-        vp = discover_vp_file(project)
-        if vp and not getattr(self.ns, 'vp_file', None):
-            self.ns.vp_file = vp
-            self._log(f"Using project VP file: {vp}")
-
-        # Discover per-video participant ID mappings
-        # project.yaml participants take precedence over participant_ids.csv
-        if pcfg and pcfg.participants:
-            pid_maps = pcfg.participants
-            self._log(f"Loaded participant IDs from project config for "
-                       f"{len(pid_maps)} video(s)")
-        else:
-            pid_maps = discover_participant_ids(project)
-            if pid_maps is not None:
-                self._log(f"Loaded participant IDs for {len(pid_maps)} video(s)")
-
-        # Discover auxiliary streams
-        aux_streams = discover_aux_streams(project)
-        from mindsight.participant_ids import load_aux_streams_from_csv
-        csv_path = project / "participant_ids.csv"
-        if csv_path.is_file():
-            csv_aux = load_aux_streams_from_csv(csv_path)
-            if csv_aux:
-                aux_streams = aux_streams + csv_aux
-        if aux_streams:
-            vtypes = {a.video_type.value for a in aux_streams}
-            all_pids = set()
-            for a in aux_streams:
-                all_pids.update(a.participants)
-            self._log(f"Auxiliary streams: {len(aux_streams)} "
-                      f"({len(all_pids)} participant(s), {len(vtypes)} type(s))")
-
-        # Build models once for the whole project
-        (yolo, face_det, gaze_eng, gaze_cfg, det_cfg, tracker_cfg,
-         output_cfg, active_plugins, phenomena_cfg,
-         detection_plugins, depth_cfg, depth_backend,
-         gazelle_provider, ray_cfg) = build_from_namespace(self.ns)
-
-        # Resolve output root
-        if pcfg and pcfg.output:
-            out_root = pcfg.output.resolve_root(project)
-        else:
-            out_root = project / "Outputs"
-
-        self._log(f"Project: {project.name}  —  {len(sources)} source(s)")
-        self._log(f"Output root: {out_root}")
-        self.progress_q.put({"type": "start", "total": len(sources)})
-
-        options = RunOptions(
-            fast_mode=getattr(self.ns, 'fast', False),
-            skip_phenomena=getattr(self.ns, 'skip_phenomena', 0),
-            lite_overlay=getattr(self.ns, 'lite_overlay', False),
-            no_dashboard=getattr(self.ns, 'no_dashboard', False),
-            profile=getattr(self.ns, 'profile', False),
-        )
-
-        # Provenance config is batch-level (models built once).
-        from mindsight.config import PipelineConfig
-        from mindsight.outputs import provenance
-        from mindsight.project.ledger import Ledger, compute_video_hash
-        manifest_config = PipelineConfig.from_namespace(self.ns)
-
-        # Resume ledger (D9): batch config_hash computed once; per-video hashes
-        # consulted/recorded below.  --no-resume bypasses `decide` entirely.
-        no_resume = bool(getattr(self.ns, "no_resume", False))
-        batch_weights = provenance.collect_weights(self.ns)
-        config_hash = provenance.run_identity(
-            self.ns, config=manifest_config, weights=batch_weights)
-        ledger = Ledger.load(out_root)
-
-        for i, source in enumerate(sources):
+        total = 0
+        pos = 0  # 1-based source position, tracked for the "[i/N]" log prefix
+        for event in iter_project_runs(self.project_dir, self.ns,
+                                       project_cfg=self.project_cfg,
+                                       cancel=cancel, resume=resume):
+            # Propagate a stop request to the iterator on every event.
             if self._stop.is_set():
-                break
+                cancel.cancel()
 
-            paths = project_output_paths(project, source, pcfg)
-            video_pid_map = pid_maps.get(source.name) if pid_maps else None
+            if isinstance(event, BatchStarted):
+                total = event.total
+                self.progress_q.put({"type": "start", "total": event.total})
+                self._log(f"Output root: {event.out_root}")
 
-            # Build condition string for this video
-            video_tags = (pcfg.conditions.get(source.name, [])
-                          if pcfg else [])
-            conditions_str = "|".join(video_tags) if video_tags else ""
+            elif isinstance(event, VideoStarted):
+                pos = event.index
+                self.progress_q.put({
+                    "type": "progress",
+                    "current": event.index,
+                    "total": event.total,
+                    "source_name": event.run_id,
+                })
+                self._log(f"\n[{event.index}/{event.total}] "
+                          f"Processing: {event.run_id}")
 
-            # Consult the ledger (unless --no-resume): skip unchanged done
-            # videos, archive superseded outputs on a config/source change.
-            video_hash = compute_video_hash(
-                source, pid_map=video_pid_map, conditions=conditions_str,
-                aux_streams=aux_streams if aux_streams else None)
-            hashes = (config_hash, video_hash)
-            if not no_resume:
-                decision = ledger.decide(source.name, hashes)
-                if decision == "skip":
-                    self._log(f"[{i+1}/{len(sources)}] Skipping "
-                              f"{source.name} (done, config unchanged)")
-                    continue
-                if decision == "redo_archive":
-                    ledger.archive(source.name)
+            elif isinstance(event, VideoFrame):
+                try:
+                    self.frame_q.put_nowait(event.result.annotated.copy())
+                except queue.Full:
+                    pass
 
-            self._log(f"\n[{i+1}/{len(sources)}] Processing: {source.name}")
-            self.progress_q.put({
-                "type": "progress",
-                "current": i + 1,
-                "total": len(sources),
-                "source_name": source.name,
-            })
+            elif isinstance(event, VideoSkipped):
+                pos += 1
+                self._log(f"[{pos}/{total}] Skipping "
+                          f"{event.run_id} ({event.reason})")
 
-            run_output = OutputConfig(
-                save=paths['save'],
-                log_path=paths['log'],
-                summary_path=paths['summary'],
-                heatmap_path=paths['heatmap'],
-                pid_map=video_pid_map,
-                aux_streams=aux_streams if aux_streams else None,
-                video_name=source.stem,
-                conditions=conditions_str,
-            )
+            elif isinstance(event, VideoError):
+                self._log(f"Error processing {event.run_id}: {event.error}")
 
-            # Per-video Pipeline sharing the once-built models; fresh cancel
-            # token per video (stop finalizes the current video cleanly).
-            video_pipeline = Pipeline(
-                yolo=yolo, face_det=face_det, gaze_eng=gaze_eng,
-                gaze_cfg=gaze_cfg, det_cfg=det_cfg, tracker_cfg=tracker_cfg,
-                output_cfg=run_output, plugin_instances=active_plugins,
-                detection_plugins=detection_plugins, phenomena_cfg=phenomena_cfg,
-                depth_cfg=depth_cfg, depth_backend=depth_backend,
-                gazelle_provider=gazelle_provider, ray_cfg=ray_cfg,
-            )
-            cancel = CancelToken()
-            # Mark in_progress BEFORE the run so a crash mid-video is
-            # recoverable (T8: never from inside the generator).
-            ledger.mark_started(source.name, hashes, paths)
-            started = provenance.utcnow_iso()
-            status, error = "completed", None
-            try:
-                for result in video_pipeline.run(str(source), options=options,
-                                                 cancel=cancel):
-                    try:
-                        self.frame_q.put_nowait(result.annotated.copy())
-                    except queue.Full:
-                        pass
-                    if self._stop.is_set():
-                        cancel.cancel()
-            except Exception as exc:
-                self._log(f"Error processing {source.name}: {exc}")
-                status, error = "error", str(exc)
-
-            # Per-video provenance manifest (D8/Q4).
-            manifest_path = (Path(paths['summary']).parent
-                             / f"{source.stem}_manifest.json")
-            provenance.write_run_manifest(
-                str(manifest_path), ns=self.ns, config=manifest_config,
-                source=source, output_paths=paths,
-                started=started, finished=provenance.utcnow_iso(),
-                status=status, error=error)
-            # Record terminal ledger state AFTER the run returns (T8).
-            if status == "error":
-                ledger.mark_error(source.name, error)
-            else:
-                ledger.mark_done(source.name, str(manifest_path))
-
-        # ── Post-processing: global and per-condition CSVs ───────────
-        csv_dir = out_root / "CSV Files"
-        self._log("\nGenerating global CSVs...")
-        from mindsight.outputs.global_csv import (
-            GLOBAL_TABLES,
-            generate_condition_csvs,
-            generate_global_csv,
-        )
-
-        split = bool(pcfg and pcfg.conditions)
-        condition_dir = out_root / "By Condition"
-        for suffix, out_name in GLOBAL_TABLES:
-            global_path = generate_global_csv(csv_dir, suffix, out_name)
-            if split and global_path:
-                generate_condition_csvs(global_path, condition_dir, suffix)
-
-        self.progress_q.put({"type": "done"})
-        self._log(f"\nProject complete. Outputs in: {out_root}")
+            elif isinstance(event, BatchDone):
+                self.progress_q.put({"type": "done"})
+                self._log(f"\nProject complete. Outputs in: {event.out_root}")
 
 
 # ══════════════════════════════════════════════════════════════════════════════
