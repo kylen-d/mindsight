@@ -119,6 +119,13 @@ class Ledger:
         """Return the stored record for *video*, or ``None`` if absent."""
         return self._data["videos"].get(video)
 
+    def videos(self) -> dict:
+        """Return a shallow copy of the per-video record mapping (read-only view).
+
+        Powers ``Project.status()`` without exposing the mutable backing dict.
+        """
+        return dict(self._data.get("videos", {}))
+
     def _record(self, video) -> dict:
         return self._data["videos"].setdefault(video, {})
 
@@ -177,6 +184,20 @@ class Ledger:
                 and rec.get("video_hash") == video_hash):
             return "skip"
         return "redo_archive"
+
+    def invalidate(self, video) -> bool:
+        """Drop *video*'s record so a later ``decide`` returns ``redo`` (D10).
+
+        Powers the per-video "Re-run this run" action (Q6): the next batch
+        reprocesses the video IN PLACE (``decide`` sees no record -> ``redo``, no
+        archive -- there is no stored done-state to supersede).  Returns ``True``
+        when a record was dropped, ``False`` when *video* was already absent.
+        """
+        if video in self._data["videos"]:
+            del self._data["videos"][video]
+            self._write()
+            return True
+        return False
 
     # ── supersede archiving ─────────────────────────────────────────────────
 

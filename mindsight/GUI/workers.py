@@ -216,18 +216,21 @@ class ProjectWorker(threading.Thread):
             VideoSkipped,
             VideoStarted,
         )
-        from mindsight.project.runner import iter_project_runs
+        from mindsight.project.project import Project
 
         # Batch-level cancel: the stop Event trips it so the current video
         # finalizes through the pipeline's post-run paths (T8/T9).
         cancel = CancelToken()
         resume = not getattr(self.ns, "no_resume", False)
 
+        # The GUI touches only the Project facade; it wraps iter_project_runs and
+        # keeps the in-memory project_cfg (possibly-unsaved edits) authoritative.
+        project = Project.open(self.project_dir)
+
         total = 0
         pos = 0  # 1-based source position, tracked for the "[i/N]" log prefix
-        for event in iter_project_runs(self.project_dir, self.ns,
-                                       project_cfg=self.project_cfg,
-                                       cancel=cancel, resume=resume):
+        for event in project.run(self.ns, resume=resume, cancel=cancel,
+                                 project_cfg=self.project_cfg):
             # Propagate a stop request to the iterator on every event.
             if self._stop.is_set():
                 cancel.cancel()
