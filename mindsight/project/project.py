@@ -13,8 +13,8 @@ reaches into ``runner`` / ``ledger`` internals:
 
 ``open`` validates the project structure and loads ``project.yaml`` but builds NO
 models (that happens lazily inside ``run``).  ``run`` is a thin wrapper over
-``iter_project_runs`` -- the one project-run implementation.  ``preflight`` is a
-stub until SP3.1 Batch D lands the real checks.
+``iter_project_runs`` -- the one project-run implementation.  ``preflight``
+delegates to ``mindsight.project.preflight.run_preflight`` (SP3.1 D4).
 
 ``runs()`` returns discovered source paths for now; SP3.1 Batch E replaces this
 with a ``RunSpec`` list once ``staging.py`` exists.
@@ -119,6 +119,10 @@ class Project:
                                  cancel=cancel, resume=resume)
 
     def preflight(self, ns=None):
-        """Structured readiness checklist -- lands in SP3.1 Batch D."""
-        raise NotImplementedError(
-            "Project.preflight() arrives in SP3.1 Batch D")
+        """Structured readiness checklist (SP3.1 D4).
+
+        Delegates to :func:`mindsight.project.preflight.run_preflight` with the
+        already-loaded config.  Read-only: builds no models, runs no videos.
+        """
+        from mindsight.project.preflight import run_preflight
+        return run_preflight(self._path, self._config, ns=ns)

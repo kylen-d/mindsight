@@ -60,6 +60,11 @@ class PluginRegistry:
 
     def __init__(self) -> None:
         self._plugins: dict[str, type] = {}
+        #: Load failures captured during ``discover`` (SP3.1 D5): one
+        #: ``(path_str, exc_str)`` per plugin module that raised while loading.
+        #: Preflight reads this to surface plugin errors LOUDLY; the warning
+        #: emission + registration control flow are unchanged (T5).
+        self.load_errors: list[tuple[str, str]] = []
 
     # ── Registration ─────────────────────────────────────────────────────────
 
@@ -128,6 +133,9 @@ class PluginRegistry:
                         self.register(mod.PLUGIN_CLASS)
                 except Exception as exc:
                     sys.modules.pop(full_name, None)
+                    # D5: record the failure for preflight (control flow +
+                    # warning emission unchanged, T5).
+                    self.load_errors.append((str(path), str(exc)))
                     warnings.warn(
                         f"Could not load plugin '{module_name}' "
                         f"from {subdir}: {exc}",

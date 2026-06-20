@@ -270,7 +270,7 @@ class Pipeline:
                  gaze_cfg, det_cfg, tracker_cfg, output_cfg,
                  plugin_instances=None, detection_plugins=None,
                  phenomena_cfg=None, depth_cfg=None, depth_backend=None,
-                 gazelle_provider=None, ray_cfg=None):
+                 gazelle_provider=None, ray_cfg=None, data_plugins=None):
         self.yolo = yolo
         self.face_det = face_det
         self.gaze_eng = gaze_eng
@@ -285,11 +285,16 @@ class Pipeline:
         self.depth_backend = depth_backend
         self.gazelle_provider = gazelle_provider
         self.ray_cfg = ray_cfg
+        # SP3.1 Q5 (Option A): active DataCollectionPlugin instances, seeded into
+        # the run context so finalize_run's chart hook can reach them.  Empty
+        # ([]/None) for every current run -- no in-repo DataCollection plugins.
+        self.data_plugins = data_plugins
 
     @classmethod
     def from_config(cls, config, *, yolo, face_det, gaze_eng,
                     plugin_instances=None, detection_plugins=None,
-                    depth_backend=None, gazelle_provider=None):
+                    depth_backend=None, gazelle_provider=None,
+                    data_plugins=None):
         """Build a Pipeline from a unified ``PipelineConfig`` + live providers.
 
         The config dataclasses derived here (via
@@ -308,6 +313,7 @@ class Pipeline:
             detection_plugins=detection_plugins, phenomena_cfg=phenomena_cfg,
             depth_cfg=depth_cfg, depth_backend=depth_backend,
             gazelle_provider=gazelle_provider, ray_cfg=ray_cfg,
+            data_plugins=data_plugins,
         )
 
     def run(self, source, *, options=None, cancel=None) -> Iterator[FrameResult]:
@@ -327,6 +333,7 @@ class Pipeline:
             phenomena_cfg=self.phenomena_cfg, depth_cfg=self.depth_cfg,
             depth_backend=self.depth_backend,
             gazelle_provider=self.gazelle_provider, ray_cfg=self.ray_cfg,
+            data_plugins=self.data_plugins,
             options=options, cancel=cancel,
         )
 
@@ -339,7 +346,7 @@ def _run_video(source, *, yolo, face_det, gaze_eng,
                gaze_cfg, det_cfg, tracker_cfg, output_cfg,
                plugin_instances=None, detection_plugins=None,
                phenomena_cfg=None, depth_cfg=None, depth_backend=None,
-               gazelle_provider=None, ray_cfg=None,
+               gazelle_provider=None, ray_cfg=None, data_plugins=None,
                options=None, cancel=None):
     """Execute the full MindSight pipeline on a single source (image, video, or webcam).
 
@@ -447,6 +454,10 @@ def _run_video(source, *, yolo, face_det, gaze_eng,
         gazelle_provider=gazelle_provider,
         ray_cfg=ray_cfg,
         video_fps=_fps,
+        # SP3.1 Q5 (Option A) seam: finalize_run reads ctx['data_plugins'] for
+        # post-run chart generation.  [] for every current run (no in-repo
+        # DataCollection plugins) -- identical to the prior ctx.get default.
+        data_plugins=data_plugins or [],
         gazelle_blender=(GazeLLEBlender(ray_cfg)
                          if ray_cfg is not None and gazelle_provider is not None
                          else None),
@@ -709,12 +720,12 @@ def run(source, yolo, face_det, gaze_eng,
         fast_mode=False, skip_phenomena=0, lite_overlay=False,
         no_dashboard=False, profile=False,
         depth_cfg=None, depth_backend=None,
-        gazelle_provider=None, ray_cfg=None):
+        gazelle_provider=None, ray_cfg=None, data_plugins=None):
     """Backward-compatible entry point: build a :class:`Pipeline` and drive it.
 
-    Signature is unchanged so the GUI workers, project.runner, and CLI keep
-    calling it exactly as before; it now assembles a Pipeline + RunOptions and
-    defers to :func:`run_to_completion`.
+    Signature is unchanged (``data_plugins`` is a new optional keyword) so the
+    GUI workers, project.runner, and CLI keep calling it exactly as before; it
+    now assembles a Pipeline + RunOptions and defers to :func:`run_to_completion`.
     """
     pipeline = Pipeline(
         yolo=yolo, face_det=face_det, gaze_eng=gaze_eng,
@@ -723,6 +734,7 @@ def run(source, yolo, face_det, gaze_eng,
         detection_plugins=detection_plugins, phenomena_cfg=phenomena_cfg,
         depth_cfg=depth_cfg, depth_backend=depth_backend,
         gazelle_provider=gazelle_provider, ray_cfg=ray_cfg,
+        data_plugins=data_plugins,
     )
     options = RunOptions(
         fast_mode=fast_mode, skip_phenomena=skip_phenomena,

@@ -56,10 +56,16 @@ def test_run_returns_lazy_iterator(tmp_path):
     gen.close()
 
 
-def test_preflight_is_stub(tmp_path):
+def test_preflight_returns_report(tmp_path):
+    from argparse import Namespace
+
+    from mindsight.project.preflight import PreflightReport
     p = Project.open(_project(tmp_path))
-    with pytest.raises(NotImplementedError):
-        p.preflight()
+    report = p.preflight(ns=Namespace())
+    assert isinstance(report, PreflightReport)
+    # Healthy structure -> the structure check passes.
+    assert any(c.id == "project_structure" and c.severity == "ok"
+               for c in report.checks)
 
 
 # ── Project.status matrix ───────────────────────────────────────────────────

@@ -299,7 +299,7 @@ def iter_project_runs(project_dir: str | Path, ns, *, project_cfg=None,
     """
     from mindsight.config import PipelineConfig
     from mindsight.config_compat import load_pipeline
-    from mindsight.factory import rebuild_plugin_instances
+    from mindsight.factory import build_data_plugins, rebuild_plugin_instances
     from mindsight.outputs import provenance
     from mindsight.pipeline import (
         CancelToken,
@@ -356,6 +356,12 @@ def iter_project_runs(project_dir: str | Path, ns, *, project_cfg=None,
      active_plugins, phenomena_cfg, detection_plugins,
      depth_cfg, depth_backend,
      gazelle_provider, ray_cfg) = build_from_namespace(ns)
+
+    # SP3.1 Q5 (Option A): active DataCollection plugins seeded into every
+    # video's Pipeline (finalize_run consumes ctx['data_plugins']).  Empty for
+    # every current project -- no in-repo DataCollection plugins, so outputs are
+    # byte-unchanged.  Built once per batch, alongside the models.
+    data_plugins = build_data_plugins(ns)
 
     # Discover per-video participant ID mappings
     # project.yaml participants take precedence over participant_ids.csv
@@ -497,6 +503,7 @@ def iter_project_runs(project_dir: str | Path, ns, *, project_cfg=None,
             detection_plugins=detection_plugins, phenomena_cfg=phenomena_cfg,
             depth_cfg=depth_cfg, depth_backend=depth_backend,
             gazelle_provider=gazelle_provider, ray_cfg=ray_cfg,
+            data_plugins=data_plugins,
         )
         video_cancel = CancelToken()
 

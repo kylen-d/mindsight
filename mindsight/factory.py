@@ -20,6 +20,9 @@ from mindsight.pipeline_config import (
     TrackerConfig,
 )
 from Plugins import (
+    data_collection_registry as _dc_registry,
+)
+from Plugins import (
     gaze_registry as _gaze_registry,
 )
 from Plugins import (
@@ -68,6 +71,21 @@ def rebuild_plugin_instances(ns):
     detection = _instantiate_plugins(_od_registry, ns, "Object detection",
                                      verbose=False)
     return (active or None, detection or None)
+
+
+def build_data_plugins(ns):
+    """Instantiate active :class:`DataCollectionPlugin` instances from *ns*.
+
+    SP3.1 Q5 (Option A) minimal wiring: DataCollection plugins are built via the
+    SAME ``from_args`` path as the other three registries, so the orchestration
+    layer can seed ``ctx['data_plugins']`` (which ``outputs.data_pipeline.
+    finalize_run`` already consumes for post-run chart generation).  Returns a
+    list of live instances -- empty when nothing activates (there are no in-repo
+    DataCollection plugins, so every current run gets an empty list and outputs
+    are byte-unchanged).
+    """
+    return _instantiate_plugins(_dc_registry, ns, "Data collection",
+                                verbose=False)
 
 
 def build_from_namespace(ns):

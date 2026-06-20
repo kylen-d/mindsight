@@ -34,7 +34,7 @@ Base pipeline: YOLO objects -> RetinaFace faces -> gaze estimation ->
 
 
 from mindsight.cli_flags import parse_cli
-from mindsight.factory import build_from_namespace
+from mindsight.factory import build_data_plugins, build_from_namespace
 
 # -- Extracted run loop --------------------------------------------------------
 # The per-frame orchestrator and video/webcam loop live in mindsight.pipeline now.
@@ -108,6 +108,10 @@ def main():
      detection_plugins, depth_cfg, depth_backend,
      gazelle_provider, ray_cfg) = build_from_namespace(args)
 
+    # SP3.1 Q5 (Option A): seed active DataCollection plugins into the run so
+    # finalize_run's chart hook can reach them (empty -- no in-repo plugins).
+    data_plugins = build_data_plugins(args)
+
     from mindsight.outputs import provenance
     started = provenance.utcnow_iso()
     run(source, yolo, face_det, gaze_eng,
@@ -121,7 +125,8 @@ def main():
         no_dashboard=args.no_dashboard,
         profile=args.profile,
         depth_cfg=depth_cfg, depth_backend=depth_backend,
-        gazelle_provider=gazelle_provider, ray_cfg=ray_cfg)
+        gazelle_provider=gazelle_provider, ray_cfg=ray_cfg,
+        data_plugins=data_plugins)
 
     # Per-run provenance manifest (D8): written only when a file output is
     # configured; located next to the summary/log/saved-video (Q4).
