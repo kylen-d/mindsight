@@ -30,6 +30,46 @@ from Plugins import (
 )
 
 
+def _instantiate_plugins(registry, args, label, *, verbose):
+    """Instantiate every registered plugin whose ``from_args`` activates.
+
+    Shared by :func:`build_from_namespace` (verbose, once per batch) and
+    :func:`rebuild_plugin_instances` (silent, once per video for the SP3.1
+    Q4/D9 per-video state reset).  Returns a list of live instances (empty
+    when nothing activates).
+    """
+    instances: list = []
+    for _pname in registry.names():
+        _pcls = registry.get(_pname)
+        try:
+            _inst = _pcls.from_args(args)
+        except Exception as _exc:
+            raise RuntimeError(
+                f"{label} plugin '{_pname}' failed to initialize: {_exc}"
+            ) from _exc
+        if _inst is not None:
+            instances.append(_inst)
+            if verbose:
+                print(f"{label} plugin active: {_pname}")
+    return instances
+
+
+def rebuild_plugin_instances(ns):
+    """Re-instantiate phenomena + object-detection plugin instances from *ns*.
+
+    Uses the SAME ``from_args`` path as :func:`build_from_namespace` but
+    silently (no discovery / "active" prints), so a project batch can hand
+    every video FRESH stateful plugin instances (SP3.1 Q4/D9) without
+    rebuilding models.  Returns ``(active_plugins, detection_plugins)``, each
+    ``None`` when empty -- matching the 14-tuple convention.
+    """
+    active = _instantiate_plugins(_phenomena_registry, ns, "Phenomena",
+                                  verbose=False)
+    detection = _instantiate_plugins(_od_registry, ns, "Object detection",
+                                     verbose=False)
+    return (active or None, detection or None)
+
+
 def build_from_namespace(ns):
     """Build all models and config objects from a parsed argparse namespace.
 
@@ -58,33 +98,12 @@ def build_from_namespace(ns):
 
     gaze_eng = create_gaze_engine(plugin_args=args)
 
-    # Phenomena plugins: instantiate whichever flags were activated
-    active_plugins: list = []
-    for _pname in _phenomena_registry.names():
-        _pcls = _phenomena_registry.get(_pname)
-        try:
-            _inst = _pcls.from_args(args)
-        except Exception as _exc:
-            raise RuntimeError(
-                f"Phenomena plugin '{_pname}' failed to initialize: {_exc}"
-            ) from _exc
-        if _inst is not None:
-            active_plugins.append(_inst)
-            print(f"Phenomena plugin active: {_pname}")
-
-    # Object detection plugins: instantiate whichever flags were activated
-    detection_plugins: list = []
-    for _pname in _od_registry.names():
-        _dcls = _od_registry.get(_pname)
-        try:
-            _inst = _dcls.from_args(args)
-        except Exception as _exc:
-            raise RuntimeError(
-                f"Object detection plugin '{_pname}' failed to initialize: {_exc}"
-            ) from _exc
-        if _inst is not None:
-            detection_plugins.append(_inst)
-            print(f"Object detection plugin active: {_pname}")
+    # Phenomena + object-detection plugins: instantiate whichever flags
+    # activated (verbose -- one discovery summary per batch).
+    active_plugins = _instantiate_plugins(
+        _phenomena_registry, args, "Phenomena", verbose=True)
+    detection_plugins = _instantiate_plugins(
+        _od_registry, args, "Object detection", verbose=True)
 
     # Build pid_map from inline IDs or CSV (single-video; project mode handles its own)
     pid_map = getattr(args, 'pid_map', None)

@@ -34,11 +34,34 @@ class GazelleProvider:
     def __init__(self, gazelle_engine, *,
                  v_threshold: float, d_threshold: float, min_call_gap: int):
         self._engine = gazelle_engine
+        # Retained so reset() can rebuild the scheduler/cache without the ns.
+        self._v_threshold = float(v_threshold)
+        self._d_threshold = float(d_threshold)
+        self._min_call_gap = int(min_call_gap)
         self.heatmap_cache = HeatmapCache()
         self._scheduler = InferenceScheduler(
             v_threshold=v_threshold,
             d_threshold=d_threshold,
             min_call_gap=min_call_gap,
+        )
+
+    def reset(self) -> None:
+        """Drop all per-run scheduling + heatmap-cache state, keeping the
+        loaded Gaze-LLE model.
+
+        Called between videos in a project batch (SP3.1 Q4/D9) so a video's
+        inference schedule, per-track fixation history, and belief anchors
+        never depend on the previous video's end state -- notably the global
+        call-gap counter and the per-track buffers that video b would
+        otherwise inherit (track-IDs restart at 0 each video).  The multi-GB
+        model weights are NOT reloaded; only the cheap scheduler + cache are
+        rebuilt from the thresholds captured at construction.
+        """
+        self.heatmap_cache = HeatmapCache()
+        self._scheduler = InferenceScheduler(
+            v_threshold=self._v_threshold,
+            d_threshold=self._d_threshold,
+            min_call_gap=self._min_call_gap,
         )
 
     @classmethod

@@ -299,6 +299,7 @@ def iter_project_runs(project_dir: str | Path, ns, *, project_cfg=None,
     """
     from mindsight.config import PipelineConfig
     from mindsight.config_compat import load_pipeline
+    from mindsight.factory import rebuild_plugin_instances
     from mindsight.outputs import provenance
     from mindsight.pipeline import (
         CancelToken,
@@ -473,6 +474,18 @@ def iter_project_runs(project_dir: str | Path, ns, *, project_cfg=None,
             video_name=source.stem,
             conditions=conditions_str,
         )
+
+        # Per-video state reset (SP3.1 Q4/D9): a video's numbers must not depend
+        # on its batch position.  Rebuild the cheap stateful objects that are
+        # SHARED across videos while keeping the loaded model weights -- a fresh
+        # Gaze-LLE scheduler/heatmap-cache and fresh plugin instances.  The
+        # pipeline's own trackers/smoothers are already fresh per-video locals of
+        # _run_video, so track-IDs and belief anchors restart on their own.  Done
+        # uniformly (first video included): resetting a pristine provider is a
+        # no-op, so video a stays byte-identical to a standalone run.
+        if gazelle_provider is not None:
+            gazelle_provider.reset()
+        active_plugins, detection_plugins = rebuild_plugin_instances(ns)
 
         # Per-video Pipeline sharing the once-built models; fresh cancel token
         # per video (batch cancel is mirrored into it so the current video
