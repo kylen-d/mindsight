@@ -42,8 +42,10 @@ def test_open_missing_inputs_raises(tmp_path):
 def test_runs_lists_discovered_sources(tmp_path):
     proj = _project(tmp_path, videos=("b.mp4", "a.mp4"))
     p = Project.open(proj)
-    names = [s.name for s in p.runs()]
-    assert names == ["a.mp4", "b.mp4"]          # sorted
+    specs = p.runs()
+    # runs() now returns RunSpec (D2/D3); legacy run_id == the video filename.
+    assert [s.run_id for s in specs] == ["a.mp4", "b.mp4"]          # sorted
+    assert [s.source.name for s in specs] == ["a.mp4", "b.mp4"]
 
 
 def test_run_returns_lazy_iterator(tmp_path):

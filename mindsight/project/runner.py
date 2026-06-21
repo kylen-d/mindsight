@@ -200,6 +200,16 @@ def discover_aux_streams(project: Path) -> list:
     Returns a list of ``AuxStreamConfig`` objects with resolved absolute
     paths, or an empty list if the directory does not exist.
     """
+    return aux_streams_from_dir(project / "Inputs" / "AuxStreams")
+
+
+def aux_streams_from_dir(aux_dir: Path) -> list:
+    """Read auxiliary streams from an ``<type>/<stem>.<ext>`` directory.
+
+    The dir-taking core of :func:`discover_aux_streams` -- reused for per-run
+    ``aux/`` subdirs in the run-folder layout (SP3.1 Q1).  Byte-for-byte the
+    same logic the batch-level ``Inputs/AuxStreams/`` discovery has always used.
+    """
     from mindsight.pipeline_config import AuxStreamConfig, VideoType
 
     _VTYPE_MAP = {
@@ -208,7 +218,6 @@ def discover_aux_streams(project: Path) -> list:
         'wide_closeup': VideoType.WIDE_CLOSEUP,
     }
 
-    aux_dir = project / "Inputs" / "AuxStreams"
     if not aux_dir.is_dir():
         return []
 
@@ -328,9 +337,24 @@ def iter_project_runs(project_dir: str | Path, ns, *, project_cfg=None,
         project_cfg = load_project_config(project)
 
     project = validate_project(project_dir, project_cfg)
-    sources = discover_sources(project)
 
-    if not sources:
+    # Layout detection (SP3.1 Q1): flat Inputs/Videos (legacy, DEFAULT) vs
+    # per-run Inputs/Runs/<run_id>/.  Both populated is ambiguous (hard error).
+    from mindsight.project.staging import (
+        AMBIGUOUS,
+        RUN_FOLDER,
+        detect_layout,
+        discover_run_specs,
+        run_display_name,
+    )
+    layout = detect_layout(project)
+    if layout == AMBIGUOUS:
+        raise ValueError(
+            "Project has BOTH Inputs/Runs/ and Inputs/Videos/ populated -- the "
+            "layout is ambiguous. Use one: run folders (Inputs/Runs/<run_id>/) "
+            "OR flat videos (Inputs/Videos/).")
+
+    if layout != RUN_FOLDER and not discover_sources(project):
         print(f"No media files found in {project / 'Inputs' / 'Videos'}")
         return
 
@@ -363,34 +387,42 @@ def iter_project_runs(project_dir: str | Path, ns, *, project_cfg=None,
     # byte-unchanged.  Built once per batch, alongside the models.
     data_plugins = build_data_plugins(ns)
 
-    # Discover per-video participant ID mappings
-    # project.yaml participants take precedence over participant_ids.csv
-    if project_cfg and project_cfg.participants:
-        pid_maps = project_cfg.participants
-        print(f"Loaded participant IDs from project.yaml for {len(pid_maps)} video(s)")
+    # Discover per-run participant ID maps + auxiliary streams.  In the
+    # run-folder layout these are resolved per run (run.yaml > project.yaml >
+    # CSV; aux from each folder's aux/) inside the staging producer, so the
+    # batch-level discovery + console lines run only for the legacy layout.
+    aux_streams: list = []
+    if layout == RUN_FOLDER:
+        pid_maps = discover_participant_ids(project)   # study-wide CSV fallback
     else:
-        pid_maps = discover_participant_ids(project)
-        if pid_maps is not None:
-            print(f"Loaded participant IDs for {len(pid_maps)} video(s)")
+        # project.yaml participants take precedence over participant_ids.csv
+        if project_cfg and project_cfg.participants:
+            pid_maps = project_cfg.participants
+            print(f"Loaded participant IDs from project.yaml for "
+                  f"{len(pid_maps)} video(s)")
+        else:
+            pid_maps = discover_participant_ids(project)
+            if pid_maps is not None:
+                print(f"Loaded participant IDs for {len(pid_maps)} video(s)")
 
-    # Discover auxiliary streams (directory convention)
-    aux_streams = discover_aux_streams(project)
+        # Discover auxiliary streams (directory convention)
+        aux_streams = discover_aux_streams(project)
 
-    # Also check for CSV-defined aux streams
-    from mindsight.participant_ids import load_aux_streams_from_csv
-    csv_path = project / "participant_ids.csv"
-    if csv_path.is_file():
-        csv_aux = load_aux_streams_from_csv(csv_path)
-        if csv_aux:
-            aux_streams = aux_streams + csv_aux
+        # Also check for CSV-defined aux streams
+        from mindsight.participant_ids import load_aux_streams_from_csv
+        csv_path = project / "participant_ids.csv"
+        if csv_path.is_file():
+            csv_aux = load_aux_streams_from_csv(csv_path)
+            if csv_aux:
+                aux_streams = aux_streams + csv_aux
 
-    if aux_streams:
-        vtypes = {a.video_type.value for a in aux_streams}
-        all_pids = set()
-        for a in aux_streams:
-            all_pids.update(a.participants)
-        print(f"Auxiliary streams: {len(aux_streams)} "
-              f"({len(all_pids)} participant(s), {len(vtypes)} type(s))")
+        if aux_streams:
+            vtypes = {a.video_type.value for a in aux_streams}
+            all_pids = set()
+            for a in aux_streams:
+                all_pids.update(a.participants)
+            print(f"Auxiliary streams: {len(aux_streams)} "
+                  f"({len(all_pids)} participant(s), {len(vtypes)} type(s))")
 
     # Resolve output root
     if project_cfg and project_cfg.output:
@@ -398,9 +430,19 @@ def iter_project_runs(project_dir: str | Path, ns, *, project_cfg=None,
     else:
         out_root = project / "Outputs"
 
+    # Stage the runs (SP3.1 D2): one RunSpec per source (legacy) or run folder.
+    run_specs = discover_run_specs(project, project_cfg, layout=layout,
+                                   aux_streams=aux_streams, pid_maps=pid_maps)
+
     print(f"\nProject: {project.name}")
-    print(f"Sources: {len(sources)} file(s)")
-    if project_cfg and project_cfg.conditions:
+    print(f"Sources: {len(run_specs)} file(s)")
+    if layout == RUN_FOLDER:
+        tags = set()
+        for spec in run_specs:
+            tags.update(t for t in spec.conditions.split("|") if t)
+        if tags:
+            print(f"Conditions: {len(tags)} unique tag(s)")
+    elif project_cfg and project_cfg.conditions:
         tags = set()
         for t in project_cfg.conditions.values():
             tags.update(t)
@@ -430,45 +472,47 @@ def iter_project_runs(project_dir: str | Path, ns, *, project_cfg=None,
         profile=getattr(ns, 'profile', False),
     )
 
-    yield BatchStarted(total=len(sources), out_root=out_root)
+    yield BatchStarted(total=len(run_specs), out_root=out_root)
 
-    for i, source in enumerate(sources, 1):
+    for i, spec in enumerate(run_specs, 1):
         # Batch-level cancel: stop before the next source (the previous video
         # finalized cleanly through its own cancel token); global CSVs still run.
         if cancel is not None and cancel.cancelled:
             break
 
-        # Override output paths for this source
-        paths = project_output_paths(project, source, project_cfg)
-        video_pid_map = pid_maps.get(source.name) if pid_maps else None
-
-        # Build condition string for this video
-        video_tags = (project_cfg.conditions.get(source.name, [])
-                      if project_cfg else [])
-        conditions_str = "|".join(video_tags) if video_tags else ""
+        # Per-run staged paths + metadata (D2).  ``run_id`` is the ledger key
+        # (legacy: the video filename, so old ledgers resume); ``name`` is the
+        # CSV video_name + manifest stem (legacy: source stem; run-folder: run_id).
+        source = spec.source
+        run_id = spec.run_id
+        name = run_display_name(spec)
+        paths = spec.output_paths
+        video_pid_map = spec.pid_map
+        conditions_str = spec.conditions
+        run_aux = spec.aux_streams
 
         # Consult the ledger (unless resume disabled): skip unchanged done
         # videos, archive superseded outputs on a config/source change.
         video_hash = compute_video_hash(
             source, pid_map=video_pid_map, conditions=conditions_str,
-            aux_streams=aux_streams if aux_streams else None)
+            aux_streams=run_aux)
         hashes = (config_hash, video_hash)
         if not no_resume:
-            decision = ledger.decide(source.name, hashes)
+            decision = ledger.decide(run_id, hashes)
             if decision == "skip":
-                print(f"[{i}/{len(sources)}] Skipping {source.name} "
+                print(f"[{i}/{len(run_specs)}] Skipping {run_id} "
                       f"(done, config unchanged)")
-                yield VideoSkipped(run_id=source.name,
+                yield VideoSkipped(run_id=run_id,
                                    reason="done, config unchanged")
                 continue
             if decision == "redo_archive":
-                dest = ledger.archive(source.name)
-                yield VideoArchived(run_id=source.name, dest=dest)
+                dest = ledger.archive(run_id)
+                yield VideoArchived(run_id=run_id, dest=dest)
 
-        print(f"\n[{i}/{len(sources)}] Processing: {source.name}")
+        print(f"\n[{i}/{len(run_specs)}] Processing: {run_id}")
         print("-" * 40)
-        yield VideoStarted(index=i, total=len(sources),
-                           run_id=source.name, source=source)
+        yield VideoStarted(index=i, total=len(run_specs),
+                           run_id=run_id, source=source)
 
         run_output = OutputConfig(
             save=paths['save'],
@@ -476,8 +520,8 @@ def iter_project_runs(project_dir: str | Path, ns, *, project_cfg=None,
             summary_path=paths['summary'],
             heatmap_path=paths['heatmap'],
             pid_map=video_pid_map,
-            aux_streams=aux_streams if aux_streams else None,
-            video_name=source.stem,
+            aux_streams=run_aux,
+            video_name=name,
             conditions=conditions_str,
         )
 
@@ -509,35 +553,37 @@ def iter_project_runs(project_dir: str | Path, ns, *, project_cfg=None,
 
         # Mark in_progress BEFORE the run so a kill -9 mid-run is recoverable
         # (T8: never marked from inside the Pipeline generator).
-        ledger.mark_started(source.name, hashes, paths)
+        ledger.mark_started(run_id, hashes, paths)
         started = provenance.utcnow_iso()
         status, error = "completed", None
         try:
             for result in video_pipeline.run(str(source), options=options,
                                              cancel=video_cancel):
-                yield VideoFrame(run_id=source.name, result=result)
+                yield VideoFrame(run_id=run_id, result=result)
                 if cancel is not None and cancel.cancelled:
                     video_cancel.cancel()
         except Exception as exc:
-            print(f"Error processing {source.name}: {exc}")
+            print(f"Error processing {run_id}: {exc}")
             status, error = "error", str(exc)
 
-        # Per-video provenance manifest (D8): Outputs/CSV Files/{stem}_manifest.json
-        # (Q4). Written on success AND on error (status recorded either way).
-        manifest_path = Path(paths['summary']).parent / f"{source.stem}_manifest.json"
+        # Per-run provenance manifest (D8): {name}_manifest.json beside the
+        # summary (legacy: Outputs/CSV Files/; run-folder: Outputs/Runs/<id>/).
+        # Written on success AND on error (status recorded either way).  run.yaml
+        # metadata (date/session/notes/extra, Q2) travels into the manifest.
+        manifest_path = Path(paths['summary']).parent / f"{name}_manifest.json"
         provenance.write_run_manifest(
             str(manifest_path), ns=ns, config=manifest_config,
             source=source, output_paths=paths,
             started=started, finished=provenance.utcnow_iso(),
-            status=status, error=error)
+            status=status, error=error, meta=spec.meta or None)
         # Record terminal ledger state AFTER the orchestration layer returns
         # (T8: done/error is the layer's decision, not the generator's).
         if status == "error":
-            ledger.mark_error(source.name, error)
-            yield VideoError(run_id=source.name, error=error)
+            ledger.mark_error(run_id, error)
+            yield VideoError(run_id=run_id, error=error)
             continue
-        ledger.mark_done(source.name, str(manifest_path))
-        yield VideoDone(run_id=source.name, manifest_path=str(manifest_path))
+        ledger.mark_done(run_id, str(manifest_path))
+        yield VideoDone(run_id=run_id, manifest_path=str(manifest_path))
 
     # ── Post-processing: generate global and per-condition CSVs ──────────
     csv_dir = out_root / "CSV Files"

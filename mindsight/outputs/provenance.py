@@ -301,12 +301,16 @@ def _atomic_write_json(path, obj) -> None:
 
 
 def write_run_manifest(path, *, ns, config, source, output_paths,
-                       started, finished, status, error=None) -> str:
+                       started, finished, status, error=None, meta=None) -> str:
     """Build and atomically write the per-run manifest to *path*.
 
     The manifest carries the full config dump + canonical hash, the composite
     run-identity, the environment, loaded-weight identities, source-file
     identity, the configured output paths, timestamps, and status/error.
+
+    *meta* (SP3.1 Q2) is optional per-run staging provenance -- run.yaml's
+    manifest-only ``date`` / ``session`` / ``notes`` / ``extra``.  When falsy it
+    is omitted entirely, so flat-layout manifests are byte-unchanged.
     """
     weights = collect_weights(ns)
     manifest = {
@@ -324,5 +328,7 @@ def write_run_manifest(path, *, ns, config, source, output_paths,
         "status": status,
         "error": error,
     }
+    if meta:
+        manifest["run_meta"] = meta
     _atomic_write_json(path, manifest)
     return str(path)

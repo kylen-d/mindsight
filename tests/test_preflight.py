@@ -267,6 +267,86 @@ def test_build_data_plugins_from_args_and_listed_in_preflight(tmp_path, monkeypa
     assert c.severity == "ok" and "fake_dc" in c.message
 
 
+# ── SP3.1 Batch E Step 9: run-folder layout preflight (Q1/Q2) ────────────────
+
+def _hermetic(proj, **kw):
+    """run_preflight with device/disk/registries injected (no torch, fast)."""
+    return run_preflight(
+        proj, ns=_ns(),
+        device_check=lambda r: (True, "cpu"),
+        disk_usage=lambda p: SimpleNamespace(free=10 ** 12),
+        registries=[], **kw)
+
+
+def _run_folder(proj, run_id, *, video="video.mp4", run_yaml=None):
+    folder = proj / "Inputs" / "Runs" / run_id
+    folder.mkdir(parents=True, exist_ok=True)
+    (folder / video).write_bytes(b"\x00" * 32)
+    if run_yaml is not None:
+        (folder / "run.yaml").write_text(run_yaml)
+    return folder
+
+
+def test_run_folder_structure_and_runs_ok(tmp_path):
+    proj = tmp_path / "proj"
+    _run_folder(proj, "run01", run_yaml="conditions: [c]\nparticipants: {0: S1}\n")
+    report = _hermetic(proj)
+    assert _by_id(report, "project_structure").severity == "ok"
+    assert "Inputs/Runs/" in _by_id(report, "project_structure").message
+    runs = _by_id(report, "runs_discovered")
+    assert runs.severity == "ok" and "run folder(s)" in runs.message
+    assert _by_id(report, "run_metadata").severity == "ok"
+
+
+def test_ambiguous_layout_fails(tmp_path):
+    proj = tmp_path / "proj"
+    (proj / "Inputs" / "Videos").mkdir(parents=True)
+    (proj / "Inputs" / "Videos" / "a.mp4").write_bytes(b"\x00" * 32)
+    _run_folder(proj, "run01")
+    report = _hermetic(proj)
+    assert _by_id(report, "project_structure").severity == "fail"
+    assert _by_id(report, "runs_discovered").severity == "fail"
+
+
+def test_run_folder_two_videos_fails(tmp_path):
+    proj = tmp_path / "proj"
+    folder = _run_folder(proj, "run01", video="a.mp4")
+    (folder / "b.mp4").write_bytes(b"\x00" * 32)
+    runs = _by_id(_hermetic(proj), "runs_discovered")
+    assert runs.severity == "fail" and "run01" in runs.message
+
+
+def test_run_folder_unknown_key_warns(tmp_path):
+    proj = tmp_path / "proj"
+    _run_folder(proj, "run01", run_yaml="conditions: [c]\ntpyo: x\n")
+    c = _by_id(_hermetic(proj), "run_metadata")
+    assert c.severity == "warn" and "tpyo" in c.message
+
+
+def test_run_folder_bad_metadata_fails(tmp_path):
+    proj = tmp_path / "proj"
+    _run_folder(proj, "run01", run_yaml="participants: [nope]\n")
+    c = _by_id(_hermetic(proj), "run_metadata")
+    assert c.severity == "fail" and "run01" in c.message
+
+
+def test_run_folder_participant_coverage(tmp_path):
+    proj = tmp_path / "proj"
+    _run_folder(proj, "with_pid", run_yaml="participants: {0: S1}\nconditions: [c]\n")
+    _run_folder(proj, "no_pid", run_yaml="conditions: [c]\n")
+    report = _hermetic(proj)
+    pc = _by_id(report, "participants_coverage")
+    assert pc.severity == "warn" and "no_pid" in pc.message and "with_pid" not in pc.message
+    assert _by_id(report, "conditions_coverage").severity == "ok"
+
+
+def test_legacy_preflight_has_no_run_metadata_check(tmp_path):
+    # The run_metadata check is run-folder only; legacy checklist is unchanged.
+    proj = _mk_project(tmp_path)
+    ids = [c.id for c in _hermetic(proj).checks]
+    assert "run_metadata" not in ids
+
+
 # ── pretty-print + Project facade ────────────────────────────────────────────
 
 def test_format_report_renders_tags(tmp_path):

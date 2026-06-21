@@ -26,7 +26,7 @@ from pathlib import Path
 
 from mindsight.project.ledger import Ledger
 from mindsight.project.runner import (
-    discover_sources,
+    discover_participant_ids,
     iter_project_runs,
     load_project_config,
     validate_project,
@@ -81,9 +81,30 @@ class Project:
     def config(self):
         return self._config
 
-    def runs(self) -> list[Path]:
-        """Discovered source media (Batch E upgrades this to ``list[RunSpec]``)."""
-        return discover_sources(self._path)
+    def runs(self) -> list:
+        """Discovered runs as ``list[RunSpec]`` (SP3.1 D2/D3).
+
+        Layout-aware: legacy flat videos or per-run ``Inputs/Runs/`` folders.
+        Resolves the study-wide participant map + batch aux streams the same way
+        the runner does, so the returned specs match what a run would process.
+        """
+        from mindsight.project.runner import discover_aux_streams
+        from mindsight.project.staging import (
+            RUN_FOLDER,
+            detect_layout,
+            discover_run_specs,
+        )
+        layout = detect_layout(self._path)
+        if layout == RUN_FOLDER:
+            pid_maps = discover_participant_ids(self._path)
+            aux = None
+        elif self._config and self._config.participants:
+            pid_maps, aux = self._config.participants, discover_aux_streams(self._path)
+        else:
+            pid_maps = discover_participant_ids(self._path)
+            aux = discover_aux_streams(self._path)
+        return discover_run_specs(self._path, self._config, layout=layout,
+                                  aux_streams=aux, pid_maps=pid_maps)
 
     def _out_root(self) -> Path:
         if self._config and self._config.output:

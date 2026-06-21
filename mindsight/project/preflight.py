@@ -29,6 +29,13 @@ from mindsight.project.runner import (
     discover_vp_file,
     load_project_config,
 )
+from mindsight.project.staging import (
+    _KNOWN_RUN_KEYS as _RUN_YAML_KEYS,
+    AMBIGUOUS,
+    RUN_FOLDER,
+    detect_layout,
+    inspect_run_folders,
+)
 
 # ══════════════════════════════════════════════════════════════════════════════
 # Report data model (D4)
@@ -149,12 +156,21 @@ def _safe_sources(project: Path) -> list[Path]:
 # Individual checks (each returns exactly one CheckResult; never raises upward)
 # ══════════════════════════════════════════════════════════════════════════════
 
-def _check_structure(project: Path) -> CheckResult:
+def _check_structure(project: Path, layout: str) -> CheckResult:
     label = "Project structure"
     if not project.is_dir():
         return CheckResult("project_structure", label, _FAIL,
                            f"project directory not found: {project}",
                            "create the project directory")
+    if layout == AMBIGUOUS:
+        return CheckResult("project_structure", label, _FAIL,
+                           "both Inputs/Runs/ and Inputs/Videos/ are populated "
+                           "-- the layout is ambiguous",
+                           "keep run folders (Inputs/Runs/) OR flat videos "
+                           "(Inputs/Videos/), not both")
+    if layout == RUN_FOLDER:
+        return CheckResult("project_structure", label, _OK,
+                           "Inputs/Runs/ present (run-folder layout)")
     if not (project / "Inputs" / "Videos").is_dir():
         return CheckResult("project_structure", label, _FAIL,
                            f"missing Inputs/Videos/ under {project.name}",
@@ -235,20 +251,6 @@ def _check_vp_file(project: Path, work_ns) -> CheckResult:
                        f"{Path(vp).name} parses ({len(refs)} reference(s))")
 
 
-def _check_runs(sources: list[Path], project: Path) -> CheckResult:
-    label = "Runs discovered"
-    if not (project / "Inputs" / "Videos").is_dir():
-        return CheckResult("runs_discovered", label, _FAIL,
-                           "Inputs/Videos/ is missing -- no runs to process",
-                           "create Inputs/Videos/ and add source videos")
-    if not sources:
-        return CheckResult("runs_discovered", label, _FAIL,
-                           "no video/image sources found in Inputs/Videos/",
-                           "add at least one source to Inputs/Videos/")
-    return CheckResult("runs_discovered", label, _OK,
-                       f"{len(sources)} source(s) discovered")
-
-
 def _resolve_pid_maps(project: Path, project_cfg):
     if project_cfg and getattr(project_cfg, "participants", None):
         return project_cfg.participants
@@ -258,17 +260,109 @@ def _resolve_pid_maps(project: Path, project_cfg):
         return None
 
 
-def _check_participants(sources, project, project_cfg) -> CheckResult:
+def _collect_runs(project: Path, project_cfg, layout: str) -> list[dict]:
+    """Uniform per-run coverage view for the runs/participants/conditions checks.
+
+    Each entry: ``{run_id, has_pid, has_cond, info}`` where ``info`` is the
+    :class:`RunFolderInfo <mindsight.project.staging.RunFolderInfo>` (run-folder)
+    or ``None`` (legacy).  Never raises -- ``inspect_run_folders`` is non-raising
+    and legacy discovery is wrapped by ``_safe_sources``.
+    """
+    runs: list[dict] = []
+    if layout == RUN_FOLDER:
+        try:
+            csv_pid = discover_participant_ids(project)
+        except Exception:
+            csv_pid = None
+        cfg_pid = (project_cfg.participants
+                   if project_cfg and getattr(project_cfg, "participants", None)
+                   else {})
+        cfg_cond = (project_cfg.conditions
+                    if project_cfg and getattr(project_cfg, "conditions", None)
+                    else {})
+        for info in inspect_run_folders(project):
+            rid = info.run_id
+            pid = info.meta.pid_map or cfg_pid.get(rid) or (
+                csv_pid.get(rid) if csv_pid else None)
+            tags = info.meta.conditions or cfg_cond.get(rid, [])
+            runs.append({"run_id": rid, "has_pid": bool(pid),
+                         "has_cond": bool(tags), "info": info})
+    elif layout != AMBIGUOUS:
+        pid_maps = _resolve_pid_maps(project, project_cfg)
+        conditions = (project_cfg.conditions
+                      if project_cfg and getattr(project_cfg, "conditions", None)
+                      else {})
+        for s in _safe_sources(project):
+            runs.append({"run_id": s.name,
+                         "has_pid": bool(pid_maps and pid_maps.get(s.name)),
+                         "has_cond": bool(conditions.get(s.name)),
+                         "info": None})
+    return runs
+
+
+def _check_runs(runs, project: Path, layout: str) -> CheckResult:
+    label = "Runs discovered"
+    if layout == AMBIGUOUS:
+        return CheckResult("runs_discovered", label, _FAIL,
+                           "ambiguous layout -- no runs to process",
+                           "resolve the Inputs/Runs vs Inputs/Videos ambiguity")
+    if layout == RUN_FOLDER:
+        if not runs:
+            return CheckResult("runs_discovered", label, _FAIL,
+                               "no run folders found in Inputs/Runs/",
+                               "add a run folder Inputs/Runs/<run_id>/ with one video")
+        bad = [r["run_id"] for r in runs if len(r["info"].videos) != 1]
+        if bad:
+            return CheckResult("runs_discovered", label, _FAIL,
+                               "run folder(s) not holding exactly one video: "
+                               + ", ".join(bad),
+                               "each Inputs/Runs/<run_id>/ needs exactly one primary video")
+        return CheckResult("runs_discovered", label, _OK,
+                           f"{len(runs)} run folder(s) discovered")
+    if not (project / "Inputs" / "Videos").is_dir():
+        return CheckResult("runs_discovered", label, _FAIL,
+                           "Inputs/Videos/ is missing -- no runs to process",
+                           "create Inputs/Videos/ and add source videos")
+    if not runs:
+        return CheckResult("runs_discovered", label, _FAIL,
+                           "no video/image sources found in Inputs/Videos/",
+                           "add at least one source to Inputs/Videos/")
+    return CheckResult("runs_discovered", label, _OK,
+                       f"{len(runs)} source(s) discovered")
+
+
+def _check_run_metadata(runs) -> CheckResult:
+    """Run-folder only: run.yaml validity (FAIL) + unknown keys (WARN), Q2."""
+    label = "Run metadata"
+    errors, warns = [], []
+    for r in runs:
+        meta = r["info"].meta
+        if meta.error:
+            errors.append(f"{r['run_id']}: {meta.error}")
+        if meta.unknown_keys:
+            warns.append(f"{r['run_id']}: unknown key(s) "
+                         f"{', '.join(meta.unknown_keys)}")
+    if errors:
+        return CheckResult("run_metadata", label, _FAIL,
+                           "run.yaml problem(s): " + " | ".join(errors),
+                           "fix the run.yaml metadata (see the message)")
+    if warns:
+        return CheckResult("run_metadata", label, _WARN,
+                           "unknown run.yaml key(s): " + " | ".join(warns),
+                           f"use only: {', '.join(sorted(_RUN_YAML_KEYS))}")
+    return CheckResult("run_metadata", label, _OK,
+                       f"run.yaml valid for {len(runs)} run(s)")
+
+
+def _check_participants(runs) -> CheckResult:
     label = "Participant coverage"
-    if not sources:
+    if not runs:
         return CheckResult("participants_coverage", label, _OK,
                            "no runs to check")
-    pid_maps = _resolve_pid_maps(project, project_cfg)
-    uncovered = [s.name for s in sources
-                 if not (pid_maps and pid_maps.get(s.name))]
+    uncovered = [r["run_id"] for r in runs if not r["has_pid"]]
     if uncovered:
         return CheckResult("participants_coverage", label, _WARN,
-                           f"{len(uncovered)}/{len(sources)} run(s) without "
+                           f"{len(uncovered)}/{len(runs)} run(s) without "
                            f"participant labels: {', '.join(uncovered)}",
                            "add participants in project.yaml / participant_ids.csv "
                            "(optional -- defaults P0, P1, ...)")
@@ -276,17 +370,14 @@ def _check_participants(sources, project, project_cfg) -> CheckResult:
                        "all runs have participant labels")
 
 
-def _check_conditions(sources, project_cfg) -> CheckResult:
+def _check_conditions(runs) -> CheckResult:
     label = "Condition coverage"
-    if not sources:
+    if not runs:
         return CheckResult("conditions_coverage", label, _OK, "no runs to check")
-    conditions = (project_cfg.conditions
-                  if project_cfg and getattr(project_cfg, "conditions", None)
-                  else {})
-    uncovered = [s.name for s in sources if not conditions.get(s.name)]
+    uncovered = [r["run_id"] for r in runs if not r["has_cond"]]
     if uncovered:
         return CheckResult("conditions_coverage", label, _WARN,
-                           f"{len(uncovered)}/{len(sources)} run(s) without "
+                           f"{len(uncovered)}/{len(runs)} run(s) without "
                            f"conditions: {', '.join(uncovered)}",
                            "add conditions in project.yaml (optional)")
     return CheckResult("conditions_coverage", label, _OK,
@@ -401,6 +492,13 @@ def run_preflight(project_dir, project_cfg=None, ns=None, *,
 
     pipeline_yaml = _resolve_pipeline_yaml(project, project_cfg)
     work_ns = _build_work_ns(ns, pipeline_yaml)
+    try:
+        layout = detect_layout(project)
+    except Exception:
+        layout = "legacy"
+    runs = _collect_runs(project, project_cfg, layout)
+    # Disk sizing uses the concrete source files (legacy flat list); harmless
+    # for run-folder projects (video output off / per-run sizes not summed here).
     sources = _safe_sources(project)
     registries = registries if registries is not None else _default_registries()
     device_check = device_check or _default_device_check
@@ -416,7 +514,7 @@ def run_preflight(project_dir, project_cfg=None, ns=None, *,
 
     checks = [
         _safe("project_structure", "Project structure",
-              lambda: _check_structure(project)),
+              lambda: _check_structure(project, layout)),
         _safe("pipeline_config", "Pipeline config",
               lambda: _check_pipeline_config(pipeline_yaml)),
         _safe("weights", "Weights",
@@ -426,11 +524,18 @@ def run_preflight(project_dir, project_cfg=None, ns=None, *,
         _safe("vp_file", "Visual prompt",
               lambda: _check_vp_file(project, work_ns)),
         _safe("runs_discovered", "Runs discovered",
-              lambda: _check_runs(sources, project)),
+              lambda: _check_runs(runs, project, layout)),
+    ]
+    # Run-folder projects gain a run.yaml metadata check (Q2) right after the
+    # runs check; the legacy checklist is unchanged (byte-for-byte).
+    if layout == RUN_FOLDER:
+        checks.append(_safe("run_metadata", "Run metadata",
+                            lambda: _check_run_metadata(runs)))
+    checks += [
         _safe("participants_coverage", "Participant coverage",
-              lambda: _check_participants(sources, project, project_cfg)),
+              lambda: _check_participants(runs)),
         _safe("conditions_coverage", "Condition coverage",
-              lambda: _check_conditions(sources, project_cfg)),
+              lambda: _check_conditions(runs)),
         _safe("device", "Compute device",
               lambda: _check_device(work_ns, device_check)),
         _safe("disk_space", "Disk space",
