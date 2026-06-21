@@ -66,6 +66,23 @@ def main():
         load_pipeline(args.pipeline, args)
         print(f"Loaded pipeline config: {args.pipeline}")
 
+    # Preflight report and exit (SP3.1 D16/Q8): requires --project.  Read-only --
+    # builds no models, runs no videos.  Exit 0 when no check FAILED, else 1.
+    if args.preflight:
+        import sys
+
+        if not args.project:
+            print("--preflight requires --project DIR")
+            sys.exit(2)
+        from mindsight.project.preflight import format_report, run_preflight
+        from mindsight.project.runner import load_project_config
+        from pathlib import Path
+        project = Path(args.project)
+        project_cfg = load_project_config(project) if project.is_dir() else None
+        report = run_preflight(project, project_cfg, ns=args)
+        print(format_report(report, title=project.name))
+        sys.exit(0 if report.ok else 1)
+
     # Project mode: batch-process all videos in a project directory.  The CLI is
     # a thin consumer of the event stream (D1): the iterator prints the batch
     # narration + Done-lines and owns ledger/manifest/global-CSV machinery; the

@@ -2,7 +2,8 @@ usage: MindSight -- Eye-Gaze Intersection Tracker [-h] [--source SOURCE] [--save
                                                   [--log LOG] [--summary [PATH]]
                                                   [--heatmap [PATH]] [--charts [PATH]]
                                                   [--pipeline YAML] [--project DIR] [--no-resume]
-                                                  [--participant-ids IDS] [--participant-csv CSV]
+                                                  [--preflight] [--participant-ids IDS]
+                                                  [--participant-csv CSV]
                                                   [--aux-stream SOURCE:VIDEO_TYPE:LABEL:PIDS]
                                                   [--aux-auto-detect] [--device DEVICE]
                                                   [--anonymize {blur,black}]
@@ -113,6 +114,9 @@ options:
   --no-resume           Project mode: reprocess every video, ignoring the resume ledger. Does not
                         archive prior outputs. Default resumes -- skipping videos whose ledger
                         entry is done with an unchanged config.
+  --preflight           Print the project readiness report (requires --project) and exit. Checks
+                        pipeline config, weights, VP file, runs, participants/conditions, device,
+                        disk, and plugin load errors. Exit 0 if no failures, else 1.
   --participant-ids IDS
                         Comma-separated participant labels for single-video mode. Positional:
                         first label maps to track 0, second to track 1, etc. E.g. --participant-

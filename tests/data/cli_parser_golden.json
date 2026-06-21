@@ -147,6 +147,22 @@
     },
     {
       "option_strings": [
+        "--preflight"
+      ],
+      "dest": "preflight",
+      "action": "_StoreTrueAction",
+      "default": false,
+      "type": null,
+      "nargs": 0,
+      "const": true,
+      "choices": null,
+      "required": false,
+      "metavar": null,
+      "help": "Print the project readiness report (requires --project) and exit. Checks pipeline config, weights, VP file, runs, participants/conditions, device, disk, and plugin load errors. Exit 0 if no failures, else 1.",
+      "group": "options"
+    },
+    {
+      "option_strings": [
         "--participant-ids"
       ],
       "dest": "participant_ids",

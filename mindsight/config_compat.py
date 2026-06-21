@@ -105,6 +105,7 @@ EXCLUDED_CLI_FLAGS: dict[str, str] = {
     "--pipeline":          "meta: which pipeline YAML to load",
     "--project":           "meta: project-mode directory",
     "--no-resume":         "run-loop orchestration: project resume toggle",
+    "--preflight":         "meta: print project preflight report and exit",
     # Transient modifiers consumed before/inside from_namespace.
     "--no-depth":          "transient: flips ns.depth in _build_from_args",
     "--all-phenomena":     "transient: expanded inside from_namespace toggles",

@@ -6,8 +6,8 @@ test exercises the generated parser through ``ms.cli._args`` and proves it
 reproduces every flag, default, type, nargs/const, choice, group, and help line.
 
 The census is also pinned here so drift in the schema/alias/exclusion tables --
-which drive generation -- is caught: 149 actions = 106 core (71 schema-cli + 12
-CLI_ALIASES + 23 excluded) + 43 plugin.
+which drive generation -- is caught: 150 actions = 107 core (71 schema-cli + 12
+CLI_ALIASES + 24 excluded) + 43 plugin.
 """
 
 import json
@@ -52,8 +52,8 @@ def test_parser_prog_and_action_count():
     spec = _live_spec()
     golden = _load_golden()
     assert spec["prog"] == golden["prog"]
-    assert len(spec["actions"]) == 149
-    assert len(golden["actions"]) == 149
+    assert len(spec["actions"]) == 150
+    assert len(golden["actions"]) == 150
 
 
 def test_parser_spec_matches_golden():
@@ -75,7 +75,7 @@ def test_help_output_matches_golden():
 
 
 def test_census_partition_welds_to_tables():
-    """The 106 core flags partition exactly into schema-cli / alias / excluded,
+    """The 107 core flags partition exactly into schema-cli / alias / excluded,
     and the plugin groups supply the remaining 43 -- the invariant generation
     relies on."""
     from mindsight.config import PipelineConfig
@@ -84,7 +84,7 @@ def test_census_partition_welds_to_tables():
     spec = _live_spec()
     core = [a for a in spec["actions"] if a["group"] in CORE_GROUPS]
     plugin = [a for a in spec["actions"] if a["group"] not in CORE_GROUPS]
-    assert len(core) == 106
+    assert len(core) == 107
     assert len(plugin) == 43
 
     schema_cli: set[str] = set()
@@ -102,10 +102,10 @@ def test_census_partition_welds_to_tables():
 
     assert len(schema_cli) == 71
     assert len(CLI_ALIASES) == 12
-    assert len(EXCLUDED_CLI_FLAGS) == 23
+    assert len(EXCLUDED_CLI_FLAGS) == 24
 
     core_flags = {a["option_strings"][0] for a in core}
     union = schema_cli | set(CLI_ALIASES) | set(EXCLUDED_CLI_FLAGS)
     # disjoint and exactly covering the core flag set
-    assert len(union) == 106
+    assert len(union) == 107
     assert core_flags == union
