@@ -40,22 +40,29 @@ def _sanitize_filename(name: str) -> str:
     return _UNSAFE_CHARS.sub('_', name).strip()
 
 
-def generate_global_csv(csv_dir: Path, suffix: str, out_name: str) -> Path | None:
+def generate_global_csv(csv_dir: Path, suffix: str, out_name: str,
+                        *, search_dirs=None) -> Path | None:
     """Concatenate every per-video file ending in *suffix* into *out_name*.
 
     Parameters
     ----------
-    csv_dir  : directory containing per-video CSV files.
+    csv_dir  : directory the global CSV is written into (``Outputs/CSV Files/``).
     suffix   : per-video filename suffix (e.g. ``"_summary.csv"``).
     out_name : global output filename (e.g. ``"Global_summary.csv"``).
+    search_dirs : optional directories to gather per-run source files from
+        (SP3.1 Q3 -- the per-run ``Outputs/Runs/<run_id>/`` dirs for run-folder
+        projects).  When ``None`` the flat ``csv_dir`` is scanned (legacy,
+        byte-unchanged).  The global output always lands in ``csv_dir``.
 
     Returns
     -------
     Path to the written global CSV, or ``None`` if no source files were found.
     """
+    dirs = [csv_dir] if search_dirs is None else list(search_dirs)
     source_files = sorted(
-        p for p in csv_dir.iterdir()
-        if p.name.endswith(suffix) and not p.name.startswith("Global_")
+        (p for d in dirs if Path(d).is_dir() for p in Path(d).iterdir()
+         if p.name.endswith(suffix) and not p.name.startswith("Global_")),
+        key=lambda p: (p.parent.name, p.name),
     )
     if not source_files:
         return None

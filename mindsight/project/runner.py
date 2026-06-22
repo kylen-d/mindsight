@@ -119,8 +119,15 @@ def validate_project(project_dir: str | Path,
     if not project.is_dir():
         raise FileNotFoundError(f"Project directory not found: {project}")
 
-    inputs_videos = project / "Inputs" / "Videos"
-    if not inputs_videos.is_dir():
+    # Layout-aware structure check (SP3.1 Q1): a run-folder project satisfies the
+    # contract with Inputs/Runs/ instead of the flat Inputs/Videos/.
+    from mindsight.project.staging import AMBIGUOUS, RUN_FOLDER, detect_layout
+    layout = detect_layout(project)
+    if layout == AMBIGUOUS:
+        raise ValueError(
+            "Project has BOTH Inputs/Runs/ and Inputs/Videos/ populated -- the "
+            f"layout is ambiguous: {project}")
+    if layout != RUN_FOLDER and not (project / "Inputs" / "Videos").is_dir():
         raise ValueError(f"Project missing Inputs/Videos/ directory: {project}")
 
     # Resolve output root from project config or default
@@ -594,10 +601,22 @@ def iter_project_runs(project_dir: str | Path, ns, *, project_cfg=None,
         generate_global_csv,
     )
 
-    split = bool(project_cfg and project_cfg.conditions)
+    # Run-folder projects (Q3): per-run CSVs live under Outputs/Runs/<run_id>/;
+    # gather from every existing run dir (skipped runs keep their files, so they
+    # still aggregate).  Global_* + By Condition destinations are UNCHANGED --
+    # the flat Outputs/CSV Files + Outputs/By Condition (legacy byte-untouched).
+    if layout == RUN_FOLDER:
+        runs_root = out_root / "Runs"
+        search_dirs = (sorted(p for p in runs_root.iterdir() if p.is_dir())
+                       if runs_root.is_dir() else [])
+        split = any(spec.conditions for spec in run_specs)
+    else:
+        search_dirs = None
+        split = bool(project_cfg and project_cfg.conditions)
     condition_dir = out_root / "By Condition"
     for suffix, out_name in GLOBAL_TABLES:
-        global_path = generate_global_csv(csv_dir, suffix, out_name)
+        global_path = generate_global_csv(csv_dir, suffix, out_name,
+                                          search_dirs=search_dirs)
         if split and global_path:
             generate_condition_csvs(global_path, condition_dir, suffix)
 
