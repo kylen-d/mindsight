@@ -126,7 +126,8 @@ def finalize_run(ctx, **kwargs) -> None:
                         bg, bboxes, anon_mode,
                         ctx.get('anonymize_padding', 0.3))
             save_heatmaps(resolved_heatmap, source, bg, heatmap_gaze,
-                          pid_map=pid_map)
+                          pid_map=pid_map,
+                          stem=ctx.get('video_name') or None)
 
     # Post-run chart generation
     charts_path = ctx.get('charts_path')

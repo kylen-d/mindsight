@@ -108,7 +108,8 @@ def save_heatmaps(heatmap_path: str,
                   heatmap_gaze: dict,
                   sigma: int = 40,
                   alpha: float = 0.65,
-                  pid_map: dict = None) -> None:
+                  pid_map: dict = None,
+                  stem: str = None) -> None:
     """Generate and save one heatmap PNG per participant.
 
     Parameters
@@ -116,20 +117,24 @@ def save_heatmaps(heatmap_path: str,
     heatmap_path : output directory or path prefix.
                    • If the path has no file extension it is treated as a
                      directory; files are written as
-                     ``<dir>/<source_stem>_P<id>_heatmap.png``.
+                     ``<dir>/<stem>_P<id>_heatmap.png``.
                    • If it has an extension the parent directory is used and
                      the stem becomes the filename prefix.
     source       : original video source path or webcam index (int).
-                   Used only to derive a meaningful stem for file names.
+                   Used only to derive a fallback stem for file names.
     bg_frame     : representative background frame (H×W×3 BGR).
     heatmap_gaze : dict mapping face_track_id (int) -> list of (x, y) points.
     sigma        : forwarded to :func:`generate_participant_heatmap`.
     alpha        : forwarded to :func:`generate_participant_heatmap`.
+    stem         : explicit filename stem for the directory case (the run's
+                   output stem in project mode -- run_id for run-folder
+                   projects). Falls back to the source stem when None/empty.
     """
     out = Path(heatmap_path)
     if out.suffix == "":
         out.mkdir(parents=True, exist_ok=True)
-        stem   = Path(str(source)).stem if not isinstance(source, int) else "webcam"
+        if not stem:
+            stem = Path(str(source)).stem if not isinstance(source, int) else "webcam"
         prefix = out / stem
     else:
         out.parent.mkdir(parents=True, exist_ok=True)
