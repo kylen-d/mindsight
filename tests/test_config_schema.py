@@ -393,3 +393,95 @@ def test_unknown_section_key_raises(model):
 def test_nested_unknown_key_raises_through_root():
     with pytest.raises(ValidationError):
         PipelineConfig(gaze={"ray_length": 1.0, "bogus": 2})
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# UI metadata (SP3.1 Batch F, D6)
+# ══════════════════════════════════════════════════════════════════════════════
+
+def _iter_ui():
+    """Yield (path, field, ui) for every schema field; ui is dict or None."""
+    for section, section_field in PipelineConfig.model_fields.items():
+        for fname, field in section_field.annotation.model_fields.items():
+            extra = field.json_schema_extra
+            assert isinstance(extra, dict) and "ui" in extra, (
+                f"{section}.{fname} has no ui metadata")
+            yield f"{section}.{fname}", field, extra["ui"]
+
+
+def test_ui_metadata_completeness():
+    """Every schema field carries a ui entry (dict or explicit None)."""
+    for path, _field, ui in _iter_ui():
+        assert ui is None or isinstance(ui, dict), (
+            f"{path}: ui must be a dict or None, got {type(ui)}")
+
+
+def test_ui_metadata_does_not_move_canonical_hash():
+    """Attaching ui metadata is inert to canonical_hash (hashes VALUES, not
+    json_schema_extra).  Pins the default + a perturbed config against hashes
+    captured on HEAD before the tagging pass landed."""
+    assert PipelineConfig().canonical_hash() == (
+        "ca98e94aac8ecc787a862b4a4560618bb212f668081bb948b9399192ee4829d6")
+    assert PipelineConfig(gaze={"ray_length": 1.5}).canonical_hash() == (
+        "4432ebb01e05167f1c402b075e251d7debc36d1b5715b3468b9fbf52a520d03f")
+
+
+def test_ui_mirror_rule_targets_are_hidden():
+    """Every PATH_MIRRORS target is ui:None -- the canonical owner renders,
+    the mirror never appears twice on the generated surface (D6(a))."""
+    from mindsight.config_compat import PATH_MIRRORS
+    ui_by_path = {p: ui for p, _f, ui in _iter_ui()}
+    for _canonical, mirrors in PATH_MIRRORS.items():
+        for mirror in mirrors:
+            assert ui_by_path[mirror] is None, (
+                f"PATH_MIRRORS target {mirror} must be ui:None "
+                f"(got {ui_by_path[mirror]!r})")
+
+
+def test_ui_dict_fields_resolve_to_a_flag():
+    """Every ui:dict field's cli/alias flag exists (D6 completeness)."""
+    alias_paths = set(CLI_ALIASES.values())
+    for path, field, ui in _iter_ui():
+        if ui is None:
+            continue
+        extra = field.json_schema_extra
+        has_cli = "cli" in extra
+        has_alias = path in alias_paths
+        assert has_cli or has_alias, (
+            f"{path} is ui:dict but has no CLI flag (cli metadata or "
+            f"CLI_ALIASES entry)")
+
+
+def test_ui_toggle_group_integrity():
+    """Every toggle_group named in the schema has exactly one owner field
+    carrying an off_value (T10 / D6(d))."""
+    owners: dict[str, list[str]] = {}
+    for path, _field, ui in _iter_ui():
+        if ui is None:
+            continue
+        tg = ui.get("toggle_group")
+        if tg is None:
+            continue
+        assert "off_value" in ui, (
+            f"{path} owns toggle_group {tg!r} but has no off_value")
+        owners.setdefault(tg, []).append(path)
+    for tg, members in owners.items():
+        assert len(members) == 1, (
+            f"toggle_group {tg!r} must have exactly one owner, got {members}")
+
+
+def test_ui_advanced_tier_census():
+    """The set of advanced-tier fields matches the committed golden -- tier
+    changes are deliberate, reviewed diffs (D6 advanced-tier census)."""
+    import json
+    from pathlib import Path
+    golden_path = (Path(__file__).resolve().parents[1] / "tests" / "data"
+                   / "ui_advanced_tier_golden.json")
+    golden = json.loads(golden_path.read_text())
+    advanced = sorted(
+        path for path, _f, ui in _iter_ui()
+        if ui is not None and ui.get("advanced"))
+    assert advanced == golden, (
+        "advanced-tier census diverged from ui_advanced_tier_golden.json\n"
+        f"added:   {sorted(set(advanced) - set(golden))}\n"
+        f"removed: {sorted(set(golden) - set(advanced))}")
