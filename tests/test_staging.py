@@ -321,3 +321,165 @@ def test_inspect_run_folders_non_raising(tmp_path):
     _run_folder(proj, "bad", run_yaml="participants: [oops]\n")
     infos = inspect_run_folders(proj)
     assert len(infos) == 1 and infos[0].meta.error   # inspection never raises
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# SP3.1 Batch E Step 11: manual staging (Q7) -- stage_run / single_run_spec
+# ══════════════════════════════════════════════════════════════════════════════
+
+from mindsight.project.staging import (  # noqa: E402
+    parse_run_mapping,
+    single_run_spec,
+    stage_run,
+)
+
+
+def _video(tmp_path, name="clip.mp4", data=b"\x00" * 64):
+    return _touch(tmp_path / "incoming" / name, data)
+
+
+def test_stage_run_copy_default(tmp_path):
+    proj = tmp_path / "proj"
+    vid = _video(tmp_path)
+    meta = {"participants": {0: "S70"}, "conditions": ["collab"],
+            "date": "2026-07-02", "notes": "hi"}
+    spec = stage_run(proj, vid, meta)
+    # Folder created from the video stem; video COPIED (original kept, Q7).
+    dest = proj / "Inputs" / "Runs" / "clip" / "clip.mp4"
+    assert dest.is_file() and vid.is_file()
+    assert dest.read_bytes() == vid.read_bytes()
+    # run.yaml written and re-parseable to the same values.
+    reparsed = discover_run_specs(proj, None, layout=RUN_FOLDER)[0]
+    assert reparsed.pid_map == {0: "S70"} and reparsed.conditions == "collab"
+    assert reparsed.meta == {"date": "2026-07-02", "notes": "hi"}
+    # Returned spec matches what discovery produces.
+    assert spec.run_id == "clip" and spec.source == dest
+    assert spec.pid_map == {0: "S70"} and spec.conditions == "collab"
+    assert spec.output_paths == reparsed.output_paths
+    assert spec.output_paths["summary"].endswith(
+        "Outputs/Runs/clip/clip_summary.csv")
+
+
+def test_stage_run_move_removes_original(tmp_path):
+    proj = tmp_path / "proj"
+    vid = _video(tmp_path)
+    spec = stage_run(proj, vid, mode="move")
+    assert not vid.exists()                          # moved, not copied
+    assert Path(spec.source).is_file()
+
+
+def test_stage_run_move_cross_device_fallback(tmp_path, monkeypatch):
+    """When os.rename fails (EXDEV), shutil.move's copy fallback still stages."""
+    import errno
+    import os
+    proj = tmp_path / "proj"
+    vid = _video(tmp_path)
+
+    real_rename = os.rename
+
+    def _exdev(src, dst, *a, **kw):
+        # Only sabotage the video move itself; everything else renames fine.
+        if str(src) == str(vid):
+            raise OSError(errno.EXDEV, "Invalid cross-device link")
+        return real_rename(src, dst, *a, **kw)
+
+    monkeypatch.setattr(os, "rename", _exdev)
+    spec = stage_run(proj, vid, mode="move")
+    assert Path(spec.source).is_file() and not vid.exists()
+
+
+def test_stage_run_no_meta_writes_no_run_yaml(tmp_path):
+    proj = tmp_path / "proj"
+    spec = stage_run(proj, _video(tmp_path))
+    run_dir = proj / "Inputs" / "Runs" / "clip"
+    assert not (run_dir / "run.yaml").exists()       # bare folder just works
+    assert spec.pid_map is None and spec.conditions == "" and spec.meta == {}
+
+
+def test_stage_run_restage_same_video_is_collision_safe(tmp_path):
+    proj = tmp_path / "proj"
+    vid = _video(tmp_path)
+    s1 = stage_run(proj, vid)
+    s2 = stage_run(proj, vid)                        # re-stage the SAME video
+    assert s1.run_id == "clip" and s2.run_id == "clip_2"
+    assert (proj / "Inputs" / "Runs" / "clip_2" / "clip.mp4").is_file()
+    s3 = stage_run(proj, vid)
+    assert s3.run_id == "clip_3"
+
+
+def test_stage_run_explicit_run_id_and_sanitization(tmp_path):
+    proj = tmp_path / "proj"
+    spec = stage_run(proj, _video(tmp_path), run_id='dyad/07:pilot?')
+    assert spec.run_id == "dyad_07_pilot_"           # unsafe chars -> _
+    assert (proj / "Inputs" / "Runs" / spec.run_id).is_dir()
+
+
+def test_stage_run_into_flat_project_raises(tmp_path):
+    proj = _flat_project(tmp_path, videos=("a.mp4",))
+    with pytest.raises(ValueError, match="ambiguous"):
+        stage_run(proj, _video(tmp_path))
+
+
+def test_stage_run_bad_meta_raises(tmp_path):
+    proj = tmp_path / "proj"
+    with pytest.raises(ValueError, match="participants"):
+        stage_run(proj, _video(tmp_path), {"participants": ["S70"]})
+    with pytest.raises(ValueError, match="unknown run metadata"):
+        stage_run(proj, _video(tmp_path), {"condtions": ["typo"]})
+
+
+def test_stage_run_missing_video_raises(tmp_path):
+    with pytest.raises(ValueError, match="video not found"):
+        stage_run(tmp_path / "proj", tmp_path / "nope.mp4")
+
+
+def test_stage_run_bad_mode_raises(tmp_path):
+    with pytest.raises(ValueError, match="mode"):
+        stage_run(tmp_path / "proj", _video(tmp_path), mode="link")
+
+
+def test_staged_project_runs_through_discovery(tmp_path):
+    # End-to-end staging -> discovery: two manual stages become two RunSpecs.
+    proj = tmp_path / "proj"
+    stage_run(proj, _video(tmp_path, "one.mp4"), {"conditions": ["c1"]})
+    stage_run(proj, _video(tmp_path, "two.mp4"), {"conditions": ["c2"]})
+    specs = discover_run_specs(proj, None)
+    assert [s.run_id for s in specs] == ["one", "two"]
+    assert [s.conditions for s in specs] == ["c1", "c2"]
+    assert detect_layout(proj) == RUN_FOLDER
+
+
+# ── single_run_spec (run-now, Q7) ────────────────────────────────────────────
+
+def test_single_run_spec_basic(tmp_path):
+    vid = _video(tmp_path)
+    spec = single_run_spec(vid, {"participants": {0: "S70"},
+                                 "conditions": ["pilot"],
+                                 "session": "s1"},
+                           output_dir=tmp_path / "OUT")
+    assert spec.run_id == "clip" and spec.source == vid
+    assert spec.pid_map == {0: "S70"} and spec.conditions == "pilot"
+    assert spec.meta == {"session": "s1"}
+    # Outputs land FLAT in the chosen dir (no Runs/ nesting, no ledger).
+    assert spec.output_paths["summary"] == str(
+        tmp_path / "OUT" / "clip_summary.csv")
+    assert spec.output_paths["save"] == str(
+        tmp_path / "OUT" / "clip_Video_Output.mp4")
+
+
+def test_single_run_spec_default_output_dir(tmp_path):
+    spec = single_run_spec(_video(tmp_path))
+    assert spec.output_paths["summary"] == str(Path("Outputs") / "clip_summary.csv")
+
+
+def test_single_run_spec_bad_meta_raises(tmp_path):
+    with pytest.raises(ValueError, match="unknown run metadata"):
+        single_run_spec(_video(tmp_path), {"nope": 1})
+    with pytest.raises(ValueError, match="video not found"):
+        single_run_spec(tmp_path / "missing.mp4")
+
+
+def test_parse_run_mapping_shared_with_yaml_path():
+    m = parse_run_mapping({"participants": {0: "S70"}, "conditions": "solo"})
+    assert m.pid_map == {0: "S70"} and m.conditions == ["solo"]
+    assert m.error is None

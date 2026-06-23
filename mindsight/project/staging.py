@@ -32,6 +32,8 @@ per-run manifest, never a CSV column.
 """
 from __future__ import annotations
 
+import re
+import shutil
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -110,7 +112,16 @@ def parse_run_yaml(path) -> RunMeta:
     if not isinstance(raw, dict):
         return RunMeta(None, [], {}, [],
                        "run.yaml must be a mapping of keys to values")
+    return parse_run_mapping(raw)
 
+
+def parse_run_mapping(raw: dict) -> RunMeta:
+    """Validate an already-loaded run-metadata mapping (the Q2 key set).
+
+    Shared by :func:`parse_run_yaml` (file contents) and the manual staging
+    APIs (a dict from the GUI dialog).  Never raises; problems land in
+    ``error``, unrecognised top-level keys in ``unknown_keys``.
+    """
     unknown = sorted(k for k in raw if k not in _KNOWN_RUN_KEYS)
 
     pid_map = None
@@ -360,3 +371,138 @@ def discover_run_specs(project, project_cfg=None, *, layout=None,
         return _run_folder_specs(project, project_cfg, pid_maps=pid_maps)
     return _legacy_run_specs(project, project_cfg, aux_streams=aux_streams,
                              pid_maps=pid_maps)
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# Manual staging (Q7): stage a single video into a project / run it right now
+# ══════════════════════════════════════════════════════════════════════════════
+
+# Filesystem-unsafe characters in a run_id -> underscore (Q1: folder names are
+# sanitized).  Same class the global-CSV condition filenames use.
+_UNSAFE_RUN_ID = re.compile(r'[/\\:*?"<>|]')
+
+
+def _sanitize_run_id(name: str) -> str:
+    return _UNSAFE_RUN_ID.sub("_", name).strip() or "run"
+
+
+def _validated_meta(meta: dict | None) -> RunMeta:
+    """Validate a manual-staging metadata dict (strict: the APIs raise)."""
+    parsed = parse_run_mapping(dict(meta or {}))
+    if parsed.error:
+        raise ValueError(parsed.error)
+    if parsed.unknown_keys:
+        raise ValueError(
+            f"unknown run metadata key(s): {', '.join(parsed.unknown_keys)} "
+            f"-- use only: {', '.join(sorted(_KNOWN_RUN_KEYS))}")
+    return parsed
+
+
+def _write_run_yaml(folder: Path, meta: dict) -> None:
+    data = {k: meta[k] for k in
+            ("participants", "conditions", *_MANIFEST_KEYS)
+            if k in meta and meta[k] is not None}
+    if not data:
+        return                        # a bare folder just works (Q1)
+    with open(folder / "run.yaml", "w") as fh:
+        yaml.dump(data, fh, default_flow_style=False, sort_keys=False,
+                  allow_unicode=True)
+
+
+def _unique_run_dir(runs_root: Path, run_id: str) -> Path:
+    """Collision-safe run-folder path: ``<run_id>``, else ``<run_id>_2``, ..."""
+    candidate = runs_root / run_id
+    n = 2
+    while candidate.exists():
+        candidate = runs_root / f"{run_id}_{n}"
+        n += 1
+    return candidate
+
+
+def stage_run(project, video, meta=None, *, run_id=None, mode="copy") -> RunSpec:
+    """Stage *video* into *project* as a new ``Inputs/Runs/<run_id>/`` folder (Q7).
+
+    Creates the run folder (collision-safe: an existing ``<run_id>`` gets a
+    ``_2`` / ``_3`` ... suffix), places the video by ``mode`` -- ``"copy"``
+    (default: self-contained, portable project) or ``"move"`` (no duplicate
+    storage; falls back to copy+delete across devices) -- and writes ``run.yaml``
+    when *meta* carries any of the Q2 keys.  Returns the staged :class:`RunSpec`.
+
+    Raises ``ValueError`` (plain-English) when the video is missing, *meta* is
+    invalid, or the project uses the flat legacy layout (staging a run folder
+    would make the layout ambiguous, Q1).
+    """
+    project = Path(project).resolve()
+    video = Path(video)
+    if not video.is_file():
+        raise ValueError(f"video not found: {video}")
+    if mode not in ("copy", "move"):
+        raise ValueError(f"mode must be 'copy' or 'move', not {mode!r}")
+    if _has_flat_videos(project):
+        raise ValueError(
+            f"project {project.name} uses the flat Inputs/Videos/ layout -- "
+            "staging a run folder would make the layout ambiguous. Move the "
+            "existing videos into run folders first, or stage into a "
+            "run-folder project.")
+    parsed = _validated_meta(meta)
+
+    run_dir = _unique_run_dir(_runs_dir(project),
+                              _sanitize_run_id(run_id or video.stem))
+    run_dir.mkdir(parents=True)
+    dest = run_dir / video.name
+    if mode == "move":
+        # shutil.move rename-or-copies: same-device is an os.rename; across
+        # devices it falls back to copy2 + unlink automatically.
+        shutil.move(str(video), str(dest))
+    else:
+        shutil.copy2(str(video), str(dest))
+    _write_run_yaml(run_dir, dict(meta or {}))
+
+    project_cfg = None
+    try:
+        from mindsight.project.runner import load_project_config
+        project_cfg = load_project_config(project)
+    except Exception:
+        pass
+    return RunSpec(
+        run_id=run_dir.name,
+        source=dest,
+        pid_map=parsed.pid_map,
+        conditions="|".join(parsed.conditions) if parsed.conditions else "",
+        aux_streams=None,
+        output_paths=run_folder_output_paths(_out_root(project, project_cfg),
+                                             run_dir.name),
+        meta=dict(parsed.manifest_meta),
+    )
+
+
+def single_run_spec(video, meta=None, output_dir=None) -> RunSpec:
+    """A one-off :class:`RunSpec` for the GUI "Run now" path (Q7).
+
+    No project, no staging, no ledger: the video runs where it is, with the
+    entered participants/conditions producing the same project-shaped CSVs +
+    manifest, written flat into *output_dir* (default ``Outputs/`` under the
+    current working directory).
+
+    Raises ``ValueError`` (plain-English) on a missing video or invalid *meta*.
+    """
+    video = Path(video)
+    if not video.is_file():
+        raise ValueError(f"video not found: {video}")
+    parsed = _validated_meta(meta)
+    out_dir = Path(output_dir) if output_dir else Path("Outputs")
+    run_id = _sanitize_run_id(video.stem)
+    return RunSpec(
+        run_id=run_id,
+        source=video,
+        pid_map=parsed.pid_map,
+        conditions="|".join(parsed.conditions) if parsed.conditions else "",
+        aux_streams=None,
+        output_paths={
+            'save':    str(out_dir / f"{run_id}_Video_Output.mp4"),
+            'log':     str(out_dir / f"{run_id}_Events.csv"),
+            'summary': str(out_dir / f"{run_id}_summary.csv"),
+            'heatmap': str(out_dir / f"{run_id}_Heatmap"),
+        },
+        meta=dict(parsed.manifest_meta),
+    )
