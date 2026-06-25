@@ -211,6 +211,8 @@ class ProjectWorker(threading.Thread):
         from mindsight.project.events import (
             BatchDone,
             BatchStarted,
+            VideoArchived,
+            VideoDone,
             VideoError,
             VideoFrame,
             VideoSkipped,
@@ -259,10 +261,21 @@ class ProjectWorker(threading.Thread):
 
             elif isinstance(event, VideoSkipped):
                 pos += 1
+                self.progress_q.put({"type": "skipped", "run_id": event.run_id,
+                                     "reason": event.reason})
                 self._log(f"[{pos}/{total}] Skipping "
                           f"{event.run_id} ({event.reason})")
 
+            elif isinstance(event, VideoArchived):
+                self.progress_q.put({"type": "archived", "run_id": event.run_id})
+
+            elif isinstance(event, VideoDone):
+                self.progress_q.put({"type": "video_done",
+                                     "run_id": event.run_id})
+
             elif isinstance(event, VideoError):
+                self.progress_q.put({"type": "video_error", "run_id": event.run_id,
+                                     "error": str(event.error)})
                 self._log(f"Error processing {event.run_id}: {event.error}")
 
             elif isinstance(event, BatchDone):

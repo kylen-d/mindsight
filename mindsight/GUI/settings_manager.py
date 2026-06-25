@@ -18,6 +18,9 @@ class SettingsManager:
     SETTINGS_DIR = Path.home() / ".mindsight"
     LAST_USED = SETTINGS_DIR / "last_used.json"
     PRESETS_DIR = SETTINGS_DIR / "presets"
+    RECENT_PROJECTS = SETTINGS_DIR / "recent_projects.json"
+
+    RECENT_LIMIT = 10
 
     def __init__(self):
         self.SETTINGS_DIR.mkdir(parents=True, exist_ok=True)
@@ -91,3 +94,29 @@ class SettingsManager:
             return self._dict_to_ns(json.loads(self.LAST_USED.read_text()))
         except (json.JSONDecodeError, Exception):
             return None
+
+    # ── Recent projects (D12) ─────────────────────────────────────────────
+
+    def list_recent_projects(self) -> list[str]:
+        """Return the most-recently-opened project paths (newest first)."""
+        if not self.RECENT_PROJECTS.exists():
+            return []
+        try:
+            data = json.loads(self.RECENT_PROJECTS.read_text())
+        except (json.JSONDecodeError, Exception):
+            return []
+        items = data.get("projects", []) if isinstance(data, dict) else []
+        return [str(p) for p in items if isinstance(p, str)]
+
+    def add_recent_project(self, path: str) -> list[str]:
+        """Record *path* as the most-recently-opened project (dedup, newest first).
+
+        Returns the updated recent list (capped at ``RECENT_LIMIT``).
+        """
+        path = str(path)
+        recent = [p for p in self.list_recent_projects() if p != path]
+        recent.insert(0, path)
+        recent = recent[: self.RECENT_LIMIT]
+        self.RECENT_PROJECTS.write_text(
+            json.dumps({"_version": 1, "projects": recent}, indent=2))
+        return recent

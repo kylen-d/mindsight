@@ -139,6 +139,63 @@ class Project:
         return iter_project_runs(self._path, ns, project_cfg=cfg,
                                  cancel=cancel, resume=resume)
 
+    def decisions(self, ns, *, resume=True, project_cfg=None) -> dict:
+        """Preview the resume plan per run: ``run_id -> "skip"|"redo"|"redo_archive"``.
+
+        Mirrors what :func:`iter_project_runs` will decide (Q6 runs-table preview,
+        D11 -- computed in the project layer, never the GUI).  ``resume=False``
+        ("Re-run all") short-circuits to ``redo`` for every run without touching
+        the models or weights.  Best-effort: any failure resolving the batch
+        identity leaves a run out of the mapping rather than raising.
+        """
+        cfg = project_cfg if project_cfg is not None else self._config
+        specs = self.runs()
+        if not resume:
+            return {s.run_id: "redo" for s in specs}
+
+        import copy
+
+        from mindsight.config import PipelineConfig
+        from mindsight.config_compat import load_pipeline
+        from mindsight.outputs import provenance
+        from mindsight.project.ledger import Ledger, compute_video_hash
+
+        # Merge the project pipeline YAML into a COPY of ns exactly as the runner
+        # does (T7 ns pass-through) so the config identity matches the real run.
+        ns_copy = copy.deepcopy(ns)
+        if cfg and cfg.pipeline_path:
+            pipeline_yaml = self._path / cfg.pipeline_path
+        else:
+            pipeline_yaml = self._path / "Pipeline" / "pipeline.yaml"
+        try:
+            if pipeline_yaml.exists():
+                load_pipeline(pipeline_yaml, ns_copy)
+            config = PipelineConfig.from_namespace(ns_copy)
+            weights = provenance.collect_weights(ns_copy)
+            config_hash = provenance.run_identity(
+                ns_copy, config=config, weights=weights)
+        except Exception:
+            return {}
+
+        ledger = Ledger.load(self._out_root())
+        out: dict = {}
+        for spec in specs:
+            try:
+                video_hash = compute_video_hash(
+                    spec.source, pid_map=spec.pid_map,
+                    conditions=spec.conditions, aux_streams=spec.aux_streams)
+                out[spec.run_id] = ledger.decide(
+                    spec.run_id, (config_hash, video_hash))
+            except Exception:
+                continue
+        return out
+
+    def invalidate(self, run_id: str) -> bool:
+        """Drop *run_id* from the ledger so its next run reprocesses (Q6 per-row
+        "Re-run this run").  Returns ``True`` when a record was dropped."""
+        ledger = Ledger.load(self._out_root())
+        return ledger.invalidate(run_id)
+
     def preflight(self, ns=None):
         """Structured readiness checklist (SP3.1 D4).
 

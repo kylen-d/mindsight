@@ -201,3 +201,52 @@ def test_project_worker_runs_and_cancels(qapp, tmp_path):
         if win._project_tab._worker and win._project_tab._worker.is_alive():
             win._project_tab._worker.stop()
         win.close()
+
+
+def test_run_study_tab_runs_and_cancels(qapp, tmp_path):
+    """Analyze Footage tab drives the shared ProjectWorker: open project ->
+    Run -> cancel finalizes the per-video summary (behavior carried from the
+    Project Mode worker test, T12)."""
+    import shutil
+
+    from mindsight.GUI.gaze_tab import GazeTab
+    from mindsight.GUI.run_study_tab import RunStudyTab
+
+    proj = tmp_path / "proj"
+    (proj / "Inputs" / "Videos").mkdir(parents=True)
+    shutil.copy(VIDEO, proj / "Inputs" / "Videos" / "trimmed.mp4")
+
+    gaze = GazeTab()
+    gaze._gaze_backend._gaze_model.setText(str(MGAZE_ONNX))
+    tab = RunStudyTab(gaze_tab=gaze)
+    try:
+        tab._open_project(str(proj))
+        assert tab._runs_table.rowCount() == 1
+
+        tab._start()
+        worker = tab._worker
+        assert worker is not None
+
+        first = tab._progress_q.get(timeout=180)
+        assert isinstance(first, dict) and first.get("type") == "start"
+
+        _collect_frames(tab._frame_q, tab._log_q, want=5, deadline_s=180)
+        tab._stop()
+        worker.join(timeout=180)
+        assert not worker.is_alive()
+
+        events = []
+        try:
+            while True:
+                events.append(tab._progress_q.get(timeout=1.0))
+        except queue.Empty:
+            pass
+        assert None in events, "no None sentinel on progress_q"
+        assert any(isinstance(e, dict) and e.get("type") == "done"
+                   for e in events)
+        summ = proj / "Outputs" / "CSV Files" / "trimmed_summary.csv"
+        assert summ.exists()
+    finally:
+        if tab._worker and tab._worker.is_alive():
+            tab._worker.stop()
+        gaze.deleteLater()
