@@ -48,12 +48,12 @@ class GazeBackendSection(QWidget):
         g = QGroupBox("Gaze Backend")
         vl = QVBoxLayout(g)
 
-        # Row 1: MGaze, Gazelle
+        # Row 1: MobileGaze, Gaze-LLE (paper terminology, D13; dests unchanged)
         rb_row1 = _hrow()
-        self._rb_mgaze = QRadioButton("MGaze")
+        self._rb_mgaze = QRadioButton("MobileGaze")
         self._rb_mgaze.setChecked(True)
         rb_row1.layout().addWidget(self._rb_mgaze)
-        self._rb_gazelle = QRadioButton("Gazelle")
+        self._rb_gazelle = QRadioButton("Gaze-LLE")
         rb_row1.layout().addWidget(self._rb_gazelle)
         rb_row1.layout().addStretch(1)
         vl.addWidget(rb_row1)

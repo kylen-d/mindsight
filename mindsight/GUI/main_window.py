@@ -1,7 +1,7 @@
 """
 GUI/main_window.py — Main application window for MindSight.
 
-Hosts three tabs (Gaze Tracker, VP Builder, Project Mode) and provides
+Hosts four tabs (Analyze Footage, VP Builder, Gaze Tuning, Models) and provides
 the menu bar for presets, pipeline import/export, and application settings.
 """
 from __future__ import annotations
@@ -19,15 +19,23 @@ from PyQt6.QtWidgets import (
 )
 
 from .gaze_tab import GazeTab
+from .models_tab import ModelsTab
+from .run_study_tab import RunStudyTab
 from .vp_builder_tab import VisualPromptBuilderTab
+
+# Tab display indices (T11: status-bar button visibility is wired by index).
+_TAB_ANALYZE = 0
+_TAB_VP = 1
+_TAB_TUNING = 2
+_TAB_MODELS = 3
 
 
 class MainWindow(QMainWindow):
-    """Top-level window hosting the Gaze Tracker, VP Builder, and Project Mode tabs."""
+    """Top-level window: Analyze Footage, VP Builder, Gaze Tuning, Models."""
 
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("MindSight — Inference + Visual Prompt Builder")
+        self.setWindowTitle("MindSight — Analyze Footage + Visual Prompt Builder")
         self.resize(1280, 800)
         self.setMinimumSize(900, 600)
 
@@ -35,15 +43,17 @@ class MainWindow(QMainWindow):
         tabs = QTabWidget()
         self.setCentralWidget(tabs)
 
+        # Gaze Tuning hosts the namespace seam every other tab reads from; build
+        # it first so Analyze Footage + Models can hold a reference to it.
         self._gaze_tab = GazeTab()
         self._vp_tab = VisualPromptBuilderTab()
-        tabs.addTab(self._gaze_tab, "  Inference  ")
-        tabs.addTab(self._vp_tab, "  VP Builder  ")
+        self._run_study_tab = RunStudyTab(gaze_tab=self._gaze_tab)
+        self._models_tab = ModelsTab(gaze_tab=self._gaze_tab)
 
-        # Project tab — receives a reference to gaze_tab for namespace building
-        from .project_tab import ProjectTab
-        self._project_tab = ProjectTab(gaze_tab=self._gaze_tab)
-        tabs.addTab(self._project_tab, "  Project Mode  ")
+        tabs.addTab(self._run_study_tab, "  Analyze Footage  ")
+        tabs.addTab(self._vp_tab, "  VP Builder  ")
+        tabs.addTab(self._gaze_tab, "  Gaze Tuning  ")
+        tabs.addTab(self._models_tab, "  Models  ")
 
         # ── Menu bar ──────────────────────────────────────────────────────────
         self._build_menu_bar()
@@ -76,20 +86,18 @@ class MainWindow(QMainWindow):
         file_menu.addAction("&Quit", self.close)
 
     def _init_plugin_panels(self):
-        """Initialise and embed the phenomena and plugin panels into the gaze tab."""
-        try:
-            from .phenomena_panel import PhenomenaPanel
-            panel = PhenomenaPanel()
-            self._gaze_tab.set_phenomena_panel(panel)
-        except ImportError:
-            pass  # Panel not yet created — will be added in Phase 3
+        """Initialise and embed the plugin panel into the Gaze Tuning tab.
 
+        Phenomena controls are now rendered by the schema-generated panel inside
+        the Gaze Tuning tab itself; only the introspection-driven plugin panel is
+        injected here.
+        """
         try:
             from .plugin_panel import PluginPanel
             panel = PluginPanel()
             self._gaze_tab.set_plugin_panel(panel)
         except ImportError:
-            pass  # Panel not yet created — will be added in Phase 3
+            pass
 
     def _try_restore_last_session(self):
         """Attempt to restore the last-used settings on startup."""
@@ -112,21 +120,44 @@ class MainWindow(QMainWindow):
                   "font-weight:bold;padding:6px 14px;}")
 
     def _build_statusbar_buttons(self):
-        """Create Start/Stop and Run/Stop buttons in the status bar.
+        """Create the per-tab status-bar action buttons (T11).
 
-        Preset and pipeline buttons remain in the Gaze tab settings panel.
-        Each button set is shown/hidden by _on_tab_changed.
+        Preset and pipeline buttons remain in the Gaze Tuning settings panel.
+        Each button set is shown/hidden by _on_tab_changed keyed on the new tab
+        indices (Analyze Footage 0, VP Builder 1, Gaze Tuning 2, Models 3).
         """
         sb = self.statusBar()
         sb.setStyleSheet("QStatusBar{padding:6px 4px;}")
 
-        # Wire the preset/pipeline buttons that live in the gaze tab
+        # Wire the preset/pipeline buttons that live in the Gaze Tuning tab
         self._gaze_tab._load_preset_btn.clicked.connect(self._load_preset)
         self._gaze_tab._save_preset_btn.clicked.connect(self._save_preset)
         self._gaze_tab._import_pipeline_btn.clicked.connect(self._import_pipeline)
         self._gaze_tab._export_pipeline_btn.clicked.connect(self._export_pipeline)
 
-        # -- Gaze tab: Start / Stop (tab 0) -----------------------------------
+        # -- Analyze Footage: Run / Stop (tab 0) ------------------------------
+        self._run_study_tab._run_btn = QPushButton("\u25b6  Run")
+        self._run_study_tab._run_btn.setStyleSheet(self._BTN_GREEN)
+        self._run_study_tab._stop_btn = QPushButton("\u25a0  Stop")
+        self._run_study_tab._stop_btn.setStyleSheet(self._BTN_RED)
+        self._run_study_tab._stop_btn.setEnabled(False)
+        self._run_study_tab._run_btn.clicked.connect(self._run_study_tab._start)
+        self._run_study_tab._stop_btn.clicked.connect(self._run_study_tab._stop)
+        self._analyze_buttons = [
+            self._run_study_tab._run_btn,
+            self._run_study_tab._stop_btn,
+        ]
+        for btn in self._analyze_buttons:
+            sb.addPermanentWidget(btn)
+
+        # -- VP Builder button (tab 1) ----------------------------------------
+        self._use_vp_btn = QPushButton("Use saved VP in Gaze Tuning")
+        self._use_vp_btn.setStyleSheet(self._BTN_VP)
+        self._use_vp_btn.clicked.connect(self._push_vp_to_gaze)
+        sb.addPermanentWidget(self._use_vp_btn)
+        self._vp_buttons = [self._use_vp_btn]
+
+        # -- Gaze Tuning: Start / Stop (tab 2) --------------------------------
         self._gaze_tab._start_btn = QPushButton("\u25b6  Start")
         self._gaze_tab._start_btn.setStyleSheet(self._BTN_GREEN)
         self._gaze_tab._stop_btn = QPushButton("\u25a0  Stop")
@@ -134,7 +165,6 @@ class MainWindow(QMainWindow):
         self._gaze_tab._stop_btn.setEnabled(False)
         self._gaze_tab._start_btn.clicked.connect(self._gaze_tab._start)
         self._gaze_tab._stop_btn.clicked.connect(self._gaze_tab._stop)
-
         self._gaze_buttons = [
             self._gaze_tab._start_btn,
             self._gaze_tab._stop_btn,
@@ -142,42 +172,21 @@ class MainWindow(QMainWindow):
         for btn in self._gaze_buttons:
             sb.addPermanentWidget(btn)
 
-        # -- VP Builder button (tab 1) ----------------------------------------
-        self._use_vp_btn = QPushButton("Use saved VP in Inference")
-        self._use_vp_btn.setStyleSheet(self._BTN_VP)
-        self._use_vp_btn.clicked.connect(self._push_vp_to_gaze)
-        sb.addPermanentWidget(self._use_vp_btn)
-        self._vp_buttons = [self._use_vp_btn]
-
-        # -- Project tab: Run / Stop (tab 2) ----------------------------------
-        self._project_tab._run_btn = QPushButton("\u25b6  Run Project")
-        self._project_tab._run_btn.setStyleSheet(self._BTN_GREEN)
-        self._project_tab._stop_btn = QPushButton("\u25a0  Stop")
-        self._project_tab._stop_btn.setStyleSheet(self._BTN_RED)
-        self._project_tab._stop_btn.setEnabled(False)
-        self._project_tab._run_btn.clicked.connect(self._project_tab._start)
-        self._project_tab._stop_btn.clicked.connect(self._project_tab._stop)
-
-        self._project_buttons = [
-            self._project_tab._run_btn,
-            self._project_tab._stop_btn,
-        ]
-        for btn in self._project_buttons:
-            sb.addPermanentWidget(btn)
+        # Models (tab 3) has no status-bar action.
 
     def _on_tab_changed(self, index: int):
-        """Show only the buttons relevant to the active tab."""
-        for btn in self._gaze_buttons:
-            btn.setVisible(index == 0)
+        """Show only the buttons relevant to the active tab (T11)."""
+        for btn in self._analyze_buttons:
+            btn.setVisible(index == _TAB_ANALYZE)
         for btn in self._vp_buttons:
-            btn.setVisible(index == 1)
-        for btn in self._project_buttons:
-            btn.setVisible(index == 2)
+            btn.setVisible(index == _TAB_VP)
+        for btn in self._gaze_buttons:
+            btn.setVisible(index == _TAB_TUNING)
 
     # ── VP transfer ───────────────────────────────────────────────────────────
 
     def _push_vp_to_gaze(self):
-        """Transfer the last saved VP file from the VP Builder to the Gaze tab."""
+        """Transfer the last saved VP file from the VP Builder to Gaze Tuning."""
         path = self._vp_tab.current_vp_path()
         if not path or not Path(path).exists():
             QMessageBox.warning(
@@ -185,7 +194,7 @@ class MainWindow(QMainWindow):
                 "Save a VP file in the VP Builder tab first.")
             return
         self._gaze_tab.set_vp_file(path)
-        self._tabs.setCurrentIndex(0)
+        self._tabs.setCurrentIndex(_TAB_TUNING)
 
     # ── Preset / pipeline stubs ───────────────────────────────────────────────
 
@@ -260,10 +269,10 @@ class MainWindow(QMainWindow):
         if hasattr(self._vp_tab, '_vp_worker') and self._vp_tab._vp_worker:
             if self._vp_tab._vp_worker.is_alive():
                 self._vp_tab._vp_worker.stop()
-        # Stop project worker
-        if hasattr(self._project_tab, '_worker') and self._project_tab._worker:
-            if self._project_tab._worker.is_alive():
-                self._project_tab._worker.stop()
+        # Stop Analyze Footage (project) worker
+        if hasattr(self._run_study_tab, '_worker') and self._run_study_tab._worker:
+            if self._run_study_tab._worker.is_alive():
+                self._run_study_tab._worker.stop()
         # Save last-used settings
         try:
             from .settings_manager import SettingsManager

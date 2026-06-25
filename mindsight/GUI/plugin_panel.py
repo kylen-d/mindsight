@@ -29,8 +29,8 @@ from PyQt6.QtWidgets import (
 
 from .arg_introspector import ArgSpec, introspect_plugin
 
-# Argument dest names already handled by hardcoded widgets in gaze_tab.py
-# and phenomena_panel.py — these are excluded from the dynamic plugin panel.
+# Argument dest names already handled by the Gaze Tuning hand widgets and the
+# schema-generated settings panel — these are excluded from the dynamic panel.
 _HANDLED_DESTS = {
     # Global
     "device",
@@ -50,7 +50,7 @@ _HANDLED_DESTS = {
     "gazelle_device", "gazelle_skip_frames", "gazelle_fp16", "gazelle_compile",
     # Output
     "source", "save", "log", "summary", "heatmap", "pipeline", "project",
-    # Phenomena (handled by phenomena_panel)
+    # Phenomena (handled by the schema-generated panel)
     "mutual_gaze", "social_ref", "social_ref_window", "gaze_follow",
     "gaze_follow_lag", "gaze_aversion", "aversion_window", "aversion_conf",
     "scanpath", "scanpath_dwell", "gaze_leader", "attn_span", "all_phenomena",
@@ -244,7 +244,7 @@ def _make_widget(spec: ArgSpec):
 
 
 def _subsection_label(text: str) -> QLabel:
-    """Subsection header matching the existing GUI convention (ray_section.py)."""
+    """Subsection header matching the existing GUI convention."""
     lbl = QLabel(text)
     lbl.setStyleSheet("color:#888; font-size:11px; margin-top:4px;")
     return lbl

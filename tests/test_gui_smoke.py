@@ -81,7 +81,8 @@ def test_main_window_launches_and_loads_config(qapp):
     try:
         assert win._gaze_tab is not None
         assert win._vp_tab is not None
-        assert win._project_tab is not None
+        assert win._run_study_tab is not None
+        assert win._models_tab is not None
 
         ns = load_pipeline(REPO_ROOT / "test_pipeline.yaml", Namespace())
         win._gaze_tab.apply_namespace(ns)
@@ -198,8 +199,8 @@ def test_project_worker_runs_and_cancels(qapp, tmp_path):
         summ = proj / "Outputs" / "CSV Files" / "trimmed_summary.csv"
         assert summ.exists()
     finally:
-        if win._project_tab._worker and win._project_tab._worker.is_alive():
-            win._project_tab._worker.stop()
+        if worker.is_alive():
+            worker.stop()
         win.close()
 
 

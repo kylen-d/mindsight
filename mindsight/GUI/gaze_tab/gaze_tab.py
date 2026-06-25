@@ -15,6 +15,7 @@ from pathlib import Path
 from PyQt6.QtCore import Qt, QTimer
 from PyQt6.QtGui import QFont
 from PyQt6.QtWidgets import (
+    QCheckBox,
     QGroupBox,
     QHBoxLayout,
     QLabel,
@@ -28,17 +29,17 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
+from ..schema_panel import SchemaPanel
 from ..widgets import _bgr_to_pixmap, _hrow
 
 from .detection_section import DetectionSection
 from .gaze_backend_section import GazeBackendSection
-from .ray_section import RaySection
-from .performance_section import PerformanceSection
 from .output_section import OutputSection
 
 
 class GazeTab(QWidget):
-    """Full-featured Gaze Tracker tab with CLI parity."""
+    """Gaze Tuning tab: hand-written source/detection/backend/output sections
+    plus a schema-generated ray/performance/phenomena panel (SP3.1 Batch G)."""
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -49,7 +50,6 @@ class GazeTab(QWidget):
         self._poll_timer = QTimer()
         self._poll_timer.timeout.connect(self._poll)
 
-        self._phenomena_panel = None
         self._plugin_panel = None
 
         self._build_ui()
@@ -120,13 +120,22 @@ class GazeTab(QWidget):
         self._gaze_backend = GazeBackendSection()
         lay.addWidget(self._gaze_backend)
 
-        self._ray = RaySection()
-        lay.addWidget(self._ray)
+        # Schema-generated ray / performance / phenomena surface (replaces the
+        # hand-grown ray, performance, and phenomena panels). Show-advanced
+        # reveals the deep-tuning tier without changing the namespace census.
+        adv_row = _hrow()
+        self._show_advanced = QCheckBox("Show advanced")
+        self._show_advanced.setToolTip(
+            "Reveal the deep-tuning parameters (snap weights, One-Euro cutoffs, "
+            "fixation thresholds, depth internals)")
+        self._show_advanced.toggled.connect(self._on_show_advanced)
+        adv_row.layout().addWidget(self._show_advanced)
+        adv_row.layout().addStretch(1)
+        lay.addWidget(adv_row)
 
-        self._performance = PerformanceSection()
-        lay.addWidget(self._performance)
+        self._schema_panel = SchemaPanel(show_advanced=False)
+        lay.addWidget(self._schema_panel)
 
-        self._build_phenomena(lay)
         self._build_plugins(lay)
 
         self._output = OutputSection()
@@ -154,18 +163,10 @@ class GazeTab(QWidget):
         row.layout().addWidget(self._reset_defaults_btn)
         lay.addWidget(row)
 
-    # -- Phenomena / Plugin containers ----------------------------------------
+    # -- Plugin container -----------------------------------------------------
 
-    def _build_phenomena(self, lay):
-        g = QGroupBox("Phenomena Tracking")
-        self._phenomena_container = QVBoxLayout(g)
-        self._phenomena_placeholder = QLabel(
-            "Phenomena panel will be loaded here.")
-        self._phenomena_placeholder.setAlignment(
-            Qt.AlignmentFlag.AlignCenter)
-        self._phenomena_placeholder.setStyleSheet("color: #888;")
-        self._phenomena_container.addWidget(self._phenomena_placeholder)
-        lay.addWidget(g)
+    def _on_show_advanced(self, checked: bool):
+        self._schema_panel.set_show_advanced(checked)
 
     def _build_plugins(self, lay):
         g = QGroupBox("Plugin Settings")
@@ -199,13 +200,6 @@ class GazeTab(QWidget):
 
     # -- Panel injection (called by MainWindow) -------------------------------
 
-    def set_phenomena_panel(self, panel):
-        self._phenomena_placeholder.setVisible(False)
-        self._phenomena_container.removeWidget(self._phenomena_placeholder)
-        self._phenomena_placeholder.deleteLater()
-        self._phenomena_container.addWidget(panel)
-        self._phenomena_panel = panel
-
     def set_plugin_panel(self, panel):
         self._plugin_placeholder.setVisible(False)
         self._plugin_container.removeWidget(self._plugin_placeholder)
@@ -221,8 +215,7 @@ class GazeTab(QWidget):
     # -- Reset defaults -------------------------------------------------------
 
     def _reset_gaze_defaults(self):
-        self._ray.reset_defaults()
-        self._performance.reset_defaults()
+        self._schema_panel.reset_defaults()
 
     # -- Namespace construction -----------------------------------------------
 
@@ -230,38 +223,15 @@ class GazeTab(QWidget):
         vals = {}
         vals.update(self._detection.namespace_values())
         vals.update(self._gaze_backend.namespace_values())
-        vals.update(self._ray.namespace_values())
-        vals.update(self._performance.namespace_values())
+        # Ray geometry + performance + phenomena (74 dests) from the schema panel.
+        vals.update(self._schema_panel.namespace_values())
         vals.update(self._output.namespace_values())
 
-        # Static defaults for phenomena (overridden by panel below)
-        vals.update(
-            ja_quorum=1.0,
-            joint_attention=False,
-            mutual_gaze=False,
-            social_ref=False,
-            social_ref_window=60,
-            gaze_follow=False,
-            gaze_follow_lag=30,
-            gaze_aversion=False,
-            aversion_window=60,
-            aversion_conf=0.5,
-            scanpath=False,
-            scanpath_dwell=8,
-            gaze_leader=False,
-            attn_span=False,
-            all_phenomena=False,
-            ja_window=0,
-            ja_window_thresh=0.70,
-            pipeline=None,
-            project=None,
-        )
+        # Non-schema leftovers (no widget): the run-target selectors.
+        vals.update(pipeline=None, project=None)
 
         ns = Namespace(**vals)
 
-        if self._phenomena_panel is not None:
-            for key, val in self._phenomena_panel.get_values().items():
-                setattr(ns, key, val)
         if self._plugin_panel is not None:
             for key, val in self._plugin_panel.get_values().items():
                 setattr(ns, key, val)
@@ -273,12 +243,9 @@ class GazeTab(QWidget):
     def apply_namespace(self, ns: Namespace):
         self._detection.apply_namespace(ns)
         self._gaze_backend.apply_namespace(ns)
-        self._ray.apply_namespace(ns)
-        self._performance.apply_namespace(ns)
+        self._schema_panel.apply_namespace(ns)
         self._output.apply_namespace(ns)
 
-        if self._phenomena_panel is not None:
-            self._phenomena_panel.apply_values(vars(ns))
         if self._plugin_panel is not None:
             self._plugin_panel.apply_values(vars(ns))
 

@@ -61,8 +61,8 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
-from .project_tab.conditions_section import ConditionsSection
-from .project_tab.participants_section import ParticipantsSection
+from .conditions_section import ConditionsSection
+from .participants_section import ParticipantsSection
 from .widgets import CollapsibleGroupBox, _bgr_to_pixmap
 
 # Severity presentation for the preflight checklist.
