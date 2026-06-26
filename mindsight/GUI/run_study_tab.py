@@ -310,6 +310,7 @@ class RunStudyTab(QWidget):
 
         self._worker = None
         self._one_off_worker = None
+        self._stop_requested = False
         self._progress_q: queue.Queue = queue.Queue()
         self._log_q: queue.Queue = queue.Queue()
         self._frame_q: queue.Queue = queue.Queue(maxsize=2)
@@ -818,6 +819,7 @@ class RunStudyTab(QWidget):
         self._one_off_worker = GazeWorker(ns, self._frame_q, self._log_q)
         self._one_off_worker.start()
         self._append_log(f"Running '{spec.run_id}' now...")
+        self._stop_requested = False
         self._run_btn.setEnabled(False)
         self._stop_btn.setEnabled(True)
         self._poll_timer.start(60)
@@ -826,6 +828,10 @@ class RunStudyTab(QWidget):
 
     def _start(self):
         if self._worker and self._worker.is_alive():
+            # Visible feedback instead of a silent no-op (G-FIX-2): after Stop
+            # the worker finalizes the current video before exiting (T8).
+            self._append_log(
+                "Previous run is still finishing -- try again in a moment.")
             return
         if not self._project_path:
             QMessageBox.critical(self, "Run", "Open a project first.")
@@ -854,19 +860,35 @@ class RunStudyTab(QWidget):
             str(self._project_path), ns, self._progress_q, self._log_q,
             self._frame_q, project_cfg=project_cfg)
         self._worker.start()
+        self._stop_requested = False
         self._run_btn.setEnabled(False)
         self._stop_btn.setEnabled(True)
         self._log_box.clear()
+        self._append_log("Starting run...")
         self._poll_timer.start(100)
 
     def _stop(self):
-        if self._worker:
+        """Signal the running worker(s) to cancel (G-FIX-2).
+
+        The stop Event trips the batch CancelToken; the current video finalizes
+        through the pipeline's post-run paths (T8), so polling MUST continue
+        until the worker's end sentinel arrives -- ``_finish_run`` then flips the
+        buttons back and logs the terminal state.
+        """
+        stopped_any = False
+        if self._worker and self._worker.is_alive():
             self._worker.stop()
-        if self._one_off_worker:
+            stopped_any = True
+        if self._one_off_worker and self._one_off_worker.is_alive():
             self._one_off_worker.stop()
-        self._poll_timer.stop()
-        self._run_btn.setEnabled(True)
+            stopped_any = True
+        self._stop_requested = True
         self._stop_btn.setEnabled(False)
+        if stopped_any:
+            self._append_log("Cancelling -- finishing the current video...")
+            # keep the poll timer running; _finish_run fires on the sentinel
+        else:
+            self._finish_run()
 
     def _poll(self):
         try:
@@ -875,17 +897,22 @@ class RunStudyTab(QWidget):
         except queue.Empty:
             pass
 
+        # Frames -> preview.  The paint happens OUTSIDE the drain try-block:
+        # queue.Empty is the NORMAL exit of the drain loop and must not skip
+        # painting the last frame pulled (G-FIX-1).
+        frame = None
         try:
-            frame = None
             while True:
                 f = self._frame_q.get_nowait()
                 if f is None:
                     break
                 frame = f
-            if frame is not None:
-                self._preview.setPixmap(_bgr_to_pixmap(frame, 320, 240))
         except queue.Empty:
             pass
+        if frame is not None:
+            pw = self._preview.width() or 480
+            ph = self._preview.height() or 320
+            self._preview.setPixmap(_bgr_to_pixmap(frame, pw, ph))
 
         try:
             while True:
@@ -928,12 +955,18 @@ class RunStudyTab(QWidget):
                 self._set_cell(row, 7, event.get("error", ""))
 
     def _finish_run(self):
+        """Terminal UI transition: buttons back, log line, workers cleared so a
+        following Start launches a FRESH worker (G-FIX-2)."""
         self._poll_timer.stop()
         self._run_btn.setEnabled(True)
         self._stop_btn.setEnabled(False)
+        if self._stop_requested:
+            self._append_log("Cancelled.")
+        self._stop_requested = False
+        self._worker = None
+        self._one_off_worker = None
         if self._project:
             self._refresh_runs_table()
-        self._one_off_worker = None
 
     def _append_log(self, msg: str):
         self._log_box.append(str(msg))
