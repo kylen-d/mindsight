@@ -56,6 +56,7 @@ from PyQt6.QtWidgets import (
     QSplitter,
     QTableWidget,
     QTableWidgetItem,
+    QTabWidget,
     QTextEdit,
     QVBoxLayout,
     QWidget,
@@ -419,14 +420,7 @@ class RunStudyTab(QWidget):
             QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         right_lay.addWidget(self._preview, 2)
 
-        log_grp = QGroupBox("Log")
-        log_lay = QVBoxLayout(log_grp)
-        self._log_box = QTextEdit()
-        self._log_box.setReadOnly(True)
-        self._log_box.setMinimumHeight(60)
-        self._log_box.setFont(QFont("Courier", 10))
-        log_lay.addWidget(self._log_box)
-        right_lay.addWidget(log_grp, 1)
+        right_lay.addWidget(self._build_output_tabs(), 1)
 
         splitter.addWidget(right)
         splitter.setStretchFactor(0, 3)
@@ -508,6 +502,216 @@ class RunStudyTab(QWidget):
         grp.set_content(inner)
         parent_lay.addWidget(grp)
 
+    # ── Output panel: Log | Charts | Output CSVs (G-ENH-4) ──────────────────
+
+    def _build_output_tabs(self) -> QTabWidget:
+        """Tabbed bottom-right panel: run log, in-GUI phenomena charts rendered
+        from the already-written CSVs (display-only, D11 -- nothing is written
+        into the project's Outputs/ tree), and a read-only CSV viewer."""
+        tabs = QTabWidget()
+        self._output_tabs = tabs
+
+        # -- Log ----------------------------------------------------------
+        log_w = QWidget()
+        log_lay = QVBoxLayout(log_w)
+        log_lay.setContentsMargins(4, 4, 4, 4)
+        self._log_box = QTextEdit()
+        self._log_box.setReadOnly(True)
+        self._log_box.setMinimumHeight(60)
+        self._log_box.setFont(QFont("Courier", 10))
+        log_lay.addWidget(self._log_box)
+        tabs.addTab(log_w, "Log")
+
+        # -- Charts (in-GUI, from written CSVs) -----------------------------
+        charts_w = QWidget()
+        charts_lay = QVBoxLayout(charts_w)
+        charts_lay.setContentsMargins(4, 4, 4, 4)
+        chart_row = QHBoxLayout()
+        chart_row.addWidget(QLabel("Run:"))
+        self._charts_run = QComboBox()
+        self._charts_run.currentIndexChanged.connect(self._render_charts)
+        chart_row.addWidget(self._charts_run, 1)
+        charts_lay.addLayout(chart_row)
+        self._chart_placeholder = QLabel(
+            "Charts appear here once a run has written its CSVs.")
+        self._chart_placeholder.setStyleSheet("color: #888; font-style: italic;")
+        self._chart_placeholder.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        charts_lay.addWidget(self._chart_placeholder, 1)
+        self._chart_canvas = None            # created lazily on first render
+        self._charts_layout = charts_lay
+        tabs.addTab(charts_w, "Charts")
+
+        # -- Output CSVs (read-only viewer) ---------------------------------
+        csv_w = QWidget()
+        csv_lay = QVBoxLayout(csv_w)
+        csv_lay.setContentsMargins(4, 4, 4, 4)
+        csv_row = QHBoxLayout()
+        csv_row.addWidget(QLabel("Run:"))
+        self._csv_run = QComboBox()
+        self._csv_run.currentIndexChanged.connect(self._populate_csv_files)
+        csv_row.addWidget(self._csv_run, 1)
+        csv_row.addWidget(QLabel("File:"))
+        self._csv_file = QComboBox()
+        self._csv_file.currentIndexChanged.connect(self._load_csv_table)
+        csv_row.addWidget(self._csv_file, 1)
+        csv_lay.addLayout(csv_row)
+        self._csv_table = QTableWidget(0, 0)
+        self._csv_table.setEditTriggers(
+            QAbstractItemView.EditTrigger.NoEditTriggers)
+        csv_lay.addWidget(self._csv_table, 1)
+        self._csv_note = QLabel("")
+        self._csv_note.setStyleSheet("color: #888; font-size: 11px;")
+        csv_lay.addWidget(self._csv_note)
+        tabs.addTab(csv_w, "Output CSVs")
+
+        self._run_outputs = {}               # run_id -> RunOutputs
+        return tabs
+
+    def _refresh_output_panels(self):
+        """Rediscover which runs have written CSVs; repopulate both selectors
+        (keeping the current selection when it survives)."""
+        if not self._project:
+            return
+        from .run_outputs import discover_run_outputs
+        try:
+            outputs = discover_run_outputs(self._project.runs())
+        except Exception as exc:
+            self._append_log(f"[WARN] could not scan run outputs: {exc}")
+            return
+        self._run_outputs = {o.run_id: o for o in outputs}
+        for combo, on_change in ((self._charts_run, self._render_charts),
+                                 (self._csv_run, self._populate_csv_files)):
+            current = combo.currentText()
+            combo.blockSignals(True)
+            combo.clear()
+            combo.addItems(list(self._run_outputs))
+            idx = combo.findText(current)
+            combo.setCurrentIndex(idx if idx >= 0 else 0)
+            combo.blockSignals(False)
+            on_change()
+
+    def _render_charts(self):
+        """Render the selected run's phenomena charts in-GUI (display-only)
+        from its written summary/Events CSVs."""
+        out = self._run_outputs.get(self._charts_run.currentText())
+        if out is None or (out.summary is None and out.events is None):
+            if self._chart_canvas is not None:
+                self._chart_canvas.setVisible(False)
+            self._chart_placeholder.setVisible(True)
+            return
+
+        from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg
+        from matplotlib.figure import Figure
+
+        from .run_outputs import gaze_timeline, look_time_table
+
+        panels = []
+        if out.summary is not None:
+            try:
+                table = look_time_table(out.summary)
+                if table:
+                    panels.append(("look", table))
+            except Exception:
+                pass
+        if out.events is not None:
+            try:
+                objects, per = gaze_timeline(out.events)
+                if objects and per:
+                    panels.append(("timeline", (objects, per)))
+            except Exception:
+                pass
+        if not panels:
+            if self._chart_canvas is not None:
+                self._chart_canvas.setVisible(False)
+            self._chart_placeholder.setVisible(True)
+            return
+
+        fig = Figure(figsize=(6, 3.2 * len(panels)), facecolor="#121212")
+        for i, (kind, data) in enumerate(panels):
+            ax = fig.add_subplot(len(panels), 1, i + 1)
+            ax.set_facecolor("#1e1e1e")
+            ax.tick_params(colors="#cccccc", labelsize=8)
+            for spine in ax.spines.values():
+                spine.set_color("#2a2a2a")
+            if kind == "look":
+                self._draw_look_time(ax, data)
+            else:
+                self._draw_timeline(ax, *data)
+            ax.legend(fontsize=7, facecolor="#1e1e1e",
+                      labelcolor="#cccccc", edgecolor="#2a2a2a")
+        fig.tight_layout()
+
+        if self._chart_canvas is None:
+            self._chart_canvas = FigureCanvasQTAgg(fig)
+            self._charts_layout.addWidget(self._chart_canvas, 1)
+        else:
+            self._chart_canvas.figure = fig
+            fig.set_canvas(self._chart_canvas)
+        self._chart_canvas.setVisible(True)
+        self._chart_placeholder.setVisible(False)
+        self._chart_canvas.draw_idle()
+
+    @staticmethod
+    def _draw_look_time(ax, table: dict):
+        objects = sorted({o for objs in table.values() for o in objs})
+        participants = sorted(table)
+        width = 0.8 / max(1, len(participants))
+        for pi, who in enumerate(participants):
+            vals = [table[who].get(o, 0.0) for o in objects]
+            xs = [i + pi * width for i in range(len(objects))]
+            ax.bar(xs, vals, width=width, label=who)
+        ax.set_xticks([i + 0.4 - width / 2 for i in range(len(objects))])
+        ax.set_xticklabels(objects, rotation=30, ha="right",
+                           color="#cccccc", fontsize=7)
+        ax.set_ylabel("% of video", color="#cccccc", fontsize=8)
+        ax.set_title("Object look time", color="#cccccc", fontsize=9,
+                     loc="left")
+
+    @staticmethod
+    def _draw_timeline(ax, objects: list, per: dict):
+        for who in sorted(per):
+            xs, ys = per[who]
+            ax.scatter(xs, ys, s=4, label=who)
+        ax.set_yticks(range(len(objects)))
+        ax.set_yticklabels(objects, color="#cccccc", fontsize=7)
+        ax.set_xlabel("t (seconds)", color="#cccccc", fontsize=8)
+        ax.set_title("Gaze target timeline", color="#cccccc", fontsize=9,
+                     loc="left")
+
+    def _populate_csv_files(self):
+        out = self._run_outputs.get(self._csv_run.currentText())
+        self._csv_file.blockSignals(True)
+        self._csv_file.clear()
+        if out is not None:
+            for p in out.csv_paths:
+                self._csv_file.addItem(p.name, str(p))
+        self._csv_file.setCurrentIndex(0 if self._csv_file.count() else -1)
+        self._csv_file.blockSignals(False)
+        self._load_csv_table()
+
+    def _load_csv_table(self):
+        path = self._csv_file.currentData()
+        if not path or not Path(path).is_file():
+            self._csv_table.setRowCount(0)
+            self._csv_table.setColumnCount(0)
+            self._csv_note.setText("")
+            return
+        from .run_outputs import load_csv_rows
+        try:
+            header, rows, truncated = load_csv_rows(path)
+        except Exception as exc:
+            self._csv_note.setText(f"Could not read CSV: {exc}")
+            return
+        self._csv_table.setColumnCount(len(header))
+        self._csv_table.setHorizontalHeaderLabels(header)
+        self._csv_table.setRowCount(len(rows))
+        for r, row in enumerate(rows):
+            for c, val in enumerate(row[:len(header)]):
+                self._csv_table.setItem(r, c, QTableWidgetItem(val))
+        self._csv_note.setText(
+            f"{Path(path).name}: {len(rows)} row(s)"
+            + (" (truncated to the first 1000)" if truncated else ""))
+
     # ── Project open / recent ────────────────────────────────────────────────
 
     def _open_project_dialog(self):
@@ -572,6 +776,7 @@ class RunStudyTab(QWidget):
         self._populate_study_setup()
         self._run_preflight()
         self._refresh_runs_table()
+        self._refresh_output_panels()
 
         self._status_label.setText(f"Open: {project.path.name}")
         self._status_label.setStyleSheet("color: #2a7a2a; font-weight: bold;")
@@ -963,6 +1168,8 @@ class RunStudyTab(QWidget):
             row = self._run_rows.get(run_id)
             if row is not None:
                 self._set_cell(row, 6, "100%")
+            # This run's CSVs just landed -- make them selectable (G-ENH-4).
+            self._refresh_output_panels()
         elif etype == "video_error":
             run_id = event.get("run_id", "")
             self._row_status(run_id, "error", "#b22222")
@@ -983,6 +1190,7 @@ class RunStudyTab(QWidget):
         self._one_off_worker = None
         if self._project:
             self._refresh_runs_table()
+            self._refresh_output_panels()
 
     def _append_log(self, msg: str):
         self._log_box.append(str(msg))
