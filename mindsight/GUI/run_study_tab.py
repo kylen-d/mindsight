@@ -326,14 +326,20 @@ class RunStudyTab(QWidget):
         outer.setContentsMargins(8, 8, 8, 8)
         outer.setSpacing(6)
 
-        # Project picker row + Recent dropdown (D12)
+        # Project picker row: editable path field (type/paste + Enter or Open,
+        # G-FIX-3) + Browse dialog + Recent dropdown (D12)
         top = QHBoxLayout()
         top.addWidget(QLabel("Project:"))
         self._project_dir = QLineEdit()
-        self._project_dir.setPlaceholderText("Open a MindSight project folder...")
-        self._project_dir.setReadOnly(True)
+        self._project_dir.setPlaceholderText(
+            "Type or paste a project folder path, or Browse...")
+        self._project_dir.returnPressed.connect(self._open_typed_path)
         top.addWidget(self._project_dir, 1)
-        open_btn = QPushButton("Open...")
+        go_btn = QPushButton("Open")
+        go_btn.setToolTip("Open the typed project path")
+        go_btn.clicked.connect(self._open_typed_path)
+        top.addWidget(go_btn)
+        open_btn = QPushButton("Browse...")
         open_btn.clicked.connect(self._open_project_dialog)
         top.addWidget(open_btn)
         self._recent = QComboBox()
@@ -510,6 +516,13 @@ class RunStudyTab(QWidget):
         if path:
             self._open_project(path)
 
+    def _open_typed_path(self):
+        """Open the path typed/pasted into the project field (G-FIX-3)."""
+        text = self._project_dir.text().strip()
+        if not text:
+            return
+        self._open_project(str(Path(text).expanduser()))
+
     def _open_recent(self, index: int):
         path = self._recent.itemData(index)
         if path:
@@ -532,7 +545,10 @@ class RunStudyTab(QWidget):
         from mindsight.project.project import Project
         try:
             project = Project.open(path_str)
-        except (FileNotFoundError, ValueError) as exc:
+        except Exception as exc:
+            # A typed/pasted path can be anything (missing dir, a file, a
+            # broken project.yaml...) -- always a readable inline error, never
+            # a crash (G-FIX-3).
             self._status_label.setText(f"Invalid project: {exc}")
             self._status_label.setStyleSheet("color: #b22222; font-weight: bold;")
             return

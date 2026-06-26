@@ -125,6 +125,44 @@ def test_rerun_all_previews_redo(qapp, tmp_path):
         assert tab._runs_table.item(r, 5).text() == "will process"
 
 
+# ── Editable project path field (G-FIX-3) ────────────────────────────────────
+
+def test_typed_path_opens_project(qapp, tmp_path):
+    from mindsight.GUI.run_study_tab import RunStudyTab
+    proj = _make_project(tmp_path)
+    tab = RunStudyTab()
+    tab._project_dir.setText(str(proj))
+    tab._open_typed_path()
+    assert tab._project is not None
+    assert tab._project_path == proj.resolve()
+    assert tab._status_label.text().startswith("Open:")
+
+
+def test_typed_invalid_path_shows_inline_error(qapp, tmp_path):
+    from mindsight.GUI.run_study_tab import RunStudyTab
+    tab = RunStudyTab()
+    tab._project_dir.setText(str(tmp_path / "definitely" / "not" / "there"))
+    tab._open_typed_path()          # must not raise
+    assert tab._project is None
+    assert "Invalid project" in tab._status_label.text()
+    # a path pointing at a FILE (not a directory) is also a readable error
+    f = tmp_path / "somefile.txt"
+    f.write_text("x")
+    tab._project_dir.setText(str(f))
+    tab._open_typed_path()
+    assert tab._project is None
+    assert "Invalid project" in tab._status_label.text()
+
+
+def test_typed_empty_path_is_noop(qapp):
+    from mindsight.GUI.run_study_tab import RunStudyTab
+    tab = RunStudyTab()
+    tab._project_dir.setText("   ")
+    tab._open_typed_path()
+    assert tab._project is None
+    assert tab._status_label.text() == "No project open."
+
+
 # ── Manual dialog builds a valid RunSpec ─────────────────────────────────────
 
 def test_manual_dialog_builds_valid_runspec(qapp, tmp_path):
