@@ -66,153 +66,151 @@ def export_pipeline(parent, ns: Namespace) -> bool:
         return False
 
 
-def _namespace_to_yaml_dict(ns: Namespace) -> dict:
-    """Convert a Namespace to a structured YAML dict matching the pipeline format.
+# ══════════════════════════════════════════════════════════════════════════════
+# Schema-driven export (SP3.1 Step 17)
+# ══════════════════════════════════════════════════════════════════════════════
+#
+# The export is derived from the CANONICAL config-compat tables -- ``_YAML_MAP``
+# (yaml key <-> dest), ``_PHENOMENA_TOGGLES`` / ``_PHENOMENA_PARAMS`` (phenomena
+# list names + param keys) -- and the schema field defaults (via the ui-spec),
+# so there is no hand-written toggle/param map to drift.  Only-non-default keys
+# are emitted; the loader's baseline is the pipeline (schema/parser) default, so
+# a GUI namespace re-imports (load_pipeline -> apply_namespace) census-equal.
 
-    Reverses the flattening done by the YAML pipeline loader to produce a readable,
-    structured YAML file with detection, gaze, output, and phenomena sections.
+# Params that live in the phenomena list, grouped under their owning toggle.
+# The NAMES come from config-compat (_PHENOMENA_PARAMS); only the ownership
+# grouping lives here (the phenomena tracker each param configures).
+_PHENOMENA_PARAM_OWNER: dict[str, str] = {
+    "ja_window": "joint_attention",
+    "ja_quorum": "joint_attention",
+    "ja_window_thresh": "joint_attention",
+    "social_ref_window": "social_ref",
+    "gaze_follow_lag": "gaze_follow",
+    "aversion_window": "gaze_aversion",
+    "aversion_conf": "gaze_aversion",
+    "scanpath_dwell": "scanpath",
+}
+
+# Model-wiring dests (gaze backends) with no schema home -- passed through the
+# ``plugins`` section verbatim (hyphens<->underscores) by the loader.
+_MODEL_WIRING_DESTS = (
+    "mgaze_model", "mgaze_arch", "mgaze_dataset",
+    "gazelle_model", "gazelle_name", "gazelle_inout_threshold",
+    "gazelle_device", "gazelle_skip_frames", "gazelle_fp16", "gazelle_compile",
+)
+
+
+def _norm(v):
+    """Normalize a value for a default comparison (sets -> sorted lists)."""
+    if isinstance(v, (set, frozenset)):
+        return sorted(v)
+    if isinstance(v, tuple):
+        return list(v)
+    return v
+
+
+def _export_baseline() -> dict:
+    """Per-dest pipeline default (what an omitted YAML key means on re-import).
+
+    Parser defaults, overridden by the schema field default for every
+    schema-backed ui field -- so a GUI namespace whose schema knobs sit at their
+    pipeline default exports nothing for them, while GUI-only run-loop defaults
+    (e.g. no_dashboard on) still export as deliberate overrides.
     """
-    d = vars(ns) if hasattr(ns, '__dict__') else {}
+    from mindsight.cli_flags import build_parser
+    from mindsight.GUI.ui_spec import build_ui_spec, iter_fields
+    base = dict(vars(build_parser().parse_args([])))
+    for f in iter_fields(build_ui_spec()):
+        if f.schema_path is not None:
+            base[f.dest] = f.default
+    return base
 
-    cfg = {}
 
-    # Source
-    source = d.get("source", "0")
-    if source and source != "0":
-        cfg["source"] = source
+def _plugin_export_dests() -> set:
+    """Schema knobs with no ``_YAML_MAP`` key + the model-wiring dests: they
+    round-trip through the loader's ``plugins`` pass-through section."""
+    from mindsight.config_compat import (
+        _PHENOMENA_PARAMS,
+        _PHENOMENA_TOGGLES,
+        _YAML_MAP,
+    )
+    from mindsight.GUI.ui_spec import all_dests, build_ui_spec
+    yaml_dests = set(_YAML_MAP.values())
+    phen_dests = set(_PHENOMENA_TOGGLES.values()) | set(_PHENOMENA_PARAMS.values())
+    ui_only = all_dests(build_ui_spec()) - yaml_dests - phen_dests
+    return ui_only | set(_MODEL_WIRING_DESTS)
 
-    # Detection section
-    detection = {}
-    if d.get("model") and d.get("model") != "yolov8n.pt":
-        detection["model"] = d["model"]
-    if d.get("conf") and d["conf"] != 0.35:
-        detection["conf"] = d["conf"]
-    if d.get("classes"):
-        detection["classes"] = d["classes"]
-    if d.get("blacklist"):
-        detection["blacklist"] = list(d["blacklist"]) if isinstance(d["blacklist"], set) else d["blacklist"]
-    if d.get("detect_scale") and d["detect_scale"] != 1.0:
-        detection["detect_scale"] = d["detect_scale"]
-    if d.get("vp_file"):
-        detection["vp_file"] = d["vp_file"]
-    if d.get("vp_model") and d["vp_model"] != "yoloe-26l-seg.pt":
-        detection["vp_model"] = d["vp_model"]
-    if d.get("skip_frames") and d["skip_frames"] != 1:
-        detection["skip_frames"] = d["skip_frames"]
-    if d.get("obj_persistence") and d["obj_persistence"] != 0:
-        detection["obj_persistence"] = d["obj_persistence"]
-    if detection:
-        cfg["detection"] = detection
 
-    # Gaze section
-    gaze = {}
-    if d.get("ray_length") and d["ray_length"] != 1.0:
-        gaze["ray_length"] = d["ray_length"]
-    ar = d.get("adaptive_ray", "off")
-    if ar and ar != "off":
-        gaze["adaptive_ray"] = ar
-    if d.get("snap_dist") and d["snap_dist"] != 150.0:
-        gaze["snap_dist"] = d["snap_dist"]
-    if d.get("snap_bbox_scale") is not None and d["snap_bbox_scale"] != 0.0:
-        gaze["snap_bbox_scale"] = d["snap_bbox_scale"]
-    if d.get("snap_w_dist") is not None and d["snap_w_dist"] != 1.0:
-        gaze["snap_w_dist"] = d["snap_w_dist"]
-    if d.get("snap_w_size") is not None and d["snap_w_size"] != 0.0:
-        gaze["snap_w_size"] = d["snap_w_size"]
-    if d.get("snap_w_intersect") is not None and d["snap_w_intersect"] != 0.5:
-        gaze["snap_w_intersect"] = d["snap_w_intersect"]
-    if d.get("conf_ray"):
-        gaze["conf_ray"] = True
-    if d.get("gaze_tips"):
-        gaze["gaze_tips"] = True
-    if d.get("tip_radius") and d["tip_radius"] != 80:
-        gaze["tip_radius"] = d["tip_radius"]
-    if d.get("gaze_cone") and d["gaze_cone"] != 0.0:
-        gaze["gaze_cone"] = d["gaze_cone"]
-    if d.get("gaze_lock"):
-        gaze["gaze_lock"] = True
-    if d.get("dwell_frames") and d["dwell_frames"] != 15:
-        gaze["dwell_frames"] = d["dwell_frames"]
-    if d.get("lock_dist") and d["lock_dist"] != 100:
-        gaze["lock_dist"] = d["lock_dist"]
-    if d.get("gaze_debug"):
-        gaze["gaze_debug"] = True
-    if d.get("snap_release_frames") and d["snap_release_frames"] != 5:
-        gaze["snap_release_frames"] = d["snap_release_frames"]
-    if d.get("snap_engage_frames") and d["snap_engage_frames"] != 0:
-        gaze["snap_engage_frames"] = d["snap_engage_frames"]
-    if d.get("reid_grace_seconds") and d["reid_grace_seconds"] != 1.0:
-        gaze["reid_grace_seconds"] = d["reid_grace_seconds"]
-    if gaze:
-        cfg["gaze"] = gaze
+def _set_nested(cfg: dict, yaml_key: str, value) -> None:
+    """Place *value* at a (possibly dotted) YAML key inside *cfg*."""
+    if "." not in yaml_key:
+        cfg[yaml_key] = value
+        return
+    section, field = yaml_key.split(".", 1)
+    cfg.setdefault(section, {})[field] = value
 
-    # Output section
-    output = {}
-    if d.get("save"):
-        output["save_video"] = d["save"] if isinstance(d["save"], str) else True
-    if d.get("log"):
-        output["log_csv"] = d["log"]
-    if d.get("summary"):
-        output["summary_csv"] = d["summary"] if isinstance(d["summary"], str) else True
-    if d.get("heatmap"):
-        output["heatmaps"] = d["heatmap"] if isinstance(d["heatmap"], str) else True
-    if d.get("anonymize"):
-        output["anonymize"] = d["anonymize"]
-        padding = d.get("anonymize_padding", 0.3)
-        if padding != 0.3:
-            output["anonymize_padding"] = padding
-    if output:
-        cfg["output"] = output
 
-    # Phenomena section
-    phenomena = []
-    # Simple toggles
-    _toggle_map = {
-        "joint_attention": "joint_attention",
-        "mutual_gaze": "mutual_gaze",
-        "social_ref": "social_referencing",
-        "gaze_follow": "gaze_following",
-        "gaze_aversion": "gaze_aversion",
-        "scanpath": "scanpath",
-        "gaze_leader": "gaze_leadership",
-        "attn_span": "attention_span",
-    }
-    _param_map = {
-        "joint_attention": {"ja_window": "ja_window", "ja_quorum": "ja_quorum",
-                           "ja_window_thresh": "ja_window_thresh"},
-        "social_referencing": {"social_ref_window": "window"},
-        "gaze_following": {"gaze_follow_lag": "lag"},
-        "gaze_aversion": {"aversion_window": "aversion_window", "aversion_conf": "aversion_conf"},
-        "scanpath": {"scanpath_dwell": "dwell"},
-    }
-    for attr, yaml_name in _toggle_map.items():
-        if d.get(attr):
-            params = {}
-            for ns_key, yaml_key in _param_map.get(yaml_name, {}).items():
-                val = d.get(ns_key)
-                if val is not None:
-                    params[yaml_key] = val
-            if params:
-                phenomena.append({yaml_name: params})
-            else:
-                phenomena.append(yaml_name)
+def _namespace_to_yaml_dict(ns: Namespace) -> dict:
+    """Convert a Namespace to a structured pipeline-YAML dict (schema-driven).
 
+    Emits only keys whose value differs from the pipeline default, in the layout
+    ``load_pipeline`` reads back: scalar detection/gaze/output/performance keys
+    via the canonical ``_YAML_MAP``, the phenomena list via the canonical
+    phenomena tables, and the model-wiring + no-YAML-key schema knobs under
+    ``plugins``.  ``load_pipeline(export(ns))`` re-imports census-equal.
+    """
+    from mindsight.config_compat import (
+        _PHENOMENA_PARAMS,
+        _PHENOMENA_TOGGLES,
+        _YAML_MAP,
+    )
+
+    d = vars(ns) if hasattr(ns, "__dict__") else {}
+    base = _export_baseline()
+    cfg: dict = {}
+
+    # 1. Scalar sections via the canonical yaml-key <-> dest table.  Phenomena
+    #    (list format) and the interval knob (plugins) are handled below.
+    for yaml_key, dest in _YAML_MAP.items():
+        if yaml_key.startswith("phenomena."):
+            continue
+        if dest not in d:
+            continue
+        val = _norm(d.get(dest))
+        if val == _norm(base.get(dest)):
+            continue
+        if val in (None, "", [], {}):
+            continue
+        _set_nested(cfg, yaml_key, val)
+
+    # 2. Phenomena list: canonical yaml names + only-non-default params.
+    key_by_dest = {dest: key for key, dest in _PHENOMENA_PARAMS.items()}
+    phenomena: list = []
+    for yaml_name, toggle_dest in _PHENOMENA_TOGGLES.items():
+        if not d.get(toggle_dest):
+            continue
+        params: dict = {}
+        for pdest, owner in _PHENOMENA_PARAM_OWNER.items():
+            if owner != toggle_dest or pdest not in d:
+                continue
+            val = d.get(pdest)
+            if val is not None and _norm(val) != _norm(base.get(pdest)):
+                params[key_by_dest[pdest]] = val
+        phenomena.append({yaml_name: params} if params else yaml_name)
     if phenomena:
         cfg["phenomena"] = phenomena
 
-    # Performance section
-    performance = {}
-    if d.get("fast"):
-        performance["fast"] = True
-    if d.get("skip_phenomena") and d["skip_phenomena"] > 0:
-        performance["skip_phenomena"] = d["skip_phenomena"]
-    if d.get("lite_overlay"):
-        performance["lite_overlay"] = True
-    if d.get("no_dashboard"):
-        performance["no_dashboard"] = True
-    if d.get("profile"):
-        performance["profile"] = True
-    if performance:
-        cfg["performance"] = performance
+    # 3. Plugins section: model wiring + schema knobs with no YAML key.  The
+    #    interval knob keeps its ``min_call_gap`` spelling (loader precedence).
+    plugins: dict = {}
+    for dest in sorted(_plugin_export_dests()):
+        if dest not in d:
+            continue
+        val = _norm(d.get(dest))
+        if val is None or val == _norm(base.get(dest)):
+            continue
+        plugins[dest] = val
+    if plugins:
+        cfg["plugins"] = plugins
 
     return cfg
