@@ -14,6 +14,33 @@ classifiers = [
     "Programming Language :: Python :: 3.12",
     "Topic :: Scientific/Engineering :: Image Recognition",
 ]
+dependencies = [
+    # Deep learning
+    "torch==2.10.0",
+    "torchvision==0.25.0",
+    "onnxruntime==1.24.2",
+    # Object detection
+    "ultralytics==8.4.14",
+    "clip @ git+https://github.com/ultralytics/CLIP.git@88ade288431a46233f1556d1e141901b3ef0a36b",
+    # Gaze estimation
+    "uniface==1.1.0",  # later releases return Face objects; the pipeline reads the dict face API validated in the golden regime
+    "timm==1.0.25",
+    "mediapipe==0.10.32",
+    "scikit-learn>=1.0",  # Gaze-LLE backend imports sklearn.metrics via the vendored gazelle package
+    # Computer vision
+    "opencv-contrib-python==4.13.0.92",
+    "Pillow==12.1.1",
+    # GUI
+    "PyQt6>=6.5",
+    # Data & analysis
+    "numpy>=1.24",
+    "matplotlib>=3.7",
+    "pandas>=2.0",
+    # Utilities
+    "PyYAML>=6.0",
+    "pydantic>=2.5",
+    "tqdm>=4.65",
+]
 
 [project.urls]
 Repository = "https://github.com/kylen-d/mindsight"
