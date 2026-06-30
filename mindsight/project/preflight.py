@@ -453,10 +453,55 @@ def _check_plugins(registries, work_ns) -> CheckResult:
     return CheckResult("plugins", label, _OK, f"all plugins loaded; {dc_note}")
 
 
-def _check_weights_verify_stub() -> CheckResult:
-    # D4: weight CHECKSUM verification against a manifest is an SP4 stub.
-    return CheckResult("weights_verify", "Weight verification", _OK,
-                       "checksum verification arrives with the model manager (SP4)")
+def _check_weights_verify(work_ns) -> CheckResult:
+    """Verify PRESENT configured weights against the checksummed manifest (D5).
+
+    For every weight ``collect_weights`` found on disk, look it up in
+    ``weights_manifest.json`` by filename: a checksum match is OK; a mismatch is
+    a FAIL (the file differs from the published weight); a weight with no
+    manifest entry is a WARN (a custom / user-supplied weight, allowed).  Missing
+    files are left to the ``weights`` check (this one only judges present bytes).
+    """
+    label = "Weight verification"
+    from mindsight import weights as weights_mod
+    from mindsight.outputs.provenance import collect_weights
+
+    present = {dest: w for dest, w in collect_weights(work_ns).items()
+               if w.get("sha256") and w["sha256"] != "missing"}
+    if not present:
+        return CheckResult("weights_verify", label, _OK,
+                           "no present weights to verify")
+    try:
+        weights_mod.load_manifest()
+    except weights_mod.WeightsError as exc:
+        return CheckResult("weights_verify", label, _WARN,
+                           f"manifest unavailable: {exc}",
+                           "reinstall or restore weights_manifest.json")
+
+    ok, mismatches, unknown = [], [], []
+    for dest, w in present.items():
+        name = Path(w.get("resolved", "")).name
+        entry = weights_mod.find_entry(name, backend=w.get("backend"))
+        if entry is None:
+            unknown.append(name)
+        elif entry.get("sha256") == w["sha256"]:
+            ok.append(f"{name} [{w['sha256'][:12]}]")
+        else:
+            mismatches.append((name, entry.get("label", name)))
+    if mismatches:
+        detail = "; ".join(f"{n} differs from the published '{lbl}' weight"
+                           for n, lbl in mismatches)
+        return CheckResult("weights_verify", label, _FAIL, detail,
+                           "re-download the weight via the Models tab "
+                           "(mindsight-weights --force)")
+    if unknown:
+        return CheckResult("weights_verify", label, _WARN,
+                           "custom weight(s) not in the manifest: "
+                           + ", ".join(unknown),
+                           "verified against the manifest where possible; "
+                           "custom weights are allowed")
+    return CheckResult("weights_verify", label, _OK,
+                       "all present weights match the manifest: " + "; ".join(ok))
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -520,7 +565,7 @@ def run_preflight(project_dir, project_cfg=None, ns=None, *,
         _safe("weights", "Weights",
               lambda: _check_weights(work_ns)),
         _safe("weights_verify", "Weight verification",
-              _check_weights_verify_stub),
+              lambda: _check_weights_verify(work_ns)),
         _safe("vp_file", "Visual prompt",
               lambda: _check_vp_file(project, work_ns)),
         _safe("runs_discovered", "Runs discovered",

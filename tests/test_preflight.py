@@ -123,9 +123,74 @@ def test_weights_missing_fails(tmp_path):
     assert c.severity == "fail" and "MISSING" in c.message
 
 
-def test_weights_verify_is_sp4_stub(tmp_path):
+def test_weights_verify_no_present_weights_ok(tmp_path):
     proj = _mk_project(tmp_path)
-    assert _by_id(run_preflight(proj, ns=_ns()), "weights_verify").severity == "ok"
+    c = _by_id(run_preflight(proj, ns=_ns()), "weights_verify")
+    assert c.severity == "ok" and "no present weights" in c.message
+
+
+def _tmp_weight_manifest(tmp_path, monkeypatch, data, sha):
+    """Point the weights module at a tmp manifest with one MGaze entry."""
+    import json
+
+    from mindsight import weights as weights_mod
+    wpath = tmp_path / "w.onnx"
+    wpath.write_bytes(data)
+    mpath = tmp_path / "weights_manifest.json"
+    mpath.write_text(json.dumps({"schema_version": 1, "weights": [
+        {"backend": "MGaze", "filename": "w.onnx", "label": "MobileGaze test",
+         "url": "https://example.invalid/w.onnx", "sha256": sha,
+         "size": len(data), "license": "MIT", "required": True,
+         "source": "github-release", "note": None}]}))
+    monkeypatch.setattr(weights_mod, "MANIFEST_PATH", mpath)
+    return wpath
+
+
+def test_weights_verify_match_ok(tmp_path, monkeypatch):
+    from mindsight.weights import sha256_file
+    proj = _mk_project(tmp_path)
+    data = b"real-weight-bytes"
+    good_sha = None
+    wpath = tmp_path / "w.onnx"
+    wpath.write_bytes(data)
+    good_sha = sha256_file(wpath)
+    _tmp_weight_manifest(tmp_path, monkeypatch, data, good_sha)
+    c = _by_id(run_preflight(proj, ns=_ns(mgaze_model=str(wpath))), "weights_verify")
+    assert c.severity == "ok" and "match the manifest" in c.message
+
+
+def test_weights_verify_tamper_fails(tmp_path, monkeypatch):
+    # G-TAMPER at unit level: manifest sha does not match the file's bytes.
+    proj = _mk_project(tmp_path)
+    wpath = _tmp_weight_manifest(tmp_path, monkeypatch, b"tampered", "0" * 64)
+    c = _by_id(run_preflight(proj, ns=_ns(mgaze_model=str(wpath))), "weights_verify")
+    assert c.severity == "fail"
+    assert "differs from the published" in c.message
+    assert "Models tab" in c.fix_hint
+
+
+def test_weights_verify_custom_weight_warns(tmp_path, monkeypatch):
+    import json
+
+    from mindsight import weights as weights_mod
+    proj = _mk_project(tmp_path)
+    custom = tmp_path / "my_custom.onnx"
+    custom.write_bytes(b"custom")
+    mpath = tmp_path / "weights_manifest.json"
+    mpath.write_text(json.dumps({"schema_version": 1, "weights": []}))
+    monkeypatch.setattr(weights_mod, "MANIFEST_PATH", mpath)
+    c = _by_id(run_preflight(proj, ns=_ns(mgaze_model=str(custom))), "weights_verify")
+    assert c.severity == "warn" and "custom weight" in c.message
+
+
+def test_weights_verify_manifest_unavailable_warns(tmp_path, monkeypatch):
+    from mindsight import weights as weights_mod
+    proj = _mk_project(tmp_path)
+    w = tmp_path / "w.onnx"
+    w.write_bytes(b"bytes")
+    monkeypatch.setattr(weights_mod, "MANIFEST_PATH", tmp_path / "gone.json")
+    c = _by_id(run_preflight(proj, ns=_ns(mgaze_model=str(w))), "weights_verify")
+    assert c.severity == "warn" and "manifest unavailable" in c.message
 
 
 # ── VP file ──────────────────────────────────────────────────────────────────
