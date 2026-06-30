@@ -50,6 +50,7 @@ Changelog = "https://github.com/kylen-d/mindsight/blob/main/CHANGELOG.md"
 [project.scripts]
 mindsight = "mindsight.cli:main"
 mindsight-gui = "mindsight.gui:main"
+mindsight-weights = "mindsight.weights:main"
 
 [build-system]
 requires = ["setuptools>=64", "wheel"]

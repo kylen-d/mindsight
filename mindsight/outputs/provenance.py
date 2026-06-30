@@ -31,7 +31,7 @@ from pathlib import Path
 
 from mindsight import __version__
 from mindsight.constants import OUTPUTS_ROOT as _OUTPUTS_ROOT
-from mindsight.weights import resolve_weight
+from mindsight.weights import resolve_weight, sha256_file
 
 MANIFEST_SCHEMA_VERSION = 1
 
@@ -100,18 +100,19 @@ _sha_compute_count = 0  # test hook: number of actual (uncached) hashings
 
 
 def _sha256_file(path: Path) -> str:
-    """sha256 of *path*, cached by (path, size, mtime_ns)."""
+    """sha256 of *path*, cached by (path, size, mtime_ns).
+
+    The actual hashing loop lives once in :func:`mindsight.weights.sha256_file`;
+    this wrapper adds a (path, size, mtime) cache so a batch hashes each weight
+    only once.
+    """
     global _sha_compute_count
     st = path.stat()
     key = (str(path), st.st_size, st.st_mtime_ns)
     cached = _SHA_CACHE.get(key)
     if cached is not None:
         return cached
-    h = hashlib.sha256()
-    with open(path, "rb") as fh:
-        for chunk in iter(lambda: fh.read(1 << 20), b""):
-            h.update(chunk)
-    digest = h.hexdigest()
+    digest = sha256_file(path)
     _SHA_CACHE[key] = digest
     _sha_compute_count += 1
     return digest

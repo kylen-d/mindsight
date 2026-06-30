@@ -1,0 +1,77 @@
+{
+  "schema_version": 1,
+  "weights": [
+    {
+      "backend": "YOLO",
+      "filename": "yolov8n.pt",
+      "label": "YOLO detector (yolov8n)",
+      "url": "https://github.com/ultralytics/assets/releases/download/v8.3.0/yolov8n.pt",
+      "sha256": "f59b3d833e2ff32e194b5bb8e08d211dc7c5bdf144b90d2c8412c47ccfc83b36",
+      "size": 6549796,
+      "license": "AGPL-3.0",
+      "required": true,
+      "source": "github-release",
+      "note": null
+    },
+    {
+      "backend": "Gazelle",
+      "filename": "gazelle_dinov2_vitb14.pt",
+      "label": "Gaze-LLE (DINOv2 ViT-B/14)",
+      "url": "https://github.com/fkryan/gazelle/releases/download/v1.0.0/gazelle_dinov2_vitb14_inout.pt",
+      "sha256": "451f76e5a1fa14429283d8612785d9aa94362f4754cb8a27d650482e3a2ac00e",
+      "size": 12503655,
+      "license": "MIT",
+      "required": true,
+      "source": "github-release",
+      "note": "Published upstream as gazelle_dinov2_vitb14_inout.pt; MindSight stores it as gazelle_dinov2_vitb14.pt. Byte-identical (sha256 verified against a fresh upstream download)."
+    },
+    {
+      "backend": "MGaze",
+      "filename": "resnet50_gaze.onnx",
+      "label": "MobileGaze (ResNet-50, ONNX)",
+      "url": "https://github.com/yakhyo/gaze-estimation/releases/download/weights/resnet50_gaze.onnx",
+      "sha256": "bb28d421565adc4dfb665742f8fc80bdef36dd8caa0c87e040e0937f9fdca9a6",
+      "size": 95425874,
+      "license": "MIT",
+      "required": true,
+      "source": "github-release",
+      "note": null
+    },
+    {
+      "backend": "MGaze",
+      "filename": "mobileone_s0_gaze.onnx",
+      "label": "MobileGaze (MobileOne-S0, ONNX)",
+      "url": "https://github.com/yakhyo/gaze-estimation/releases/download/weights/mobileone_s0_gaze.onnx",
+      "sha256": "8b4fdc4e3da44733c9a82e7776b411e4a39f94e8e285aee0fc85a548a55f7d9f",
+      "size": 4974521,
+      "license": "MIT",
+      "required": true,
+      "source": "github-release",
+      "note": null
+    },
+    {
+      "backend": "MGaze",
+      "filename": "mobileone_s0.pt",
+      "label": "MobileGaze (MobileOne-S0, PyTorch)",
+      "url": "https://github.com/yakhyo/gaze-estimation/releases/download/weights/mobileone_s0.pt",
+      "sha256": "f50c99087f85f9a4fc8d75bd394262b6fcbc4ae21112928f67fabbf840664c95",
+      "size": 4980469,
+      "license": "MIT",
+      "required": false,
+      "source": "github-release",
+      "note": null
+    },
+    {
+      "backend": "MobileClip",
+      "filename": "mobileclip_blt.ts",
+      "label": "MobileCLIP (YOLOE text-prompt encoder)",
+      "url": null,
+      "sha256": null,
+      "size": null,
+      "license": "Apple ML Research (see Ultralytics)",
+      "required": false,
+      "source": "ultralytics-auto",
+      "note": "Fetched automatically by Ultralytics on first YOLOE text/visual-prompt use (currently mobileclip_blt.ts from the ultralytics/assets release). Only needed for YOLOE visual prompts."
+    }
+  ]
+}
