@@ -11,7 +11,7 @@ and writes:
   nargs, const, choices, required, metavar, help, and owning argument-group title.
 - ``tests/data/cli_help_golden.txt``: ``parser.format_help()`` at COLUMNS=100.
 
-Run:  ~/claudeyolo/bin/python scripts/capture_cli_parser_spec.py
+Run:  python scripts/capture_cli_parser_spec.py
 """
 
 import argparse
