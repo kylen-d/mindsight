@@ -42,7 +42,9 @@ if %ERRORLEVEL% EQU 0 (
     ) else (
         echo [1/7] Installing uv package manager ...
         powershell -NoProfile -ExecutionPolicy Bypass -Command "irm https://astral.sh/uv/install.ps1 | iex"
-        if not %ERRORLEVEL% EQU 0 (
+        REM  Dynamic 'errorlevel' form: %ERRORLEVEL% would expand stale here
+        REM  (parse-time) because this check sits inside a parenthesized block.
+        if errorlevel 1 (
             echo [1/7] Installing uv ... FAILED
             goto fail
         )
@@ -89,7 +91,7 @@ REM ==========================================================================
 set "FAILSTEP=4 (install dependencies)"
 echo [4/7] Installing dependencies from the locked manifest (this can take a while) ...
 set "UV_PROJECT_ENVIRONMENT=%VENV_DIR%"
-uv sync --frozen --project "%APP_DIR%"
+uv sync --frozen --python 3.12 --project "%APP_DIR%"
 if not %ERRORLEVEL% EQU 0 (
     echo [4/7] Installing dependencies ... FAILED
     goto fail
