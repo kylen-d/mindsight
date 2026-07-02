@@ -11,13 +11,22 @@ adjustments only need to be made in one place.  Organized by domain:
     - UI labels & strings
     - Heatmap rendering
 """
+import os
 from pathlib import Path
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # Paths & file types
 # ═══════════════════════════════════════════════════════════════════════════════
 
-PROJECT_ROOT = Path(__file__).parent.parent
+# Data root for Weights/, Outputs/, Plugins/, and projects.  Defaults to the
+# repository root (two levels up from this file), preserving the source-tree /
+# editable-install layout byte-for-byte.  Setting MINDSIGHT_HOME points every
+# derived path at a user-visible home instead -- the seam a non-editable wheel
+# install needs so run-time data does not land under site-packages.
+if os.environ.get("MINDSIGHT_HOME"):
+    PROJECT_ROOT = Path(os.environ["MINDSIGHT_HOME"])
+else:
+    PROJECT_ROOT = Path(__file__).parent.parent
 
 # Recognized still-image extensions — used to distinguish image vs video input.
 IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".bmp", ".tiff", ".tif", ".webp"}
