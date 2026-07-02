@@ -1,21 +1,26 @@
 #!/usr/bin/env python3
-"""Build the MindSight SP4.0 Windows release zip.
+"""Build a MindSight SP4.0 release zip (Windows or macOS).
 
 The zip is assembled from ``git archive`` (the committed tree only) so that no
 untracked working-tree junk -- weights, outputs, local reference material, dev
 virtualenv paths -- can ever leak into a release. Layout (D7):
 
     MindSight-SP4.0-win.zip
-    |-- Install-MindSight.bat     double-click entry point
-    |-- INSTALL-WINDOWS.md        one-page install / troubleshooting guide
-    `-- app/                      git-archive of the repo (source tree)
+    |-- Install-MindSight.bat       double-click entry point
+    |-- INSTALL-WINDOWS.md          one-page install / troubleshooting guide
+    `-- app/                        git-archive of the repo (source tree)
+
+    MindSight-SP4.0-mac.zip
+    |-- Install-MindSight.command   right-click > Open entry point (exec bit set)
+    |-- INSTALL-MACOS.md            one-page install / troubleshooting guide
+    `-- app/                        git-archive of the repo (source tree)
 
 After building, a content census runs over the finished zip and fails the
 build if any forbidden pattern is present (weights, .git, localref, dev-venv
 paths). Absence is the pass.
 
 Usage:
-    python installer/make_release_zip.py [--out DIR] [--ref GITREF]
+    python installer/make_release_zip.py [--platform win|mac] [--out DIR] [--ref GITREF]
 """
 from __future__ import annotations
 
@@ -29,11 +34,24 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 INSTALLER_DIR = REPO_ROOT / "installer"
-ZIP_NAME = "MindSight-SP4.0-win.zip"
 
-# Files copied to the zip root (outside app/). The .bat is rewritten with CRLF
-# line endings so cmd.exe parses labels/goto reliably on Windows.
-ROOT_FILES = ["Install-MindSight.bat", "INSTALL-WINDOWS.md"]
+# Per-platform zip name and the files copied to the zip root (outside app/).
+# The .bat is rewritten with CRLF line endings so cmd.exe parses labels/goto
+# reliably on Windows; the .command keeps LF and is given a Unix exec bit so
+# the double-click / right-click > Open flow works after extraction.
+PLATFORMS = {
+    "win": {
+        "zip_name": "MindSight-SP4.0-win.zip",
+        "root_files": ["Install-MindSight.bat", "INSTALL-WINDOWS.md"],
+    },
+    "mac": {
+        "zip_name": "MindSight-SP4.0-mac.zip",
+        "root_files": ["Install-MindSight.command", "INSTALL-MACOS.md"],
+    },
+}
+
+# Unix mode bits for the executable launcher script inside the mac zip.
+EXEC_EXTERNAL_ATTR = (0o100755 << 16)
 
 # --- Census rules ----------------------------------------------------------
 # A path fails if any of its components matches one of these names exactly, or
@@ -61,9 +79,10 @@ def run(cmd: list[str]) -> bytes:
     return subprocess.run(cmd, cwd=REPO_ROOT, check=True, stdout=subprocess.PIPE).stdout
 
 
-def build_zip(out_dir: Path, ref: str) -> Path:
+def build_zip(out_dir: Path, ref: str, platform: str) -> Path:
     out_dir.mkdir(parents=True, exist_ok=True)
-    zip_path = out_dir / ZIP_NAME
+    spec = PLATFORMS[platform]
+    zip_path = out_dir / spec["zip_name"]
 
     # Snapshot the tracked tree at `ref` as a tar stream (respects the index --
     # gitignored weights/outputs/localref/test_data are absent by construction).
@@ -77,7 +96,7 @@ def build_zip(out_dir: Path, ref: str) -> Path:
                 data = tf.extractfile(member).read()
                 zf.writestr(f"app/{member.name}", data)
 
-        for name in ROOT_FILES:
+        for name in spec["root_files"]:
             src = INSTALLER_DIR / name
             if not src.exists():
                 raise SystemExit(f"ERROR: missing required file {src}")
@@ -85,7 +104,14 @@ def build_zip(out_dir: Path, ref: str) -> Path:
             if name.endswith(".bat"):
                 # Normalise to CRLF for cmd.exe.
                 data = data.replace(b"\r\n", b"\n").replace(b"\n", b"\r\n")
-            zf.writestr(name, data)
+            if name.endswith(".command"):
+                # Keep LF; carry the Unix exec bit so extraction preserves +x.
+                info = zipfile.ZipInfo(name)
+                info.compress_type = zipfile.ZIP_DEFLATED
+                info.external_attr = EXEC_EXTERNAL_ATTR
+                zf.writestr(info, data)
+            else:
+                zf.writestr(name, data)
 
     return zip_path
 
@@ -162,14 +188,16 @@ def census(zip_path: Path) -> int:
 
 
 def main(argv=None) -> int:
-    parser = argparse.ArgumentParser(description="Build the MindSight SP4.0 Windows release zip.")
+    parser = argparse.ArgumentParser(description="Build a MindSight SP4.0 release zip.")
+    parser.add_argument("--platform", choices=sorted(PLATFORMS), default="win",
+                        help="Target platform for the zip (default: win).")
     parser.add_argument("--out", default=str(REPO_ROOT / "dist"),
                         help="Output directory for the zip (default: ./dist).")
     parser.add_argument("--ref", default="HEAD",
                         help="Git ref to archive (default: HEAD).")
     args = parser.parse_args(argv)
 
-    zip_path = build_zip(Path(args.out).expanduser().resolve(), args.ref)
+    zip_path = build_zip(Path(args.out).expanduser().resolve(), args.ref, args.platform)
     print(f"Built {zip_path}")
     violations = census(zip_path)
     return 1 if violations else 0
