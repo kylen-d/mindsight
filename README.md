@@ -150,6 +150,8 @@ Pillow                       # Image handling
 
 ## Installation
 
+> **Windows (interim installer):** Windows users can skip the manual steps below with the double-click bootstrap installer in [`installer/`](installer/) -- see [`installer/INSTALL-WINDOWS.md`](installer/INSTALL-WINDOWS.md). It provisions a pinned Python 3.12 environment, installs MindSight with locked dependencies, downloads the required model weights, and creates Desktop and Start-menu shortcuts. The manual steps below remain the path for development installs and other platforms.
+
 ### 1. Clone the repository
 
 ```bash
@@ -184,14 +186,16 @@ python scripts/install_dependencies.py        # auto-detects CUDA / Apple Silico
 
 ### 4. Download gaze model weights
 
-All model weights are centralized in `Weights/{backend}/`. Download them with:
+All model weights are centralized in `Weights/{backend}/` and tracked in a checksummed manifest (`weights_manifest.json`). Download and verify them with the `mindsight-weights` console command (installed by step 3):
 
 ```bash
-python scripts/download_weights.py            # all backends
-python scripts/download_weights.py --backend MGaze   # specific backend
+mindsight-weights --required          # the four required weights (default backends)
+mindsight-weights --all               # every weight in the manifest
+mindsight-weights --backend MGaze     # a single backend
+mindsight-weights --verify-only       # check checksums without downloading
 ```
 
-For Gazelle, download a checkpoint separately and pass it via `--gazelle-model`.
+The Gaze-LLE (`gazelle_dinov2_vitb14.pt`) and MobileGaze default weights are part of the required set, so `--required` fetches everything the default pipeline needs. `python scripts/download_weights.py` remains available as an equivalent entry point for source checkouts.
 
 ### 5. YOLO weights
 
