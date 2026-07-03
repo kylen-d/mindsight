@@ -22,6 +22,22 @@ set "VENV_DIR=%INSTALL_DIR%\venv"
 set "UV_BIN=%USERPROFILE%\.local\bin"
 set "FAILSTEP="
 
+REM ---- Install mode ---------------------------------------------------------
+REM  Local-zip mode (default): the zip bundles an app\ source tree next to this
+REM  script; MindSight installs editable and PROJECT_ROOT resolves to that tree
+REM  (MINDSIGHT_HOME stays unset). Release mode: no app\ tree is bundled, so
+REM  MindSight installs non-editable from a wheel asset on the GitHub Release
+REM  and MINDSIGHT_HOME points every data path at "%APP_DIR%". The wheel URL is
+REM  supplied via MINDSIGHT_RELEASE_WHEEL_URL. Local-zip mode stays the default
+REM  until v1.0 assets ship.
+if not defined MINDSIGHT_RELEASE_WHEEL_URL set "MINDSIGHT_RELEASE_WHEEL_URL="
+set "RELEASE_WHEEL_URL=%MINDSIGHT_RELEASE_WHEEL_URL%"
+if exist "%SRC_DIR%\app" (
+    set "INSTALL_MODE=local"
+) else (
+    set "INSTALL_MODE=release"
+)
+
 echo(
 echo ============================================================
 echo   MindSight installer
@@ -75,8 +91,9 @@ REM ==========================================================================
 REM  [3/7] Deploy the MindSight source tree
 REM ==========================================================================
 set "FAILSTEP=3 (copy application files)"
-echo [3/7] Copying application files to "%APP_DIR%" ...
+echo [3/7] Preparing "%APP_DIR%" (mode: %INSTALL_MODE%) ...
 if not exist "%INSTALL_DIR%" mkdir "%INSTALL_DIR%"
+if "%INSTALL_MODE%"=="release" goto deploy_release
 REM robocopy exit codes 0-7 are success; 8 and above are real errors.
 robocopy "%SRC_DIR%\app" "%APP_DIR%" /E /NFL /NDL /NJH /NJS /NP >nul
 if %ERRORLEVEL% GEQ 8 (
@@ -84,6 +101,16 @@ if %ERRORLEVEL% GEQ 8 (
     goto fail
 )
 echo [3/7] Application files in place ... OK
+goto after_deploy
+
+:deploy_release
+REM  Release mode: "%APP_DIR%" is the data home (Weights/Outputs/Projects),
+REM  not a source tree; MINDSIGHT_HOME points here for the rest of the run.
+if not exist "%APP_DIR%" mkdir "%APP_DIR%"
+set "MINDSIGHT_HOME=%APP_DIR%"
+echo [3/7] Data home ready at "%APP_DIR%" ... OK
+
+:after_deploy
 
 REM ==========================================================================
 REM  [4/7] Create the virtual environment and install locked dependencies
@@ -91,12 +118,41 @@ REM ==========================================================================
 set "FAILSTEP=4 (install dependencies)"
 echo [4/7] Installing dependencies from the locked manifest (this can take a while) ...
 set "UV_PROJECT_ENVIRONMENT=%VENV_DIR%"
+if "%INSTALL_MODE%"=="release" goto deps_release
 uv sync --frozen --python 3.12 --project "%APP_DIR%"
 if not %ERRORLEVEL% EQU 0 (
     echo [4/7] Installing dependencies ... FAILED
     goto fail
 )
 echo [4/7] Dependencies installed (editable) ... OK
+goto after_deps
+
+:deps_release
+if not defined RELEASE_WHEEL_URL goto deps_release_nourl
+if "%RELEASE_WHEEL_URL%"=="" goto deps_release_nourl
+uv venv --python 3.12 "%VENV_DIR%"
+if not %ERRORLEVEL% EQU 0 (
+    echo [4/7] Creating virtual environment ... FAILED
+    goto fail
+)
+uv pip install --python "%VENV_DIR%\Scripts\python.exe" "%RELEASE_WHEEL_URL%"
+if not %ERRORLEVEL% EQU 0 (
+    echo [4/7] Installing from release wheel ... FAILED
+    echo       Usually a dropped connection. Re-run this installer to retry.
+    goto fail
+)
+echo [4/7] Dependencies installed (from release wheel) ... OK
+goto after_deps
+
+:deps_release_nourl
+echo [4/7] Installing dependencies ... FAILED
+echo       Release mode needs a wheel URL, but MINDSIGHT_RELEASE_WHEEL_URL
+echo       is not set and this zip has no bundled app\ tree. Use a local-zip
+echo       installer, or set MINDSIGHT_RELEASE_WHEEL_URL to the wheel asset
+echo       on the GitHub Release.
+goto fail
+
+:after_deps
 
 REM ==========================================================================
 REM  [5/7] GPU: install the CUDA build of PyTorch when an NVIDIA GPU is present
@@ -145,7 +201,20 @@ REM ==========================================================================
 set "FAILSTEP=7 (create shortcuts)"
 echo [7/7] Creating Desktop and Start Menu shortcuts ...
 set "GUI_EXE=%VENV_DIR%\Scripts\mindsight-gui.exe"
-powershell -NoProfile -ExecutionPolicy Bypass -Command "$s = New-Object -ComObject WScript.Shell; $desktop = $s.SpecialFolders('Desktop'); $programs = $s.SpecialFolders('Programs'); foreach ($dir in @($desktop, $programs)) { $lnk = $s.CreateShortcut((Join-Path $dir 'MindSight.lnk')); $lnk.TargetPath = '%GUI_EXE%'; $lnk.WorkingDirectory = '%APP_DIR%'; $lnk.Description = 'MindSight eye-tracking analysis'; $lnk.Save() }"
+REM  Local mode points the shortcut straight at the GUI exe (unchanged). Release
+REM  mode points it at a tiny launcher that exports MINDSIGHT_HOME first, since a
+REM  .lnk cannot carry an environment variable and the wheel lives in
+REM  site-packages (PROJECT_ROOT would otherwise resolve there).
+set "SHORTCUT_TARGET=%GUI_EXE%"
+if not "%INSTALL_MODE%"=="release" goto make_shortcut
+set "LAUNCH_BAT=%APP_DIR%\MindSight-Launch.bat"
+> "%LAUNCH_BAT%" echo @echo off
+>> "%LAUNCH_BAT%" echo set "MINDSIGHT_HOME=%APP_DIR%"
+>> "%LAUNCH_BAT%" echo start "" "%GUI_EXE%"
+set "SHORTCUT_TARGET=%LAUNCH_BAT%"
+
+:make_shortcut
+powershell -NoProfile -ExecutionPolicy Bypass -Command "$s = New-Object -ComObject WScript.Shell; $desktop = $s.SpecialFolders('Desktop'); $programs = $s.SpecialFolders('Programs'); foreach ($dir in @($desktop, $programs)) { $lnk = $s.CreateShortcut((Join-Path $dir 'MindSight.lnk')); $lnk.TargetPath = '%SHORTCUT_TARGET%'; $lnk.WorkingDirectory = '%APP_DIR%'; $lnk.Description = 'MindSight eye-tracking analysis'; $lnk.Save() }"
 if not %ERRORLEVEL% EQU 0 (
     echo [7/7] Creating shortcuts ... FAILED
     echo       MindSight is installed; you can launch it with:
