@@ -25,6 +25,46 @@ from pathlib import Path
 
 from .widgets import load_vp_file, vp_to_yoloe_args
 
+
+# ══════════════════════════════════════════════════════════════════════════════
+# Background worker: Weight downloads (manifest-driven, shared by tabs)
+# ══════════════════════════════════════════════════════════════════════════════
+
+class WeightsDownloadWorker(threading.Thread):
+    """Download a list of manifest entries off the GUI thread.
+
+    Drives :func:`mindsight.weights.download` for each *entry* and reports via
+    *out_q* so the caller (Models tab, Analyze-Footage preflight) never blocks
+    the UI.  Messages are ``(kind, entry, payload)`` tuples:
+
+    * ``("log", entry, str)``   -- a progress line from the downloader.
+    * ``("done", entry, Path)`` -- that entry finished and verified.
+    * ``("error", entry, str)`` -- a plain-English failure (G-OFFLINE UX).
+    * ``("finished", None, None)`` -- the whole batch is done (always last).
+
+    *dest_for* optionally maps an entry to a destination path (tests point it at
+    a tmp weights dir); when ``None`` the manifest's resolved path is used.
+    """
+
+    def __init__(self, entries, out_q: queue.Queue, *, dest_for=None):
+        super().__init__(daemon=True)
+        self._entries = list(entries)
+        self._q = out_q
+        self._dest_for = dest_for
+
+    def run(self):
+        from mindsight import weights
+        for entry in self._entries:
+            try:
+                dest = self._dest_for(entry) if self._dest_for else None
+                path = weights.download(
+                    entry, dest=dest,
+                    progress=lambda msg, e=entry: self._q.put(("log", e, msg)))
+                self._q.put(("done", entry, path))
+            except weights.WeightsError as exc:
+                self._q.put(("error", entry, str(exc)))
+        self._q.put(("finished", None, None))
+
 # ══════════════════════════════════════════════════════════════════════════════
 # Background worker: Gaze Tracker (namespace-driven, full CLI parity)
 # ══════════════════════════════════════════════════════════════════════════════
