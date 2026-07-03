@@ -26,6 +26,18 @@
       "note": "Published upstream as gazelle_dinov2_vitb14_inout.pt; MindSight stores it as gazelle_dinov2_vitb14.pt. Byte-identical (sha256 verified against a fresh upstream download)."
     },
     {
+      "backend": "Gazelle",
+      "filename": "gazelle_dinov2_vitl14.pt",
+      "label": "Gaze-LLE (DINOv2 ViT-L/14)",
+      "url": "https://github.com/fkryan/gazelle/releases/download/v1.0.0/gazelle_dinov2_vitl14.pt",
+      "sha256": "abb2950b3f953d145465eb81811ef61abeb61874e009c5a712dc89036f3c4bde",
+      "size": 12630270,
+      "license": "MIT",
+      "required": false,
+      "source": "github-release",
+      "note": "Larger ViT-L/14 Gaze-LLE backbone. sha256 recorded from a fresh upstream download; a local copy predating the manifest may verify as mismatch -- re-download from the Models tab to align it."
+    },
+    {
       "backend": "MGaze",
       "filename": "resnet50_gaze.onnx",
       "label": "MobileGaze (ResNet-50, ONNX)",
@@ -60,6 +72,66 @@
       "required": false,
       "source": "github-release",
       "note": null
+    },
+    {
+      "backend": "MGaze",
+      "filename": "resnet18.pt",
+      "label": "MobileGaze (ResNet-18, PyTorch)",
+      "url": "https://github.com/yakhyo/gaze-estimation/releases/download/weights/resnet18.pt",
+      "sha256": "a7038e0a2927c59a16bbe9031cadf6f19dabfa4c7bbd82e88262515ece75ede2",
+      "size": 45151049,
+      "license": "MIT",
+      "required": false,
+      "source": "github-release",
+      "note": "sha256 recorded from a fresh upstream download; a local copy predating the manifest may verify as mismatch -- re-download from the Models tab to align it."
+    },
+    {
+      "backend": "MGaze",
+      "filename": "resnet18_gaze.onnx",
+      "label": "MobileGaze (ResNet-18, ONNX)",
+      "url": "https://github.com/yakhyo/gaze-estimation/releases/download/weights/resnet18_gaze.onnx",
+      "sha256": "404fec1efd07ff49f981e47f461c20c2627119e465ec441bbd1c067d3f16e657",
+      "size": 45066134,
+      "license": "MIT",
+      "required": false,
+      "source": "github-release",
+      "note": "sha256 recorded from a fresh upstream download; a local copy predating the manifest may verify as mismatch -- re-download from the Models tab to align it."
+    },
+    {
+      "backend": "MGaze",
+      "filename": "resnet34.pt",
+      "label": "MobileGaze (ResNet-34, PyTorch)",
+      "url": "https://github.com/yakhyo/gaze-estimation/releases/download/weights/resnet34.pt",
+      "sha256": "c917b6b801e375b4b612b8fb6ea63a65a481b0a697d49c5028fa5e34da509ba0",
+      "size": 85641961,
+      "license": "MIT",
+      "required": false,
+      "source": "github-release",
+      "note": "sha256 recorded from a fresh upstream download; a local copy predating the manifest may verify as mismatch -- re-download from the Models tab to align it."
+    },
+    {
+      "backend": "MGaze",
+      "filename": "resnet34_gaze.onnx",
+      "label": "MobileGaze (ResNet-34, ONNX)",
+      "url": "https://github.com/yakhyo/gaze-estimation/releases/download/weights/resnet34_gaze.onnx",
+      "sha256": "c8e6b14f6095d2425241b9302aa663d9a23b7dfb9d43941352b718c91dc7f2cf",
+      "size": 85491644,
+      "license": "MIT",
+      "required": false,
+      "source": "github-release",
+      "note": "sha256 recorded from a fresh upstream download; a local copy predating the manifest may verify as mismatch -- re-download from the Models tab to align it."
+    },
+    {
+      "backend": "MGaze",
+      "filename": "resnet50.pt",
+      "label": "MobileGaze (ResNet-50, PyTorch)",
+      "url": "https://github.com/yakhyo/gaze-estimation/releases/download/weights/resnet50.pt",
+      "sha256": "75efe4d8145542b8f070449facd48d8c16aeed58b79ee80f3dbb95207bdae346",
+      "size": 95816195,
+      "license": "MIT",
+      "required": false,
+      "source": "github-release",
+      "note": "sha256 recorded from a fresh upstream download; a local copy predating the manifest may verify as mismatch -- re-download from the Models tab to align it."
     },
     {
       "backend": "MobileClip",
