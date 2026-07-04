@@ -215,6 +215,47 @@ def test_download_ultralytics_auto_refuses(tmp_path):
 
 
 # ══════════════════════════════════════════════════════════════════════════════
+# downloadable_missing (preflight one-click fetch -- consume, don't compute)
+# ══════════════════════════════════════════════════════════════════════════════
+
+def test_downloadable_missing_filters(tmp_path):
+    data = b"present-bytes"
+    present = _entry(tmp_path, data)      # sha of tmp_path/ref
+    present["filename"] = "present.onnx"
+    absent = dict(present, filename="absent.onnx")
+    auto = {"backend": "MobileClip", "filename": "mobileclip_blt.ts",
+            "label": "MobileCLIP", "url": None, "sha256": None, "size": None,
+            "license": "x", "required": False,
+            "source": weights.SOURCE_ULTRALYTICS_AUTO, "note": "auto"}
+    manifest = tmp_path / "m.json"
+    manifest.write_text(json.dumps(
+        {"schema_version": 1, "weights": [present, absent, auto]}))
+
+    # present.onnx exists on disk (its entry_dest is Weights/MGaze/... in the
+    # repo, so it will not be present there) -- to test presence deterministically
+    # we point verify at what find_entry resolves.  Both present.onnx and
+    # absent.onnx resolve to the same repo Weights dir; neither is on disk there,
+    # so both are missing+downloadable, while the auto entry is excluded.
+    got = weights.downloadable_missing(
+        ["present.onnx", "absent.onnx", "mobileclip_blt.ts", "custom.onnx"],
+        path=manifest)
+    names = {e["filename"] for e in got}
+    assert "mobileclip_blt.ts" not in names   # auto-fetch excluded
+    assert "custom.onnx" not in names         # not in the manifest
+    assert names <= {"present.onnx", "absent.onnx"}
+
+
+def test_downloadable_missing_skips_present(tmp_path, monkeypatch):
+    e = _entry(tmp_path, b"x")
+    e["filename"] = "w.onnx"
+    manifest = tmp_path / "m.json"
+    manifest.write_text(json.dumps({"schema_version": 1, "weights": [e]}))
+    # Force verify to report the file present -> it must be filtered out.
+    monkeypatch.setattr(weights, "verify", lambda p, entry: weights.OK)
+    assert weights.downloadable_missing(["w.onnx"], path=manifest) == []
+
+
+# ══════════════════════════════════════════════════════════════════════════════
 # load_manifest error paths
 # ══════════════════════════════════════════════════════════════════════════════
 

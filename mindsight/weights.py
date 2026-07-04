@@ -221,6 +221,29 @@ def _downloadable(entry: dict) -> bool:
     return bool(entry.get("url")) and entry.get("source") != SOURCE_ULTRALYTICS_AUTO
 
 
+def downloadable_missing(names, *, path=None) -> list[dict]:
+    """Manifest entries for *names* that are missing on disk AND downloadable.
+
+    The one-click preflight fetch consumes this (SP3 D11 -- consume, don't
+    compute): the caller passes the weight filenames a run needs; this returns
+    exactly the subset the manager can fetch (a real upstream URL, and the
+    resolved file is currently :data:`MISSING`).  Auto-fetch entries and files
+    already present are excluded.  Order and de-duplication follow *names*.
+    """
+    seen: set[str] = set()
+    out: list[dict] = []
+    for name in names:
+        base = Path(str(name)).name
+        if base in seen:
+            continue
+        seen.add(base)
+        entry = find_entry(base, path=path)
+        if (entry is not None and _downloadable(entry)
+                and verify(entry_dest(entry), entry) == MISSING):
+            out.append(entry)
+    return out
+
+
 def main(argv=None) -> int:
     """``mindsight-weights`` -- verify and download weights from the manifest."""
     parser = argparse.ArgumentParser(

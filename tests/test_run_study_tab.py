@@ -186,3 +186,60 @@ def test_manual_dialog_builds_valid_runspec(qapp, tmp_path):
     assert spec.pid_map == {0: "S70", 1: "S71"}
     assert spec.conditions == "collab|kitchenA"
     assert spec.output_paths["summary"].endswith("clip_summary.csv")
+
+
+# ── One-click fetch of missing weights (Step 11) ─────────────────────────────
+
+def test_preflight_offers_and_fetches_missing_weights(qapp, tmp_path, monkeypatch):
+    """A failing preflight with fetchable missing weights offers a download
+    button; clicking it downloads (monkeypatched -- no network) and re-runs
+    preflight, which clears the offer."""
+    from argparse import Namespace
+
+    from mindsight import weights
+    from mindsight.GUI.run_study_tab import RunStudyTab
+
+    proj = _make_project(tmp_path)
+    fetched = tmp_path / "fetched.onnx"
+    entry = {
+        "backend": "MGaze", "filename": "resnet50_gaze.onnx",
+        "label": "MobileGaze (ResNet-50, ONNX)",
+        "url": "https://example.invalid/w", "sha256": "0" * 64, "size": 1,
+        "license": "MIT", "required": True,
+        "source": weights.SOURCE_GITHUB, "note": None,
+    }
+
+    def fake_missing(names, *, path=None):
+        # The manifest module is the single authority (consume-don't-compute):
+        # offer the entry until it has been fetched.
+        return [] if fetched.exists() else [entry]
+
+    calls = []
+
+    def fake_download(e, *, dest=None, progress=print, retries=2):
+        calls.append(e["filename"])
+        fetched.write_bytes(b"ok")
+        return fetched
+
+    monkeypatch.setattr(weights, "downloadable_missing", fake_missing)
+    monkeypatch.setattr(weights, "download", fake_download)
+
+    class FakeGaze:
+        def _build_namespace(self):
+            # A configured model that is absent on disk -> weights check FAILS.
+            return Namespace(model=str(tmp_path / "no_such_weight.pt"))
+
+    tab = RunStudyTab()
+    tab._open_project(str(proj))
+    tab._gaze_tab = FakeGaze()          # attach after open (no apply_namespace)
+
+    tab._run_preflight()
+    assert tab._fetchable == [entry]    # the offer surfaced
+
+    tab._start_weight_fetch()
+    for t in tab._weight_threads:
+        t.join(timeout=5)
+    tab._drain_weight_fetch()           # applies results, re-runs preflight
+
+    assert calls == ["resnet50_gaze.onnx"]
+    assert tab._fetchable == []         # offer cleared once satisfied

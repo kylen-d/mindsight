@@ -318,6 +318,12 @@ class RunStudyTab(QWidget):
         self._poll_timer = QTimer()
         self._poll_timer.timeout.connect(self._poll)
 
+        # One-click weight fetch (missing required weights from preflight).
+        self._weights_q: queue.Queue = queue.Queue()
+        self._weight_threads: list = []
+        self._weight_timer = None
+        self._fetchable: list = []
+
         self._build_ui()
 
     # ── UI construction ─────────────────────────────────────────────────────
@@ -367,6 +373,10 @@ class RunStudyTab(QWidget):
         pf_lay = QVBoxLayout(pf_grp)
         self._checklist = PreflightChecklist()
         pf_lay.addWidget(self._checklist)
+        self._fetch_btn = QPushButton("Download missing weights")
+        self._fetch_btn.setVisible(False)
+        self._fetch_btn.clicked.connect(self._start_weight_fetch)
+        pf_lay.addWidget(self._fetch_btn)
         rerun_pf = QPushButton("Re-run preflight")
         rerun_pf.clicked.connect(self._run_preflight)
         pf_lay.addWidget(rerun_pf)
@@ -832,6 +842,7 @@ class RunStudyTab(QWidget):
     def _run_preflight(self):
         if not self._project:
             self._checklist.render(None)
+            self._update_fetch_offer([])
             return
         try:
             report = self._project.preflight(ns=self._current_ns())
@@ -839,6 +850,73 @@ class RunStudyTab(QWidget):
             self._append_log(f"[WARN] preflight failed: {exc}")
             return
         self._checklist.render(report)
+        offer = self._fetchable_missing() if not report.ok else []
+        self._update_fetch_offer(offer)
+
+    # ── One-click fetch of missing weights (Step 11) ─────────────────────────
+
+    def _fetchable_missing(self) -> list:
+        """Manifest entries the manager can fetch for this config's missing
+        weights (consume-don't-compute: the manifest module decides, D11)."""
+        from mindsight import weights
+        from mindsight.outputs import provenance
+        try:
+            collected = provenance.collect_weights(self._current_ns())
+        except Exception:
+            return []
+        missing = [Path(w.get("resolved", "")).name
+                   for w in collected.values() if w.get("sha256") == "missing"]
+        try:
+            return weights.downloadable_missing(missing)
+        except Exception:
+            return []
+
+    def _update_fetch_offer(self, entries: list):
+        self._fetchable = entries
+        if entries:
+            self._fetch_btn.setText(
+                f"Download {len(entries)} missing weight(s)")
+            self._fetch_btn.setEnabled(True)
+            self._fetch_btn.setVisible(True)
+        else:
+            self._fetch_btn.setVisible(False)
+
+    def _start_weight_fetch(self):
+        from .workers import WeightsDownloadWorker
+        entries = self._fetchable
+        if not entries:
+            return
+        self._fetch_btn.setEnabled(False)
+        self._fetch_btn.setText("Downloading weights...")
+        worker = WeightsDownloadWorker(entries, self._weights_q)
+        self._weight_threads.append(worker)
+        worker.start()
+        if self._weight_timer is None:
+            self._weight_timer = QTimer()
+            self._weight_timer.setInterval(150)
+            self._weight_timer.timeout.connect(self._drain_weight_fetch)
+            self._weight_timer.start()
+
+    def _drain_weight_fetch(self):
+        """Apply fetch-worker results on the GUI thread; re-run preflight when
+        the batch finishes.  Safe to call directly (tests)."""
+        finished = False
+        try:
+            while True:
+                kind, entry, payload = self._weights_q.get_nowait()
+                if kind == "log":
+                    self._append_log(str(payload))
+                elif kind == "done":
+                    self._append_log(f"Downloaded {entry['filename']}.")
+                elif kind == "error":
+                    self._append_log(
+                        f"[WARN] weight download failed: {payload}")
+                elif kind == "finished":
+                    finished = True
+        except queue.Empty:
+            pass
+        if finished:
+            self._run_preflight()
 
     def _refresh_runs_table(self):
         if not self._project:
