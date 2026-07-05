@@ -59,6 +59,14 @@ build-backend = "setuptools.build_meta"
 [tool.setuptools.packages.find]
 include = ["mindsight", "mindsight.*", "Plugins", "Plugins.*"]
 
+[tool.uv]
+# ultralytics and uniface pull opencv-python transitively; we pin
+# opencv-contrib-python (an API-compatible superset providing the same cv2).
+# With both in the lock, install order decides which cv2 lands on disk, and
+# opencv-python 5.x shifts gaze-decode numerics off KNOWN_GOOD. The 'never'
+# marker keeps opencv-python out of resolution so only contrib provides cv2.
+override-dependencies = ["opencv-python; sys_platform == 'never'"]
+
 [tool.black]
 line-length = 99
 target-version = ["py310"]
