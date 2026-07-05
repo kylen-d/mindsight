@@ -243,3 +243,46 @@ def test_preflight_offers_and_fetches_missing_weights(qapp, tmp_path, monkeypatc
 
     assert calls == ["resnet50_gaze.onnx"]
     assert tab._fetchable == []         # offer cleared once satisfied
+
+
+# ── Edit run metadata before running (G-DEFER-1) ─────────────────────────────
+
+def test_edit_run_dialog_prefills_and_collects(qapp):
+    from mindsight.GUI.run_study_tab import EditRunDialog
+    dlg = EditRunDialog("a.mp4", {0: "S70", 1: "S71"}, "collab|kitchenA")
+    assert dlg._participants.text() == "0:S70, 1:S71"
+    assert dlg._conditions.text() == "collab, kitchenA"
+    dlg._participants.setText("2:S99")
+    dlg._conditions.setText("solo")
+    dlg._finish()
+    assert dlg.participants == {2: "S99"}
+    assert dlg.conditions == ["solo"]
+
+
+def test_edit_run_flow_writes_project_yaml(qapp, tmp_path, monkeypatch):
+    from mindsight.GUI import run_study_tab as rst
+    from mindsight.GUI.run_study_tab import RunStudyTab
+    from mindsight.project.runner import load_project_config
+
+    proj = _make_project(tmp_path)
+    tab = RunStudyTab()
+    tab._open_project(str(proj))
+
+    class FakeDlg:
+        participants = {0: "S70"}
+        conditions = ["collab"]
+        def exec(self):
+            from PyQt6.QtWidgets import QDialog
+            return QDialog.DialogCode.Accepted
+    monkeypatch.setattr(rst, "EditRunDialog",
+                        lambda *a, **k: FakeDlg())
+    tab._edit_run("a.mp4")
+
+    cfg = load_project_config(proj)
+    assert cfg.participants["a.mp4"] == {0: "S70"}
+    assert cfg.conditions["a.mp4"] == ["collab"]
+    # runs table refreshed with the new values
+    row = {tab._runs_table.item(r, 0).text(): r
+           for r in range(tab._runs_table.rowCount())}["a.mp4"]
+    assert "S70" in tab._runs_table.item(row, 2).text()
+    assert "collab" in tab._runs_table.item(row, 3).text()

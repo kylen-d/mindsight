@@ -289,6 +289,73 @@ class ManualRunDialog(QDialog):
         self.accept()
 
 
+class EditRunDialog(QDialog):
+    """Edit ONE staged run's participants / conditions before running (G-DEFER-1).
+
+    Pre-filled from the run's current values; exposes ``participants`` (a
+    ``{track_id: label}`` map or ``None`` to clear) and ``conditions`` (a list of
+    tags, possibly empty) after Accept.  The WRITE is the caller's job (the
+    ``staging.update_run_metadata`` thin-caller contract, D11).
+    """
+
+    def __init__(self, run_id: str, pid_map: dict | None,
+                 conditions: str | None, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle(f"Edit run: {run_id}")
+        self.participants: dict | None = None
+        self.conditions: list | None = None
+        self._build_ui(pid_map, conditions)
+
+    def _build_ui(self, pid_map, conditions):
+        lay = QVBoxLayout(self)
+        form = QFormLayout()
+        self._participants = QLineEdit()
+        self._participants.setPlaceholderText("0:S70, 1:S71  (track:label)")
+        if pid_map:
+            self._participants.setText(
+                ", ".join(f"{k}:{v}" for k, v in pid_map.items()))
+        form.addRow("Participants:", self._participants)
+        self._conditions = QLineEdit()
+        self._conditions.setPlaceholderText("collab, kitchenA")
+        if conditions:
+            self._conditions.setText(", ".join(
+                t for t in conditions.split("|") if t))
+        form.addRow("Conditions:", self._conditions)
+        lay.addLayout(form)
+        btns = QDialogButtonBox(
+            QDialogButtonBox.StandardButton.Ok
+            | QDialogButtonBox.StandardButton.Cancel)
+        btns.accepted.connect(self._finish)
+        btns.rejected.connect(self.reject)
+        lay.addWidget(btns)
+
+    def _parse_participants(self) -> dict | None:
+        text = self._participants.text().strip()
+        if not text:
+            return None
+        out: dict = {}
+        for pair in text.replace(";", ",").split(","):
+            pair = pair.strip()
+            if not pair:
+                continue
+            if ":" not in pair:
+                raise ValueError(
+                    f"participant '{pair}' must be track:label (e.g. 0:S70)")
+            k, v = pair.split(":", 1)
+            out[int(k.strip())] = v.strip()
+        return out or None
+
+    def _finish(self):
+        try:
+            self.participants = self._parse_participants()
+        except ValueError as exc:
+            QMessageBox.warning(self, "Edit run", str(exc))
+            return
+        self.conditions = [c.strip() for c in self._conditions.text().split(",")
+                           if c.strip()]
+        self.accept()
+
+
 # ══════════════════════════════════════════════════════════════════════════════
 # Run Study tab
 # ══════════════════════════════════════════════════════════════════════════════
@@ -995,12 +1062,38 @@ class RunStudyTab(QWidget):
             return
         run_id = run_id_item.text()
         menu = QMenu(self)
-        act = menu.addAction("Re-run this run")
+        edit_act = menu.addAction("Edit run...")
+        rerun_act = menu.addAction("Re-run this run")
         chosen = menu.exec(self._runs_table.viewport().mapToGlobal(pos))
-        if chosen == act:
+        if chosen == edit_act:
+            self._edit_run(run_id)
+        elif chosen == rerun_act:
             self._project.invalidate(run_id)
             self._append_log(f"Marked '{run_id}' for re-run.")
             self._refresh_runs_table()
+
+    def _edit_run(self, run_id: str):
+        """Edit a staged run's participants / conditions before running
+        (G-DEFER-1).  The WRITE goes through ``staging.update_run_metadata``
+        (run.yaml for run-folder projects, project.yaml for legacy); the tab
+        just collects values and refreshes preflight + the runs table."""
+        from mindsight.project.staging import update_run_metadata
+        spec = next((s for s in self._project.runs() if s.run_id == run_id), None)
+        if spec is None:
+            return
+        dlg = EditRunDialog(run_id, spec.pid_map, spec.conditions, self)
+        if dlg.exec() != QDialog.DialogCode.Accepted:
+            return
+        try:
+            update_run_metadata(self._project_path, run_id,
+                                participants=dlg.participants,
+                                conditions=dlg.conditions)
+        except ValueError as exc:
+            QMessageBox.warning(self, "Edit run", str(exc))
+            return
+        self._append_log(f"Updated metadata for '{run_id}'.")
+        # Reopen so the facade reloads project.yaml / run.yaml, then refresh.
+        self._open_project(str(self._project_path))
 
     # ── Study setup helpers ──────────────────────────────────────────────────
 

@@ -483,3 +483,107 @@ def test_parse_run_mapping_shared_with_yaml_path():
     m = parse_run_mapping({"participants": {0: "S70"}, "conditions": "solo"})
     assert m.pid_map == {0: "S70"} and m.conditions == ["solo"]
     assert m.error is None
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# update_run_metadata (G-DEFER-1): the single pre-run metadata WRITE path
+# ══════════════════════════════════════════════════════════════════════════════
+
+import yaml  # noqa: E402
+
+from mindsight.project.runner import load_project_config  # noqa: E402
+from mindsight.project.staging import update_run_metadata  # noqa: E402
+
+
+def test_update_metadata_legacy_sets_project_yaml(tmp_path):
+    proj = _flat_project(tmp_path, videos=("a.mp4", "b.mp4"))
+    update_run_metadata(proj, "a.mp4", participants={0: "S70", 1: "S71"},
+                        conditions=["collab", "kitchenA"])
+    cfg = load_project_config(proj)
+    assert cfg.participants["a.mp4"] == {0: "S70", 1: "S71"}
+    assert cfg.conditions["a.mp4"] == ["collab", "kitchenA"]
+    # discovery reflects the edit (pid maps resolved from project.yaml, as the
+    # facade does)
+    spec = next(s for s in discover_run_specs(proj, cfg, pid_maps=cfg.participants)
+                if s.run_id == "a.mp4")
+    assert spec.pid_map == {0: "S70", 1: "S71"}
+    assert spec.conditions == "collab|kitchenA"
+
+
+def test_update_metadata_legacy_string_condition_and_clear(tmp_path):
+    proj = _flat_project(tmp_path, videos=("a.mp4",))
+    update_run_metadata(proj, "a.mp4", conditions="solo")
+    assert load_project_config(proj).conditions["a.mp4"] == ["solo"]
+    # None clears the entry
+    update_run_metadata(proj, "a.mp4", conditions=None)
+    assert "a.mp4" not in (load_project_config(proj).conditions or {})
+
+
+def test_update_metadata_legacy_preserves_other_fields(tmp_path):
+    proj = _flat_project(tmp_path, videos=("a.mp4", "b.mp4"))
+    update_run_metadata(proj, "a.mp4", conditions="x")
+    update_run_metadata(proj, "b.mp4", participants={0: "P9"})
+    cfg = load_project_config(proj)
+    assert cfg.conditions["a.mp4"] == ["x"]
+    assert cfg.participants["b.mp4"] == {0: "P9"}
+
+
+def test_update_metadata_only_touches_named_field(tmp_path):
+    proj = _flat_project(tmp_path, videos=("a.mp4",))
+    update_run_metadata(proj, "a.mp4", participants={0: "P0"}, conditions="c1")
+    # A later edit that names ONLY conditions leaves participants intact.
+    update_run_metadata(proj, "a.mp4", conditions="c2")
+    cfg = load_project_config(proj)
+    assert cfg.participants["a.mp4"] == {0: "P0"}
+    assert cfg.conditions["a.mp4"] == ["c2"]
+
+
+def test_update_metadata_run_folder_writes_run_yaml(tmp_path):
+    proj = tmp_path / "rf"
+    _run_folder(proj, "dyad07", run_yaml="date: 2026-07-02\nnotes: hi\n")
+    update_run_metadata(proj, "dyad07", participants={0: "S70"},
+                        conditions=["collab"])
+    raw = yaml.safe_load((proj / "Inputs" / "Runs" / "dyad07" / "run.yaml")
+                         .read_text())
+    assert raw["participants"] == {0: "S70"}
+    assert raw["conditions"] == ["collab"]
+    # manifest-only keys preserved
+    assert raw["notes"] == "hi"
+    assert str(raw["date"]).startswith("2026-07-02")
+
+
+def test_update_metadata_run_folder_creates_run_yaml(tmp_path):
+    proj = tmp_path / "rf"
+    _run_folder(proj, "solo")            # bare folder, no run.yaml
+    update_run_metadata(proj, "solo", conditions="kitchen")
+    raw = yaml.safe_load((proj / "Inputs" / "Runs" / "solo" / "run.yaml")
+                         .read_text())
+    assert raw["conditions"] == ["kitchen"]
+
+
+def test_update_metadata_run_folder_clear_removes_empty_yaml(tmp_path):
+    proj = tmp_path / "rf"
+    _run_folder(proj, "solo", run_yaml="conditions: [x]\n")
+    update_run_metadata(proj, "solo", conditions=None)
+    assert not (proj / "Inputs" / "Runs" / "solo" / "run.yaml").exists()
+
+
+def test_update_metadata_bad_participants_raises(tmp_path):
+    proj = _flat_project(tmp_path, videos=("a.mp4",))
+    with pytest.raises(ValueError, match="track ids"):
+        update_run_metadata(proj, "a.mp4", participants={"notanint": "S"})
+    # nothing was written on the failed validate
+    assert load_project_config(proj) is None
+
+
+def test_update_metadata_missing_run_folder_raises(tmp_path):
+    proj = tmp_path / "rf"
+    _run_folder(proj, "exists")
+    with pytest.raises(ValueError, match="run folder not found"):
+        update_run_metadata(proj, "ghost", conditions="x")
+
+
+def test_update_metadata_noop_when_nothing_named(tmp_path):
+    proj = _flat_project(tmp_path, videos=("a.mp4",))
+    update_run_metadata(proj, "a.mp4")   # neither field named
+    assert load_project_config(proj) is None

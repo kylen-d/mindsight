@@ -374,6 +374,113 @@ def discover_run_specs(project, project_cfg=None, *, layout=None,
 
 
 # ══════════════════════════════════════════════════════════════════════════════
+# Pre-run metadata edits (G-DEFER-1): the single WRITE path for participants /
+# conditions, layout-aware (D11 -- the GUI is a thin caller).
+# ══════════════════════════════════════════════════════════════════════════════
+
+_UNSET = object()
+
+
+def update_run_metadata(project, run_id, *, participants=_UNSET,
+                        conditions=_UNSET) -> None:
+    """Set a run's participants / conditions before running (SP3.1 G-DEFER-1).
+
+    Layout-aware, reusing the existing parse/write paths and precedence rules:
+
+    - **run-folder** projects: rewrites ``Inputs/Runs/<run_id>/run.yaml``, merging
+      the new values over the existing keys (the manifest-only ``date`` /
+      ``session`` / ``notes`` / ``extra`` are preserved; an emptied run.yaml is
+      removed so a bare folder just works).
+    - **legacy** projects: updates the ``participants`` / ``conditions`` entries in
+      ``project.yaml`` keyed by ``run_id`` (== the video filename), via
+      :func:`load_project_config` / :func:`save_project_config`.
+
+    ``participants`` is a ``{track_id: label}`` mapping (or ``None`` to clear);
+    ``conditions`` is a tag string / list of tags (or ``None`` to clear).  A field
+    left at its default is untouched.  Validation problems raise a plain-English
+    ``ValueError`` (the shared Q2 validator); an ambiguous layout is refused.
+    """
+    project = Path(project)
+    set_p = participants is not _UNSET
+    set_c = conditions is not _UNSET
+    if not set_p and not set_c:
+        return
+
+    # Validate through the shared Q2 validator (plain-English errors).
+    check: dict = {}
+    if set_p and participants is not None:
+        check["participants"] = participants
+    if set_c and conditions is not None:
+        check["conditions"] = conditions
+    parsed = parse_run_mapping(check)
+    if parsed.error:
+        raise ValueError(parsed.error)
+    pid_map = parsed.pid_map          # {int: str} or None
+    cond_list = parsed.conditions     # list[str]
+
+    layout = detect_layout(project)
+    if layout == AMBIGUOUS:
+        raise ValueError(
+            "Project has BOTH Inputs/Runs/ and Inputs/Videos/ populated -- the "
+            "layout is ambiguous; cannot edit run metadata.")
+
+    if layout == RUN_FOLDER:
+        folder = _runs_dir(project) / run_id
+        if not folder.is_dir():
+            raise ValueError(f"run folder not found: Inputs/Runs/{run_id}/")
+        rp = folder / "run.yaml"
+        raw: dict = {}
+        if rp.is_file():
+            loaded = yaml.safe_load(rp.read_text())
+            if isinstance(loaded, dict):
+                raw = loaded
+        if set_p:
+            if pid_map:
+                raw["participants"] = {int(k): str(v) for k, v in pid_map.items()}
+            else:
+                raw.pop("participants", None)
+        if set_c:
+            if cond_list:
+                raw["conditions"] = list(cond_list)
+            else:
+                raw.pop("conditions", None)
+        if raw:
+            with open(rp, "w") as fh:
+                yaml.dump(raw, fh, default_flow_style=False, sort_keys=False,
+                          allow_unicode=True)
+        elif rp.is_file():
+            rp.unlink()
+        return
+
+    # Legacy flat layout: project.yaml entries keyed by the video filename.
+    from mindsight.pipeline_config import ProjectConfig
+    from mindsight.project.runner import (
+        load_project_config,
+        save_project_config,
+    )
+    cfg = load_project_config(project) or ProjectConfig()
+    conditions_map = dict(cfg.conditions or {})
+    participants_map = dict(cfg.participants or {})
+    if set_p:
+        if pid_map:
+            participants_map[run_id] = {int(k): str(v)
+                                        for k, v in pid_map.items()}
+        else:
+            participants_map.pop(run_id, None)
+    if set_c:
+        if cond_list:
+            conditions_map[run_id] = list(cond_list)
+        else:
+            conditions_map.pop(run_id, None)
+    save_project_config(project, ProjectConfig(
+        pipeline_path=cfg.pipeline_path,
+        conditions=conditions_map,
+        participants=participants_map,
+        output=cfg.output,
+    ))
+
+
+# ══════════════════════════════════════════════════════════════════════════════
 # Manual staging (Q7): stage a single video into a project / run it right now
 # ══════════════════════════════════════════════════════════════════════════════
 
