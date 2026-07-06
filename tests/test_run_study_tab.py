@@ -328,3 +328,22 @@ def test_anonymize_toggle_reaches_project_worker(qapp, tmp_path, monkeypatch):
     monkeypatch.setattr(workers_mod, "ProjectWorker", FakeWorker)
     tab._start()
     assert captured["ns"].anonymize == "blur"
+
+
+# ── Run-folder project opens without a flat Inputs/Videos/ dir (Batch H fix) ─
+
+def test_open_run_folder_project_without_flat_videos_dir(qapp, tmp_path):
+    """A pure run-folder project has NO Inputs/Videos/; opening it must not
+    crash the study-setup population (discover_sources returns [])."""
+    from mindsight.GUI.run_study_tab import RunStudyTab
+    proj = tmp_path / "rfproj"
+    run = proj / "Inputs" / "Runs" / "dyad07"
+    run.mkdir(parents=True)
+    (run / "session.mp4").write_bytes(b"\x00" * 32)
+    (proj / "Pipeline").mkdir()
+    (proj / "Pipeline" / "pipeline.yaml").write_text("detection:\n  conf: 0.35\n")
+    tab = RunStudyTab()
+    tab._open_project(str(proj))
+    assert tab._project is not None
+    assert tab._runs_table.rowCount() == 1
+    assert tab._runs_table.item(0, 0).text() == "dyad07"

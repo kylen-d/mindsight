@@ -150,6 +150,11 @@ def discover_sources(project: Path) -> list[Path]:
     Returns a sorted list of paths.
     """
     inputs_dir = project / "Inputs" / "Videos"
+    if not inputs_dir.is_dir():
+        # Run-folder projects (Inputs/Runs/) have no flat video dir at all --
+        # legacy discovery just finds nothing (the GUI study-setup panel calls
+        # this on any open project).
+        return []
     sources = sorted(
         p for p in inputs_dir.iterdir()
         if p.is_file() and p.suffix.lower() in _ALL_MEDIA
