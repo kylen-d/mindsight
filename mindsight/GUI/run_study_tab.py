@@ -52,6 +52,7 @@ from PyQt6.QtWidgets import (
     QMenu,
     QMessageBox,
     QPushButton,
+    QScrollArea,
     QSizePolicy,
     QSplitter,
     QTableWidget,
@@ -452,6 +453,11 @@ class RunStudyTab(QWidget):
         runs_grp = QGroupBox("Runs")
         runs_lay = QVBoxLayout(runs_grp)
         self._runs_table = QTableWidget(0, len(_RUN_COLS))
+        # G-DEFER-2: keep the runs window compact + scrollable so the study-setup
+        # area below gets the room; the table scrolls internally past a few runs.
+        self._runs_table.setMaximumHeight(220)
+        self._runs_table.setHorizontalScrollBarPolicy(
+            Qt.ScrollBarPolicy.ScrollBarAsNeeded)
         self._runs_table.setHorizontalHeaderLabels(_RUN_COLS)
         self._runs_table.horizontalHeader().setSectionResizeMode(
             QHeaderView.ResizeMode.ResizeToContents)
@@ -477,9 +483,11 @@ class RunStudyTab(QWidget):
         ctl_row.addWidget(add_run_btn)
         ctl_row.addStretch(1)
         runs_lay.addLayout(ctl_row)
-        left_lay.addWidget(runs_grp, 1)
+        left_lay.addWidget(runs_grp)
 
-        # Study setup (collapsible) -- relocated from the retired Project Mode tab
+        # Study setup (collapsible) -- relocated from the retired Project Mode tab.
+        # G-DEFER-2: it takes the growing space (stretch) so participants /
+        # conditions editing has room; the runs table above stays compact.
         self._build_study_setup(left_lay)
 
         splitter.addWidget(left)
@@ -576,8 +584,14 @@ class RunStudyTab(QWidget):
         self._save_btn.clicked.connect(self._save_project_yaml)
         lay.addWidget(self._save_btn)
 
-        grp.set_content(inner)
-        parent_lay.addWidget(grp)
+        # G-DEFER-2: wrap the setup content in a scroll area so everything stays
+        # reachable at the default window size even when both tables are populated.
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QScrollArea.Shape.NoFrame)
+        scroll.setWidget(inner)
+        grp.set_content(scroll)
+        parent_lay.addWidget(grp, 1)
 
     # ── Output panel: Log | Charts | Output CSVs (G-ENH-4) ──────────────────
 
