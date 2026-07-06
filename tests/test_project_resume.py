@@ -273,3 +273,46 @@ def test_run_folder_manifest_carries_run_meta(tmp_path, fake_models_rows):
     manifest = json.loads(
         (proj / "Outputs" / "Runs" / "run01" / "run01_manifest.json").read_text())
     assert manifest["run_meta"] == {"date": "2026-07-02", "notes": "hi"}
+
+
+# ── G-DEFER-3: anonymize request reaches the per-video OutputConfig ───────────
+
+def _capture_output_cfgs(monkeypatch):
+    seen: list = []
+
+    def _build(_ns):
+        return tuple([None] * 14)
+
+    class _Writer:
+        def __init__(self, *, output_cfg, **_kw):
+            seen.append(output_cfg)
+
+        def run(self, source, *, options=None, cancel=None):
+            summ = Path(seen[-1].summary_path)
+            summ.parent.mkdir(parents=True, exist_ok=True)
+            summ.write_text("video_name,conditions,phenomenon,participant,"
+                            "partner,object,metric,value\n")
+            Path(seen[-1].log_path).write_text("frame,t_seconds\n")
+            return iter(())
+
+    monkeypatch.setattr(_pipeline_mod, "build_from_namespace", _build)
+    monkeypatch.setattr(_pipeline_mod, "Pipeline", _Writer)
+    return seen
+
+
+def test_anonymize_ns_reaches_output_cfg(tmp_path, monkeypatch):
+    proj = _project(tmp_path)
+    seen = _capture_output_cfgs(monkeypatch)
+    ns = parse_cli(["--project", str(proj)])
+    ns.anonymize = "blur"
+    list(iter_project_runs(proj, ns, resume=False))
+    assert seen and seen[0].anonymize == "blur"
+    assert seen[0].anonymize_padding == 0.3
+
+
+def test_no_anonymize_defaults_to_none(tmp_path, monkeypatch):
+    proj = _project(tmp_path)
+    seen = _capture_output_cfgs(monkeypatch)
+    ns = parse_cli(["--project", str(proj)])
+    list(iter_project_runs(proj, ns, resume=False))
+    assert seen and seen[0].anonymize is None

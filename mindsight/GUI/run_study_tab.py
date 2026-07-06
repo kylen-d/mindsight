@@ -39,6 +39,7 @@ from PyQt6.QtCore import Qt, QTimer
 from PyQt6.QtGui import QColor, QFont
 from PyQt6.QtWidgets import (
     QAbstractItemView,
+    QCheckBox,
     QComboBox,
     QDialog,
     QDialogButtonBox,
@@ -567,6 +568,23 @@ class RunStudyTab(QWidget):
         self._conditions.set_dirty_callback(self._mark_dirty)
         cond_grp.set_content(self._conditions)
         lay.addWidget(cond_grp)
+
+        # Anonymize Footage toggle (G-DEFER-3): maps to the existing anonymize
+        # namespace field; default OFF (byte-neutral -- project runs identical to
+        # today when unchecked).  A small mode picker mirrors the Gaze Tuning
+        # output section (blur / black).
+        anon_row = QHBoxLayout()
+        self._anonymize_cb = QCheckBox("Anonymize Footage")
+        self._anonymize_cb.setToolTip(
+            "Obscure faces in the output video for every run in this study.")
+        self._anonymize_mode = QComboBox()
+        self._anonymize_mode.addItems(["blur", "black"])
+        self._anonymize_mode.setEnabled(False)
+        self._anonymize_cb.toggled.connect(self._anonymize_mode.setEnabled)
+        anon_row.addWidget(self._anonymize_cb)
+        anon_row.addWidget(self._anonymize_mode)
+        anon_row.addStretch(1)
+        lay.addLayout(anon_row)
 
         out_row = QHBoxLayout()
         out_row.addWidget(QLabel("Output root:"))
@@ -1177,6 +1195,17 @@ class RunStudyTab(QWidget):
         # Reopen so the facade + runs table pick up the edits.
         self._open_project(str(self._project_path))
 
+    def _apply_anonymize(self, ns):
+        """Set ``ns.anonymize`` from the study-setup toggle (G-DEFER-3).
+
+        The study-setup checkbox is the single control for project-run
+        anonymization: checked -> the selected mode; unchecked -> ``None`` (today's
+        behavior -- project runs never anonymized), so an unchecked box keeps runs
+        byte-identical regardless of any stray Gaze Tuning value.
+        """
+        ns.anonymize = (self._anonymize_mode.currentText()
+                        if self._anonymize_cb.isChecked() else None)
+
     def _mark_dirty(self, *_):
         if not self._dirty:
             self._dirty = True
@@ -1214,6 +1243,7 @@ class RunStudyTab(QWidget):
         # One-off run through the single-source worker: project-shaped output
         # paths from the RunSpec, no ledger (Q7).
         ns = self._current_ns()
+        self._apply_anonymize(ns)
         ns.source = str(spec.source)
         ns.log = spec.output_paths["log"]
         ns.summary = spec.output_paths["summary"]
@@ -1255,6 +1285,7 @@ class RunStudyTab(QWidget):
         ns = self._current_ns()
         ns.project = str(self._project_path)
         ns.no_resume = not self._resume
+        self._apply_anonymize(ns)
         project_cfg = self._build_project_config()
 
         self._progress_q = queue.Queue()

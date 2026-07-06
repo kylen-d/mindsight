@@ -530,6 +530,12 @@ def iter_project_runs(project_dir: str | Path, ns, *, project_cfg=None,
             aux_streams=run_aux,
             video_name=name,
             conditions=conditions_str,
+            # SP3.1 G-DEFER-3: honor the anonymize request on project runs (the
+            # GUI "Anonymize Footage" toggle sets ns.anonymize).  Byte-neutral
+            # when unset -- these getattrs default to the OutputConfig defaults
+            # (None / 0.3), exactly what the fresh OutputConfig produced before.
+            anonymize=getattr(ns, 'anonymize', None),
+            anonymize_padding=getattr(ns, 'anonymize_padding', 0.3),
         )
 
         # Per-video state reset (SP3.1 Q4/D9): a video's numbers must not depend

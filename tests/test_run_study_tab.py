@@ -286,3 +286,45 @@ def test_edit_run_flow_writes_project_yaml(qapp, tmp_path, monkeypatch):
            for r in range(tab._runs_table.rowCount())}["a.mp4"]
     assert "S70" in tab._runs_table.item(row, 2).text()
     assert "collab" in tab._runs_table.item(row, 3).text()
+
+
+# ── Anonymize Footage toggle (G-DEFER-3) ─────────────────────────────────────
+
+def test_anonymize_toggle_sets_ns(qapp):
+    from argparse import Namespace
+    from mindsight.GUI.run_study_tab import RunStudyTab
+    tab = RunStudyTab()
+    # default OFF -> ns.anonymize forced None (byte-neutral)
+    ns = Namespace(anonymize="black")
+    tab._apply_anonymize(ns)
+    assert ns.anonymize is None
+    # checked -> the selected mode reaches the ns
+    tab._anonymize_cb.setChecked(True)
+    tab._anonymize_mode.setCurrentText("black")
+    ns2 = Namespace()
+    tab._apply_anonymize(ns2)
+    assert ns2.anonymize == "black"
+
+
+def test_anonymize_toggle_reaches_project_worker(qapp, tmp_path, monkeypatch):
+    from mindsight.GUI import workers as workers_mod
+    from mindsight.GUI.run_study_tab import RunStudyTab
+
+    proj = _make_project(tmp_path)
+    tab = RunStudyTab()
+    tab._open_project(str(proj))
+    tab._anonymize_cb.setChecked(True)
+    tab._anonymize_mode.setCurrentText("blur")
+
+    captured = {}
+
+    class FakeWorker:
+        def __init__(self, path, ns, *a, **k):
+            captured["ns"] = ns
+        def start(self):
+            pass
+        def is_alive(self):
+            return False
+    monkeypatch.setattr(workers_mod, "ProjectWorker", FakeWorker)
+    tab._start()
+    assert captured["ns"].anonymize == "blur"
