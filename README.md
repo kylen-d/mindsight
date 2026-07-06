@@ -220,7 +220,12 @@ MindSight/
 │   ├── pipeline_config.py        # Config dataclasses + FrameContext
 │   ├── config_compat.py          # YAML pipeline config loader
 │   ├── project/
-│   │   └── runner.py            # Project-based batch processing
+│   │   ├── runner.py             # Event-streaming project batch loop
+│   │   ├── events.py             # ProjectEvent stream types
+│   │   ├── staging.py            # RunSpec discovery + run metadata
+│   │   ├── preflight.py          # Project readiness checklist
+│   │   ├── ledger.py             # Resume ledger (skip/redo/archive)
+│   │   └── project.py            # Project facade (open/preflight/run/status)
 │   ├── participant_ids.py        # Participant label mapping
 │   ├── weights.py                # Centralized weight file resolution
 │   │
@@ -249,9 +254,13 @@ MindSight/
 │   │   └── heatmap_output.py     # Per-participant heatmap generation
 │   │
 │   ├── GUI/
-│   │   ├── main_window.py        # PyQt6 main window (3-tab layout)
-│   │   ├── gaze_tab/             # Gaze tracker tab (decomposed sections)
-│   │   ├── project_tab/          # Project mode tab (decomposed sections)
+│   │   ├── main_window.py        # PyQt6 main window (4-tab layout)
+│   │   ├── run_study_tab.py      # Analyze Footage tab (projects, preflight, runs)
+│   │   ├── gaze_tab/             # Gaze Tuning tab (decomposed sections)
+│   │   ├── ui_spec.py            # Schema ui-metadata -> widget spec (pure)
+│   │   ├── schema_panel.py       # Generated parameter panels
+│   │   ├── models_tab.py         # Models tab (weight manager)
+│   │   ├── run_outputs.py        # In-GUI charts/CSV readers (pure)
 │   │   └── widgets.py            # Reusable GUI components
 │   │
 │   └── utils/
@@ -465,30 +474,21 @@ mindsight-gui                # console command (after pip install -e .)
 python MindSight_GUI.py      # or run the wrapper script directly
 ```
 
-The GUI has three tabs:
+The GUI has four tabs:
 
-### Tab 1 — Gaze Tracker
+### Tab 1 — Analyze Footage
 
-A graphical front-end for all `MindSight.py` functionality.
+The home screen for batch-processing studies.
 
-**Sections:**
+**Workflow:**
 
-- **Source** — camera index, video file, or image file
-- **Detection mode** — YOLO (text classes) or YOLOE Visual Prompt
-- **Gaze backend** — MGaze or Gazelle
-- **Device selector** — auto, CPU, CUDA, or MPS
-- **Gaze parameters** — ray length, adaptive ray, gaze cone, lock-on, etc.
-- **Phenomena panel** — toggle individual phenomena trackers
-- **Plugin panel** — activate and configure installed plugins
-- **Output settings** — video save, CSV log, summary, heatmaps, charts, anonymization
-- **Presets** — save and restore parameter presets
-- **Live preview** — annotated frames with real-time dashboard
-- **Log console** — status messages from the background worker thread
+1. **Open a project** — type/paste a path, *Browse...*, or pick a recent project. Flat `Inputs/Videos/` and per-run `Inputs/Runs/<run_id>/` layouts are both supported.
+2. **Preflight checklist** — structure, pipeline config, model weights, VP file, discovered runs, run metadata, participant/condition coverage, device, disk space, and plugin errors, each with a fix hint (plus one-click download of missing weights).
+3. **Runs table** — per-run participants, conditions, ledger status, and the resume plan ("done → will skip" / "will process" / "changed → re-run + archive"). Right-click a run to *Edit run...* (participants/conditions) or *Re-run this run*; *Re-run all* ignores the ledger.
+4. **Study setup** — pipeline picker (or *Import from Gaze Tuning*), participants/conditions tables, an *Anonymize Footage* toggle, output root, and *Save project.yaml*.
+5. **Run** — live per-run states, preview, and a tabbed output panel (Log | Charts | Output CSVs) that renders each run's already-written CSVs in-GUI.
 
-**Controls:**
-
-- Click **Start** to begin tracking; **Stop** to halt.
-- The live frame display updates in real time; resize the window as needed.
+*Add single run...* stages one video manually (run now, or save into the project as a new run folder).
 
 ### Tab 2 — VP Builder
 
@@ -500,19 +500,30 @@ Drag-and-drop tool for creating and testing `.vp.json` Visual Prompt files.
 2. **Draw bounding boxes** — click and drag on the image canvas to draw boxes around objects.
 3. **Assign classes** — each box is assigned a class from the class list on the left. Add new classes with *Add Class*.
 4. **Save prompt** — click *Save VP File* to write the `.vp.json`.
-5. **Test inference** — select a YOLOE model and a folder of test images, then click *Run Inference* to preview detections with the saved prompt.
+5. **Test inference** — select a YOLOE model and a folder of test images, then click *Run Inference* to preview detections with the saved prompt. *Use saved VP in Gaze Tuning* hands the file to the tuning tab.
 
-### Tab 3 — Project Mode
+### Tab 3 — Gaze Tuning
 
-Manage and run batch-processing projects directly from the GUI.
+The single-source tuning surface for all `MindSight.py` functionality.
 
 **Sections:**
 
-- **Pipeline selector** — load and edit pipeline YAML configurations
-- **Participants table** — map track IDs to participant labels (auto-populate or manual entry)
-- **Conditions table** — tag videos with experimental conditions
-- **Output settings** — configure output directory, CSV aggregation, heatmaps, and charts
-- **Monitoring** — source list, live preview, progress bars, and log output
+- **Source** — camera index, video file, or image file
+- **Detection mode** — YOLO (text classes) or YOLOE Visual Prompt
+- **Gaze backend** — MobileGaze or Gaze-LLE
+- **Device selector** — auto, CPU, CUDA, or MPS
+- **Parameter panels** — generated from the config schema (ray geometry, Gaze-LLE Blend, adaptive snap, fixation lock-on, depth, performance, phenomena), with a *Show advanced* toggle for the deep-tuning tier
+- **Plugin panel** — activate and configure installed plugins
+- **Output settings** — video save, CSV log, summary, heatmaps, charts, anonymization
+- **Presets** — save and restore parameter presets; *Export/Import Pipeline* round-trips the full config as YAML
+- **Live preview** — annotated frames with real-time dashboard
+- **Log console** — status messages from the background worker thread
+
+**Controls:** click **Start** to begin tracking; **Stop** to halt.
+
+### Tab 4 — Models
+
+Manifest-driven manager for model weights: per-weight backend, whether the current config needs it, on-disk state and size, with *Install*, *Verify* (checksums), and *Re-download* actions.
 
 > See the [GUI guide](https://kylen-d.github.io/mindsight-docs/user-guide/gui-guide/) for detailed instructions including the pipeline dialog and settings persistence.
 

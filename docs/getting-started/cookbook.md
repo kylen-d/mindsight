@@ -44,7 +44,7 @@ Place all weights in `Weights/` under the appropriate backend subdirectory (e.g.
 
 ## Recommended Parameters
 
-A default YAML pipeline file lives at `[path to your lab's preset]`. The breakdown below explains what each section does, organised in the same order as the GUI's **Gaze Tracker** tab.
+A default YAML pipeline file lives at `[path to your lab's preset]`. The breakdown below explains what each section does, organised in the same order as the GUI's **Gaze Tuning** tab.
 
 ### Object Detection
 
@@ -273,7 +273,7 @@ Outputs/
 
 ## Batch Processing (Project Mode)
 
-> **Heads up:** Project mode is still actively under development at the time of writing. The directory layout, YAML schema, and aggregate-output behaviours described in this section reflect the current state of the codebase but may shift in future releases, and some edge cases I haven't personally exercised may not behave exactly as described. Treat this section as a working guide rather than authoritative documentation, and double-check against the GUI / a small test project before kicking off a long batch run.
+> **Note:** this section describes the flat `Inputs/Videos/` layout. Projects can alternatively stage one folder per run under `Inputs/Runs/<run_id>/` with per-run `run.yaml` metadata and mirrored `Outputs/Runs/<run_id>/` outputs -- see [Your First Project](first-project.md) for that convention. Run `python MindSight.py --project <dir> --preflight` to check a project is ready before a long batch.
 
 For anything beyond a one-off run -- e.g. processing all 30+ KITCO sessions against the same pipeline -- use **Project mode**. A project is a directory with a standard layout: drop your videos into `Inputs/Videos/`, drop your visual prompt into `Inputs/Prompts/`, write a `pipeline.yaml` for your parameter set, and MindSight processes all videos sequentially with unified model loading and automatic per-condition aggregation.
 
@@ -326,7 +326,7 @@ performance:
   fast: false
 ```
 
-You can build this file once in the GUI (using the Gaze Tracker tab with everything tuned the way you want), then *Export Pipeline* from the top toolbar to write it to disk. Any CLI flag passed at run time overrides the YAML value.
+You can build this file once in the GUI (using the Gaze Tuning tab with everything tuned the way you want), then *Export Pipeline* to write it to disk -- or, with a project open, click *Import from Gaze Tuning* in Analyze Footage's Study setup to write it straight into the project. Any CLI flag passed at run time overrides the YAML value.
 
 > For the full schema, see the [pipeline YAML reference](../reference/pipeline-yaml-schema.md).
 
@@ -358,7 +358,7 @@ output:
 
 #### Defining conditions in the GUI
 
-Hand-writing YAML is fine for one project, but for studies with many videos the **Project Mode** tab gives you a faster workflow. After pointing the tab at your project directory, the **Conditions** section presents a two-column table (Video | Conditions) with one row per discovered video.
+Hand-writing YAML is fine for one project, but for studies with many videos the **Analyze Footage** tab gives you a faster workflow. After opening your project directory, the **Study setup** area's **Conditions** section presents a two-column table (Video | Conditions) with one row per discovered video. (You can also right-click any run in the runs table and choose *Edit run...* to set one run's participants/conditions directly.)
 
 Two ways to tag:
 
@@ -449,7 +449,7 @@ python MindSight.py --project Projects/MyProject/
 mindsight --project Projects/MyProject/
 ```
 
-**GUI:** Open the **Project Mode** tab (Tab 3), point it at your project directory, and use the live monitoring panel to watch progress.
+**GUI:** Open the **Analyze Footage** tab (the home tab), open your project directory, review the preflight checklist and the runs table's resume plan, then click **Run** and watch the per-run states, preview, and log.
 
 The GUI has tables for editing the participant and condition mappings in place -- handy for iterating without hand-editing YAML. Use *Save project.yaml* once you're done to persist changes.
 

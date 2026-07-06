@@ -17,6 +17,7 @@ All flags accepted by `python MindSight.py`. Run `python MindSight.py --help` fo
 | `--pipeline` | str | None | Path to a `pipeline.yaml` configuration file |
 | `--project` | str | None | Path to a MindSight project directory |
 | `--no-resume` | flag | off | Reprocess every project video, ignoring the resume ledger (does not archive prior outputs) |
+| `--preflight` | flag | off | With `--project`: print the readiness checklist (structure, config, weights, runs, run metadata, coverage, device, disk, plugins) and exit -- 0 if no failures, 1 otherwise |
 | `--participant-ids` | str | None | Comma-separated participant ID assignments (e.g. `"1:Alice,2:Bob"`) |
 | `--participant-csv` | str | None | CSV file mapping track IDs to participant labels |
 | `--aux-stream` | str (repeatable) | [] | Auxiliary stream in `PID:TYPE:SOURCE` format (may be specified multiple times) |

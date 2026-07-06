@@ -143,29 +143,57 @@ sequenceDiagram
 
 ## GUI Architecture
 
-The GUI is built with PyQt and lives in the `mindsight/GUI/` directory.
+The GUI is built with PyQt and lives in the `mindsight/GUI/` directory. It is a
+thin consumer of the project layer (`mindsight/project/`, which holds the single
+project-batch implementation: `runner.py`'s event-streaming `iter_project_runs`,
+plus `events.py`, `staging.py` (RunSpec discovery + run metadata), `preflight.py`,
+`ledger.py`, and the `Project` facade in `project.py`). Anything more complex than
+formatting lives project-side with a fast test.
 
-- **`main_window.py`** creates the application window with three tabs:
-  - **`GazeTab`** (`gaze_tab.py`) -- live video view with gaze overlay, controls for starting/stopping tracking.
-  - **`VPBuilderTab`** (`vp_builder_tab.py`) -- visual pipeline builder for constructing and editing pipeline YAML configurations.
-  - **`ProjectTab`** (`project_tab.py`) -- project configuration and batch processing. Two-panel layout with a configuration panel (pipeline, participants, conditions, output settings) and a monitoring panel (sources, preview, progress, log). Supports importing pipeline settings from the Gaze Tab, visual editing of participant labels and condition tags, and custom output directories.
+- **`main_window.py`** creates the application window with four tabs:
+  - **Analyze Footage** (`run_study_tab.py`) -- the batch-processing home: project
+    picker (typed path / browse / recents), preflight checklist with fix hints, a
+    runs table with ledger status and resume-plan preview, per-run re-run and
+    edit-metadata actions, a collapsible Study setup area (pipeline, participants,
+    conditions, anonymize toggle, output root, `project.yaml` save), a manual
+    "Add single run" dialog, and a tabbed output panel (log, in-GUI charts, CSV
+    viewer -- rendered from CSVs already on disk via `run_outputs.py`).
+  - **VP Builder** (`vp_builder_tab.py`) -- visual prompt builder for creating and
+    testing `.vp.json` files.
+  - **Gaze Tuning** (`gaze_tab/`) -- the single-source tuning surface. Its
+    parameter panels are generated from the config schema's `ui` metadata:
+    `ui_spec.py` (pure, headless) resolves schema fields + flag help into a spec
+    tree and `schema_panel.py` renders it, including checkable toggle groups and
+    a basic/advanced tier. Hand-written sections remain only for widgets the
+    schema cannot express (source/model/VP pickers, backend radios, output paths).
+  - **Models** (`models_tab.py`) -- manifest-driven weight manager (install,
+    verify against checksums, re-download).
 
-- **`workers.py`** contains `threading.Thread`-based workers that run the tracking pipeline in the background so the UI remains responsive. `ProjectWorker` accepts a `ProjectConfig` and uses it for per-video metadata (condition tags, participant labels) and post-processing (global and per-condition CSV generation).
-- **`pipeline_dialog.py`** provides import/export for pipeline YAML files. `_namespace_to_yaml_dict()` converts a namespace to a structured YAML dict.
-- **`widgets.py`** and **`phenomena_panel.py`** supply reusable UI components.
+- **`workers.py`** contains `threading.Thread`-based workers that keep the UI
+  responsive. `ProjectWorker` is a thin consumer of `iter_project_runs` (the same
+  generator the CLI consumes) -- it translates the `ProjectEvent` stream into queue
+  messages and frame previews; all discovery, ledger, and global-CSV logic lives
+  in the project layer.
+- **`pipeline_dialog.py`** provides import/export for pipeline YAML files; the
+  export derives its sections and defaults from the config schema, so an exported
+  config round-trips through `load_pipeline`.
+- **`widgets.py`** supplies reusable UI components.
 - **`plugin_panel.py`** renders plugin configuration controls dynamically from registered plugins.
 
 ## Plugin Integration Points
 
-Plugins hook into three registries defined in `Plugins/__init__.py`:
+Plugins hook into four registries defined in `Plugins/__init__.py`:
 
 | Registry | Purpose | Example |
 |----------|---------|---------|
-| `gaze_registry` | Alternative gaze estimation backends | Gazelle |
+| `gaze_registry` | Alternative gaze estimation backends | Gaze-LLE (`gazelle`) |
 | `object_detection_registry` | Alternative detection backends | Custom YOLO variants |
 | `phenomena_registry` | New social gaze phenomena | Custom attention metrics |
+| `data_collection_registry` | Custom data sinks built via `from_args` and consumed at `finalize_run` | JSON loggers, custom exports |
 
-Auto-discovery scans `Plugins/` subdirectories at startup. The built-in MGaze backend is not discovered this way -- it is a core backend resolved directly by `gaze_factory` and does not live in a registry. Each plugin package exposes a registration function that inserts itself into the appropriate registry. Plugins can also provide `add_arguments(parser)` to register their own CLI flags.
+Auto-discovery scans `Plugins/` subdirectories at startup; load failures are
+recorded per registry (`registry.load_errors`) and surfaced loudly by project
+preflight. The built-in MobileGaze backend is not discovered this way -- it is a core backend resolved directly by `gaze_factory` and does not live in a registry. Each plugin package exposes a registration function that inserts itself into the appropriate registry. Plugins can also provide `add_arguments(parser)` to register their own CLI flags.
 
 ## Auxiliary Video Streams
 

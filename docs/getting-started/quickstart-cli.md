@@ -109,9 +109,9 @@ python MindSight.py --source video.mp4 --charts
 
 ## 5. Choosing a Gaze Backend
 
-The default backend is **MGaze**. To use an alternative:
+The default backend is **MobileGaze** (`--mgaze-model`). To use an alternative:
 
-**Gazelle:**
+**Gaze-LLE:**
 
 ```bash
 python MindSight.py --source video.mp4 --gazelle-model ckpt.pt
@@ -166,7 +166,7 @@ Load a full pipeline configuration from a YAML file:
 python MindSight.py --pipeline my_pipeline.yaml
 ```
 
-Pipeline configs let you define sources, detection settings, phenomena, gaze parameters, and outputs in a single file. See [Project Mode](../user-guide/project-mode.md) for details.
+Pipeline configs let you define sources, detection settings, phenomena, gaze parameters, and outputs in a single file. For batch-processing whole studies, point `--project` at a project directory (see [Your First Project](first-project.md)) and use `--preflight` to check the project is ready before running.
 
 ---
 

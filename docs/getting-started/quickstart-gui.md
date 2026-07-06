@@ -14,92 +14,86 @@ Or use the console command: `mindsight-gui`
 
 Requires **PyQt6**. Install it with `pip install PyQt6` if not already present.
 
+The window has four tabs: **Analyze Footage** (the home screen for running
+studies), **VP Builder**, **Gaze Tuning**, and **Models**.
+
 ---
 
-## 2. Tab 1: Gaze Tracker
+## 2. Tab 1: Analyze Footage
 
-The main tracking interface. Configure and run gaze analysis from a single screen.
+The home screen for research assistants: open a project, check it is ready, and
+batch-process every run with resume support.
 
-### Source Selection
+### Workflow
 
-Choose your input at the top of the tab:
+1. **Open a project** -- type or paste the project folder path (press Enter or
+   click **Open**), click **Browse...**, or pick from the **Recent projects**
+   dropdown. Both project layouts are supported: flat `Inputs/Videos/` and
+   per-run `Inputs/Runs/<run_id>/` folders.
+2. **Read the preflight checklist** -- every time a project opens (or when you
+   click **Re-run preflight**), MindSight checks project structure, pipeline
+   config validity, model weights, the visual prompt file, discovered runs,
+   per-run metadata, participant/condition coverage, compute device, disk
+   space, and plugin load errors. Each line shows OK / WARN / FAIL with a fix
+   hint. If required weights are missing and downloadable, a one-click
+   **Download missing weights** button appears.
+3. **Review the runs table** -- one row per run showing its source,
+   participants, conditions, ledger status, and the resume **plan**
+   ("done → will skip", "will process", "changed → re-run + archive") before
+   anything runs.
+4. **Run** -- click **Run** in the status bar. Rows update live with progress
+   and per-run states (skipped / archived / done / error); the preview pane
+   shows annotated frames; **Stop** cancels after the current video finalizes
+   cleanly.
 
-- **Webcam** -- enter a device index (e.g., `0` for the default camera).
-- **Video file** -- browse to an `.mp4`, `.avi`, or other supported format.
-- **Image** -- browse to a single image file.
+### Resume controls
 
-### Detection Mode
+Resume is always on -- finished runs with an unchanged configuration are
+skipped automatically. To reprocess:
 
-- **YOLO** -- enter object class names as a comma-separated list (e.g., `person, knife, cup`).
-- **YOLOE** -- select a visual prompt `.vp.json` file for open-vocabulary detection.
+- **Re-run all** -- confirms, then reprocesses every run (ignores the ledger).
+- **Re-run this run** -- right-click a row to invalidate just that run.
 
-### Gaze Backend
+### Editing run metadata
 
-Select from the dropdown:
+Right-click a run and choose **Edit run...** to set its participants
+(`0:S70, 1:S71`) and conditions before running. The edit is written where that
+project keeps its metadata: `run.yaml` for run-folder projects, `project.yaml`
+for flat projects.
 
-- **MGaze** (default — auto-detects ONNX or PyTorch from model file extension)
-- **Gazelle**
+### Study setup
 
-### Device Selector
+The collapsible **Study setup** area holds the study-wide configuration:
 
-Choose the inference device from the device dropdown:
+- **Pipeline** -- pick the project's `pipeline.yaml`, or click **Import from
+  Gaze Tuning** to write your current Gaze Tuning settings into it.
+- **Participants / Conditions tables** -- study-wide labels and tags, saved to
+  `project.yaml`.
+- **Anonymize Footage** -- tick to obscure faces (blur or black) in every
+  run's output video. Off by default; when unchecked, runs are exactly what
+  they always were.
+- **Output root** and **Save project.yaml**.
 
-- **Auto** -- automatically selects the best available device.
-- **CPU** -- force CPU inference.
-- **CUDA** -- use an NVIDIA GPU.
-- **MPS** -- use Apple Silicon GPU acceleration.
+### Adding a single run
 
-### Gaze Parameters
+**Add single run...** stages one video manually: pick the file, enter
+participants/conditions (or import a `participant_ids.csv`), then either
+**Run now** (a one-off run to a directory of your choice, no ledger) or
+**Save to project...** (creates a new run folder; copies the video by default,
+or moves it if you tick *Move original*).
 
-Adjust tracking behaviour:
+### Output panel
 
-- **Ray length** -- multiplier for the rendered gaze ray.
-- **Snap mode** -- adaptive ray snapping to detected objects, with configurable snap distance.
-- **Lock-on** -- hold gaze target for a specified number of dwell frames.
-- **Gaze cone** -- widen the hit-test angle (degrees).
+The bottom-right panel has three tabs:
 
-### Phenomena Panel
+- **Log** -- status messages from the batch.
+- **Charts** -- in-GUI phenomena charts (object look-time, gaze-target
+  timeline) rendered from the CSVs each run has already written -- current and
+  previous runs both.
+- **Output CSVs** -- a read-only viewer over any run's Events / summary /
+  stream CSVs.
 
-Enable phenomena via checkboxes:
-
-- Joint Attention
-- Mutual Gaze
-- Gaze Following
-- Gaze Aversion
-- Gaze Leadership
-- Social Referencing
-- Attention Span
-- Scanpath
-
-Each phenomenon exposes its own parameter fields (e.g., temporal window size, threshold) when enabled.
-
-### Plugin Panel
-
-Plugins that define `add_arguments` will have their controls auto-generated here. Adjust plugin-specific settings before starting a run.
-
-### Output Settings
-
-Configure what gets saved:
-
-- **Save video** -- path for the annotated output video.
-- **CSV log** -- per-frame event log path.
-- **Summary** -- post-run summary CSV path.
-- **Heatmap** -- output path for gaze heatmap images.
-- **Charts** -- output path for generated charts.
-
-### Presets
-
-Use the **Presets** dropdown to save and load named configurations. This lets you quickly switch between different experimental setups without reconfiguring every parameter.
-
-### Running
-
-Click **Start** to begin processing. Click **Stop** to halt at any time.
-
-- The **live preview** displays annotated frames in real time.
-- The **live dashboard** shows real-time gaze statistics, hit counts, and phenomenon events during processing.
-- The **log console** at the bottom shows status messages, warnings, and errors.
-
-<!-- screenshot: Gaze Tracker tab -->
+<!-- screenshot: Analyze Footage tab -->
 
 ---
 
@@ -115,29 +109,73 @@ Create and test visual prompts for YOLOE open-vocabulary detection.
 4. **Save** -- export the prompt as a `.vp.json` file.
 5. **Test inference** -- load a YOLOE model and run detection on a test image to verify the prompt works as expected.
 
+Click **Use saved VP in Gaze Tuning** to hand the saved prompt straight to the
+Gaze Tuning tab's VP field.
+
 <!-- screenshot: VP Builder tab -->
 
 ---
 
-## 4. Tab 3: Project Mode
+## 4. Tab 3: Gaze Tuning
 
-Batch-process multiple videos with a shared pipeline configuration, study condition tags, and participant labels.
+The tuning surface for a single source -- configure the pipeline, watch the
+live preview and dashboard, then export the settings for project use.
 
-### Workflow
+### Source, detection, and backend
 
-1. **Select a project directory** -- Browse to a directory with `Inputs/Videos/` containing your video files.
-2. **Configure the pipeline** -- Either browse to an existing `pipeline.yaml`, or click **Import from Gaze Tab** to export your current Gaze Tracker settings directly into the project's pipeline file.
-3. **Set up participants** -- Use the Participants table to map video filenames to participant labels. Click **Auto-populate** to quickly generate default entries for all videos, or **+ Track to All** to add additional participants.
-4. **Assign conditions** -- In the Conditions table, tag each video with study conditions (e.g., "Emotional Story", "Group A"). Select rows and use **Apply to Selected** to bulk-tag, or edit cells directly.
-5. **Save** -- Click **Save project.yaml** to persist your configuration.
-6. **Run** -- Click **Run Project** in the status bar. MindSight processes every video and generates per-video CSVs, Global CSVs, and per-condition CSVs automatically.
+- **Source** -- webcam index, video file, or image.
+- **Detection mode** -- YOLO (text classes) or YOLOE visual prompt.
+- **Gaze backend** -- **MobileGaze** (default; auto-detects ONNX or PyTorch
+  from the model file extension) or **Gaze-LLE**.
+- **Device** -- auto, CPU, CUDA, or MPS.
 
-<!-- screenshot: Project Mode tab -->
+### Parameter panels
+
+The tuning parameters (ray geometry, Gaze-LLE Blend, adaptive snap, smoothing,
+fixation lock-on, hit detection, depth, performance, phenomena) are generated
+from the configuration schema, so every control maps 1:1 to a CLI flag and
+pipeline YAML key. The **Show advanced** toggle reveals the deep-tuning tier
+(snap weights, filter cutoffs, fixation thresholds, and similar).
+
+### Plugin panel and outputs
+
+- **Plugin panel** -- controls auto-generated from installed plugins'
+  `add_arguments`.
+- **Output settings** -- annotated video, CSV log, summary, heatmaps, charts,
+  anonymization.
+
+### Presets and pipeline files
+
+Save/load named **presets**, or use **Export Pipeline** / **Import Pipeline**
+(File menu and tab buttons) to round-trip the full configuration as a
+`pipeline.yaml`.
+
+### Running
+
+Click **Start** to begin processing and **Stop** to halt. The live preview
+shows annotated frames; the live dashboard shows real-time gaze statistics,
+hit counts, and phenomenon events; the log console reports status.
+
+<!-- screenshot: Gaze Tuning tab -->
 
 ---
 
-## 5. Loading and Saving Settings
+## 5. Tab 4: Models
 
-GUI settings persist between sessions automatically via `settings_manager.py`. When you close and reopen the application, your last-used source, backend, gaze parameters, and output paths are restored.
+A manifest-driven manager for model weights. Every weight MindSight can use is
+listed with its backend, whether the *current* configuration needs it, its
+on-disk state, and size. From here you can **install** missing weights,
+**verify** files against the published checksums, or **re-download** a file
+that no longer matches. The preflight checklist on Analyze Footage uses the
+same manifest.
 
-Pipeline configurations can be loaded and saved independently through the **Pipeline dialog**, accessible from the Project Mode tab or the menu bar. This lets you maintain multiple named configs and switch between them as needed.
+<!-- screenshot: Models tab -->
+
+---
+
+## 6. Loading and Saving Settings
+
+GUI settings persist between sessions automatically. When you close and reopen
+the application, your last-used source, backend, tuning parameters, and output
+paths are restored, and recently opened projects appear in the Analyze Footage
+**Recent projects** dropdown.
