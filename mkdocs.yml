@@ -57,6 +57,7 @@ nav:
   - Run a study:
       - getting-started/index.md
       - Install: getting-started/installation.md
+      - Run a Study (Tutorial): studies/run-a-study-tutorial.md
       - Quickstart (CLI): getting-started/quickstart-cli.md
       - Quickstart (GUI): getting-started/quickstart-gui.md
   - Design a study:
