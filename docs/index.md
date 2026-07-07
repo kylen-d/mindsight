@@ -85,7 +85,7 @@ flowchart LR
     Get MindSight running, process your first video, and explore the phenomena it can detect.
 
     - [Getting Started](getting-started/index.md) -- installation and first run
-    - [User Guide](user-guide/index.md) -- pipeline configuration and workflows
+    - [Understand the Pipeline](concepts/pipeline.md) -- the four-stage pipeline and Gaze-LLE Blend
     - [Phenomena](phenomena/index.md) -- detailed descriptions of each tracked phenomenon
 
 -   **I'm a developer**

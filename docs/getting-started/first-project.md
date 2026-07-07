@@ -180,8 +180,8 @@ Play an annotated video to visually verify the tracking results.
 
 Now that you have a working project, try expanding it:
 
-- **Add more phenomena** -- Edit `pipeline.yaml` to enable `mutual_gaze`, `gaze_following`, `attention_span`, or use `all_phenomena: true` to enable everything. See [Phenomena Tracking](../user-guide/phenomena-overview.md).
-- **Create visual prompts** -- Build a `.vp.json` file to detect custom objects that standard YOLO classes do not cover. See [Visual Prompts](../user-guide/visual-prompts.md).
+- **Add more phenomena** -- Edit `pipeline.yaml` to enable `mutual_gaze`, `gaze_following`, `attention_span`, or use `all_phenomena: true` to enable everything. See [Phenomena Tracking](../phenomena/index.md).
+- **Create visual prompts** -- Build a `.vp.json` file to detect custom objects that standard YOLO classes do not cover. See [Visual Prompts](../design/visual-prompts.md).
 - **Customize the pipeline** -- Adjust gaze parameters, detection thresholds, and output settings in `pipeline.yaml`. See [Pipeline YAML Schema](../reference/pipeline-yaml-schema.md).
-- **Use the GUI** -- Launch `mindsight-gui` (or `python MindSight_GUI.py`) for a graphical interface to configure and run tracking. See [GUI Guide](../user-guide/gui-guide.md).
+- **Use the GUI** -- Launch `mindsight-gui` (or `python MindSight_GUI.py`) for a graphical interface to configure and run tracking. See [Quickstart (GUI)](quickstart-gui.md).
 - **Assign participant IDs** -- Map track IDs to participant labels and tag videos with study conditions, either per run (`run.yaml`) or study-wide (`project.yaml` / `participant_ids.csv`). The GUI's **Analyze Footage** tab edits both for you: the *Study setup* area writes `project.yaml`, and right-clicking a run offers *Edit run...*.

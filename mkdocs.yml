@@ -29,6 +29,11 @@ theme:
 plugins:
   - search
 
+# docs/superpowers/ is gitignored tooling debris -- keep it out of the build
+# so strict mode does not flag it as orphaned (not-in-nav) pages.
+exclude_docs: |
+  superpowers/
+
 markdown_extensions:
   - admonition
   - pymdownx.details
@@ -36,7 +41,7 @@ markdown_extensions:
       custom_fences:
         - name: mermaid
           class: mermaid
-          format: !!python/name:pymdownx.superfences.fence_mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
   - pymdownx.tabbed:
       alternate_style: true
   - pymdownx.highlight:
@@ -49,35 +54,30 @@ markdown_extensions:
 
 nav:
   - Home: index.md
-  - Getting Started:
+  - Run a study:
       - getting-started/index.md
-      - Installation: getting-started/installation.md
+      - Install: getting-started/installation.md
       - Quickstart (CLI): getting-started/quickstart-cli.md
       - Quickstart (GUI): getting-started/quickstart-gui.md
+  - Design a study:
       - Your First Project: getting-started/first-project.md
-      - Cookbook: getting-started/cookbook.md
-  - User Guide:
-      - user-guide/index.md
-      - Pipeline Overview: user-guide/pipeline-overview.md
-      - Object Detection: user-guide/object-detection.md
-      - Gaze Estimation: user-guide/gaze-estimation.md
-      - Visual Prompts: user-guide/visual-prompts.md
-      - Phenomena Tracking: user-guide/phenomena-overview.md
-      - Data & Output: user-guide/data-output.md
-      - Auxiliary Streams: user-guide/auxiliary-streams.md
-      - Project Mode: user-guide/project-mode.md
-      - GUI Guide: user-guide/gui-guide.md
-  - Phenomena:
-      - phenomena/index.md
-      - Joint Attention: phenomena/joint-attention.md
-      - Mutual Gaze: phenomena/mutual-gaze.md
-      - Social Referencing: phenomena/social-referencing.md
-      - Gaze Following: phenomena/gaze-following.md
-      - Gaze Aversion: phenomena/gaze-aversion.md
-      - Scanpath Analysis: phenomena/scanpath.md
-      - Gaze Leadership: phenomena/gaze-leadership.md
-      - Attention Span: phenomena/attention-span.md
-  - Developer Guide:
+      - Visual Prompts: design/visual-prompts.md
+      - CLI Flags: reference/cli-flags.md
+      - pipeline.yaml Schema: reference/pipeline-yaml-schema.md
+  - Understand the pipeline:
+      - The Pipeline: concepts/pipeline.md
+      - Understanding the Outputs: concepts/outputs.md
+      - Phenomena:
+          - phenomena/index.md
+          - Joint Attention: phenomena/joint-attention.md
+          - Mutual Gaze: phenomena/mutual-gaze.md
+          - Social Referencing: phenomena/social-referencing.md
+          - Gaze Following: phenomena/gaze-following.md
+          - Gaze Aversion: phenomena/gaze-aversion.md
+          - Scanpath Analysis: phenomena/scanpath.md
+          - Gaze Leadership: phenomena/gaze-leadership.md
+          - Attention Span: phenomena/attention-span.md
+  - Develop:
       - developer/index.md
       - Architecture Deep Dive: developer/architecture.md
       - FrameContext Reference: developer/frame-context.md
@@ -89,18 +89,16 @@ nav:
       - Writing a Plugin: developer/writing-a-plugin.md
       - Plugin Tutorials: developer/plugin-tutorial.md
       - "Phenomena Plugin Tutorial: Novel Salience": developer/phenomena-plugin-tutorial.md
-      - "Gaze Plugin Tutorial: Gazelle": developer/gaze-plugin-tutorial.md
+      - "Gaze Plugin Tutorial: Gaze-LLE": developer/gaze-plugin-tutorial.md
       - "Object Detection Plugin Tutorial": developer/object-detection-plugin-tutorial.md
       - "Data Collection Plugin Tutorial": developer/data-collection-plugin-tutorial.md
       - Pipeline Configuration (YAML): developer/pipeline-yaml.md
       - Testing: developer/testing.md
-  - Reference:
-      - reference/index.md
-      - CLI Flags: reference/cli-flags.md
-      - pipeline.yaml Schema: reference/pipeline-yaml-schema.md
-      - FrameContext Keys: reference/frame-context-keys.md
-      - Configuration Dataclasses: reference/config-dataclasses.md
-      - Detection Dataclass: reference/detection-dataclass.md
-      - Plugin Base Classes: reference/plugin-base-classes.md
-      - Keyboard Shortcuts: reference/keyboard-shortcuts.md
+      - Reference:
+          - reference/index.md
+          - FrameContext Keys: reference/frame-context-keys.md
+          - Configuration Dataclasses: reference/config-dataclasses.md
+          - Detection Dataclass: reference/detection-dataclass.md
+          - Plugin Base Classes: reference/plugin-base-classes.md
+          - Keyboard Shortcuts: reference/keyboard-shortcuts.md
   - Changelog: changelog.md
