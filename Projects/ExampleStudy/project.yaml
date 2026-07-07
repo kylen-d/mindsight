@@ -1,0 +1,7 @@
+version: 1
+
+# This example study uses the shipped known-good pipeline preset. The path is
+# relative to this project folder; ../../configs/ is the app's configs/ dir.
+# In a real study you can instead copy the preset into this project's own
+# Pipeline/ folder and point `pipeline:` at that copy.
+pipeline: ../../configs/pipeline_known_good.yaml

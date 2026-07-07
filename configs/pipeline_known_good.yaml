@@ -1,0 +1,86 @@
+# MindSight -- Known-Good Pipeline Configuration
+#
+# A pre-tuned, ready-to-run pipeline preset. Every value here is traceable to
+# an entry in configs/KNOWN_GOOD.md, the living record of empirically validated
+# parameters. Values were validated on classroom-style dyadic footage (two
+# participants, seated interaction) and are safe defaults for that setting; a
+# new study may still want to re-check them against its own footage.
+#
+# Usage:
+#   python MindSight.py --pipeline configs/pipeline_known_good.yaml \
+#       --source path/to/video.mp4
+# or point a project at it (project.yaml: `pipeline: <path to this file>`).
+# CLI flags override any value set here.
+#
+# Weight paths are BARE FILENAMES on purpose: MindSight resolves a bare name to
+# <install>/Weights/<backend>/<name>, so the same config works on any machine
+# regardless of where the app is installed (the installer relocates Weights/
+# via MINDSIGHT_HOME). Do NOT rewrite these to absolute or relative paths.
+#
+# Primary operating mode: Gaze-LLE Blend (per-face MobileGaze steered by a
+# Gaze-LLE scene prior). The blend wiring is written out explicitly below --
+# this file is documentation-as-config.
+
+# ── Object detection ─────────────────────────────────────────────────────────
+# Source: KNOWN_GOOD.md "Object detection" (cookbook, 2026-05), validated on
+# classroom-style footage.
+detection:
+  # YOLOE open-vocabulary segmentation model. v8 variants outperformed v26 on
+  # classroom footage. Intended for use WITH a visual prompt (.vp.json in
+  # Inputs/Prompts/) whose reference resolution matches the video. Bare
+  # filename -> <install>/Weights/YOLO/yoloe-v8l-seg.pt.
+  model: "yoloe-v8l-seg.pt"
+  # Detection confidence. KNOWN_GOOD range 0.20-0.30 (with Merge Overlaps on);
+  # 0.25 is the validated midpoint.
+  conf: 0.25
+
+# ── Gaze / ray geometry ──────────────────────────────────────────────────────
+# Source: KNOWN_GOOD.md "Ray geometry" (2026-05), validated on classroom footage.
+gaze:
+  # Base ray length. KNOWN_GOOD range 1.25-1.50; 1.4 is the validated point.
+  # The Gaze-LLE blend corrects reach dynamically at runtime.
+  ray_length: 1.4
+  # Vision-cone half-angle in degrees. KNOWN_GOOD ~5.0 (study-dependent).
+  gaze_cone: 5.0
+  # Re-identification grace window in seconds. KNOWN_GOOD range 4-5 s; 4.5 point.
+  reid_grace_seconds: 4.5
+
+# ── Plugin / backend settings (namespace pass-through) ───────────────────────
+# Keys here map directly to CLI flags (hyphens or underscores). This section
+# carries the per-face gaze backend, the Gaze-LLE blend wiring, and the merge-
+# overlaps detection settings. Weight values are BARE FILENAMES (see header).
+plugins:
+  # Per-face gaze backend: MobileGaze resnet50. Ship the ONNX weight (runs on
+  # Apple Silicon / CPU; a .pt variant is used on CUDA). Source: KNOWN_GOOD.md
+  # "Per-face gaze backend". Bare filename -> <install>/Weights/MGaze/.
+  mgaze_model: "resnet50_gaze.onnx"
+  mgaze_arch: "resnet50"
+
+  # ── Gaze-LLE Blend (primary operating mode) ──
+  # Source: KNOWN_GOOD.md "Gaze-LLE Blend", validated 2026-07-05 on
+  # classroom-style dyadic footage. The scene-level Gaze-LLE prior steers each
+  # per-face belief; a fixation-aware scheduler decides when to apply it.
+  # Bare filename -> <install>/Weights/Gazelle/gazelle_dinov2_vitb14.pt.
+  rf_gazelle_model: "gazelle_dinov2_vitb14.pt"
+  # Inference interval. KNOWN_GOOD 10 (cookbook range 10-15). This also sets
+  # the effective min-call-gap (rf_gazelle_interval -> min_call_gap; the bare
+  # default when neither is set is 30 frames).
+  rf_gazelle_interval: 10
+  # Blend-tuning parameters. Each EQUALS the current code default -- written out
+  # here as documentation-as-config so the validated intent is visible. Source:
+  # KNOWN_GOOD.md "Gaze-LLE Blend" table (2026-07-05).
+  dir_beta: 0.5              # direction responsiveness (One Euro beta)
+  len_beta: 0.3             # length responsiveness (One Euro beta)
+  len_hold_tau: 5.0         # length-hold time constant (s); reach persists at
+                            # the latched Gaze-LLE value, decaying on this scale
+  fixation_v_threshold: 0.04   # rad/frame; code default since 2026-07-05
+  fixation_d_threshold: 0.15   # rad; code default since 2026-07-05
+
+  # ── Merge overlaps (detection) ──
+  # Source: KNOWN_GOOD.md "Object detection" (2026-05). Shipped via this
+  # pass-through because the strict pipeline schema has no first-class YAML key
+  # for these; the runtime loader applies them to detection. KNOWN_GOOD:
+  # Merge Overlaps ON, threshold range 0.50-0.60 (0.55 point), strategy dynamic.
+  merge_overlaps: true
+  merge_overlap_strategy: "dynamic"
+  merge_overlap_threshold: 0.55
