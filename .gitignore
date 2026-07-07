@@ -55,6 +55,9 @@ Projects/*/Inputs/Videos/
 docs/superpowers/
 assets/presentation/
 
+# MkDocs build output
+site/
+
 # Local-only reference material (draft plans, baselines) -- not tracked
 localref/
 

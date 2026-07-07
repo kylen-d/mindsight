@@ -54,7 +54,7 @@ Full documentation is available at **[kylen-d.github.io/mindsight-docs](https://
 - **Device auto-detection** — automatically selects CUDA, MPS (Apple Silicon), or CPU (`--device`)
 - **PyQt6 GUI** — full graphical front-end with live preview, a drag-and-drop Visual Prompt Builder, and project management
 
-> See the [pipeline overview](https://kylen-d.github.io/mindsight-docs/user-guide/pipeline-overview/) for how the four-stage pipeline (Detection → Gaze → Phenomena → Data Collection) works end to end.
+> See the [pipeline overview](https://kylen-d.github.io/mindsight-docs/concepts/pipeline/) for how the four-stage pipeline (Detection → Gaze → Phenomena → Data Collection) works end to end.
 
 ### Built-in Tracking of Various Attention-based Phenomena
 
@@ -86,7 +86,7 @@ Each phenomenon has its own tuning parameters — see the [phenomena guide](http
 - **Participant ID mapping** — map track IDs to meaningful labels via `--participant-ids` or `--participant-csv`
 - **Project-based workflow** — user-defined pipelines with batch processing, per-condition CSV aggregation, and organized data output
 
-> See the [data output guide](https://kylen-d.github.io/mindsight-docs/user-guide/data-output/) for full details on all output types.
+> See the [data output guide](https://kylen-d.github.io/mindsight-docs/concepts/outputs/) for full details on all output types.
 
 ---
 
@@ -150,16 +150,33 @@ Pillow                       # Image handling
 
 ## Installation
 
-> **Windows (interim installer):** Windows users can skip the manual steps below with the double-click bootstrap installer in [`installer/`](installer/) -- see [`installer/INSTALL-WINDOWS.md`](installer/INSTALL-WINDOWS.md). It provisions a pinned Python 3.12 environment, installs MindSight with locked dependencies, downloads the required model weights, and creates Desktop and Start-menu shortcuts. The manual steps below remain the path for development installs and other platforms.
+The fastest way to get MindSight running -- no Python setup required -- is the double-click installer for your platform. If you want a development checkout (editable install, running the tests, contributing, or working on a platform without a prebuilt installer), skip to [Developer install](#developer-install).
 
-### 1. Clone the repository
+### Quick install (recommended)
+
+The interim installer provisions a self-contained Python, installs MindSight with locked dependencies, downloads the required model weights, and creates a launcher (Desktop and Start-menu shortcuts on Windows, a Desktop launcher on macOS). You do not need to install Python or anything else first.
+
+1. **Download the release zip** for your platform — `MindSight-<version>-win.zip` or `MindSight-<version>-mac.zip` — from the project's [GitHub Releases](https://github.com/kylen-d/mindsight/releases) page. (Release downloads go live once the first tagged release is published; until then, use the developer install below or ask your study lead for a copy.)
+2. Extract the zip somewhere you can find again (Desktop or Downloads is fine).
+3. Run the installer:
+   - **Windows:** double-click `Install-MindSight.bat`. If the blue **"Windows protected your PC"** SmartScreen box appears, click **More info** → **Run anyway** (expected — the in-house tool is unsigned).
+   - **macOS:** right-click (or Control-click) `Install-MindSight.command` and choose **Open**, then click **Open** in the Gatekeeper dialog. (A plain double-click only offers "Move to Trash"; right-click → Open is the way past this.)
+4. A console/Terminal window walks through the setup steps and finishes with `MindSight install: PASS`. It is safe to re-run — re-running updates an existing install and skips finished work.
+
+Full step-by-step instructions (SmartScreen / Gatekeeper details, first-launch notes) are in [`installer/INSTALL-WINDOWS.md`](installer/INSTALL-WINDOWS.md) and [`installer/INSTALL-MACOS.md`](installer/INSTALL-MACOS.md).
+
+### Developer install
+
+For an editable source checkout — running the test suite, contributing, or working on any platform without a prebuilt installer:
+
+#### 1. Clone the repository
 
 ```bash
 git clone https://github.com/kylen-d/mindsight.git
 cd mindsight
 ```
 
-### 2. Create and activate a virtual environment (recommended)
+#### 2. Create and activate a virtual environment (recommended)
 
 ```bash
 python -m venv .venv
@@ -167,7 +184,7 @@ source .venv/bin/activate        # macOS / Linux
 .venv\Scripts\activate           # Windows
 ```
 
-### 3. Install dependencies
+#### 3. Install dependencies
 
 ```bash
 pip install -r requirements.txt
@@ -184,7 +201,7 @@ Alternatively, use the platform-aware helper:
 python scripts/install_dependencies.py        # auto-detects CUDA / Apple Silicon
 ```
 
-### 4. Download gaze model weights
+#### 4. Download gaze model weights
 
 All model weights are centralized in `Weights/{backend}/` and tracked in a checksummed manifest (`weights_manifest.json`). Download and verify them with the `mindsight-weights` console command (installed by step 3):
 
@@ -197,7 +214,7 @@ mindsight-weights --verify-only       # check checksums without downloading
 
 The Gaze-LLE (`gazelle_dinov2_vitb14.pt`) and MobileGaze default weights are part of the required set, so `--required` fetches everything the default pipeline needs. `python scripts/download_weights.py` remains available as an equivalent entry point for source checkouts.
 
-### 5. YOLO weights
+#### 5. YOLO weights
 
 YOLO model weights (e.g. `yolov8n.pt`) are downloaded automatically by Ultralytics on first use. YOLOE weights (e.g. `yoloe-26l-seg.pt`) are also auto-downloaded.
 
@@ -278,7 +295,7 @@ MindSight/
 ├── Weights/                      # Model weights (git-ignored, download on demand)
 ├── Projects/                     # User project directories
 ├── scripts/                      # Utility scripts (download_weights, install_deps)
-├── tests/                        # pytest test suite (265 tests)
+├── tests/                        # pytest test suite (696 tests)
 ├── docs/                         # MkDocs documentation
 └── Outputs/                      # Default output directory
 ```
@@ -433,6 +450,8 @@ python MindSight.py --pipeline my_pipeline.yaml --source video.mp4
 
 CLI flags always override YAML values. For the full YAML schema including `aux_streams` and `plugins` sections, see the [pipeline YAML reference](https://kylen-d.github.io/mindsight-docs/reference/pipeline-yaml-schema/).
 
+A ready-to-use, pre-tuned config — Gaze-LLE Blend wiring plus detection and ray-geometry values validated on classroom-style footage — ships as [`configs/pipeline_known_good.yaml`](configs/pipeline_known_good.yaml). Point `--pipeline` at it, or copy it into a project's `Pipeline/pipeline.yaml` as a starting point.
+
 ### Project mode
 
 A Project is a directory with a standard layout for batch-processing multiple videos:
@@ -457,7 +476,7 @@ python MindSight.py --project Projects/MyProject/
 
 This loads the project's `pipeline.yaml`, processes every video in `Inputs/Videos/`, and writes per-video outputs to `Outputs/`. The optional `project.yaml` allows you to define conditions (per-video tags), participant label mappings, and output directory customization.
 
-> See the [project mode guide](https://kylen-d.github.io/mindsight-docs/user-guide/project-mode/) for full details on project.yaml, conditions, participants, and auxiliary streams.
+> See the [project mode guide](https://kylen-d.github.io/mindsight-docs/getting-started/first-project/) for full details on project.yaml, conditions, participants, and auxiliary streams.
 
 ### Plugin development
 
@@ -525,7 +544,7 @@ The single-source tuning surface for all `MindSight.py` functionality.
 
 Manifest-driven manager for model weights: per-weight backend, whether the current config needs it, on-disk state and size, with *Install*, *Verify* (checksums), and *Re-download* actions.
 
-> See the [GUI guide](https://kylen-d.github.io/mindsight-docs/user-guide/gui-guide/) for detailed instructions including the pipeline dialog and settings persistence.
+> See the [GUI guide](https://kylen-d.github.io/mindsight-docs/getting-started/quickstart-gui/) for detailed instructions including the pipeline dialog and settings persistence.
 
 ---
 
@@ -559,7 +578,7 @@ VP files encode reference images and bounding-box annotations used by YOLOE for 
 - The **first** reference image is used to initialise YOLOE class embeddings. Additional reference images are currently reserved for future use.
 - Class IDs must be contiguous and start at `0`.
 
-> See the [visual prompts guide](https://kylen-d.github.io/mindsight-docs/user-guide/visual-prompts/) for tips on creating effective prompts.
+> See the [visual prompts guide](https://kylen-d.github.io/mindsight-docs/design/visual-prompts/) for tips on creating effective prompts.
 
 ---
 
@@ -618,7 +637,7 @@ Map track IDs to meaningful labels:
 
 Labels appear in CSV output and on-screen overlays.
 
-> See the [data output guide](https://kylen-d.github.io/mindsight-docs/user-guide/data-output/) for full details on output directory structure, CSV column definitions, and project-mode aggregation.
+> See the [data output guide](https://kylen-d.github.io/mindsight-docs/concepts/outputs/) for full details on output directory structure, CSV column definitions, and project-mode aggregation.
 
 ---
 
@@ -638,7 +657,7 @@ Labels appear in CSV output and on-screen overlays.
 
 The `_inout` variants add an in-frame / out-of-frame confidence score that modulates the gaze heatmap peak.
 
-> See the [gaze estimation guide](https://kylen-d.github.io/mindsight-docs/user-guide/gaze-estimation/) for detailed parameter tuning, adaptive ray modes, smoothing, re-ID, and intersection algorithms.
+> See the [gaze estimation guide](https://kylen-d.github.io/mindsight-docs/concepts/pipeline/) for detailed parameter tuning, adaptive ray modes, smoothing, re-ID, and intersection algorithms.
 
 ---
 
