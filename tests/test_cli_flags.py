@@ -9,6 +9,7 @@ explicit-flag set).
 """
 
 import json
+import os
 import sys
 from pathlib import Path
 
@@ -16,6 +17,16 @@ import pytest
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 DATA_DIR = REPO_ROOT / "tests" / "data"
+
+# Weight defaults resolve to absolute checkout paths; the golden pins them in
+# checkout-relative form, so strip the live root prefix before comparing.
+_ROOT_PREFIX = str(REPO_ROOT) + os.sep
+
+
+def _portable(v):
+    if isinstance(v, str) and v.startswith(_ROOT_PREFIX):
+        return v[len(_ROOT_PREFIX):]
+    return v
 sys.path.insert(0, str(REPO_ROOT / "scripts"))
 
 from capture_cli_parser_spec import format_help_pinned, parser_spec  # noqa: E402
@@ -31,6 +42,7 @@ from mindsight.cli_flags import (  # noqa: E402
 def _norm_action(a):
     a = dict(a)
     a["type"] = None if a["type"] == "str" else a["type"]
+    a["default"] = _portable(a["default"])
     return a
 
 

@@ -34,6 +34,19 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 GOLDEN_PATH = REPO_ROOT / "tests" / "data" / "gui_namespace_golden.json"
 STALE_FIXTURE_PATH = REPO_ROOT / "tests" / "data" / "last_used_pre_sp3.json"
 
+# Weight defaults resolve to absolute checkout paths; the golden pins them in
+# checkout-relative form.  Strip the live root prefix so the census (which holds
+# live absolute paths) compares equal on any machine.
+_ROOT_PREFIX = str(REPO_ROOT) + os.sep
+
+
+def _portable(d: dict) -> dict:
+    return {
+        k: (v[len(_ROOT_PREFIX):]
+            if isinstance(v, str) and v.startswith(_ROOT_PREFIX) else v)
+        for k, v in d.items()
+    }
+
 
 @pytest.fixture(scope="module")
 def qapp():
@@ -71,7 +84,7 @@ def _census(win) -> dict:
 
 def test_default_namespace_matches_golden(main_window):
     """The full default namespace census equals the committed golden."""
-    census = _census(main_window)
+    census = _portable(_census(main_window))
     golden = json.loads(GOLDEN_PATH.read_text())
 
     if census == golden:
