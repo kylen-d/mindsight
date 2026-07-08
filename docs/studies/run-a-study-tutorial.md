@@ -2,9 +2,8 @@
 
 This is a start-to-finish walkthrough for a research assistant who has been
 handed a set of recordings and asked to run them through MindSight. It assumes
-**no prior experience** with the command line: every step is a click, and the
-one or two places where you have to type a command spell it out exactly and show
-you what a successful result looks like.
+**no prior experience** with the command line -- every step is a click in the
+app.
 
 The guide is deliberately generic. Wherever it says *your study* or *your study
 lead*, fill in the specifics your lab gave you. The concrete example it points
@@ -25,7 +24,7 @@ the shape of a real project.
 
 MindSight ships as a double-click installer that sets up a private Python, all
 of MindSight's dependencies, and the four required model weights (about 115 MB).
-You do not install Python or anything else first.
+You do not need to install anything else first -- no Python, no packages.
 
 === "macOS"
 
@@ -121,11 +120,10 @@ ExampleStudy/
 ```
 
 `project.yaml` points at the pipeline preset with a line like
-`pipeline: ../../configs/pipeline_known_good.yaml`. That preset,
-`configs/pipeline_known_good.yaml`, is MindSight's pre-tuned known-good
-configuration: sensible detection, gaze, and **Gaze-LLE Blend** settings
-validated on classroom-style footage. You normally do not touch it -- your study
-lead has already pointed the project at the right one.
+`pipeline: ../../configs/pipeline_known_good.yaml`. That preset is MindSight's
+pre-tuned known-good configuration: detection, gaze, and **Gaze-LLE Blend**
+settings validated on classroom-style footage. You normally never touch it --
+your study lead has already pointed the project at the right one.
 
 A project uses **one of two layouts** for its recordings:
 
@@ -165,8 +163,8 @@ do to it (process it, or re-run and archive the previous output).
 
 ## 5. Add videos and fill in participants and conditions
 
-If your project already has its videos and metadata, skim this section and move
-to [Run](#7-run-the-analysis). If you are building the project from loose
+If your project already has its videos and metadata, skip ahead to
+[Run](#7-run-the-analysis). If you are building the project from loose
 recordings, this is where you do it.
 
 ### Add recordings
@@ -186,7 +184,8 @@ Click **Add single run...** to add one recording at a time. Pick the video with
   per-condition aggregates.
 - **Date / Session / Notes** -- optional bookkeeping.
 - **Move original into the project** -- leave unchecked to copy the video in
-  (the default, and safest); check it to move the file.
+  (the default, and safest); check it to move the file instead, so the original
+  leaves its old location.
 
 Click **Run now** to process immediately, or **Save to project...** to add it and
 run everything later.
@@ -247,8 +246,8 @@ progress, then a `Done` line per video with the frame count and how many
 gaze-object hit events it recorded. The **Progress** column in the runs table
 fills as each video completes.
 
-**How long it takes.** Processing is roughly real-time-ish to a few times slower
-than real-time per video, heavily dependent on the machine and whether the
+**How long it takes.** Expect each video to take from about its own duration up
+to several times longer, depending heavily on the machine and on whether the
 annotated video is being rendered (rendering is the slowest output by far). As a
 rough anchor, a short clip runs in a few minutes on Apple Silicon; a full
 30-minute session can take substantially longer, especially on a CPU-only
@@ -304,8 +303,8 @@ default**: MindSight keeps a ledger of what is already done and skips completed
 videos.
 
 - To reprocess **one** recording, select its row in the runs table and use the
-  per-row re-run control (the row's status shows what Run will do to it -- e.g.
-  *re-run + archive*, meaning the old output is set aside first).
+  per-row re-run control. The row's status tells you what Run will do to it --
+  *re-run + archive* means the previous output is set aside first, not deleted.
 - **Run all** reprocesses everything that is not already complete.
 - To force a full reprocess from scratch, use **Re-run all** after clearing the
   prior outputs (your study lead can tell you when that is warranted).
@@ -322,7 +321,7 @@ You will not need these for a routine batch, but here is what they are for.
 ### Visual prompts (VP Builder)
 
 The known-good preset uses a **YOLOE** open-vocabulary detector, which works best
-*with* a visual prompt: a small `.vp.json` file that shows the detector example
+*with* a visual prompt: a small `.vp.json` file that gives the detector example
 boxes of the objects your study cares about. Your study lead usually prepares
 this once and drops it in `Inputs/Prompts/`.
 
@@ -333,9 +332,9 @@ name object classes and draw boxes on them, then **Save VP File...**:
 
 ![The VP Builder with classes and drawn boxes](../assets/tutorial/vp-builder-annotated.png)
 
-The reference image's resolution should match your video -- YOLOE encodes pixel
-size. Once saved, use **Use saved VP in Gaze Tuning** to wire it into the
-pipeline.
+The reference image should match your video's resolution -- YOLOE encodes object
+size in pixels. Once saved, use **Use saved VP in Gaze Tuning** to wire it into
+the pipeline.
 
 ### Gaze Tuning
 
@@ -362,9 +361,9 @@ come here to **Verify** or **Re-download** it.
 ## 10. Troubleshooting: every preflight message
 
 Preflight groups its checks into eleven areas. The table below lists every
-message it can print, what it means, and who to go to. **Green** rows never
-appear as problems; only **warnings** (yellow, usually safe to proceed) and
-**failures** (red, must fix before Run) are listed. Placeholders like `{...}`
+message it can print, what it means, and who to go to. Passing (green) checks
+are not listed; the table covers only **warnings** (yellow -- usually safe to
+proceed) and **failures** (red -- must fix before Run). Placeholders like `{...}`
 are filled in with the specific file or value when you see the real message.
 
 | Preflight message | What it means | Severity / who to call |
