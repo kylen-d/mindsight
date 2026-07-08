@@ -6,7 +6,7 @@ on and the date** -- this file is what pipeline presets and the docs should be
 generated from, and it survives refactors that move the code around.
 
 Conventions: GUI label first, then CLI flag / YAML key. Values validated on
-KITCO-style footage unless noted.
+classroom-style dyadic footage unless noted.
 
 ---
 
@@ -45,18 +45,18 @@ length jitter.
 - **MobileGaze resnet50** -- `.pt` on CUDA, `.onnx` on Apple Silicon/CPU
   (cookbook, paper 7.3). Confidence scale ~0.08-0.29; see floor note above.
 
-## Object detection (KITCO)
+## Object detection
 
-From cookbook testing on KITCO 3 footage (2026-05):
+From cookbook testing on the primary validation study footage (2026-05):
 
 | Parameter | Value | Notes |
 |---|---|---|
-| Model | `yoloe-v8l-seg.pt` or `yoloe-v8m-seg.pt` | v8 outperformed v26 variants on KITCO |
+| Model | `yoloe-v8l-seg.pt` or `yoloe-v8m-seg.pt` | v8 outperformed v26 variants on the validation footage |
 | Conf | 0.20-0.30 | with Merge Overlaps on |
 | Merge Overlaps | on, threshold 0.50-0.60 | strategy `filter` or `dynamic` |
 | VP resolution | match video resolution | YOLOE encodes pixel-size, not semantics |
 
-## Ray geometry (KITCO)
+## Ray geometry
 
 | Parameter | Value | Notes |
 |---|---|---|
