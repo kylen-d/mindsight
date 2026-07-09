@@ -163,6 +163,69 @@ def test_typed_empty_path_is_noop(qapp):
     assert tab._status_label.text() == "No project open."
 
 
+# ── New Project button (scaffold + open) ─────────────────────────────────────
+
+def test_new_project_scaffolds_and_opens(qapp, tmp_path, monkeypatch):
+    import mindsight.GUI.run_study_tab as rst
+    from mindsight.GUI.run_study_tab import RunStudyTab
+
+    # Bypass the native dialogs: pick tmp_path as parent, "MyStudy" as name.
+    monkeypatch.setattr(rst.QFileDialog, "getExistingDirectory",
+                        staticmethod(lambda *a, **k: str(tmp_path)))
+    monkeypatch.setattr(rst.QInputDialog, "getText",
+                        staticmethod(lambda *a, **k: ("MyStudy", True)))
+
+    tab = RunStudyTab()
+    tab._new_project_dialog()
+
+    new_dir = tmp_path / "MyStudy"
+    # Standard blank-project structure landed on disk.
+    assert (new_dir / "project.yaml").is_file()
+    assert (new_dir / "Inputs" / "Videos").is_dir()
+    assert (new_dir / "Inputs" / "Prompts").is_dir()
+    assert (new_dir / "Pipeline").is_dir()
+    # And it opened in the tab (preflight ran -> report present).
+    assert tab._project is not None
+    assert tab._project_path == new_dir.resolve()
+    assert tab._status_label.text().startswith("Open:")
+    assert tab._project.preflight().checks
+
+
+def test_new_project_cancel_is_noop(qapp, tmp_path, monkeypatch):
+    import mindsight.GUI.run_study_tab as rst
+    from mindsight.GUI.run_study_tab import RunStudyTab
+
+    monkeypatch.setattr(rst.QFileDialog, "getExistingDirectory",
+                        staticmethod(lambda *a, **k: str(tmp_path)))
+    # User cancels the name prompt (ok=False).
+    monkeypatch.setattr(rst.QInputDialog, "getText",
+                        staticmethod(lambda *a, **k: ("", False)))
+
+    tab = RunStudyTab()
+    tab._new_project_dialog()
+    assert tab._project is None
+    assert not any(tmp_path.iterdir())     # nothing created
+
+
+def test_new_project_duplicate_shows_inline_error(qapp, tmp_path, monkeypatch):
+    import mindsight.GUI.run_study_tab as rst
+    from mindsight.GUI.run_study_tab import RunStudyTab
+
+    existing = tmp_path / "Dup"
+    (existing / "Inputs" / "Videos").mkdir(parents=True)
+    (existing / "Inputs" / "Videos" / "x.mp4").write_bytes(b"\x00")
+
+    monkeypatch.setattr(rst.QFileDialog, "getExistingDirectory",
+                        staticmethod(lambda *a, **k: str(tmp_path)))
+    monkeypatch.setattr(rst.QInputDialog, "getText",
+                        staticmethod(lambda *a, **k: ("Dup", True)))
+
+    tab = RunStudyTab()
+    tab._new_project_dialog()          # must not raise
+    assert tab._project is None
+    assert "Could not create project" in tab._status_label.text()
+
+
 # ── Manual dialog builds a valid RunSpec ─────────────────────────────────────
 
 def test_manual_dialog_builds_valid_runspec(qapp, tmp_path):

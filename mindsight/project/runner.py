@@ -107,6 +107,56 @@ def save_project_config(project: Path, cfg: ProjectConfig) -> Path:
     return yaml_path
 
 
+def create_project(parent_dir: str | Path, name: str,
+                   *, pipeline_path: str | None = "Pipeline/pipeline.yaml") -> Path:
+    """Scaffold a new, empty project folder with the standard layout.
+
+    Creates ``<parent_dir>/<name>/`` containing ``Inputs/Videos/``,
+    ``Inputs/Prompts/``, ``Pipeline/`` and a minimal ``project.yaml`` (via
+    :func:`save_project_config`). No videos or pipeline file are written -- a
+    fresh project preflights with advisories (no sources yet, pipeline defaults),
+    which is the expected empty-project state. Reused by the GUI's New Project
+    control; kept here next to save/validate so the shape stays in one place.
+
+    Parameters
+    ----------
+    parent_dir : str | Path
+        Existing directory the new project folder is created inside.
+    name : str
+        Project folder name (a single path component, no separators).
+    pipeline_path : str | None
+        Value written for ``project.yaml`` ``pipeline:`` (default
+        ``"Pipeline/pipeline.yaml"``, mirroring the ExampleProject shape).
+
+    Returns
+    -------
+    Path
+        The created project root.
+
+    Raises
+    ------
+    ValueError
+        If *name* is empty/contains a path separator, *parent_dir* is not an
+        existing directory, or the target already exists and is non-empty.
+    """
+    clean = (name or "").strip()
+    if not clean or clean in (".", "..") or "/" in clean or "\\" in clean:
+        raise ValueError(
+            "project name must be a non-empty folder name without path separators")
+    parent = Path(parent_dir).expanduser()
+    if not parent.is_dir():
+        raise ValueError(f"parent folder does not exist: {parent}")
+    project = parent / clean
+    if project.exists() and any(project.iterdir()):
+        raise ValueError(f"a non-empty folder already exists at {project}")
+
+    (project / "Inputs" / "Videos").mkdir(parents=True, exist_ok=True)
+    (project / "Inputs" / "Prompts").mkdir(parents=True, exist_ok=True)
+    (project / "Pipeline").mkdir(parents=True, exist_ok=True)
+    save_project_config(project, ProjectConfig(pipeline_path=pipeline_path))
+    return project
+
+
 def validate_project(project_dir: str | Path,
                      project_cfg: ProjectConfig | None = None) -> Path:
     """

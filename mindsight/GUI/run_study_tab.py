@@ -48,6 +48,7 @@ from PyQt6.QtWidgets import (
     QGroupBox,
     QHBoxLayout,
     QHeaderView,
+    QInputDialog,
     QLabel,
     QLineEdit,
     QMenu,
@@ -418,6 +419,10 @@ class RunStudyTab(QWidget):
         open_btn = QPushButton("Browse...")
         open_btn.clicked.connect(self._open_project_dialog)
         top.addWidget(open_btn)
+        new_btn = QPushButton("New Project...")
+        new_btn.setToolTip("Create a blank project folder and open it")
+        new_btn.clicked.connect(self._new_project_dialog)
+        top.addWidget(new_btn)
         self._recent = QComboBox()
         self._recent.setMinimumWidth(180)
         self._recent.setToolTip("Recently opened projects")
@@ -828,6 +833,26 @@ class RunStudyTab(QWidget):
             self, "Open MindSight project folder")
         if path:
             self._open_project(path)
+
+    def _new_project_dialog(self):
+        """Prompt for a parent folder + name, scaffold a blank project, open it."""
+        parent = QFileDialog.getExistingDirectory(
+            self, "Choose where to create the new project")
+        if not parent:
+            return
+        name, ok = QInputDialog.getText(
+            self, "New Project", "Project name:")
+        if not ok or not name.strip():
+            return
+        from mindsight.project.runner import create_project
+        try:
+            project = create_project(parent, name.strip())
+        except (ValueError, OSError) as exc:
+            self._status_label.setText(f"Could not create project: {exc}")
+            self._status_label.setStyleSheet("color: #b22222; font-weight: bold;")
+            return
+        # Reuse the normal open path so validation + preflight + state wiring run.
+        self._open_project(str(project))
 
     def _open_typed_path(self):
         """Open the path typed/pasted into the project field (G-FIX-3)."""
