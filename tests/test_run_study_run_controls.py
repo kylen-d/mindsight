@@ -42,11 +42,14 @@ class FakeProjectWorker(threading.Thread):
         self.progress_q = progress_q
         self.log_q = log_q
         self.frame_q = frame_q
-        self._stop = threading.Event()
+        # ``_stop_event`` (never ``_stop``): a bare ``_stop`` attribute would
+        # shadow ``threading.Thread._stop`` and abort on ``is_alive``/``join``
+        # under CPython < 3.14 -- mirror the real worker's fixed naming.
+        self._stop_event = threading.Event()
         FakeProjectWorker.instances.append(self)
 
     def stop(self):
-        self._stop.set()
+        self._stop_event.set()
 
     def run(self):
         self.progress_q.put({"type": "start", "total": 1})
@@ -59,7 +62,7 @@ class FakeProjectWorker(threading.Thread):
                 self.frame_q.put_nowait(frame.copy())
             except queue.Full:
                 pass
-            if self._stop.wait(timeout=0.01):
+            if self._stop_event.wait(timeout=0.01):
                 break
         self.log_q.put("fake worker: finishing")
         self.progress_q.put({"type": "done"})

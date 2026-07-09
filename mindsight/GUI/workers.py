@@ -88,13 +88,10 @@ class GazeWorker(threading.Thread):
         self.frame_q      = frame_q
         self.log_q        = log_q
         self.dashboard_q  = dashboard_q
-        self._stop        = threading.Event()
+        self._stop_event  = threading.Event()
 
     def stop(self):
-        self._stop.set()
-
-    def is_alive(self):
-        return super().is_alive()
+        self._stop_event.set()
 
     def _log(self, msg):
         self.log_q.put(str(msg))
@@ -174,7 +171,7 @@ class GazeWorker(threading.Thread):
                 self.frame_q.put_nowait(result.annotated.copy())
             except queue.Full:
                 pass
-            if self._stop.is_set():
+            if self._stop_event.is_set():
                 cancel.cancel()
 
         # Per-run provenance manifest (D8): only when a file output is
@@ -195,7 +192,7 @@ class GazeWorker(threading.Thread):
         is_image = (isinstance(source, str)
                     and Path(source).suffix.lower() in IMAGE_EXTS)
         if is_image:
-            self._stop.wait()
+            self._stop_event.wait()
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -227,10 +224,10 @@ class ProjectWorker(threading.Thread):
         self.log_q       = log_q
         self.frame_q     = frame_q
         self.project_cfg = project_cfg
-        self._stop       = threading.Event()
+        self._stop_event = threading.Event()
 
     def stop(self):
-        self._stop.set()
+        self._stop_event.set()
 
     def _log(self, msg):
         self.log_q.put(str(msg))
@@ -274,7 +271,7 @@ class ProjectWorker(threading.Thread):
         for event in project.run(self.ns, resume=resume, cancel=cancel,
                                  project_cfg=self.project_cfg):
             # Propagate a stop request to the iterator on every event.
-            if self._stop.is_set():
+            if self._stop_event.is_set():
                 cancel.cancel()
 
             if isinstance(event, BatchStarted):
@@ -350,10 +347,10 @@ class VPInferenceWorker(threading.Thread):
         self.conf        = conf
         self.vp_file     = vp_file          # None -> text-class mode
         self.text_classes = text_classes     # used when vp_file is None
-        self._stop       = threading.Event()
+        self._stop_event = threading.Event()
 
     def stop(self):
-        self._stop.set()
+        self._stop_event.set()
 
     def _log(self, msg):
         self.log_q.put(str(msg))
@@ -408,7 +405,7 @@ class VPInferenceWorker(threading.Thread):
 
         # ── Inference loop ───────────────────────────────────────────────────
         for i, img_path in enumerate(self.image_paths):
-            if self._stop.is_set():
+            if self._stop_event.is_set():
                 break
             frame = cv2.imread(str(img_path))
             if frame is None:
