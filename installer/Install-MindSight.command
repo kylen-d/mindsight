@@ -28,9 +28,14 @@ LAUNCHER="$HOME/Desktop/MindSight.command"
 # app/ tree is bundled, MindSight is installed non-editable from a wheel asset
 # published on the GitHub Release, and MINDSIGHT_HOME points every data path
 # (Weights/Outputs/Projects) at "$APP_DIR" so nothing lands under site-packages.
-# The wheel URL is supplied via MINDSIGHT_RELEASE_WHEEL_URL (a real release-mode
-# zip will carry it). Local-zip mode remains the default until v1.0 assets ship.
-RELEASE_WHEEL_URL="${MINDSIGHT_RELEASE_WHEEL_URL:-}"
+# Release-mode assets (wheel, weights manifest, and the pipeline preset) live on
+# the GitHub Release; RELEASE_BASE_URL is the download base for that tag and the
+# wheel/manifest/preset URLs derive from it. All three are overridable via env so
+# a future release can point at a new tag without editing this script.
+RELEASE_BASE_URL="${MINDSIGHT_RELEASE_BASE_URL:-https://github.com/kylen-d/mindsight/releases/download/v1.0.0-indev}"
+RELEASE_WHEEL_URL="${MINDSIGHT_RELEASE_WHEEL_URL:-$RELEASE_BASE_URL/mindsight-1.0.0.dev0-py3-none-any.whl}"
+RELEASE_MANIFEST_URL="${MINDSIGHT_RELEASE_MANIFEST_URL:-$RELEASE_BASE_URL/weights_manifest.json}"
+RELEASE_PRESET_URL="${MINDSIGHT_RELEASE_PRESET_URL:-$RELEASE_BASE_URL/pipeline_known_good.yaml}"
 if [ -d "$SRC_DIR/app" ]; then
     INSTALL_MODE="local"
 else
@@ -111,8 +116,19 @@ if [ "$INSTALL_MODE" = "local" ]; then
     echo "[3/6] Application files in place ... OK"
 else
     # Release mode: "$APP_DIR" is the data home (Weights/Outputs/Projects),
-    # not a source tree; MINDSIGHT_HOME will point here.
+    # not a source tree; MINDSIGHT_HOME will point here. The wheel ships only the
+    # Python packages, so the weights manifest (mindsight-weights reads it from
+    # PROJECT_ROOT) and the pipeline_known_good.yaml preset are fetched here.
     export MINDSIGHT_HOME="$APP_DIR"
+    if ! curl -LsSf "$RELEASE_MANIFEST_URL" -o "$APP_DIR/weights_manifest.json"; then
+        fail "3 (copy application files)" "Could not download the weights manifest from the release."
+    fi
+    if ! mkdir -p "$APP_DIR/configs"; then
+        fail "3 (copy application files)" "Could not create the configs folder in \"$APP_DIR\"."
+    fi
+    if ! curl -LsSf "$RELEASE_PRESET_URL" -o "$APP_DIR/configs/pipeline_known_good.yaml"; then
+        fail "3 (copy application files)" "Could not download the pipeline preset from the release."
+    fi
     echo "[3/6] Data home ready at \"$APP_DIR\" ... OK"
 fi
 

@@ -30,8 +30,17 @@ REM  MindSight installs non-editable from a wheel asset on the GitHub Release
 REM  and MINDSIGHT_HOME points every data path at "%APP_DIR%". The wheel URL is
 REM  supplied via MINDSIGHT_RELEASE_WHEEL_URL. Local-zip mode stays the default
 REM  until v1.0 assets ship.
-if not defined MINDSIGHT_RELEASE_WHEEL_URL set "MINDSIGHT_RELEASE_WHEEL_URL="
+REM  Release-mode assets (wheel, weights manifest, pipeline preset) live on the
+REM  GitHub Release; RELEASE_BASE_URL is that tag's download base. All three URLs
+REM  are overridable via env so a future release can point at a new tag.
+if not defined MINDSIGHT_RELEASE_BASE_URL set "MINDSIGHT_RELEASE_BASE_URL=https://github.com/kylen-d/mindsight/releases/download/v1.0.0-indev"
+set "RELEASE_BASE_URL=%MINDSIGHT_RELEASE_BASE_URL%"
+if not defined MINDSIGHT_RELEASE_WHEEL_URL set "MINDSIGHT_RELEASE_WHEEL_URL=%RELEASE_BASE_URL%/mindsight-1.0.0.dev0-py3-none-any.whl"
 set "RELEASE_WHEEL_URL=%MINDSIGHT_RELEASE_WHEEL_URL%"
+if not defined MINDSIGHT_RELEASE_MANIFEST_URL set "MINDSIGHT_RELEASE_MANIFEST_URL=%RELEASE_BASE_URL%/weights_manifest.json"
+set "RELEASE_MANIFEST_URL=%MINDSIGHT_RELEASE_MANIFEST_URL%"
+if not defined MINDSIGHT_RELEASE_PRESET_URL set "MINDSIGHT_RELEASE_PRESET_URL=%RELEASE_BASE_URL%/pipeline_known_good.yaml"
+set "RELEASE_PRESET_URL=%MINDSIGHT_RELEASE_PRESET_URL%"
 if exist "%SRC_DIR%\app" (
     set "INSTALL_MODE=local"
 ) else (
@@ -105,9 +114,22 @@ goto after_deploy
 
 :deploy_release
 REM  Release mode: "%APP_DIR%" is the data home (Weights/Outputs/Projects),
-REM  not a source tree; MINDSIGHT_HOME points here for the rest of the run.
+REM  not a source tree; MINDSIGHT_HOME points here for the rest of the run. The
+REM  wheel ships only the Python packages, so the weights manifest and the
+REM  pipeline_known_good.yaml preset are fetched from the release into "%APP_DIR%".
 if not exist "%APP_DIR%" mkdir "%APP_DIR%"
 set "MINDSIGHT_HOME=%APP_DIR%"
+curl -LsSf "%RELEASE_MANIFEST_URL%" -o "%APP_DIR%\weights_manifest.json"
+if not %ERRORLEVEL% EQU 0 (
+    echo [3/7] Downloading weights manifest ... FAILED
+    goto fail
+)
+if not exist "%APP_DIR%\configs" mkdir "%APP_DIR%\configs"
+curl -LsSf "%RELEASE_PRESET_URL%" -o "%APP_DIR%\configs\pipeline_known_good.yaml"
+if not %ERRORLEVEL% EQU 0 (
+    echo [3/7] Downloading pipeline preset ... FAILED
+    goto fail
+)
 echo [3/7] Data home ready at "%APP_DIR%" ... OK
 
 :after_deploy
