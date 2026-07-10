@@ -30,6 +30,7 @@ dependencies = [
     # Computer vision
     "opencv-contrib-python==4.13.0.92",
     "Pillow==12.1.1",
+    "imageio-ffmpeg>=0.5",  # bundled ffmpeg binary: crop tool + H.264 remux without PATH
     # GUI
     "PyQt6>=6.5",
     # Data & analysis

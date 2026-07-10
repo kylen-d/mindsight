@@ -63,7 +63,12 @@ def finalize_video(path):
     import shutil
     import subprocess
 
-    if shutil.which("ffmpeg") is None:
+    # UP4: resolve via the shared helper -- system ffmpeg first (unchanged
+    # behavior where one exists), the imageio-ffmpeg bundled binary second
+    # (release installs no longer depend on PATH).
+    from .video_edit import ffmpeg_exe
+    exe = ffmpeg_exe()
+    if exe is None:
         print("Note: ffmpeg not found; video saved as MPEG-4 Part 2 (mp4v).\n"
               "      Install ffmpeg for H.264 output (QuickTime compatible).")
         return
@@ -71,7 +76,7 @@ def finalize_video(path):
     tmp = path + ".h264.mp4"
     try:
         subprocess.run(
-            ["ffmpeg", "-y", "-i", path, "-c:v", "libx264", "-preset", "fast",
+            [exe, "-y", "-i", path, "-c:v", "libx264", "-preset", "fast",
              "-crf", "18", "-pix_fmt", "yuv420p", "-movflags", "+faststart",
              tmp],
             check=True, capture_output=True,

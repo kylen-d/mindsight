@@ -213,6 +213,12 @@ class ProjectsTab(QWidget):
         reveal = QPushButton("Reveal Folder")
         reveal.clicked.connect(self._reveal)
         head.addWidget(reveal)
+        crop = QPushButton("Crop && Adjust Videos...")
+        crop.setToolTip(
+            "Crop the raw videos and/or change their frame rate before "
+            "running (originals kept unless you say otherwise)")
+        crop.clicked.connect(self._open_crop_tool)
+        head.addWidget(crop)
         analyze = QPushButton("▶  Open in Analyze Footage")
         analyze.setStyleSheet(_GO_GREEN)
         analyze.setMinimumHeight(34)
@@ -298,6 +304,15 @@ class ProjectsTab(QWidget):
         for r, row in enumerate(rows):
             for c, val in enumerate(row):
                 self._runs_table.setItem(r, c, QTableWidgetItem(str(val)))
+
+    def _open_crop_tool(self):
+        """Launch the Crop & Adjust dialog (UP4); refresh runs afterwards."""
+        if not self._current:
+            return
+        from .crop_dialog import CropVideosDialog
+        dlg = CropVideosDialog(self._current, parent=self)
+        dlg.exec()
+        self._refresh_runs()
 
     def _reveal(self):
         if self._current:
