@@ -130,6 +130,19 @@ def process_frame(ctx, *, yolo, face_det, gaze_eng,
 # Run helpers
 # ==============================================================================
 
+def frame_ja_flags(joint_objs, confirmed_objs, tip_convergences):
+    """Per-frame joint-attention flags for the events CSV and console tags.
+
+    Joint attention is the UNION of object JA and gaze-tip convergence (user
+    ruling 2026-07-09): tip convergence tracks phenomena in lieu of object
+    detections, so a frame where gaze tips converge is a JA frame even when no
+    detected object is under joint attention.  Returns ``(is_joint,
+    is_confirmed)`` booleans, so simultaneous modes can never double-count.
+    """
+    has_tip = bool(tip_convergences)
+    return bool(joint_objs) or has_tip, bool(confirmed_objs) or has_tip
+
+
 def _ja_mode_string(phenomena_cfg, gaze_cfg):
     """Build a human-readable summary of active JA accuracy features for the HUD."""
     ja_flags = []
@@ -588,8 +601,8 @@ def _run_video(source, *, yolo, face_det, gaze_eng,
             # Frame statistics -- JA counters are now managed by JointAttentionTracker
             total_frames += 1
             joint_pct    = ctx.get('joint_pct', 0.0)
-            is_joint     = bool(joint_objs)
-            is_confirmed = bool(confirmed_objs)
+            is_joint, is_confirmed = frame_ja_flags(
+                joint_objs, confirmed_objs, ctx.get('tip_convergences') or [])
 
             # Store derived values for data collection
             ctx['is_joint'] = is_joint

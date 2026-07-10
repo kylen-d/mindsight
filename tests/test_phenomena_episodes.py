@@ -175,6 +175,20 @@ class TestJointAttentionQuorum:
                   if e["phenomenon"] == "joint_attention"]
         assert {e["object"] for e in ja_eps} == {"plate", "cup"}
 
+    def test_frame_ja_flags_union(self):
+        """The per-row Events.csv joint_attention flags include tip
+        convergence (user ruling 2026-07-09): union of both modes, boolean
+        per frame so simultaneous modes cannot double up."""
+        from mindsight.pipeline import frame_ja_flags
+
+        tip = [(frozenset({0, 1}), np.array([10.0, 10.0]))]
+        assert frame_ja_flags(set(), set(), []) == (False, False)
+        assert frame_ja_flags({0}, {0}, []) == (True, True)
+        assert frame_ja_flags(set(), set(), tip) == (True, True)
+        assert frame_ja_flags({0}, {0}, tip) == (True, True)
+        # Raw-but-not-confirmed object JA stays asymmetric without tips.
+        assert frame_ja_flags({0}, set(), []) == (True, False)
+
     def test_tip_and_object_ja_never_double_count(self):
         """A frame with BOTH object JA and tip convergence counts once."""
         t = JointAttentionTracker(window=0)
