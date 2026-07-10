@@ -108,3 +108,38 @@ def apply_edit(src, *, rect=None, fps=None, overwrite=False) -> Path | None:
         shutil.move(str(src), str(backup))
     tmp.replace(src)
     return backup
+
+
+def extract_frames(video, out_dir, *, count: int = 8) -> list[Path]:
+    """Extract *count* evenly spaced frames from *video* as JPEGs (MP2).
+
+    Frames are taken at the midpoints of *count* equal segments, so the
+    fade-in first frame and near-duplicate last frame are naturally avoided.
+    Returns the written paths (named ``<stem>_f<frame#>.jpg``).  Raises
+    ``ValueError`` when the video cannot be opened or reports no frames.
+    """
+    import cv2
+    video, out_dir = Path(video), Path(out_dir)
+    cap = cv2.VideoCapture(str(video))
+    if not cap.isOpened():
+        raise ValueError(f"cannot open video: {video}")
+    try:
+        total = int(cap.get(cv2.CAP_PROP_FRAME_COUNT) or 0)
+        if total <= 0:
+            raise ValueError(f"video reports no frames: {video}")
+        count = max(1, min(int(count), total))
+        indices = [min(int((i + 0.5) * total / count), total - 1)
+                   for i in range(count)]
+        out_dir.mkdir(parents=True, exist_ok=True)
+        written: list[Path] = []
+        for idx in indices:
+            cap.set(cv2.CAP_PROP_POS_FRAMES, idx)
+            ok, frame = cap.read()
+            if not ok or frame is None:
+                continue
+            p = out_dir / f"{video.stem}_f{idx:06d}.jpg"
+            cv2.imwrite(str(p), frame, [cv2.IMWRITE_JPEG_QUALITY, 95])
+            written.append(p)
+        return written
+    finally:
+        cap.release()

@@ -111,19 +111,34 @@ class VisualPromptBuilderTab(QWidget):
         load_dir_btn.clicked.connect(self._load_folder)
         load_files_btn = QPushButton("Add Images\u2026")
         load_files_btn.clicked.connect(self._load_files)
+        extract_btn = QPushButton("Extract Frames\u2026")
+        extract_btn.setToolTip(
+            "Pull still frames out of videos (files, a folder, or a "
+            "project) to annotate here")
+        extract_btn.clicked.connect(self._extract_frames)
         tbl.addWidget(load_dir_btn)
         tbl.addWidget(load_files_btn)
+        tbl.addWidget(extract_btn)
 
         tbl.addWidget(QFrame(frameShape=QFrame.Shape.VLine))
 
         load_vp_btn = QPushButton("Load VP File\u2026")
+        load_vp_btn.setToolTip(
+            "Load a .vp.json, or a portable .vp.zip archive (extracted "
+            "beside the archive)")
         load_vp_btn.clicked.connect(self._load_vp_file)
         self._save_vp_btn = QPushButton("Save VP File\u2026")
         self._save_vp_btn.setStyleSheet(
             "QPushButton{background:#2a5a8a;color:white;font-weight:bold;padding:5px 10px;}")
         self._save_vp_btn.clicked.connect(self._save_vp_file)
+        export_btn = QPushButton("Export Portable\u2026")
+        export_btn.setToolTip(
+            "Bundle this prompt AND its images into one .vp.zip that works "
+            "on any machine")
+        export_btn.clicked.connect(self._export_portable)
         tbl.addWidget(load_vp_btn)
         tbl.addWidget(self._save_vp_btn)
+        tbl.addWidget(export_btn)
 
         tbl.addStretch(1)
         outer.addWidget(tb)
@@ -284,16 +299,72 @@ class VisualPromptBuilderTab(QWidget):
         paths, _ = QFileDialog.getOpenFileNames(
             self, "Select reference images", "",
             "Images (*.jpg *.jpeg *.png *.bmp *.tiff *.tif *.webp);;All (*)")
+        added = self.add_images(paths)
+        if added:
+            self._set_status(f"Added {added} image(s)")
+
+    def add_images(self, paths) -> int:
+        """Programmatic reference-image add (frame extraction, tests)."""
         added = 0
-        for p in paths:
+        for p in paths or []:
+            p = str(p)
             if p not in self._images:
                 self._images[p] = {"frame": None, "annotations": []}
                 self._file_list.addItem(Path(p).name)
                 added += 1
-        if added:
-            self._set_status(f"Added {added} image(s)")
         if self._file_list.count() > 0 and self._file_list.currentRow() < 0:
             self._file_list.setCurrentRow(0)
+        return added
+
+    def _extract_frames(self):
+        """MP2: extract stills from footage, then offer them as references."""
+        from .frame_extract_dialog import FrameExtractDialog
+        dlg = FrameExtractDialog(self)
+        if not dlg.exec() or not dlg.extracted:
+            return
+        reply = QMessageBox.question(
+            self, "Extracted",
+            f"Extracted {len(dlg.extracted)} frame(s). Add them to the "
+            "reference image list?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+        if reply == QMessageBox.StandardButton.Yes:
+            added = self.add_images(dlg.extracted)
+            self._set_status(f"Added {added} extracted frame(s)")
+
+    def _export_portable(self):
+        """MP4: bundle the prompt + its images into one portable .vp.zip."""
+        from .vp_archive import VP_ARCHIVE_EXT, export_vp_archive
+        if not self._classes:
+            QMessageBox.warning(self, "Empty", "Define at least one class.")
+            return
+        refs = [
+            {"image": str(Path(img_path).resolve()),
+             "annotations": [{"cls_id": a["cls_id"], "bbox": a["bbox"]}
+                             for a in info["annotations"]]}
+            for img_path, info in self._images.items()
+            if info["annotations"]
+        ]
+        if not refs:
+            QMessageBox.warning(self, "Empty", "Draw at least one annotation.")
+            return
+        path, _ = QFileDialog.getSaveFileName(
+            self, "Export portable VP archive", "",
+            f"Portable Visual Prompt (*{VP_ARCHIVE_EXT})")
+        if not path:
+            return
+        if not path.endswith(VP_ARCHIVE_EXT):
+            path += VP_ARCHIVE_EXT
+        try:
+            export_vp_archive(path, self._classes, refs)
+        except (ValueError, OSError) as exc:
+            QMessageBox.critical(self, "Export failed", str(exc))
+            return
+        self._set_status(f"Exported → {Path(path).name}")
+        QMessageBox.information(
+            self, "Exported",
+            f"Portable archive saved:\n{path}\n\nIt contains the prompt AND "
+            "all its images -- share it as one file; load it anywhere via "
+            "Load VP File.")
 
     def _remove_current_image(self):
         row = self._file_list.currentRow()
@@ -527,12 +598,19 @@ class VisualPromptBuilderTab(QWidget):
             f"{len(self._classes)} class(es), {len(refs)} reference image(s)")
 
     def _load_vp_file(self):
+        from .vp_archive import VP_ARCHIVE_EXT, import_vp_archive
         path, _ = QFileDialog.getOpenFileName(
             self, "Load VP file", "",
-            f"Visual Prompt (*{VP_EXT});;JSON (*.json);;All (*)")
+            f"Visual Prompt (*{VP_EXT} *{VP_ARCHIVE_EXT});;JSON (*.json);;"
+            "All (*)")
         if not path:
             return
         try:
+            if path.endswith(VP_ARCHIVE_EXT):
+                # MP4: a portable archive extracts beside itself and yields a
+                # normal .vp.json with absolute paths.
+                path = str(import_vp_archive(path))
+                self._set_status(f"Archive extracted → {Path(path).parent}")
             data = load_vp_file(path)
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Cannot load VP file:\n{e}"); return
