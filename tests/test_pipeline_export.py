@@ -6,7 +6,9 @@ canonical tables (``_YAML_MAP`` / ``_PHENOMENA_TOGGLES`` / ``_PHENOMENA_PARAMS``
 the contract the GUI relies on: export a namespace, re-import it the way the GUI
 does (``load_pipeline`` into a fresh namespace, then apply through the widgets),
 and get a census-equal namespace back -- for the default census AND a KNOWN_GOOD
-Gaze-LLE blend config.  Export stays only-non-default.
+Gaze-LLE blend config.  Export is FULL by default (user ruling 2026-07-09: an
+exported YAML pins every parameter, not a diff); ``full=False`` keeps the
+historical only-non-default behavior and both modes must round-trip.
 """
 
 import json
@@ -68,11 +70,52 @@ def test_default_census_roundtrips(qapp, tmp_path):
     assert after == before
 
 
-def test_default_census_export_is_minimal(qapp, tmp_path):
-    """A default namespace exports no schema-relevant tuning sections."""
+def test_default_census_full_export_pins_defaults(qapp, tmp_path):
+    """Full export (the default) writes default-valued parameters explicitly,
+    so the YAML pins the complete configuration."""
     cfg = _namespace_to_yaml_dict(_census_ns())
+    assert cfg["gaze"]["ray_length"] == 1.0      # default, but pinned
+    assert cfg["detection"]["conf"] == 0.35      # default, but pinned
+    # Unset path-like values stay absent (None/'' means unset, not a value).
+    assert "rf_gazelle_model" not in cfg.get("plugins", {})
+    # Phenomena toggles that are off cannot be expressed in the list format;
+    # absence means off.
+    assert "phenomena" not in cfg
+
+
+def test_diff_export_stays_minimal(qapp, tmp_path):
+    """full=False keeps the historical diff behavior."""
+    cfg = _namespace_to_yaml_dict(_census_ns(), full=False)
     assert "gaze" not in cfg          # every gaze value is default
     assert "phenomena" not in cfg     # no phenomena enabled by default
+
+
+def test_diff_export_roundtrips(qapp, tmp_path):
+    """The diff export must still re-import census-equal."""
+    ns = _census_ns()
+    ns.ray_length = 1.5
+    ns.joint_attention = True
+    cfg = _namespace_to_yaml_dict(ns, full=False)
+    p = tmp_path / "diff.yaml"
+    p.write_text(yaml.dump(cfg, default_flow_style=False, sort_keys=False))
+    reimported = load_pipeline(str(p), Namespace())
+    assert _gui_census(reimported) == _gui_census(ns)
+
+
+def test_full_export_phenomena_carry_all_params(qapp, tmp_path):
+    """Full export writes every owned phenomena param, default or not."""
+    ns = _census_ns()
+    ns.joint_attention = True
+    ns.ja_window = 12                              # non-default
+    cfg = _namespace_to_yaml_dict(ns)
+    ja = next(item for item in cfg["phenomena"]
+              if (isinstance(item, dict) and "joint_attention" in item)
+              or item == "joint_attention")
+    assert isinstance(ja, dict), "full export must carry JA params"
+    params = ja["joint_attention"]
+    assert params["ja_window"] == 12               # the changed one
+    assert "ja_quorum" in params                   # default, but pinned
+    assert "ja_window_thresh" in params            # default, but pinned
 
 
 def test_known_good_blend_roundtrips(qapp, tmp_path):

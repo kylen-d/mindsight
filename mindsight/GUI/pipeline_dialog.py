@@ -150,14 +150,23 @@ def _set_nested(cfg: dict, yaml_key: str, value) -> None:
     cfg.setdefault(section, {})[field] = value
 
 
-def _namespace_to_yaml_dict(ns: Namespace) -> dict:
+def _namespace_to_yaml_dict(ns: Namespace, *, full: bool = True) -> dict:
     """Convert a Namespace to a structured pipeline-YAML dict (schema-driven).
 
-    Emits only keys whose value differs from the pipeline default, in the layout
-    ``load_pipeline`` reads back: scalar detection/gaze/output/performance keys
-    via the canonical ``_YAML_MAP``, the phenomena list via the canonical
-    phenomena tables, and the model-wiring + no-YAML-key schema knobs under
-    ``plugins``.  ``load_pipeline(export(ns))`` re-imports census-equal.
+    ``full=True`` (the default, user ruling 2026-07-09) emits EVERY exportable
+    parameter -- including values that sit at their pipeline default -- so an
+    exported YAML pins the complete configuration rather than a diff whose
+    meaning silently shifts if a default ever changes.  ``full=False`` restores
+    the historical diff export (only keys differing from the pipeline default).
+
+    Either way the layout is what ``load_pipeline`` reads back: scalar
+    detection/gaze/output/performance keys via the canonical ``_YAML_MAP``, the
+    phenomena list via the canonical phenomena tables, and the model-wiring +
+    no-YAML-key schema knobs under ``plugins``.  ``None``/empty values are
+    always skipped (they mean "unset"; YAML absence says the same thing).
+    Phenomena toggles that are OFF stay absent -- the list format cannot say
+    "off", and absence already means off.  ``load_pipeline(export(ns))``
+    re-imports census-equal in both modes.
     """
     from mindsight.config_compat import (
         _PHENOMENA_PARAMS,
@@ -169,6 +178,9 @@ def _namespace_to_yaml_dict(ns: Namespace) -> dict:
     base = _export_baseline()
     cfg: dict = {}
 
+    def _at_default(dest, val):
+        return not full and val == _norm(base.get(dest))
+
     # 1. Scalar sections via the canonical yaml-key <-> dest table.  Phenomena
     #    (list format) and the interval knob (plugins) are handled below.
     for yaml_key, dest in _YAML_MAP.items():
@@ -177,13 +189,14 @@ def _namespace_to_yaml_dict(ns: Namespace) -> dict:
         if dest not in d:
             continue
         val = _norm(d.get(dest))
-        if val == _norm(base.get(dest)):
+        if _at_default(dest, val):
             continue
         if val in (None, "", [], {}):
             continue
         _set_nested(cfg, yaml_key, val)
 
-    # 2. Phenomena list: canonical yaml names + only-non-default params.
+    # 2. Phenomena list: canonical yaml names; full mode carries every owned
+    #    param, diff mode only the non-default ones.
     key_by_dest = {dest: key for key, dest in _PHENOMENA_PARAMS.items()}
     phenomena: list = []
     for yaml_name, toggle_dest in _PHENOMENA_TOGGLES.items():
@@ -194,7 +207,7 @@ def _namespace_to_yaml_dict(ns: Namespace) -> dict:
             if owner != toggle_dest or pdest not in d:
                 continue
             val = d.get(pdest)
-            if val is not None and _norm(val) != _norm(base.get(pdest)):
+            if val is not None and not _at_default(pdest, _norm(val)):
                 params[key_by_dest[pdest]] = val
         phenomena.append({yaml_name: params} if params else yaml_name)
     if phenomena:
@@ -207,7 +220,7 @@ def _namespace_to_yaml_dict(ns: Namespace) -> dict:
         if dest not in d:
             continue
         val = _norm(d.get(dest))
-        if val is None or val == _norm(base.get(dest)):
+        if val is None or val == "" or _at_default(dest, val):
             continue
         plugins[dest] = val
     if plugins:
