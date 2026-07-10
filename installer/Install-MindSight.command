@@ -33,9 +33,10 @@ LAUNCHER="$HOME/Desktop/MindSight.command"
 # wheel/manifest/preset URLs derive from it. All three are overridable via env so
 # a future release can point at a new tag without editing this script.
 RELEASE_BASE_URL="${MINDSIGHT_RELEASE_BASE_URL:-https://github.com/kylen-d/mindsight/releases/download/v1.0.0-indev}"
-RELEASE_WHEEL_URL="${MINDSIGHT_RELEASE_WHEEL_URL:-$RELEASE_BASE_URL/mindsight-1.0.0.dev0-py3-none-any.whl}"
+RELEASE_WHEEL_URL="${MINDSIGHT_RELEASE_WHEEL_URL:-$RELEASE_BASE_URL/mindsight-1.0.0.dev1-py3-none-any.whl}"
 RELEASE_MANIFEST_URL="${MINDSIGHT_RELEASE_MANIFEST_URL:-$RELEASE_BASE_URL/weights_manifest.json}"
 RELEASE_PRESET_URL="${MINDSIGHT_RELEASE_PRESET_URL:-$RELEASE_BASE_URL/pipeline_known_good.yaml}"
+RELEASE_LOWPOWER_URL="${MINDSIGHT_RELEASE_LOWPOWER_URL:-$RELEASE_BASE_URL/pipeline_low_power.yaml}"
 if [ -d "$SRC_DIR/app" ]; then
     INSTALL_MODE="local"
 else
@@ -126,6 +127,8 @@ else
     if ! mkdir -p "$APP_DIR/configs"; then
         fail "3 (copy application files)" "Could not create the configs folder in \"$APP_DIR\"."
     fi
+    # Low-power variant is best-effort: absence must not fail the install.
+    curl -LsSf "$RELEASE_LOWPOWER_URL" -o "$APP_DIR/configs/pipeline_low_power.yaml" || true
     if ! curl -LsSf "$RELEASE_PRESET_URL" -o "$APP_DIR/configs/pipeline_known_good.yaml"; then
         fail "3 (copy application files)" "Could not download the pipeline preset from the release."
     fi
