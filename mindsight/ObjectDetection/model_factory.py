@@ -54,10 +54,16 @@ def create_yolo_detector(
             yolo.to(resolved_dev)
         except Exception:
             pass  # Ultralytics may not support this device; fall back
-    try:
-        yolo.set_classes(classes)
-    except AttributeError:
-        pass
+    # Only narrow the vocabulary when classes were requested: set_classes(None)
+    # raises TypeError inside ultralytics on YOLOE models (plain YOLO models
+    # have no set_classes at all -- that AttributeError stays tolerated). A
+    # YOLOE model with no classes and no VP prompt runs prompt-free on its
+    # built-in vocabulary.
+    if classes:
+        try:
+            yolo.set_classes(classes)
+        except AttributeError:
+            pass
     class_ids = resolve_classes(yolo, classes or None)
     bl = (set(BLACKLISTED_CLASSES)
           | {n.lower() for n in (blacklist_names or [])}) - {"person"}
