@@ -33,7 +33,7 @@ LAUNCHER="$HOME/Desktop/MindSight.command"
 # wheel/manifest/preset URLs derive from it. All three are overridable via env so
 # a future release can point at a new tag without editing this script.
 RELEASE_BASE_URL="${MINDSIGHT_RELEASE_BASE_URL:-https://github.com/kylen-d/mindsight/releases/download/v1.0.0-indev}"
-RELEASE_WHEEL_URL="${MINDSIGHT_RELEASE_WHEEL_URL:-$RELEASE_BASE_URL/mindsight-1.0.0.dev1-py3-none-any.whl}"
+RELEASE_WHEEL_URL="${MINDSIGHT_RELEASE_WHEEL_URL:-$RELEASE_BASE_URL/mindsight-1.0.0.dev2-py3-none-any.whl}"
 RELEASE_MANIFEST_URL="${MINDSIGHT_RELEASE_MANIFEST_URL:-$RELEASE_BASE_URL/weights_manifest.json}"
 RELEASE_PRESET_URL="${MINDSIGHT_RELEASE_PRESET_URL:-$RELEASE_BASE_URL/pipeline_known_good.yaml}"
 RELEASE_LOWPOWER_URL="${MINDSIGHT_RELEASE_LOWPOWER_URL:-$RELEASE_BASE_URL/pipeline_low_power.yaml}"

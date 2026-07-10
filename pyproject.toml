@@ -1,6 +1,6 @@
 [project]
 name = "mindsight"
-version = "1.0.0.dev1"
+version = "1.0.0.dev2"
 description = "Real-time multi-person gaze tracking and attention analysis platform"
 requires-python = ">=3.10"
 license = "AGPL-3.0-or-later"

@@ -35,7 +35,7 @@ REM  GitHub Release; RELEASE_BASE_URL is that tag's download base. All three URL
 REM  are overridable via env so a future release can point at a new tag.
 if not defined MINDSIGHT_RELEASE_BASE_URL set "MINDSIGHT_RELEASE_BASE_URL=https://github.com/kylen-d/mindsight/releases/download/v1.0.0-indev"
 set "RELEASE_BASE_URL=%MINDSIGHT_RELEASE_BASE_URL%"
-if not defined MINDSIGHT_RELEASE_WHEEL_URL set "MINDSIGHT_RELEASE_WHEEL_URL=%RELEASE_BASE_URL%/mindsight-1.0.0.dev1-py3-none-any.whl"
+if not defined MINDSIGHT_RELEASE_WHEEL_URL set "MINDSIGHT_RELEASE_WHEEL_URL=%RELEASE_BASE_URL%/mindsight-1.0.0.dev2-py3-none-any.whl"
 set "RELEASE_WHEEL_URL=%MINDSIGHT_RELEASE_WHEEL_URL%"
 if not defined MINDSIGHT_RELEASE_MANIFEST_URL set "MINDSIGHT_RELEASE_MANIFEST_URL=%RELEASE_BASE_URL%/weights_manifest.json"
 set "RELEASE_MANIFEST_URL=%MINDSIGHT_RELEASE_MANIFEST_URL%"
