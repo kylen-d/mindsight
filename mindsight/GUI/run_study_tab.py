@@ -269,6 +269,18 @@ class ManualRunDialog(QDialog):
                 meta[key] = val
         return meta
 
+    def _default_output_dir(self) -> str:
+        """The open project's Outputs root (B1 F1), or "" when no project."""
+        if not self._project_path:
+            return ""
+        try:
+            from mindsight.project.runner import load_project_config
+            from mindsight.project.staging import _out_root
+            cfg = load_project_config(Path(self._project_path))
+            return str(_out_root(Path(self._project_path), cfg))
+        except Exception:
+            return str(Path(self._project_path) / "Outputs")
+
     def _finish(self, action: str):
         video = self._video.text().strip()
         if not video or not Path(video).is_file():
@@ -281,10 +293,19 @@ class ManualRunDialog(QDialog):
             QMessageBox.warning(self, "Add single run", str(exc))
             return
         if action == "run":
-            out = QFileDialog.getExistingDirectory(self, "Output directory")
-            if not out:
+            # B1 F1: start the picker at (and default to) the open project's
+            # Outputs root instead of leaving output_dir empty -- an empty dir
+            # used to send one-off outputs to a CWD-relative Outputs/ that
+            # vanishes for a Finder/installer launch.
+            default_out = self._default_output_dir()
+            out = QFileDialog.getExistingDirectory(
+                self, "Output directory", default_out)
+            chosen = out or default_out
+            if not chosen:
+                QMessageBox.warning(self, "Run now",
+                                    "Choose an output directory.")
                 return
-            self.output_dir = out
+            self.output_dir = chosen
         self.result_action = action
         self.video = video
         self.meta = meta
@@ -1259,9 +1280,18 @@ class RunStudyTab(QWidget):
         self._open_project(str(self._project_path))
 
     def _run_single_run(self, dlg):
+        if self._any_worker_alive():
+            # B1 F2: never start a second worker over a live one (shared guard).
+            self._append_log(
+                "Previous run is still finishing -- try again in a moment.")
+            return
         from mindsight.project.staging import single_run_spec
         try:
-            spec = single_run_spec(dlg.video, dlg.meta, dlg.output_dir)
+            # B1 F1: pass the open project so an omitted output_dir defaults to
+            # the project's Outputs root, not a CWD-relative Outputs/ that
+            # vanishes for a Finder/installer launch.
+            spec = single_run_spec(dlg.video, dlg.meta, dlg.output_dir,
+                                   project=self._project_path)
         except ValueError as exc:
             QMessageBox.warning(self, "Run now", str(exc))
             return
@@ -1280,6 +1310,9 @@ class RunStudyTab(QWidget):
         self._one_off_worker = GazeWorker(ns, self._frame_q, self._log_q)
         self._one_off_worker.start()
         self._append_log(f"Running '{spec.run_id}' now...")
+        # B1 F1: always tell the user where the one-off files land (absolute).
+        out_dir = str(Path(spec.output_paths["log"]).resolve().parent)
+        self._append_log(f"One-off outputs -> {out_dir}")
         self._stop_requested = False
         self._run_btn.setEnabled(False)
         self._stop_btn.setEnabled(True)
@@ -1287,8 +1320,18 @@ class RunStudyTab(QWidget):
 
     # ── Batch run / stop / poll ──────────────────────────────────────────────
 
+    def _any_worker_alive(self) -> bool:
+        """True while EITHER the batch or the one-off worker is running (B1 F2).
+
+        Both run paths share this guard so a second worker can never start
+        alongside a live one -- two writers on the same Events/summary CSV would
+        truncate/interleave the file.
+        """
+        return bool((self._worker and self._worker.is_alive())
+                    or (self._one_off_worker and self._one_off_worker.is_alive()))
+
     def _start(self):
-        if self._worker and self._worker.is_alive():
+        if self._any_worker_alive():
             # Visible feedback instead of a silent no-op (G-FIX-2): after Stop
             # the worker finalizes the current video before exiting (T8).
             self._append_log(

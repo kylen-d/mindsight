@@ -16,6 +16,8 @@ import os
 import queue
 import threading
 import time
+from pathlib import Path
+from types import SimpleNamespace
 
 import numpy as np
 import pytest
@@ -154,3 +156,84 @@ def test_start_while_finishing_logs_feedback(tab):
     assert tab._worker is alive_worker      # no replacement mid-run
     tab._stop()
     _poll_until(tab, lambda: tab._worker is None)
+
+
+# ── B1 F1/F2: one-off "Run now" wiring + shared any-worker guard ──────────────
+
+
+class FakeGazeWorker(threading.Thread):
+    """Captures the ns; does NOT run the pipeline (start() spawns nothing)."""
+
+    instances: list = []
+
+    def __init__(self, ns, frame_q, log_q):
+        super().__init__(daemon=True)
+        self.ns = ns
+        self._alive = False
+        FakeGazeWorker.instances.append(self)
+
+    def start(self):        # override: never launch a real pipeline thread
+        self._alive = True
+
+    def is_alive(self):
+        return self._alive
+
+    def stop(self):
+        self._alive = False
+
+
+class _AliveStub:
+    """A stand-in worker that reports itself alive (for the guard tests)."""
+
+    def is_alive(self):
+        return True
+
+    def stop(self):
+        pass
+
+
+def _one_off_dlg(project, *, output_dir=None):
+    return SimpleNamespace(
+        video=str(project / "Inputs" / "Videos" / "a.mp4"),
+        meta={}, output_dir=output_dir, move=False)
+
+
+def test_run_single_run_defaults_output_to_project(tab, tmp_path, monkeypatch):
+    """B1 F1: an omitted output_dir lands under the open project's Outputs root,
+    and the absolute output dir is logged."""
+    import mindsight.GUI.workers as workers_mod
+    monkeypatch.setattr(workers_mod, "GazeWorker", FakeGazeWorker)
+    FakeGazeWorker.instances = []
+    proj = Path(tab._project_path)
+    tab._run_single_run(_one_off_dlg(proj, output_dir=None))
+    assert len(FakeGazeWorker.instances) == 1
+    ns = FakeGazeWorker.instances[0].ns
+    assert ns.log == str(proj / "Outputs" / "a_Events.csv")
+    assert ns.summary == str(proj / "Outputs" / "a_summary.csv")
+    log_text = tab._log_box.toPlainText()
+    assert f"One-off outputs -> {proj / 'Outputs'}" in log_text
+    tab._poll_timer.stop()
+
+
+def test_run_single_run_refuses_while_worker_alive(tab, monkeypatch):
+    """B1 F2: the one-off path refuses to start over a live batch worker."""
+    import mindsight.GUI.workers as workers_mod
+    monkeypatch.setattr(workers_mod, "GazeWorker", FakeGazeWorker)
+    FakeGazeWorker.instances = []
+    tab._worker = _AliveStub()
+    proj = Path(tab._project_path)
+    tab._run_single_run(_one_off_dlg(proj))
+    assert "still finishing" in tab._log_box.toPlainText()
+    assert FakeGazeWorker.instances == []       # no second worker started
+    assert tab._one_off_worker is None
+    tab._worker = None
+
+
+def test_start_refuses_while_one_off_worker_alive(tab):
+    """B1 F2: the batch path refuses to start over a live one-off worker."""
+    FakeProjectWorker.instances = []
+    tab._one_off_worker = _AliveStub()
+    tab._start()
+    assert "still finishing" in tab._log_box.toPlainText()
+    assert len(FakeProjectWorker.instances) == 0
+    tab._one_off_worker = None

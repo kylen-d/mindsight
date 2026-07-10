@@ -562,11 +562,18 @@ def iter_project_runs(project_dir: str | Path, ns, *, project_cfg=None,
         if not no_resume:
             decision = ledger.decide(run_id, hashes)
             if decision == "skip":
-                print(f"[{i}/{len(run_specs)}] Skipping {run_id} "
-                      f"(done, config unchanged)")
-                yield VideoSkipped(run_id=run_id,
-                                   reason="done, config unchanged")
-                continue
+                # B1 F4: only skip when the staged outputs are actually on disk.
+                # If the user deleted/moved the Events/summary CSVs, a silent
+                # skip leaves nothing behind ("completed with no output"), so
+                # re-run instead (the ledger re-marks done at the end).
+                if Path(paths['log']).exists() and Path(paths['summary']).exists():
+                    print(f"[{i}/{len(run_specs)}] Skipping {run_id} "
+                          f"(done, config unchanged)")
+                    yield VideoSkipped(run_id=run_id,
+                                       reason="done, config unchanged")
+                    continue
+                print(f"[{i}/{len(run_specs)}] Re-running {run_id} "
+                      f"(outputs missing)")
             if decision == "redo_archive":
                 dest = ledger.archive(run_id)
                 yield VideoArchived(run_id=run_id, dest=dest)

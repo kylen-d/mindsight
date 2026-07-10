@@ -583,21 +583,42 @@ def stage_run(project, video, meta=None, *, run_id=None, mode="copy") -> RunSpec
     )
 
 
-def single_run_spec(video, meta=None, output_dir=None) -> RunSpec:
+def single_run_spec(video, meta=None, output_dir=None, project=None) -> RunSpec:
     """A one-off :class:`RunSpec` for the GUI "Run now" path (Q7).
 
-    No project, no staging, no ledger: the video runs where it is, with the
-    entered participants/conditions producing the same project-shaped CSVs +
-    manifest, written flat into *output_dir* (default ``Outputs/`` under the
-    current working directory).
+    No staging, no ledger: the video runs where it is, with the entered
+    participants/conditions producing the same project-shaped CSVs + manifest,
+    written flat into *output_dir*.
 
-    Raises ``ValueError`` (plain-English) on a missing video or invalid *meta*.
+    Output location (B1 F1): an explicit *output_dir* always wins.  When it is
+    omitted, the outputs default to the open *project*'s Outputs root -- NOT a
+    CWD-relative ``Outputs/`` (a GUI launched from Finder/installer has an
+    arbitrary CWD, so those files vanish from the user's perspective).  With
+    neither an *output_dir* nor a *project*, there is no sane default, so a
+    plain-English ``ValueError`` is raised for the caller to surface.
+
+    Raises ``ValueError`` (plain-English) on a missing video, invalid *meta*, or
+    no output-directory context.
     """
     video = Path(video)
     if not video.is_file():
         raise ValueError(f"video not found: {video}")
     parsed = _validated_meta(meta)
-    out_dir = Path(output_dir) if output_dir else Path("Outputs")
+    if output_dir:
+        out_dir = Path(output_dir)
+    elif project is not None:
+        proj = Path(project)
+        project_cfg = None
+        try:
+            from mindsight.project.runner import load_project_config
+            project_cfg = load_project_config(proj)
+        except Exception:
+            project_cfg = None
+        out_dir = _out_root(proj, project_cfg)
+    else:
+        raise ValueError(
+            "choose an output directory -- no output folder was given and no "
+            "project is open to default to")
     run_id = _sanitize_run_id(video.stem)
     return RunSpec(
         run_id=run_id,

@@ -467,9 +467,33 @@ def test_single_run_spec_basic(tmp_path):
         tmp_path / "OUT" / "clip_Video_Output.mp4")
 
 
-def test_single_run_spec_default_output_dir(tmp_path):
-    spec = single_run_spec(_video(tmp_path))
-    assert spec.output_paths["summary"] == str(Path("Outputs") / "clip_summary.csv")
+def test_single_run_spec_defaults_to_project_outputs(tmp_path):
+    # B1 F1: an omitted output_dir defaults to the open project's Outputs root
+    # (NOT a CWD-relative Outputs/), so files never vanish for the user.
+    proj = tmp_path / "proj"
+    (proj / "Inputs" / "Videos").mkdir(parents=True)
+    spec = single_run_spec(_video(tmp_path), project=proj)
+    assert spec.output_paths["summary"] == str(
+        proj / "Outputs" / "clip_summary.csv")
+    assert spec.output_paths["save"] == str(
+        proj / "Outputs" / "clip_Video_Output.mp4")
+
+
+def test_single_run_spec_no_context_raises(tmp_path):
+    # B1 F1: neither an output_dir nor a project -> no sane default -> plain
+    # ValueError (surfaced by the GUI) rather than a silent CWD-relative dir.
+    with pytest.raises(ValueError, match="choose an output directory"):
+        single_run_spec(_video(tmp_path))
+
+
+def test_single_run_spec_explicit_dir_wins_over_project(tmp_path):
+    # An explicit output_dir always wins, even with a project available.
+    proj = tmp_path / "proj"
+    (proj / "Inputs" / "Videos").mkdir(parents=True)
+    spec = single_run_spec(_video(tmp_path), output_dir=tmp_path / "OUT",
+                           project=proj)
+    assert spec.output_paths["summary"] == str(
+        tmp_path / "OUT" / "clip_summary.csv")
 
 
 def test_single_run_spec_bad_meta_raises(tmp_path):

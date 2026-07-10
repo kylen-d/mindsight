@@ -118,6 +118,29 @@ def test_second_run_skips_unchanged(tmp_path, capsys, fake_models):
     assert _ledger_data(proj)["videos"]["clip.mp4"]["status"] == "done"
 
 
+def test_skip_reruns_when_outputs_missing(tmp_path, capsys, fake_models):
+    # B1 F4: ledger says done, but the staged Events/summary CSVs were deleted.
+    # A silent skip would leave nothing behind ("completed with no output"), so
+    # the run must re-execute instead.
+    from mindsight.project.runner import project_output_paths
+    proj = _project(tmp_path)
+    _run(proj, parse_cli([]))
+    assert len(fake_models) == 1
+    paths = project_output_paths(proj, proj / "Inputs" / "Videos" / "clip.mp4")
+    Path(paths["log"]).unlink()
+    Path(paths["summary"]).unlink()
+    capsys.readouterr()
+    events = _run(proj, parse_cli([]))
+    assert len(fake_models) == 2                  # re-ran, did not skip
+    out = capsys.readouterr().out
+    assert "Re-running clip.mp4 (outputs missing)" in out
+    assert "Skipping clip.mp4" not in out
+    assert not any(isinstance(e, VideoSkipped) for e in events)
+    # Outputs restored + ledger stays done.
+    assert Path(paths["log"]).exists() and Path(paths["summary"]).exists()
+    assert _ledger_data(proj)["videos"]["clip.mp4"]["status"] == "done"
+
+
 def test_in_progress_is_reprocessed(tmp_path, fake_models):
     proj = _project(tmp_path)
     _run(proj, parse_cli([]))

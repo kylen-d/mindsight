@@ -34,6 +34,7 @@ from mindsight.project.staging import (
     AMBIGUOUS,
     RUN_FOLDER,
     detect_layout,
+    discover_run_specs,
     inspect_run_folders,
 )
 
@@ -331,6 +332,35 @@ def _check_runs(runs, project: Path, layout: str) -> CheckResult:
                        f"{len(runs)} source(s) discovered")
 
 
+def _check_output_collisions(project: Path, project_cfg, layout: str) -> CheckResult:
+    """Two sources that stage the SAME output CSV clobber each other (B1 F3).
+
+    ``a.mp4`` and ``a.mov`` in Inputs/Videos/ both stem to ``a_Events.csv`` --
+    the second run truncates the first's Events/summary CSVs (writers open in
+    mode ``"w"``).  Flag any duplicate staged ``log`` path as a FAIL so the user
+    renames one source before the run silently loses data.
+    """
+    label = "Output collisions"
+    if layout == AMBIGUOUS:
+        return CheckResult("output_collisions", label, _OK,
+                           "layout ambiguous -- collision check skipped")
+    specs = discover_run_specs(project, project_cfg, layout=layout)
+    by_log: dict[str, list] = {}
+    for spec in specs:
+        by_log.setdefault(spec.output_paths.get("log"), []).append(spec)
+    collisions = []
+    for log_path, group in by_log.items():
+        if len(group) > 1:
+            names = " and ".join(sorted(Path(s.source).name for s in group))
+            collisions.append(f"{names} both write {Path(log_path).name}")
+    if collisions:
+        return CheckResult("output_collisions", label, _FAIL,
+                           "output name collision: " + " | ".join(collisions),
+                           "rename one of the colliding source files")
+    return CheckResult("output_collisions", label, _OK,
+                       "no output name collisions")
+
+
 def _check_run_metadata(runs) -> CheckResult:
     """Run-folder only: run.yaml validity (FAIL) + unknown keys (WARN), Q2."""
     label = "Run metadata"
@@ -576,6 +606,9 @@ def run_preflight(project_dir, project_cfg=None, ns=None, *,
     if layout == RUN_FOLDER:
         checks.append(_safe("run_metadata", "Run metadata",
                             lambda: _check_run_metadata(runs)))
+    checks.append(_safe("output_collisions", "Output collisions",
+                        lambda: _check_output_collisions(
+                            project, project_cfg, layout)))
     checks += [
         _safe("participants_coverage", "Participant coverage",
               lambda: _check_participants(runs)),

@@ -87,6 +87,21 @@ def test_healthy_structure_ok(tmp_path):
     assert runs.severity == "ok" and "2 source" in runs.message
 
 
+def test_output_collision_fails(tmp_path):
+    # B1 F3: a.mp4 + a.mov both stage a_Events.csv -> FAIL naming both sources.
+    proj = _mk_project(tmp_path, videos=("a.mp4", "a.mov"))
+    c = _by_id(run_preflight(proj, ns=_ns()), "output_collisions")
+    assert c.severity == "fail"
+    assert "a.mp4" in c.message and "a.mov" in c.message
+    assert "a_Events.csv" in c.message
+
+
+def test_output_collision_unique_stems_ok(tmp_path):
+    proj = _mk_project(tmp_path, videos=("a.mp4", "b.mp4"))
+    c = _by_id(run_preflight(proj, ns=_ns()), "output_collisions")
+    assert c.severity == "ok"
+
+
 # ── pipeline config (extra=forbid strict load) ───────────────────────────────
 
 def test_pipeline_config_valid_ok(tmp_path):
