@@ -160,7 +160,9 @@ def test_typed_empty_path_is_noop(qapp):
     tab._project_dir.setText("   ")
     tab._open_typed_path()
     assert tab._project is None
-    assert tab._status_label.text() == "No project open."
+    # UP1 D3: the projectless resting status invites quick analysis.
+    assert tab._status_label.text() == (
+        "No project open -- quick analysis available below, or open a project.")
 
 
 # ── New Project button (scaffold + open) ─────────────────────────────────────
@@ -410,3 +412,146 @@ def test_open_run_folder_project_without_flat_videos_dir(qapp, tmp_path):
     assert tab._project is not None
     assert tab._runs_table.rowCount() == 1
     assert tab._runs_table.item(0, 0).text() == "dyad07"
+
+
+# ── Quick analysis panel (UP1 D3) ────────────────────────────────────────────
+
+def test_quick_panel_expanded_and_project_groups_hidden_without_project(qapp):
+    """No project: Quick group expanded; Preflight/Runs/Study-setup hidden."""
+    from mindsight.GUI.run_study_tab import RunStudyTab
+    tab = RunStudyTab()
+    assert tab._project is None
+    assert tab._quick_grp.isChecked()            # expanded
+    assert tab._pf_grp.isHidden()
+    assert tab._runs_grp.isHidden()
+    assert tab._study_setup_grp.isHidden()
+
+
+def test_opening_project_flips_visibility(qapp, tmp_path):
+    """Opening a project shows the project groups and collapses Quick."""
+    from mindsight.GUI.run_study_tab import RunStudyTab
+    proj = _make_project(tmp_path)
+    tab = RunStudyTab()
+    tab._open_project(str(proj))
+    assert not tab._pf_grp.isHidden()
+    assert not tab._runs_grp.isHidden()
+    assert not tab._study_setup_grp.isHidden()
+    assert not tab._quick_grp.isChecked()        # collapsed but available
+
+
+def test_quick_output_auto_defaults_and_sticks_when_edited(qapp, tmp_path,
+                                                           monkeypatch):
+    from mindsight import constants
+    from mindsight.GUI.run_study_tab import RunStudyTab
+    monkeypatch.setattr(constants, "PROJECT_ROOT", tmp_path)
+    tab = RunStudyTab()
+    # Video mode: default output is <PROJECT_ROOT>/Outputs/<stem>.
+    tab._quick_src_video.setChecked(True)
+    tab._quick_video.setText(str(tmp_path / "footage" / "sess1.mp4"))
+    assert tab._quick_output.text() == str(tmp_path / "Outputs" / "sess1")
+    # Camera mode: default output is <PROJECT_ROOT>/Outputs/camera<idx>.
+    tab._quick_src_camera.setChecked(True)
+    tab._quick_camera.setCurrentIndex(2)
+    assert tab._quick_output.text() == str(tmp_path / "Outputs" / "camera2")
+    # A manual edit sticks: no more auto-recompute.
+    tab._quick_output.setText("/my/custom/out")
+    tab._quick_mark_output_dirty()
+    tab._quick_src_video.setChecked(True)
+    tab._quick_video.setText(str(tmp_path / "other.mp4"))
+    assert tab._quick_output.text() == "/my/custom/out"
+
+
+def test_run_quick_video_builds_spec_and_guards(qapp, tmp_path, monkeypatch):
+    """_run_quick builds the expected spec, starts the worker, and the
+    worker-alive guard blocks a second start (UP1 D3)."""
+    from mindsight import constants
+    from mindsight.GUI import workers as workers_mod
+    from mindsight.GUI.run_study_tab import RunStudyTab
+
+    video = tmp_path / "clip.mp4"
+    video.write_bytes(b"\x00" * 32)
+    monkeypatch.setattr(constants, "PROJECT_ROOT", tmp_path)
+
+    started = []
+
+    class FakeWorker:
+        def __init__(self, ns, *a, **k):
+            self.ns = ns
+            started.append(ns)
+
+        def start(self):
+            pass
+
+        def is_alive(self):
+            return True
+
+        def stop(self):
+            pass
+
+    monkeypatch.setattr(workers_mod, "GazeWorker", FakeWorker)
+
+    tab = RunStudyTab()
+    tab._quick_src_video.setChecked(True)
+    tab._quick_video.setText(str(video))
+    # Output auto-defaulted to <PROJECT_ROOT>/Outputs/clip.
+    assert tab._quick_output.text() == str(tmp_path / "Outputs" / "clip")
+    tab._run_quick()
+    assert len(started) == 1
+    ns = started[0]
+    assert ns.source == str(video)
+    assert ns.log == str(tmp_path / "Outputs" / "clip" / "clip_Events.csv")
+    # The output folder is created on run (UP1 ruling 1).
+    assert (tmp_path / "Outputs" / "clip").is_dir()
+    # Worker-alive guard blocks a second start.
+    tab._run_quick()
+    assert len(started) == 1
+    tab._poll_timer.stop()
+
+
+def test_run_quick_camera_builds_camera_spec(qapp, tmp_path, monkeypatch):
+    from mindsight import constants
+    from mindsight.GUI import workers as workers_mod
+    from mindsight.GUI.run_study_tab import RunStudyTab
+
+    monkeypatch.setattr(constants, "PROJECT_ROOT", tmp_path)
+    started = []
+
+    class FakeWorker:
+        def __init__(self, ns, *a, **k):
+            started.append(ns)
+
+        def start(self):
+            pass
+
+        def is_alive(self):
+            return False
+
+        def stop(self):
+            pass
+
+    monkeypatch.setattr(workers_mod, "GazeWorker", FakeWorker)
+
+    tab = RunStudyTab()
+    tab._quick_src_camera.setChecked(True)
+    tab._quick_camera.setCurrentIndex(0)
+    assert tab._quick_output.text() == str(tmp_path / "Outputs" / "camera0")
+    tab._run_quick()
+    assert len(started) == 1
+    # source is the camera index string; open_video_source normalizes to int.
+    assert started[0].source == "0"
+    tab._poll_timer.stop()
+
+
+def test_run_quick_no_output_folder_warns(qapp, monkeypatch):
+    from mindsight.GUI import run_study_tab as rst
+    from mindsight.GUI.run_study_tab import RunStudyTab
+
+    warned = []
+    monkeypatch.setattr(rst.QMessageBox, "warning",
+                        lambda *a, **k: warned.append(a))
+    tab = RunStudyTab()
+    tab._quick_src_video.setChecked(True)
+    tab._quick_output.setText("")
+    tab._quick_output_dirty = True   # keep it empty (no auto-recompute)
+    tab._run_quick()
+    assert warned

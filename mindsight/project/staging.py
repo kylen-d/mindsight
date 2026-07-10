@@ -583,6 +583,52 @@ def stage_run(project, video, meta=None, *, run_id=None, mode="copy") -> RunSpec
     )
 
 
+def _run_timestamp() -> str:
+    """Local wall-clock stamp ``YYYYMMDD-HHMMSS`` for one-off run ids.
+
+    Factored out so tests can pin it -- successive captures a real second apart
+    never collide, but two calls in the same test tick would.
+    """
+    import datetime as _dt
+    return _dt.datetime.now().strftime("%Y%m%d-%H%M%S")
+
+
+def camera_run_spec(index: int, output_dir) -> RunSpec:
+    """A one-off :class:`RunSpec` for a live-camera quick run (UP1 D2).
+
+    No staging, no ledger: the capture writes the same project-shaped CSVs +
+    annotated recording as :func:`single_run_spec`, flat into *output_dir*.  The
+    ``run_id`` carries a wall-clock timestamp (``camera{index}_YYYYMMDD-HHMMSS``)
+    so successive captures never overwrite each other's outputs.
+
+    ``source`` is the camera index as a string; :func:`open_video_source
+    <mindsight.io.sources.open_video_source>` normalizes it to the ``int`` cv2
+    needs at open time.  *output_dir* is REQUIRED (the GUI always passes one --
+    a camera has no source folder to default beside); a missing one raises a
+    plain-English ``ValueError`` for the caller to surface.
+    """
+    if not output_dir:
+        raise ValueError(
+            "choose an output directory -- a live camera capture has no source "
+            "folder to write beside, so one must be given")
+    run_id = _sanitize_run_id(f"camera{index}_{_run_timestamp()}")
+    out_dir = Path(output_dir)
+    return RunSpec(
+        run_id=run_id,
+        source=str(index),
+        pid_map={},
+        conditions="",
+        aux_streams=None,
+        output_paths={
+            'save':    str(out_dir / f"{run_id}_Video_Output.mp4"),
+            'log':     str(out_dir / f"{run_id}_Events.csv"),
+            'summary': str(out_dir / f"{run_id}_summary.csv"),
+            'heatmap': str(out_dir / f"{run_id}_Heatmap"),
+        },
+        meta={},
+    )
+
+
 def single_run_spec(video, meta=None, output_dir=None, project=None) -> RunSpec:
     """A one-off :class:`RunSpec` for the GUI "Run now" path (Q7).
 

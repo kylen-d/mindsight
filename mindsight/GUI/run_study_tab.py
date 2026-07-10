@@ -453,7 +453,9 @@ class RunStudyTab(QWidget):
         outer.addLayout(top)
         self._refresh_recent_dropdown()
 
-        self._status_label = QLabel("No project open.")
+        self._status_label = QLabel(
+            "No project open -- quick analysis available below, or open a "
+            "project.")
         self._status_label.setStyleSheet("color: #888; font-style: italic;")
         outer.addWidget(self._status_label)
 
@@ -465,7 +467,14 @@ class RunStudyTab(QWidget):
         left_split = QSplitter(Qt.Orientation.Vertical)
         self._left_split = left_split
 
+        # Quick analysis (UP1 D3): a first-class projectless run path. Sits at
+        # the top of the left column; expanded and alone when no project is
+        # open, collapsed-but-available once a project is.
+        self._quick_grp = self._build_quick_analysis()
+        left_split.addWidget(self._quick_grp)
+
         pf_grp = QGroupBox("Preflight")
+        self._pf_grp = pf_grp
         pf_lay = QVBoxLayout(pf_grp)
         self._checklist = PreflightChecklist()
         pf_lay.addWidget(self._checklist)
@@ -479,6 +488,7 @@ class RunStudyTab(QWidget):
         left_split.addWidget(pf_grp)
 
         runs_grp = QGroupBox("Runs")
+        self._runs_grp = runs_grp
         runs_lay = QVBoxLayout(runs_grp)
         self._runs_table = QTableWidget(0, len(_RUN_COLS))
         # G-DEFER-2: keep the runs window compact + scrollable so the study-setup
@@ -516,12 +526,15 @@ class RunStudyTab(QWidget):
         # Study setup (collapsible) -- relocated from the retired Project Mode tab.
         # G-DEFER-2: it takes the growing space (stretch) so participants /
         # conditions editing has room; the runs table above stays compact.
-        left_split.addWidget(self._build_study_setup())
-        # Preserve the prior proportions: preflight/runs stay compact, study
-        # setup takes the growing space.
+        self._study_setup_grp = self._build_study_setup()
+        left_split.addWidget(self._study_setup_grp)
+        # Preserve the prior proportions: quick/preflight/runs stay compact,
+        # study setup takes the growing space (indices shifted by the quick
+        # group now at 0).
         left_split.setStretchFactor(0, 0)
         left_split.setStretchFactor(1, 0)
-        left_split.setStretchFactor(2, 1)
+        left_split.setStretchFactor(2, 0)
+        left_split.setStretchFactor(3, 1)
 
         splitter.addWidget(left_split)
 
@@ -552,6 +565,161 @@ class RunStudyTab(QWidget):
         self._stop_btn = QPushButton("■  Stop")
         self._stop_btn.setEnabled(False)
         self._stop_btn.clicked.connect(self._stop)
+
+        # UP1 D3: start in projectless mode (Quick group expanded, project-only
+        # groups hidden) until a project is opened.
+        self._apply_project_mode()
+
+    # ── Quick analysis (UP1 D3) ──────────────────────────────────────────────
+
+    def _build_quick_analysis(self):
+        """The projectless Quick analysis panel: pick a single video file OR a
+        live camera, accept/edit an output folder, press Analyze (UP1 D3)."""
+        from PyQt6.QtWidgets import QButtonGroup, QRadioButton
+
+        grp = CollapsibleGroupBox("Quick analysis -- no project needed")
+        inner = QWidget()
+        lay = QVBoxLayout(inner)
+        lay.setContentsMargins(4, 4, 4, 4)
+
+        # Source choice: video file vs live camera.
+        src_row = QHBoxLayout()
+        self._quick_src_video = QRadioButton("Video file")
+        self._quick_src_camera = QRadioButton("Camera")
+        self._quick_src_video.setChecked(True)
+        self._quick_src_group = QButtonGroup(inner)
+        self._quick_src_group.addButton(self._quick_src_video)
+        self._quick_src_group.addButton(self._quick_src_camera)
+        self._quick_src_video.toggled.connect(self._quick_update_source_mode)
+        src_row.addWidget(self._quick_src_video)
+        src_row.addWidget(self._quick_src_camera)
+        src_row.addStretch(1)
+        lay.addLayout(src_row)
+
+        # Video file row.
+        vid_row = QHBoxLayout()
+        vid_row.addWidget(QLabel("Video:"))
+        self._quick_video = QLineEdit()
+        self._quick_video.setPlaceholderText("Select a video file...")
+        self._quick_video.textChanged.connect(self._quick_recompute_output)
+        vid_browse = QPushButton("Browse...")
+        vid_browse.clicked.connect(self._quick_browse_video)
+        vid_row.addWidget(self._quick_video, 1)
+        vid_row.addWidget(vid_browse)
+        lay.addLayout(vid_row)
+
+        # Camera row (no device probing at build time -- probing triggers macOS
+        # permission prompts + multi-second hangs; the capture opens only on
+        # Analyze, and a bad index surfaces the pipeline's plain-English error).
+        cam_row = QHBoxLayout()
+        cam_row.addWidget(QLabel("Camera:"))
+        self._quick_camera = QComboBox()
+        self._quick_camera.addItems([f"Camera {i}" for i in range(4)])
+        self._quick_camera.currentIndexChanged.connect(
+            self._quick_recompute_output)
+        cam_row.addWidget(self._quick_camera, 1)
+        lay.addLayout(cam_row)
+
+        # Output folder row (auto-defaulted, user edits stick via a dirty flag).
+        self._quick_output_dirty = False
+        out_row = QHBoxLayout()
+        out_row.addWidget(QLabel("Output:"))
+        self._quick_output = QLineEdit()
+        self._quick_output.setPlaceholderText("Output folder...")
+        self._quick_output.textEdited.connect(self._quick_mark_output_dirty)
+        out_browse = QPushButton("Browse...")
+        out_browse.clicked.connect(self._quick_browse_output)
+        out_row.addWidget(self._quick_output, 1)
+        out_row.addWidget(out_browse)
+        lay.addLayout(out_row)
+
+        analyze = QPushButton("Analyze")
+        analyze.setToolTip("Run inference on the chosen video or camera")
+        analyze.clicked.connect(self._run_quick)
+        lay.addWidget(analyze)
+
+        grp.set_content(inner)
+        self._quick_update_source_mode()
+        return grp
+
+    def _quick_update_source_mode(self, *_):
+        video_mode = self._quick_src_video.isChecked()
+        self._quick_video.setEnabled(video_mode)
+        self._quick_camera.setEnabled(not video_mode)
+        self._quick_recompute_output()
+
+    def _quick_mark_output_dirty(self, *_):
+        self._quick_output_dirty = True
+
+    def _quick_default_output(self) -> str:
+        """The auto output default: ``<PROJECT_ROOT>/Outputs/<stem>`` for a
+        video, ``<PROJECT_ROOT>/Outputs/camera<idx>`` for a camera (UP1 ruling
+        1 -- PROJECT_ROOT honors MINDSIGHT_HOME)."""
+        from mindsight.constants import PROJECT_ROOT
+        outputs = PROJECT_ROOT / "Outputs"
+        if self._quick_src_camera.isChecked():
+            return str(outputs / f"camera{self._quick_camera.currentIndex()}")
+        stem = Path(self._quick_video.text().strip()).stem
+        return str(outputs / stem) if stem else ""
+
+    def _quick_recompute_output(self, *_):
+        """Refresh the auto output default unless the user has edited the field."""
+        if self._quick_output_dirty:
+            return
+        # setText fires textChanged, not textEdited, so the dirty flag stays off.
+        self._quick_output.setText(self._quick_default_output())
+
+    def _quick_browse_video(self):
+        path, _ = QFileDialog.getOpenFileName(
+            self, "Select a video", "",
+            "Video (*.mp4 *.mov *.avi *.mkv);;All (*)")
+        if path:
+            self._quick_src_video.setChecked(True)
+            self._quick_video.setText(path)
+
+    def _quick_browse_output(self):
+        path = QFileDialog.getExistingDirectory(self, "Output folder")
+        if path:
+            self._quick_output.setText(path)
+            self._quick_output_dirty = True
+
+    def _run_quick(self):
+        """Launch a projectless quick run from the current source choice (UP1
+        D3): a single video via ``single_run_spec`` or a live camera via
+        ``camera_run_spec``, then the shared one-off launch tail."""
+        if self._any_worker_alive():
+            # B1 F2: never start a second worker over a live one (shared guard).
+            self._append_log(
+                "Previous run is still finishing -- try again in a moment.")
+            return
+        from mindsight.project.staging import camera_run_spec, single_run_spec
+        output_dir = self._quick_output.text().strip()
+        if not output_dir:
+            QMessageBox.warning(self, "Quick analysis",
+                                "Choose an output folder.")
+            return
+        try:
+            if self._quick_src_camera.isChecked():
+                spec = camera_run_spec(self._quick_camera.currentIndex(),
+                                       output_dir)
+            else:
+                spec = single_run_spec(self._quick_video.text().strip(),
+                                       meta=None, output_dir=output_dir)
+        except ValueError as exc:
+            QMessageBox.warning(self, "Quick analysis", str(exc))
+            return
+        self._launch_one_off(spec)
+
+    def _apply_project_mode(self):
+        """Toggle the tab between projectless (Quick analysis expanded, alone)
+        and project (Preflight/Runs/Study-setup shown, Quick collapsed but
+        available) modes (UP1 D3).  Does NOT touch the status label -- the open
+        success/failure paths own that text."""
+        has_project = self._project is not None
+        self._pf_grp.setVisible(has_project)
+        self._runs_grp.setVisible(has_project)
+        self._study_setup_grp.setVisible(has_project)
+        self._quick_grp.setChecked(not has_project)
 
     def _build_study_setup(self):
         grp = CollapsibleGroupBox("Study setup")
@@ -958,6 +1126,9 @@ class RunStudyTab(QWidget):
             # a crash (G-FIX-3).
             self._status_label.setText(f"Invalid project: {exc}")
             self._status_label.setStyleSheet("color: #b22222; font-weight: bold;")
+            # UP1 D3: reflect current project state (unchanged on a failed open),
+            # keeping the Quick panel available -- the error text stays put.
+            self._apply_project_mode()
             return
         self._project = project
         self._project_path = project.path
@@ -983,6 +1154,8 @@ class RunStudyTab(QWidget):
 
         self._status_label.setText(f"Open: {project.path.name}")
         self._status_label.setStyleSheet("color: #2a7a2a; font-weight: bold;")
+        # UP1 D3: a project is open -- show the project groups, collapse Quick.
+        self._apply_project_mode()
 
     def _load_project_pipeline_into_gaze(self):
         if not self._gaze_tab or not self._project:
@@ -1343,6 +1516,16 @@ class RunStudyTab(QWidget):
         except ValueError as exc:
             QMessageBox.warning(self, "Run now", str(exc))
             return
+        self._launch_one_off(spec)
+
+    def _launch_one_off(self, spec):
+        """Start a one-off single-source/camera run from *spec* (shared tail of
+        the "Run now" dialog and Quick analysis paths, UP1 D3).
+
+        Project-shaped output paths come from the RunSpec, no ledger (Q7).  The
+        output folder is created here (UP1 ruling 1) -- the CSV writer opens the
+        log path directly, so a not-yet-existing quick-run default would crash.
+        """
         # One-off run through the single-source worker: project-shaped output
         # paths from the RunSpec, no ledger (Q7).
         ns = self._current_ns()
@@ -1355,6 +1538,9 @@ class RunStudyTab(QWidget):
         ns.summary = spec.output_paths["summary"]
         ns.save = spec.output_paths["save"]
         ns.heatmap = spec.output_paths["heatmap"]
+        # UP1 ruling 1: create the output folder on run (writers open the log
+        # path directly and do not mkdir it).
+        Path(spec.output_paths["log"]).parent.mkdir(parents=True, exist_ok=True)
         self._frame_q = queue.Queue(maxsize=2)
         self._log_q = queue.Queue()
         from .workers import GazeWorker

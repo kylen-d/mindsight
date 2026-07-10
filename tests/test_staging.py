@@ -328,6 +328,7 @@ def test_inspect_run_folders_non_raising(tmp_path):
 # ══════════════════════════════════════════════════════════════════════════════
 
 from mindsight.project.staging import (  # noqa: E402
+    camera_run_spec,
     parse_run_mapping,
     single_run_spec,
     stage_run,
@@ -501,6 +502,42 @@ def test_single_run_spec_bad_meta_raises(tmp_path):
         single_run_spec(_video(tmp_path), {"nope": 1})
     with pytest.raises(ValueError, match="video not found"):
         single_run_spec(tmp_path / "missing.mp4")
+
+
+# ── camera_run_spec (live-camera quick run, UP1 D2) ──────────────────────────
+
+def test_camera_run_spec_shape(tmp_path):
+    spec = camera_run_spec(2, tmp_path / "OUT")
+    # source is the index as a string (open_video_source normalizes to int).
+    assert spec.source == "2"
+    assert spec.pid_map == {} and spec.conditions == "" and spec.meta == {}
+    assert spec.aux_streams is None
+    # run_id: camera<idx>_<YYYYMMDD-HHMMSS>
+    import re
+    assert re.fullmatch(r"camera2_\d{8}-\d{6}", spec.run_id)
+    # Outputs land FLAT in the chosen dir, project-shaped.
+    assert spec.output_paths["summary"] == str(
+        tmp_path / "OUT" / f"{spec.run_id}_summary.csv")
+    assert spec.output_paths["save"] == str(
+        tmp_path / "OUT" / f"{spec.run_id}_Video_Output.mp4")
+
+
+def test_camera_run_spec_run_ids_unique_across_captures(tmp_path, monkeypatch):
+    # Successive captures never collide -- the timestamp differs per capture.
+    from mindsight.project import staging
+    stamps = iter(["20260710-090000", "20260710-090005"])
+    monkeypatch.setattr(staging, "_run_timestamp", lambda: next(stamps))
+    a = camera_run_spec(0, tmp_path)
+    b = camera_run_spec(0, tmp_path)
+    assert a.run_id != b.run_id
+    assert a.output_paths["log"] != b.output_paths["log"]
+
+
+def test_camera_run_spec_requires_output_dir(tmp_path):
+    with pytest.raises(ValueError, match="choose an output directory"):
+        camera_run_spec(0, None)
+    with pytest.raises(ValueError, match="choose an output directory"):
+        camera_run_spec(0, "")
 
 
 def test_parse_run_mapping_shared_with_yaml_path():
