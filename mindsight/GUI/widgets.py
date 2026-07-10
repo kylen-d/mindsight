@@ -316,3 +316,30 @@ class CollapsibleGroupBox(QGroupBox):
         else:
             self._content.setMaximumHeight(16777215)
             self._content.setVisible(True)
+
+
+def middle_frame_pixmap(video_path, max_w: int = 640, max_h: int = 360):
+    """Decode the MIDDLE frame of *video_path* as a scaled QPixmap, or None.
+
+    The middle frame is the wizard's (and, later, the crop tool's) "what does
+    this video look like" preview -- intros/fade-ins make the first frame a
+    poor representative. Falls back to the first frame when the container
+    reports no frame count; returns None when nothing decodes.
+    """
+    import cv2
+    cap = cv2.VideoCapture(str(video_path))
+    if not cap.isOpened():
+        return None
+    try:
+        total = int(cap.get(cv2.CAP_PROP_FRAME_COUNT) or 0)
+        if total > 1:
+            cap.set(cv2.CAP_PROP_POS_FRAMES, total // 2)
+        ok, frame = cap.read()
+        if not ok or frame is None:
+            cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
+            ok, frame = cap.read()
+        if not ok or frame is None:
+            return None
+        return _bgr_to_pixmap(frame, max_w, max_h)
+    finally:
+        cap.release()

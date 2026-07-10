@@ -27,9 +27,10 @@ from .vp_builder_tab import VisualPromptBuilderTab
 
 # Tab display indices (T11: status-bar button visibility is wired by index).
 _TAB_ANALYZE = 0
-_TAB_VP = 1
-_TAB_TUNING = 2
-_TAB_MODELS = 3
+_TAB_PROJECTS = 1
+_TAB_VP = 2
+_TAB_TUNING = 3
+_TAB_MODELS = 4
 
 
 class MainWindow(QMainWindow):
@@ -56,8 +57,13 @@ class MainWindow(QMainWindow):
         self._run_study_tab = RunStudyTab(gaze_tab=self._gaze_tab,
                                           settings=self._settings)
         self._models_tab = ModelsTab(gaze_tab=self._gaze_tab)
+        # UP3: project creation/browsing home; opening jumps to Analyze Footage.
+        from .projects_tab import ProjectsTab
+        self._projects_tab = ProjectsTab(settings=self._settings)
+        self._projects_tab.open_in_analyze.connect(self._open_project_from_tab)
 
         tabs.addTab(self._run_study_tab, "  Analyze Footage  ")
+        tabs.addTab(self._projects_tab, "  Projects  ")
         tabs.addTab(self._vp_tab, "  VP Builder  ")
         tabs.addTab(self._gaze_tab, "  Gaze Tuning  ")
         tabs.addTab(self._models_tab, "  Models  ")
@@ -91,6 +97,7 @@ class MainWindow(QMainWindow):
 
         # Project entries (MP1 slice) delegate to the Analyze Footage tab's
         # existing flows -- no logic duplicated (UP1 D4).
+        file_menu.addAction("&Build New Project...", self._menu_build_project)
         file_menu.addAction("&New Project...", self._menu_new_project)
         file_menu.addAction("&Open Project...", self._menu_open_project)
         file_menu.addSeparator()
@@ -116,6 +123,16 @@ class MainWindow(QMainWindow):
 
     #: Published documentation site (mirrors README / docs config).
     _DOCS_URL = "https://kylen-d.github.io/mindsight-docs/"
+
+    def _menu_build_project(self):
+        """Switch to Projects and launch the Build New Project wizard (UP3)."""
+        self._tabs.setCurrentIndex(_TAB_PROJECTS)
+        self._projects_tab.launch_wizard()
+
+    def _open_project_from_tab(self, path: str):
+        """Projects tab 'Open in Analyze Footage': switch + open (UP3)."""
+        self._tabs.setCurrentIndex(_TAB_ANALYZE)
+        self._run_study_tab.open_project_path(path)
 
     def _menu_new_project(self):
         """Switch to Analyze Footage and start the new-project flow there."""

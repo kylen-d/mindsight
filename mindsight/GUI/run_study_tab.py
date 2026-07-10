@@ -1340,6 +1340,11 @@ class RunStudyTab(QWidget):
         Thin delegate to the existing browse-open flow -- no logic duplicated."""
         self._open_project_dialog()
 
+    def open_project_path(self, path: str):
+        """Public entry (Projects tab, UP3): open *path* as the project."""
+        self._project_dir.setText(str(path))
+        self._open_project(str(path))
+
     def new_project(self):
         """Public entry (menu bar, UP1 D4): scaffold + open a new project.
 
