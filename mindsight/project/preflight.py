@@ -208,17 +208,24 @@ def _check_weights(work_ns) -> CheckResult:
     parts, missing = [], []
     for dest, w in weights.items():
         sha = w.get("sha256")
-        name = Path(w.get("resolved", "")).name
+        resolved = w.get("resolved", "")
+        name = Path(resolved).name
         if sha == "missing":
             missing.append(dest)
-            parts.append(f"{dest}={name} [MISSING]")
+            # Print the resolved ABSOLUTE path, not just the basename -- weight
+            # resolution is global (the shared Weights folder), so the user needs
+            # to know exactly where the file is expected on disk.
+            abs_path = str(Path(resolved).resolve()) if resolved else name
+            parts.append(f"{dest}={abs_path} [MISSING]")
         else:
             parts.append(f"{dest}={name} [{sha[:12]}]")
     msg = "; ".join(parts)
     if missing:
         return CheckResult("weights", label, _FAIL,
                            f"weight file(s) not found -- {msg}",
-                           "place the weight at the resolved path or fix the config path")
+                           "place the weight at the resolved absolute path above "
+                           "(the shared Weights folder -- weight resolution is "
+                           "global, not per-project), or fix the config path")
     return CheckResult("weights", label, _OK, msg)
 
 

@@ -84,6 +84,11 @@ class MainWindow(QMainWindow):
         # File menu
         file_menu = menu.addMenu("&File")
 
+        # Project entries (MP1 slice) delegate to the Analyze Footage tab's
+        # existing flows -- no logic duplicated (UP1 D4).
+        file_menu.addAction("&New Project...", self._menu_new_project)
+        file_menu.addAction("&Open Project...", self._menu_open_project)
+        file_menu.addSeparator()
         file_menu.addAction("&Load Preset...", self._load_preset)
         file_menu.addAction("&Save Preset...", self._save_preset)
         file_menu.addSeparator()
@@ -91,6 +96,40 @@ class MainWindow(QMainWindow):
         file_menu.addAction("&Export Pipeline YAML...", self._export_pipeline)
         file_menu.addSeparator()
         file_menu.addAction("&Quit", self.close)
+
+        # Help menu (UP1 D4)
+        help_menu = menu.addMenu("&Help")
+        help_menu.addAction("Documentation", self._open_documentation)
+        help_menu.addAction("About MindSight", self._show_about)
+
+    # ── Menu handlers: projects + help (UP1 D4) ─────────────────────────────
+
+    #: Published documentation site (mirrors README / docs config).
+    _DOCS_URL = "https://kylen-d.github.io/mindsight-docs/"
+
+    def _menu_new_project(self):
+        """Switch to Analyze Footage and start the new-project flow there."""
+        self._tabs.setCurrentIndex(_TAB_ANALYZE)
+        self._run_study_tab.new_project()
+
+    def _menu_open_project(self):
+        """Switch to Analyze Footage and browse-open a project there."""
+        self._tabs.setCurrentIndex(_TAB_ANALYZE)
+        self._run_study_tab.open_project_browse()
+
+    def _open_documentation(self):
+        """Open the documentation site in the user's browser."""
+        from PyQt6.QtCore import QUrl
+        from PyQt6.QtGui import QDesktopServices
+        QDesktopServices.openUrl(QUrl(self._DOCS_URL))
+
+    def _show_about(self):
+        """Show an About box carrying the installed version."""
+        from mindsight import __version__
+        QMessageBox.about(
+            self, "About MindSight",
+            f"MindSight {__version__}\n\n"
+            "Gaze-based social attention analysis for developmental research.")
 
     def _init_plugin_panels(self):
         """Initialise and embed the plugin panel into the Gaze Tuning tab.

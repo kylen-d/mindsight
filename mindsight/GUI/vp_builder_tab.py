@@ -48,7 +48,6 @@ from PyQt6.QtWidgets import (
 from mindsight.constants import IMAGE_EXTS
 
 from .widgets import (
-    _HERE,
     VP_EXT,
     ImageCanvas,
     _hrow,
@@ -214,7 +213,11 @@ class VisualPromptBuilderTab(QWidget):
 
         test_lay.addWidget(QLabel("YOLOE model:"))
         self._test_model = QComboBox()
-        _yolo_dir = _HERE / "Weights" / "YOLO"
+        # Read the shared Weights folder (WEIGHTS_ROOT honors MINDSIGHT_HOME), not
+        # the package dir -- in a release install the YOLOE weights live under the
+        # app's data home, not beside the source tree.
+        from mindsight import weights as _weights
+        _yolo_dir = _weights.WEIGHTS_ROOT / "YOLO"
         seg_models = sorted(str(p.name) for p in _yolo_dir.glob("yoloe-*.pt")) if _yolo_dir.is_dir() else []
         self._test_model.addItems(seg_models or ["yoloe-26l-seg.pt"])
         self._test_model.setEditable(True)

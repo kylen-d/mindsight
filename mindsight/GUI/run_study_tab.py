@@ -1065,6 +1065,18 @@ class RunStudyTab(QWidget):
 
     # ── Project open / recent ────────────────────────────────────────────────
 
+    def open_project_browse(self):
+        """Public entry (menu bar, UP1 D4): browse for + open a project.
+
+        Thin delegate to the existing browse-open flow -- no logic duplicated."""
+        self._open_project_dialog()
+
+    def new_project(self):
+        """Public entry (menu bar, UP1 D4): scaffold + open a new project.
+
+        Thin delegate to the existing new-project flow -- no logic duplicated."""
+        self._new_project_dialog()
+
     def _open_project_dialog(self):
         path = QFileDialog.getExistingDirectory(
             self, "Open MindSight project folder")
