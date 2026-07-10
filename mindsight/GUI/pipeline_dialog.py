@@ -99,6 +99,16 @@ _MODEL_WIRING_DESTS = (
     "gazelle_device", "gazelle_skip_frames", "gazelle_fp16", "gazelle_compile",
 )
 
+# Hand-written-widget dests with no schema home and no _YAML_MAP key (the
+# DetectionSection merge controls + device combo). Without these the export
+# silently dropped Merge Overlaps -- a user's exported "known good" lost a
+# setting their session visibly used. They round-trip through the loader's
+# ``plugins`` pass-through like the model wiring above.
+_HAND_WIDGET_DESTS = (
+    "device",
+    "merge_overlaps", "merge_overlap_strategy", "merge_overlap_threshold",
+)
+
 
 def _norm(v):
     """Normalize a value for a default comparison (sets -> sorted lists)."""
@@ -138,7 +148,7 @@ def _plugin_export_dests() -> set:
     yaml_dests = set(_YAML_MAP.values())
     phen_dests = set(_PHENOMENA_TOGGLES.values()) | set(_PHENOMENA_PARAMS.values())
     ui_only = all_dests(build_ui_spec()) - yaml_dests - phen_dests
-    return ui_only | set(_MODEL_WIRING_DESTS)
+    return ui_only | set(_MODEL_WIRING_DESTS) | set(_HAND_WIDGET_DESTS)
 
 
 def _set_nested(cfg: dict, yaml_key: str, value) -> None:

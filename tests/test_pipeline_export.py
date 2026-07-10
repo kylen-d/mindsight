@@ -102,6 +102,26 @@ def test_diff_export_roundtrips(qapp, tmp_path):
     assert _gui_census(reimported) == _gui_census(ns)
 
 
+def test_full_export_carries_merge_and_device(qapp, tmp_path):
+    """Merge Overlaps + device are hand-widget dests with no schema home; the
+    export used to drop them silently (found via a real user export)."""
+    ns = _census_ns()
+    ns.merge_overlaps = True
+    ns.merge_overlap_strategy = "dynamic"
+    ns.merge_overlap_threshold = 0.55
+    cfg = _namespace_to_yaml_dict(ns)
+    assert cfg["plugins"]["merge_overlaps"] is True
+    assert cfg["plugins"]["merge_overlap_strategy"] == "dynamic"
+    assert cfg["plugins"]["merge_overlap_threshold"] == 0.55
+    assert "device" in cfg["plugins"]
+    # And they survive the round trip into a fresh namespace.
+    p = tmp_path / "merge.yaml"
+    p.write_text(yaml.dump(cfg, default_flow_style=False, sort_keys=False))
+    reimported = load_pipeline(str(p), Namespace())
+    assert reimported.merge_overlaps is True
+    assert reimported.merge_overlap_threshold == 0.55
+
+
 def test_full_export_phenomena_carry_all_params(qapp, tmp_path):
     """Full export writes every owned phenomena param, default or not."""
     ns = _census_ns()
