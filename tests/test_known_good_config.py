@@ -56,6 +56,23 @@ def test_strict_load_first_class_values():
     assert cfg.tracker.reid_grace_seconds == 4.5
     # rf_gazelle_interval 10 routes to rayforming.min_call_gap.
     assert cfg.rayforming.min_call_gap == 10
+    # TESTGOOD export merged 2026-07-09 (user-validated, layered on top).
+    # forward_gaze_threshold rides the plugins passthrough (no strict key),
+    # so it is asserted in test_runtime_testgood_values instead.
+    assert cfg.gaze.gaze_tips is True
+    assert cfg.gaze.tip_radius == 70
+    assert cfg.gaze.detect_extend_scope == "both"
+
+
+def test_runtime_testgood_values():
+    """The TESTGOOD keys reach the runtime namespace, incl. the
+    performance-section no_dashboard passthrough (schema_path=None)."""
+    ns = load_pipeline(CONFIG, Namespace())
+    assert getattr(ns, "gaze_tips") is True
+    assert getattr(ns, "tip_radius") == 70
+    assert getattr(ns, "detect_extend_scope") == "both"
+    assert getattr(ns, "forward_gaze_threshold") == 13.0
+    assert getattr(ns, "no_dashboard") is True
 
 
 def test_runtime_weight_names_are_bare_filenames():

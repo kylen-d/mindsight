@@ -63,6 +63,9 @@ From cookbook testing on the primary validation study footage (2026-05):
 | Ray length | 1.25-1.50 | base; blend corrects reach dynamically |
 | Gaze cone | ~5.0 deg | study-dependent |
 | ReID grace | 4-5 s | re-identification window |
+| Gaze tips | on, radius 70 | tip convergence counts as JA; tracks phenomena in lieu of object detections (2026-07-09) |
+| Detect-extend scope | both | applies when an extend distance is set (2026-07-09) |
+| Forward-gaze threshold | 13.0 deg | schema default 5.0; validated 2026-07-09 |
 
 ---
 
@@ -84,8 +87,18 @@ From cookbook testing on the primary validation study footage (2026-05):
   (direction weight = max(trust, floor)); further: per-track PY-vs-belief bias
   correction learned during high-trust periods (design work, not a patch).
 
+## Performance
+
+| Parameter | Value | Notes |
+|---|---|---|
+| Dashboard panels | off (no_dashboard) | throughput; saved videos show raw annotated frame (2026-07-09) |
+
 ## Changelog
 
+- **2026-07-09**: User-validated TESTGOOD export merged into the shipped
+  preset (layered on top of existing values): gaze tips on (radius 70),
+  detect-extend scope both, forward-gaze threshold 13.0, dashboard panels
+  off, all phenomena on. Existing detection/geometry/blend values unchanged.
 - **2026-07-05 (later)**: Fixation thresholds v 0.02->0.04, d 0.10->0.15 made
   code defaults after A/B test on trimmed.mp4 (user-validated visually).
   Steering eligibility 38%->70% of frames, median direction trust 0.52->0.81,

@@ -44,6 +44,15 @@ gaze:
   gaze_cone: 5.0
   # Re-identification grace window in seconds. KNOWN_GOOD range 4-5 s; 4.5 point.
   reid_grace_seconds: 4.5
+  # -- Gaze tips (user-validated update, 2026-07-09, from the exported
+  #    TESTGOOD config). Tip circles enable gaze-tip convergence, which counts
+  #    as joint attention and tracks phenomena in lieu of object detections.
+  gaze_tips: true
+  # Tip circle radius in pixels (schema default 80; 70 validated).
+  tip_radius: 70
+  # Apply --detect-extend to both object hits and phenomena when an extend
+  # distance is set (extend itself stays at its schema default here).
+  detect_extend_scope: both
 
 # ── Phenomena trackers ───────────────────────────────────────────────────────
 # User ruling 2026-07-09: every phenomena tracker defaults ON in the shipped
@@ -68,6 +77,13 @@ phenomena:
   - gaze_leadership
   - attention_span
 
+# ── Performance ──────────────────────────────────────────────────────────────
+# User-validated update (2026-07-09, TESTGOOD export): skip the side-panel
+# dashboard composition for throughput; saved annotated videos show the raw
+# annotated frame only. Re-enable in the GUI for the panel view when wanted.
+performance:
+  no_dashboard: true
+
 # ── Plugin / backend settings (namespace pass-through) ───────────────────────
 # Keys here map directly to CLI flags (hyphens or underscores). This section
 # carries the per-face gaze backend, the Gaze-LLE blend wiring, and the merge-
@@ -78,6 +94,12 @@ plugins:
   # "Per-face gaze backend". Bare filename -> <install>/Weights/MGaze/.
   mgaze_model: "resnet50_gaze.onnx"
   mgaze_arch: "resnet50"
+
+  # Pitch/yaw angles below this many degrees count as looking forward at the
+  # camera (schema default 5.0; 13.0 validated 2026-07-09, TESTGOOD export).
+  # Lives in this pass-through section because the strict gaze: section has no
+  # first-class key for it -- the GUI's own pipeline export routes it here.
+  forward_gaze_threshold: 13.0
 
   # ── Gaze-LLE Blend (primary operating mode) ──
   # Source: KNOWN_GOOD.md "Gaze-LLE Blend", validated 2026-07-05 on
