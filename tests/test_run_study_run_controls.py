@@ -125,13 +125,14 @@ def test_stop_transitions_visibly_and_start_relaunches(tab):
     _poll_until(tab, lambda: "Starting run..." in tab._log_box.toPlainText())
 
     tab._stop()
-    # immediate visible feedback
-    assert not tab._stop_btn.isEnabled()
+    # immediate visible feedback: the inline Stop greys out while cancelling
+    assert not tab._project_go.isEnabled()
     assert "Cancelling" in tab._log_box.toPlainText()
 
-    # the sentinel arrives -> terminal transition
+    # the sentinel arrives -> terminal transition (go button back to green Run)
     finished = _poll_until(
-        tab, lambda: tab._worker is None and tab._run_btn.isEnabled())
+        tab, lambda: tab._worker is None and tab._project_go.isEnabled()
+        and tab._project_go.text() == "▶  Run")
     assert finished, "run never reached the cancelled terminal state"
     assert "Cancelled." in tab._log_box.toPlainText()
     first_worker.join(timeout=5)

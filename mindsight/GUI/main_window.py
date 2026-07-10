@@ -224,20 +224,9 @@ class MainWindow(QMainWindow):
         self._gaze_tab._import_pipeline_btn.clicked.connect(self._import_pipeline)
         self._gaze_tab._export_pipeline_btn.clicked.connect(self._export_pipeline)
 
-        # -- Analyze Footage: Run / Stop (tab 0) ------------------------------
-        self._run_study_tab._run_btn = QPushButton("\u25b6  Run")
-        self._run_study_tab._run_btn.setStyleSheet(self._BTN_GREEN)
-        self._run_study_tab._stop_btn = QPushButton("\u25a0  Stop")
-        self._run_study_tab._stop_btn.setStyleSheet(self._BTN_RED)
-        self._run_study_tab._stop_btn.setEnabled(False)
-        self._run_study_tab._run_btn.clicked.connect(self._run_study_tab._start)
-        self._run_study_tab._stop_btn.clicked.connect(self._run_study_tab._stop)
-        self._analyze_buttons = [
-            self._run_study_tab._run_btn,
-            self._run_study_tab._stop_btn,
-        ]
-        for btn in self._analyze_buttons:
-            sb.addPermanentWidget(btn)
+        # -- Analyze Footage (tab 0): no status-bar buttons -- every mode's
+        # primary action is the inline go button in its source card (UP1r3).
+        self._analyze_buttons = []
 
         # -- VP Builder button (tab 1) ----------------------------------------
         self._use_vp_btn = QPushButton("Use saved VP in Gaze Tuning")

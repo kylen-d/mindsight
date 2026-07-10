@@ -438,7 +438,6 @@ def test_mode_switch_morphs_the_whole_tab(qapp):
     assert tab._output_tabs.indexOf(tab._dashboard_panel) < 0
     assert tab._charts_pane_lay.indexOf(tab._dashboard_panel) >= 0
     assert not tab._output_tabs.isTabVisible(1)      # Charts hidden
-    assert tab._run_btn.isHidden() and tab._stop_btn.isHidden()
     tab._set_mode("camera")
     assert tab._source_stack.currentIndex() == 2
     assert tab._left_stack.currentIndex() == 1
@@ -449,7 +448,6 @@ def test_mode_switch_morphs_the_whole_tab(qapp):
     assert tab._output_tabs.tabText(
         tab._output_tabs.indexOf(tab._dashboard_panel)) == "Live"
     assert tab._output_tabs.isTabVisible(1)
-    assert not tab._run_btn.isHidden()
 
 
 def test_opening_project_commits_to_project_mode(qapp, tmp_path):
@@ -644,6 +642,51 @@ def test_finished_quick_run_csvs_land_in_viewer(qapp, tmp_path):
     assert tab._csv_run.currentText() == "clip"
     names = [tab._csv_file.itemText(i) for i in range(tab._csv_file.count())]
     assert "clip_Events.csv" in names and "clip_summary.csv" in names
+
+
+def test_go_buttons_flip_colours_with_run_state(qapp, tmp_path, monkeypatch):
+    """UP1r3: every card's go button is green when idle and flips to a red
+    Stop while any run is live; the project Run greys out until a project is
+    open."""
+    from mindsight import constants
+    from mindsight.GUI import workers as workers_mod
+    from mindsight.GUI.run_study_tab import RunStudyTab
+
+    video = tmp_path / "clip.mp4"
+    video.write_bytes(b"\x00" * 32)
+    monkeypatch.setattr(constants, "PROJECT_ROOT", tmp_path)
+
+    class FakeWorker:
+        def __init__(self, ns, *a, **k):
+            pass
+
+        def start(self):
+            pass
+
+        def is_alive(self):
+            return True
+
+        def stop(self):
+            pass
+
+    monkeypatch.setattr(workers_mod, "GazeWorker", FakeWorker)
+
+    tab = RunStudyTab()
+    # Idle: green go texts; project Run disabled with no project open.
+    assert tab._video_go.text() == "▶  Analyze"
+    assert "2a7a2a" in tab._video_go.styleSheet()
+    assert not tab._project_go.isEnabled()
+    assert tab._project_go.text() == "▶  Run"
+
+    tab._set_mode("video")
+    tab._quick_video.setText(str(video))
+    tab._run_quick()
+    # Running: all three cards show a red, clickable Stop.
+    for btn in (tab._project_go, tab._video_go, tab._camera_go):
+        assert btn.text() == "■  Stop"
+        assert "7a2a2a" in btn.styleSheet()
+        assert btn.isEnabled()
+    tab._poll_timer.stop()
 
 
 def test_preset_labels_follow_the_store(qapp):

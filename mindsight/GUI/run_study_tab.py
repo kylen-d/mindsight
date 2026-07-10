@@ -94,6 +94,15 @@ QPushButton:checked {
 }
 """
 
+# Primary go buttons: green idle -> red Stop while a run is live (matches the
+# old status-bar Run/Stop colour coding; the buttons now live in the source
+# cards so every mode's primary action sits in the same place).
+_GO_GREEN = ("QPushButton{background:#2a7a2a;color:white;"
+             "font-weight:bold;padding:4px 26px;}"
+             "QPushButton:disabled{background:#33333f;color:#777;}")
+_GO_RED = ("QPushButton{background:#7a2a2a;color:white;"
+           "font-weight:bold;padding:4px 26px;}")
+
 
 # ══════════════════════════════════════════════════════════════════════════════
 # Preflight checklist widget
@@ -564,15 +573,6 @@ class RunStudyTab(QWidget):
         splitter.setStretchFactor(1, 2)
         outer.addWidget(splitter, 1)
 
-        # Status-bar buttons (injected by main_window, T11); provide fallbacks so
-        # the tab is testable standalone.  Visible in project mode only -- the
-        # quick modes own their inline Analyze / Start Camera button (UP1r2).
-        self._run_btn = QPushButton("▶  Run")
-        self._run_btn.clicked.connect(self._start)
-        self._stop_btn = QPushButton("■  Stop")
-        self._stop_btn.setEnabled(False)
-        self._stop_btn.clicked.connect(self._stop)
-
         # Drag & drop: a video file switches to Video File mode, a folder opens
         # as a project (UP1r2 extras).
         self.setAcceptDrops(True)
@@ -582,7 +582,11 @@ class RunStudyTab(QWidget):
         self._refresh_preset_labels()
 
         # Start in the last-used mode (stored GUI state, not inference config).
-        self._quick_running = False
+        # Run state: every mode's primary action is its card's inline go
+        # button (green -> red Stop while a run is live); there are no
+        # status-bar Run/Stop buttons for this tab anymore (UP1r3).
+        self._running = False
+        self._run_kind = None            # "project" | "quick" while running
         from .settings_manager import SettingsManager
         saved = SettingsManager().load_gui_state().get("analyze_mode")
         self._set_mode(saved if saved in _MODES else "project", persist=False)
@@ -665,9 +669,16 @@ class RunStudyTab(QWidget):
         lay.addLayout(top)
         self._refresh_recent_dropdown()
 
+        bottom = QHBoxLayout()
         self._status_label = QLabel("No project open.")
         self._status_label.setStyleSheet("color: #888; font-style: italic;")
-        lay.addWidget(self._status_label)
+        bottom.addWidget(self._status_label)
+        bottom.addStretch(1)
+        self._project_go = QPushButton("▶  Run")
+        self._project_go.setMinimumHeight(34)
+        self._project_go.clicked.connect(self._go_clicked)
+        bottom.addWidget(self._project_go)
+        lay.addLayout(bottom)
         return card
 
     def _build_video_card(self):
@@ -708,8 +719,7 @@ class RunStudyTab(QWidget):
         bottom.addStretch(1)
         self._video_go = QPushButton("▶  Analyze")
         self._video_go.setMinimumHeight(34)
-        self._video_go.setStyleSheet("font-weight: bold; padding: 4px 26px;")
-        self._video_go.clicked.connect(self._quick_go_clicked)
+        self._video_go.clicked.connect(self._go_clicked)
         bottom.addWidget(self._video_go)
         lay.addLayout(bottom)
         return card
@@ -759,8 +769,7 @@ class RunStudyTab(QWidget):
         bottom.addStretch(1)
         self._camera_go = QPushButton("▶  Start Camera")
         self._camera_go.setMinimumHeight(34)
-        self._camera_go.setStyleSheet("font-weight: bold; padding: 4px 26px;")
-        self._camera_go.clicked.connect(self._quick_go_clicked)
+        self._camera_go.clicked.connect(self._go_clicked)
         bottom.addWidget(self._camera_go)
         lay.addLayout(bottom)
         return card
@@ -782,8 +791,7 @@ class RunStudyTab(QWidget):
         # Post-run Charts render per-project run; quick modes chart LIVE on the
         # left pane instead.
         self._output_tabs.setTabVisible(1, project_mode)
-        self._run_btn.setVisible(project_mode)
-        self._stop_btn.setVisible(project_mode)
+        self._update_go_buttons()
         self._apply_preview_hint()
         if mode == "video":
             self._video_recompute_output()
@@ -837,16 +845,26 @@ class RunStudyTab(QWidget):
         for lab in (self._video_preset, self._camera_preset):
             lab.setText(text)
 
-    def _update_quick_buttons(self):
-        running = self._quick_running
-        self._video_go.setText("■  Stop" if running else "▶  Analyze")
-        self._camera_go.setText("■  Stop" if running else "▶  Start Camera")
+    def _update_go_buttons(self):
+        """One primary button per source card: green go, flipping to a red
+        Stop while ANY run is live (stopping is global, whichever card shows).
+        The project Run greys out until a project is open."""
+        running = self._running
+        for btn, idle in ((self._project_go, "▶  Run"),
+                          (self._video_go, "▶  Analyze"),
+                          (self._camera_go, "▶  Start Camera")):
+            btn.setText("■  Stop" if running else idle)
+            btn.setStyleSheet(_GO_RED if running else _GO_GREEN)
+            btn.setEnabled(True)     # clears the _stop() cancelling grey-out
+        self._project_go.setEnabled(running or self._project is not None)
 
-    def _quick_go_clicked(self):
-        """Inline primary button: launches the mode's run, or stops the quick
-        run it started."""
-        if self._quick_running:
+    def _go_clicked(self):
+        """The inline primary button: stop the live run, or launch the active
+        mode's run."""
+        if self._running:
             self._stop()
+        elif self._mode == "project":
+            self._start()
         else:
             self._run_quick()
 
@@ -1846,12 +1864,11 @@ class RunStudyTab(QWidget):
         # UP1r2: remember where this one-off writes so the CSV viewer can pick
         # the files up on finish (quick runs have no project discovery).
         self._last_one_off = (spec.run_id, out_dir)
-        self._quick_running = True
-        self._update_quick_buttons()
+        self._running = True
+        self._run_kind = "quick"
+        self._update_go_buttons()
         self._charts_hint.setVisible(False)
         self._stop_requested = False
-        self._run_btn.setEnabled(False)
-        self._stop_btn.setEnabled(True)
         self._poll_timer.start(60)
 
     # ── Batch run / stop / poll ──────────────────────────────────────────────
@@ -1911,8 +1928,9 @@ class RunStudyTab(QWidget):
         self._dashboard_panel.reset()
         self._dashboard_panel.start()
         self._stop_requested = False
-        self._run_btn.setEnabled(False)
-        self._stop_btn.setEnabled(True)
+        self._running = True
+        self._run_kind = "project"
+        self._update_go_buttons()
         self._log_box.clear()
         self._append_log("Starting run...")
         self._poll_timer.start(100)
@@ -1933,7 +1951,10 @@ class RunStudyTab(QWidget):
             self._one_off_worker.stop()
             stopped_any = True
         self._stop_requested = True
-        self._stop_btn.setEnabled(False)
+        # Immediate visible feedback: the red Stop greys out while the current
+        # video finalizes; _finish_run re-enables via _update_go_buttons.
+        for btn in (self._project_go, self._video_go, self._camera_go):
+            btn.setEnabled(False)
         if stopped_any:
             self._append_log("Cancelling -- finishing the current video...")
             # keep the poll timer running; _finish_run fires on the sentinel
@@ -2011,11 +2032,10 @@ class RunStudyTab(QWidget):
         following Start launches a FRESH worker (G-FIX-2)."""
         self._poll_timer.stop()
         self._dashboard_panel.stop()   # B6: live dashboard stops with the run
-        self._run_btn.setEnabled(True)
-        self._stop_btn.setEnabled(False)
-        was_quick = self._quick_running
-        self._quick_running = False
-        self._update_quick_buttons()
+        was_quick = self._run_kind == "quick"
+        self._running = False
+        self._run_kind = None
+        self._update_go_buttons()
         if self._stop_requested:
             self._append_log("Cancelled.")
         self._stop_requested = False
