@@ -20,8 +20,7 @@ length jitter.
 
 | Parameter | Value | Flag / notes |
 |---|---|---|
-| Inference interval | 10 | `--rf-gazelle-interval`; cookbook range 10-15 |
-| Min call gap | 30 frames | `--min-call-gap` (default) |
+| Inference interval / min call gap | 25 | user ruling 2026-07-09 (pre-rewrite recommendation; 2026-07-05 ruling was 10, widget default 30) |
 | Direction responsiveness | 0.5 | `--dir-beta` (default) |
 | Length responsiveness | 0.3 | `--len-beta` (default) |
 | **Length hold** | **5.0 s** | `--len-hold-tau`. Length persists at the LLE-latched reach and decays to the pitch/yaw baseline on this timescale. Direction reverts fast on its own; do NOT try to make length "responsive" -- holding reach is the point. |
@@ -42,8 +41,10 @@ length jitter.
 
 ## Per-face gaze backend
 
-- **MobileGaze resnet50** -- `.pt` on CUDA, `.onnx` on Apple Silicon/CPU
-  (cookbook, paper 7.3). Confidence scale ~0.08-0.29; see floor note above.
+- **MobileGaze resnet34** -- `.onnx` (KG_Standard export 2026-07-09; lighter
+  than resnet50, runs on Apple Silicon/CPU). resnet50 remains the validated
+  heavier option (`.pt` on CUDA, `.onnx` elsewhere; cookbook, paper 7.3).
+  Confidence scale ~0.08-0.29; see floor note above.
 
 ## Object detection
 
@@ -51,7 +52,8 @@ From cookbook testing on the primary validation study footage (2026-05):
 
 | Parameter | Value | Notes |
 |---|---|---|
-| Model | `yoloe-v8l-seg.pt` or `yoloe-v8m-seg.pt` | v8 outperformed v26 variants on the validation footage |
+| Model (YOLO mode) | `yolov8n.pt` | user ruling 2026-07-09: fast small default; VP-prompted project runs use vp_model |
+| VP model | `yoloe-26l-seg.pt` (or `yoloe-v8l/-v8m`) | v8 outperformed v26 variants on the validation footage |
 | Conf | 0.20-0.30 | with Merge Overlaps on |
 | Merge Overlaps | on, threshold 0.50-0.60 | strategy `filter` or `dynamic` |
 | VP resolution | match video resolution | YOLOE encodes pixel-size, not semantics |
@@ -60,7 +62,9 @@ From cookbook testing on the primary validation study footage (2026-05):
 
 | Parameter | Value | Notes |
 |---|---|---|
-| Ray length | 1.25-1.50 | base; blend corrects reach dynamically |
+| Ray length | 1.3 | KG_Standard 2026-07-09 (validated range 1.25-1.50); blend corrects reach dynamically |
+| Smooth snap | all, alpha 0.9 | KG_Standard 2026-07-09 |
+| JA temporal window | 0 (off) | KG_Standard 2026-07-09 |
 | Gaze cone | ~5.0 deg | study-dependent |
 | ReID grace | 4-5 s | re-identification window |
 | Gaze tips | on, radius 70 | tip convergence counts as JA; tracks phenomena in lieu of object detections (2026-07-09) |
@@ -95,6 +99,13 @@ From cookbook testing on the primary validation study footage (2026-05):
 
 ## Changelog
 
+- **2026-07-09 (later)**: KG_Standard -- the user's first full-fidelity GUI
+  export -- becomes the preset, with four review rulings: merge overlaps stay
+  on/dynamic/0.55; blend cadence 25; detector yolov8n (YOLO mode); ReID grace
+  stays 4.5 s. New from the export: ray 1.3, smooth snap all/0.9, MobileGaze
+  resnet34 onnx, JA window 0. The exporter previously wrote only non-default
+  keys and silently omitted hand-widget settings (merge, device) -- both fixed
+  the same day.
 - **2026-07-09**: User-validated TESTGOOD export merged into the shipped
   preset (layered on top of existing values): gaze tips on (radius 70),
   detect-extend scope both, forward-gaze threshold 13.0, dashboard panels

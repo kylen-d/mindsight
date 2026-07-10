@@ -1,74 +1,108 @@
 # MindSight -- Known-Good Pipeline Configuration
 #
-# A pre-tuned, ready-to-run pipeline preset. Every value here is traceable to
-# an entry in configs/KNOWN_GOOD.md, the living record of empirically validated
-# parameters. Values were validated on classroom-style dyadic footage (two
-# participants, seated interaction) and are safe defaults for that setting; a
-# new study may still want to re-check them against its own footage.
+# A pre-tuned, ready-to-run pipeline preset. Every value is traceable to
+# configs/KNOWN_GOOD.md, the living record of empirically validated
+# parameters. This revision is the user's full GUI export of 2026-07-09
+# ("KG_Standard"), taken with the full-fidelity exporter, with four values
+# ruled on during review (merge overlaps, blend cadence, detector, ReID
+# grace -- see KNOWN_GOOD.md changelog). Values were validated on
+# classroom-style dyadic footage; a new study may still want to re-check
+# them against its own footage.
 #
 # Usage:
 #   python MindSight.py --pipeline configs/pipeline_known_good.yaml \
 #       --source path/to/video.mp4
 # or point a project at it (project.yaml: `pipeline: <path to this file>`).
-# CLI flags override any value set here.
+# CLI flags override any value set here. The GUI seeds from this file on a
+# fresh install, and (from the 2026-07 builds) Reset Defaults reapplies it.
 #
-# Weight paths are BARE FILENAMES on purpose: MindSight resolves a bare name to
-# <install>/Weights/<backend>/<name>, so the same config works on any machine
-# regardless of where the app is installed (the installer relocates Weights/
-# via MINDSIGHT_HOME). Do NOT rewrite these to absolute or relative paths.
+# NOTE: this file deliberately sets NO `source:` -- the video is a runtime
+# input, and a preset that pinned one would clobber the user's selection on
+# import.
 #
-# Primary operating mode: Gaze-LLE Blend (per-face MobileGaze steered by a
-# Gaze-LLE scene prior). The blend wiring is written out explicitly below --
-# this file is documentation-as-config.
+# Weight paths are BARE FILENAMES on purpose: MindSight resolves a bare name
+# to <install>/Weights/<backend>/<name>, so the same config works on any
+# machine regardless of where the app is installed. Do NOT rewrite these to
+# absolute or relative paths.
 
 # ── Object detection ─────────────────────────────────────────────────────────
-# Source: KNOWN_GOOD.md "Object detection" (cookbook, 2026-05), validated on
-# classroom-style footage.
 detection:
-  # YOLOE open-vocabulary segmentation model. v8 variants outperformed v26 on
-  # classroom footage. Intended for use WITH a visual prompt (.vp.json in
-  # Inputs/Prompts/) whose reference resolution matches the video. Bare
-  # filename -> <install>/Weights/YOLO/yoloe-v8l-seg.pt.
-  model: "yoloe-v8l-seg.pt"
-  # Detection confidence. KNOWN_GOOD range 0.20-0.30 (with Merge Overlaps on);
-  # 0.25 is the validated midpoint.
+  # Small fast COCO detector for YOLO mode (user ruling 2026-07-09).
+  # Project runs with a .vp.json visual prompt use vp_model instead.
+  model: "yolov8n.pt"
   conf: 0.25
+  detect_scale: 1.0
+  vp_model: "yoloe-26l-seg.pt"
+  skip_frames: 1
+  obj_persistence: 0
 
 # ── Gaze / ray geometry ──────────────────────────────────────────────────────
-# Source: KNOWN_GOOD.md "Ray geometry" (2026-05), validated on classroom footage.
 gaze:
-  # Base ray length. KNOWN_GOOD range 1.25-1.50; 1.4 is the validated point.
-  # The Gaze-LLE blend corrects reach dynamically at runtime.
-  ray_length: 1.4
-  # Vision-cone half-angle in degrees. KNOWN_GOOD ~5.0 (study-dependent).
-  gaze_cone: 5.0
-  # Re-identification grace window in seconds. KNOWN_GOOD range 4-5 s; 4.5 point.
-  reid_grace_seconds: 4.5
-  # -- Gaze tips (user-validated update, 2026-07-09, from the exported
-  #    TESTGOOD config). Tip circles enable gaze-tip convergence, which counts
-  #    as joint attention and tracks phenomena in lieu of object detections.
+  ray_length: 1.3
+  adaptive_ray: "off"
+  snap_dist: 150.0
+  snap_bbox_scale: 0.0
+  snap_w_dist: 1.0
+  snap_w_angle: 0.8
+  snap_w_size: 0.0
+  snap_w_intersect: 0.5
+  snap_w_temporal: 0.3
+  snap_gate_angle: 60.0
+  snap_head_blend: 0.3
+  snap_quality_thresh: 0.8
+  snap_tip_dist: -1.0
+  snap_tip_quality: -1.0
+  conf_ray: false
+  # Gaze tips: tip convergence counts as joint attention and tracks phenomena
+  # in lieu of object detections (user rulings 2026-07-09).
   gaze_tips: true
-  # Tip circle radius in pixels (schema default 80; 70 validated).
   tip_radius: 70
-  # Apply --detect-extend to both object hits and phenomena when an extend
-  # distance is set (extend itself stays at its schema default here).
+  gaze_cone: 5.0
+  gaze_lock: false
+  dwell_frames: 15
+  lock_dist: 100
+  gaze_debug: false
+  snap_release_frames: 5
+  snap_engage_frames: 0
+  # Ruled 2026-07-09: keep the validated 4-5 s window (export carried the
+  # 1.0 widget default).
+  reid_grace_seconds: 4.5
+  hit_conf_gate: 0.0
+  detect_extend: 0.0
   detect_extend_scope: both
 
+# ── Output ───────────────────────────────────────────────────────────────────
+output:
+  anonymize_padding: 0.3
+
+# ── Performance ──────────────────────────────────────────────────────────────
+performance:
+  fast: false
+  skip_phenomena: 0
+  lite_overlay: false
+  # Skip side-panel dashboard composition for throughput; saved annotated
+  # videos show the raw annotated frame (user-validated 2026-07-08).
+  no_dashboard: true
+  profile: false
+
+# ── Depth (disabled by default) ──────────────────────────────────────────────
+depth:
+  enabled: false
+  backend: midas_small
+  input_size: 384
+  skip_frames: 1
+  depth_aware_scoring: false
+  snap_w_depth: 0.4
+
 # ── Phenomena trackers ───────────────────────────────────────────────────────
-# User ruling 2026-07-09: every phenomena tracker defaults ON in the shipped
-# preset, so a default run records the full phenomena census rather than
-# nothing. All eight built-in trackers are enabled explicitly below. The keys
-# are the canonical phenomena-list names the loader recognizes (config_compat
-# _PHENOMENA_TOGGLES); each maps to a strict PhenomenaSection field:
-#   joint_attention -> joint_attention   social_referencing -> social_ref
-#   mutual_gaze     -> mutual_gaze       gaze_following     -> gaze_follow
-#   gaze_aversion   -> gaze_aversion     gaze_leadership    -> gaze_leader
-#   scanpath        -> scanpath          attention_span     -> attn_span
-# Per-tracker numeric params (windows/lags/quorum) are left at their code
-# defaults on purpose -- not written here -- so the schema stays the source of
-# truth for those values.
+# All eight trackers default ON (user ruling 2026-07-09). Explicit list so the
+# strict schema records every toggle; plugins.all_phenomena mirrors the GUI
+# export. JA params are the exported values (window 0 = temporal filter off).
 phenomena:
-  - joint_attention
+  - joint_attention:
+      ja_window: 0
+      ja_quorum: 1.0
+      ja_window_thresh: 0.7
   - mutual_gaze
   - social_referencing
   - gaze_following
@@ -77,55 +111,48 @@ phenomena:
   - gaze_leadership
   - attention_span
 
-# ── Performance ──────────────────────────────────────────────────────────────
-# User-validated update (2026-07-09, TESTGOOD export): skip the side-panel
-# dashboard composition for throughput; saved annotated videos show the raw
-# annotated frame only. Re-enable in the GUI for the panel view when wanted.
-performance:
-  no_dashboard: true
-
 # ── Plugin / backend settings (namespace pass-through) ───────────────────────
-# Keys here map directly to CLI flags (hyphens or underscores). This section
-# carries the per-face gaze backend, the Gaze-LLE blend wiring, and the merge-
-# overlaps detection settings. Weight values are BARE FILENAMES (see header).
+# Keys map directly to CLI flags. Weight values are BARE FILENAMES.
 plugins:
-  # Per-face gaze backend: MobileGaze resnet50. Ship the ONNX weight (runs on
-  # Apple Silicon / CPU; a .pt variant is used on CUDA). Source: KNOWN_GOOD.md
-  # "Per-face gaze backend". Bare filename -> <install>/Weights/MGaze/.
-  mgaze_model: "resnet50_gaze.onnx"
-  mgaze_arch: "resnet50"
+  all_phenomena: true
 
-  # Pitch/yaw angles below this many degrees count as looking forward at the
-  # camera (schema default 5.0; 13.0 validated 2026-07-09, TESTGOOD export).
-  # Lives in this pass-through section because the strict gaze: section has no
-  # first-class key for it -- the GUI's own pipeline export routes it here.
-  forward_gaze_threshold: 13.0
+  # Per-face gaze backend: MobileGaze resnet34 ONNX (user export 2026-07-09;
+  # lighter than resnet50, runs on CPU/Apple Silicon).
+  mgaze_model: "resnet34_gaze.onnx"
+  mgaze_dataset: "gaze360"
 
   # ── Gaze-LLE Blend (primary operating mode) ──
-  # Source: KNOWN_GOOD.md "Gaze-LLE Blend", validated 2026-07-05 on
-  # classroom-style dyadic footage. The scene-level Gaze-LLE prior steers each
-  # per-face belief; a fixation-aware scheduler decides when to apply it.
-  # Bare filename -> <install>/Weights/Gazelle/gazelle_dinov2_vitb14.pt.
   rf_gazelle_model: "gazelle_dinov2_vitb14.pt"
-  # Inference interval. KNOWN_GOOD 10 (cookbook range 10-15). This also sets
-  # the effective min-call-gap (rf_gazelle_interval -> min_call_gap; the bare
-  # default when neither is set is 30 frames).
-  rf_gazelle_interval: 10
-  # Blend-tuning parameters. Each EQUALS the current code default -- written out
-  # here as documentation-as-config so the validated intent is visible. Source:
-  # KNOWN_GOOD.md "Gaze-LLE Blend" table (2026-07-05).
-  dir_beta: 0.5              # direction responsiveness (One Euro beta)
-  len_beta: 0.3             # length responsiveness (One Euro beta)
-  len_hold_tau: 5.0         # length-hold time constant (s); reach persists at
-                            # the latched Gaze-LLE value, decaying on this scale
-  fixation_v_threshold: 0.04   # rad/frame; code default since 2026-07-05
-  fixation_d_threshold: 0.15   # rad; code default since 2026-07-05
+  rf_gazelle_name: "gazelle_dinov2_vitb14"
+  gazelle_name: "gazelle_dinov2_vitb14"
+  # Inference cadence. Ruled 2026-07-09: 25 (the pre-rewrite recommended
+  # interval; export carried the 30 widget default, pre-rewrite KNOWN_GOOD
+  # said 10).
+  min_call_gap: 25
+  gazelle_device: auto
+  gazelle_inout_threshold: 0.5
+  gazelle_skip_frames: 0
+  gazelle_fp16: false
+  gazelle_compile: false
+  # Blend tuning (KNOWN_GOOD.md "Gaze-LLE Blend", 2026-07-05).
+  dir_beta: 0.5
+  len_beta: 0.3
+  len_hold_tau: 5.0
+  fixation_v_threshold: 0.04
+  fixation_d_threshold: 0.15
+  dir_min_cutoff: 1.0
+  len_min_cutoff: 1.0
+
+  # Ray forming extras (user export 2026-07-09).
+  forward_gaze_threshold: 13.0
+  smooth_snap: all
+  smooth_snap_alpha: 0.9
+  gaze_leader_tips: false
+  gaze_leader_tip_lag: 15
 
   # ── Merge overlaps (detection) ──
-  # Source: KNOWN_GOOD.md "Object detection" (2026-05). Shipped via this
-  # pass-through because the strict pipeline schema has no first-class YAML key
-  # for these; the runtime loader applies them to detection. KNOWN_GOOD:
-  # Merge Overlaps ON, threshold range 0.50-0.60 (0.55 point), strategy dynamic.
+  # Ruled 2026-07-09: keep KNOWN_GOOD on/dynamic/0.55 (the export predates
+  # the exporter fix that made these keys exportable).
   merge_overlaps: true
   merge_overlap_strategy: "dynamic"
   merge_overlap_threshold: 0.55

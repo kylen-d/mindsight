@@ -48,39 +48,43 @@ def test_config_file_exists():
 
 
 def test_strict_load_first_class_values():
-    """Strict schema load reflects every first-class ruled value."""
+    """Strict schema load reflects every first-class ruled value
+    (KG_Standard export folded 2026-07-09 with four review rulings)."""
     cfg = load_yaml(CONFIG)
     assert cfg.detection.conf == 0.25
-    assert cfg.gaze.ray_length == 1.4
+    assert cfg.gaze.ray_length == 1.3
     assert cfg.gaze.gaze_cone_angle == 5.0
+    # Ruled 2026-07-09: keep the validated 4.5 s (export had widget default).
     assert cfg.tracker.reid_grace_seconds == 4.5
-    # rf_gazelle_interval 10 routes to rayforming.min_call_gap.
-    assert cfg.rayforming.min_call_gap == 10
-    # TESTGOOD export merged 2026-07-09 (user-validated, layered on top).
-    # forward_gaze_threshold rides the plugins passthrough (no strict key),
-    # so it is asserted in test_runtime_testgood_values instead.
     assert cfg.gaze.gaze_tips is True
     assert cfg.gaze.tip_radius == 70
     assert cfg.gaze.detect_extend_scope == "both"
 
 
-def test_runtime_testgood_values():
-    """The TESTGOOD keys reach the runtime namespace, incl. the
-    performance-section no_dashboard passthrough (schema_path=None)."""
+def test_runtime_passthrough_values():
+    """Pass-through keys reach the runtime namespace (no strict schema home):
+    forward-gaze threshold, no_dashboard, smooth snap, merge overlaps."""
     ns = load_pipeline(CONFIG, Namespace())
     assert getattr(ns, "gaze_tips") is True
     assert getattr(ns, "tip_radius") == 70
     assert getattr(ns, "detect_extend_scope") == "both"
     assert getattr(ns, "forward_gaze_threshold") == 13.0
     assert getattr(ns, "no_dashboard") is True
+    assert getattr(ns, "smooth_snap") == "all"
+    assert getattr(ns, "smooth_snap_alpha") == 0.9
+    # Ruled 2026-07-09: merge stays on/dynamic/0.55 (the export predated the
+    # exporter fix that made hand-widget merge keys exportable).
+    assert getattr(ns, "merge_overlaps") is True
+    assert getattr(ns, "merge_overlap_strategy") == "dynamic"
+    assert getattr(ns, "merge_overlap_threshold") == 0.55
 
 
 def test_runtime_weight_names_are_bare_filenames():
     """Weight paths are bare filenames (portable via resolve_weight)."""
     ns = load_pipeline(CONFIG, Namespace())
     for attr, expected in (
-        ("model", "yoloe-v8l-seg.pt"),
-        ("mgaze_model", "resnet50_gaze.onnx"),
+        ("model", "yolov8n.pt"),
+        ("mgaze_model", "resnet34_gaze.onnx"),
         ("rf_gazelle_model", "gazelle_dinov2_vitb14.pt"),
     ):
         val = getattr(ns, attr)
@@ -89,10 +93,11 @@ def test_runtime_weight_names_are_bare_filenames():
 
 
 def test_runtime_blend_and_interval():
+    # Ruled 2026-07-09: cadence 25 (pre-rewrite recommendation; export had
+    # the 30 widget default, the 2026-07-05 ruling said 10).
     ns = load_pipeline(CONFIG, Namespace())
-    assert getattr(ns, "rf_gazelle_interval") == 10
-    assert resolve_min_call_gap(ns) == 10
-    assert getattr(ns, "mgaze_arch") == "resnet50"
+    assert resolve_min_call_gap(ns) == 25
+    assert getattr(ns, "mgaze_dataset") == "gaze360"
 
 
 def test_all_phenomena_enabled_strict_load():
