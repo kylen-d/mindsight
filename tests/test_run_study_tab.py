@@ -160,9 +160,8 @@ def test_typed_empty_path_is_noop(qapp):
     tab._project_dir.setText("   ")
     tab._open_typed_path()
     assert tab._project is None
-    # UP1 D3: the projectless resting status invites quick analysis.
-    assert tab._status_label.text() == (
-        "No project open -- quick analysis available below, or open a project.")
+    # UP1r2: quick analysis is a mode now; the resting status is plain.
+    assert tab._status_label.text() == "No project open."
 
 
 # ── New Project button (scaffold + open) ─────────────────────────────────────
@@ -411,29 +410,68 @@ def test_open_run_folder_project_without_flat_videos_dir(qapp, tmp_path):
     assert tab._runs_table.item(0, 0).text() == "dyad07"
 
 
-# ── Quick analysis panel (UP1 D3) ────────────────────────────────────────────
+# ── Mode switch + quick modes (UP1r2) ────────────────────────────────────────
 
-def test_quick_panel_expanded_and_project_groups_hidden_without_project(qapp):
-    """No project: Quick group expanded; Preflight/Runs/Study-setup hidden."""
+def test_starts_in_project_mode_with_all_modes_offered(qapp):
+    """Fresh tab: project mode active, all three segmented buttons present."""
     from mindsight.GUI.run_study_tab import RunStudyTab
     tab = RunStudyTab()
-    assert tab._project is None
-    assert tab._quick_grp.isChecked()            # expanded
-    assert tab._pf_grp.isHidden()
-    assert tab._runs_grp.isHidden()
-    assert tab._study_setup_grp.isHidden()
+    assert tab._mode == "project"
+    assert set(tab._mode_btns) == {"project", "video", "camera"}
+    assert tab._mode_btns["project"].isChecked()
+    assert tab._source_stack.currentIndex() == 0
+    assert tab._left_stack.currentIndex() == 0
+    # Live dashboard lives in the output tabs (project mode).
+    assert tab._output_tabs.indexOf(tab._dashboard_panel) >= 0
+    assert tab._output_tabs.isTabVisible(1)      # post-run Charts tab
 
 
-def test_opening_project_flips_visibility(qapp, tmp_path):
-    """Opening a project shows the project groups and collapses Quick."""
+def test_mode_switch_morphs_the_whole_tab(qapp):
+    """Video/camera modes: quick source card, live charts on the left, the
+    dashboard reparented out of the tabs, Charts tab hidden, status-bar
+    Run/Stop hidden.  Switching back restores project mode exactly."""
+    from mindsight.GUI.run_study_tab import RunStudyTab
+    tab = RunStudyTab()
+    tab._set_mode("video")
+    assert tab._source_stack.currentIndex() == 1
+    assert tab._left_stack.currentIndex() == 1       # live charts pane
+    assert tab._output_tabs.indexOf(tab._dashboard_panel) < 0
+    assert tab._charts_pane_lay.indexOf(tab._dashboard_panel) >= 0
+    assert not tab._output_tabs.isTabVisible(1)      # Charts hidden
+    assert tab._run_btn.isHidden() and tab._stop_btn.isHidden()
+    tab._set_mode("camera")
+    assert tab._source_stack.currentIndex() == 2
+    assert tab._left_stack.currentIndex() == 1
+    tab._set_mode("project")
+    assert tab._source_stack.currentIndex() == 0
+    assert tab._left_stack.currentIndex() == 0
+    assert tab._output_tabs.indexOf(tab._dashboard_panel) >= 0
+    assert tab._output_tabs.tabText(
+        tab._output_tabs.indexOf(tab._dashboard_panel)) == "Live"
+    assert tab._output_tabs.isTabVisible(1)
+    assert not tab._run_btn.isHidden()
+
+
+def test_opening_project_commits_to_project_mode(qapp, tmp_path):
     from mindsight.GUI.run_study_tab import RunStudyTab
     proj = _make_project(tmp_path)
     tab = RunStudyTab()
+    tab._set_mode("video")
     tab._open_project(str(proj))
+    assert tab._mode == "project"
     assert not tab._pf_grp.isHidden()
     assert not tab._runs_grp.isHidden()
     assert not tab._study_setup_grp.isHidden()
-    assert not tab._quick_grp.isChecked()        # collapsed but available
+
+
+def test_last_mode_is_remembered_across_instances(qapp):
+    """The chosen mode persists via gui_state.json (isolated settings dir)."""
+    from mindsight.GUI.run_study_tab import RunStudyTab
+    tab = RunStudyTab()
+    tab._set_mode("camera")
+    tab2 = RunStudyTab()
+    assert tab2._mode == "camera"
+    tab2._set_mode("project")     # leave a clean default behind
 
 
 def test_quick_output_auto_defaults_and_sticks_when_edited(qapp, tmp_path,
@@ -443,24 +481,24 @@ def test_quick_output_auto_defaults_and_sticks_when_edited(qapp, tmp_path,
     monkeypatch.setattr(constants, "PROJECT_ROOT", tmp_path)
     tab = RunStudyTab()
     # Video mode: default output is <PROJECT_ROOT>/Outputs/<stem>.
-    tab._quick_src_video.setChecked(True)
+    tab._set_mode("video")
     tab._quick_video.setText(str(tmp_path / "footage" / "sess1.mp4"))
-    assert tab._quick_output.text() == str(tmp_path / "Outputs" / "sess1")
-    # Camera mode: default output is <PROJECT_ROOT>/Outputs/camera<idx>.
-    tab._quick_src_camera.setChecked(True)
-    tab._quick_camera.setCurrentIndex(2)
-    assert tab._quick_output.text() == str(tmp_path / "Outputs" / "camera2")
+    assert tab._video_output.text() == str(tmp_path / "Outputs" / "sess1")
+    # Camera mode has its own field: <PROJECT_ROOT>/Outputs/camera<idx>.
+    tab._set_mode("camera")
+    tab._camera_combo.setCurrentIndex(2)
+    assert tab._camera_output.text() == str(tmp_path / "Outputs" / "camera2")
     # A manual edit sticks: no more auto-recompute.
-    tab._quick_output.setText("/my/custom/out")
-    tab._quick_mark_output_dirty()
-    tab._quick_src_video.setChecked(True)
+    tab._set_mode("video")
+    tab._video_output.setText("/my/custom/out")
+    tab._video_mark_output_dirty()
     tab._quick_video.setText(str(tmp_path / "other.mp4"))
-    assert tab._quick_output.text() == "/my/custom/out"
+    assert tab._video_output.text() == "/my/custom/out"
 
 
 def test_run_quick_video_builds_spec_and_guards(qapp, tmp_path, monkeypatch):
-    """_run_quick builds the expected spec, starts the worker, and the
-    worker-alive guard blocks a second start (UP1 D3)."""
+    """_run_quick builds the expected spec, starts the worker, flips the inline
+    button to Stop, and the worker-alive guard blocks a second start."""
     from mindsight import constants
     from mindsight.GUI import workers as workers_mod
     from mindsight.GUI.run_study_tab import RunStudyTab
@@ -488,10 +526,10 @@ def test_run_quick_video_builds_spec_and_guards(qapp, tmp_path, monkeypatch):
     monkeypatch.setattr(workers_mod, "GazeWorker", FakeWorker)
 
     tab = RunStudyTab()
-    tab._quick_src_video.setChecked(True)
+    tab._set_mode("video")
     tab._quick_video.setText(str(video))
     # Output auto-defaulted to <PROJECT_ROOT>/Outputs/clip.
-    assert tab._quick_output.text() == str(tmp_path / "Outputs" / "clip")
+    assert tab._video_output.text() == str(tmp_path / "Outputs" / "clip")
     tab._run_quick()
     assert len(started) == 1
     ns = started[0]
@@ -499,6 +537,8 @@ def test_run_quick_video_builds_spec_and_guards(qapp, tmp_path, monkeypatch):
     assert ns.log == str(tmp_path / "Outputs" / "clip" / "clip_Events.csv")
     # The output folder is created on run (UP1 ruling 1).
     assert (tmp_path / "Outputs" / "clip").is_dir()
+    # Inline primary button became the stop control (UP1r2).
+    assert tab._video_go.text() == "■  Stop"
     # Worker-alive guard blocks a second start.
     tab._run_quick()
     assert len(started) == 1
@@ -529,9 +569,9 @@ def test_run_quick_camera_builds_camera_spec(qapp, tmp_path, monkeypatch):
     monkeypatch.setattr(workers_mod, "GazeWorker", FakeWorker)
 
     tab = RunStudyTab()
-    tab._quick_src_camera.setChecked(True)
-    tab._quick_camera.setCurrentIndex(0)
-    assert tab._quick_output.text() == str(tmp_path / "Outputs" / "camera0")
+    tab._set_mode("camera")
+    tab._camera_combo.setCurrentIndex(0)
+    assert tab._camera_output.text() == str(tmp_path / "Outputs" / "camera0")
     tab._run_quick()
     assert len(started) == 1
     # source is the camera index string; open_video_source normalizes to int.
@@ -547,8 +587,72 @@ def test_run_quick_no_output_folder_warns(qapp, monkeypatch):
     monkeypatch.setattr(rst.QMessageBox, "warning",
                         lambda *a, **k: warned.append(a))
     tab = RunStudyTab()
-    tab._quick_src_video.setChecked(True)
-    tab._quick_output.setText("")
-    tab._quick_output_dirty = True   # keep it empty (no auto-recompute)
+    tab._set_mode("video")
+    tab._video_output.setText("")
+    tab._video_output_dirty = True   # keep it empty (no auto-recompute)
     tab._run_quick()
     assert warned
+
+
+def test_drop_routes_video_and_folder_to_their_modes(qapp, tmp_path):
+    """A dropped video file lands in Video File mode; a dropped folder opens
+    as a project (the handler only reads mimeData().urls())."""
+    from PyQt6.QtCore import QUrl
+
+    from mindsight.GUI.run_study_tab import RunStudyTab
+
+    class FakeMime:
+        def __init__(self, url):
+            self._url = url
+
+        def urls(self):
+            return [self._url]
+
+    class FakeEvent:
+        def __init__(self, path):
+            self._mime = FakeMime(QUrl.fromLocalFile(str(path)))
+
+        def mimeData(self):
+            return self._mime
+
+        def acceptProposedAction(self):
+            pass
+
+    video = tmp_path / "drop.mp4"
+    video.write_bytes(b"\x00" * 32)
+    tab = RunStudyTab()
+    tab.dropEvent(FakeEvent(video))
+    assert tab._mode == "video"
+    assert tab._quick_video.text() == str(video)
+
+    proj = _make_project(tmp_path)
+    tab.dropEvent(FakeEvent(proj))
+    assert tab._mode == "project"
+    assert tab._project is not None
+
+
+def test_finished_quick_run_csvs_land_in_viewer(qapp, tmp_path):
+    """_register_one_off_outputs makes the quick run's CSVs selectable."""
+    from mindsight.GUI.run_study_tab import RunStudyTab
+    out = tmp_path / "Outputs" / "clip"
+    out.mkdir(parents=True)
+    (out / "clip_Events.csv").write_text("frame\n1\n")
+    (out / "clip_summary.csv").write_text("metric,value\n")
+    tab = RunStudyTab()
+    tab._last_one_off = ("clip", str(out))
+    tab._register_one_off_outputs()
+    assert tab._csv_run.currentText() == "clip"
+    names = [tab._csv_file.itemText(i) for i in range(tab._csv_file.count())]
+    assert "clip_Events.csv" in names and "clip_summary.csv" in names
+
+
+def test_preset_labels_follow_the_store(qapp):
+    """The quick cards show 'Preset: <source>' and react to store commits."""
+    from mindsight.GUI.run_study_tab import RunStudyTab
+    tab = RunStudyTab()
+    assert tab._video_preset.text().startswith("Preset: ")
+    assert tab._video_preset.text() == tab._camera_preset.text()
+    ns = tab._settings.working_copy()
+    ns.ray_length = 4.2
+    tab._settings.commit(ns)
+    assert tab._video_preset.text().endswith("(modified)")

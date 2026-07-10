@@ -48,6 +48,27 @@ class SettingsManager:
         self.SETTINGS_DIR.mkdir(parents=True, exist_ok=True)
         self.PRESETS_DIR.mkdir(parents=True, exist_ok=True)
 
+    # ── GUI state (window/tab prefs -- NOT inference settings) ────────────
+    # Path derived from SETTINGS_DIR at call time so test fixtures that
+    # repoint the settings dir isolate this file too.
+
+    def load_gui_state(self) -> dict:
+        """Small GUI preferences (e.g. the Analyze Footage input mode)."""
+        try:
+            return json.loads(
+                (self.SETTINGS_DIR / "gui_state.json").read_text())
+        except Exception:
+            return {}
+
+    def save_gui_state(self, updates: dict) -> None:
+        state = self.load_gui_state()
+        state.update(updates)
+        try:
+            (self.SETTINGS_DIR / "gui_state.json").write_text(
+                json.dumps(state, indent=2))
+        except Exception:  # pragma: no cover - best-effort persistence
+            pass
+
     # ── Serialization helpers ─────────────────────────────────────────────
 
     @staticmethod

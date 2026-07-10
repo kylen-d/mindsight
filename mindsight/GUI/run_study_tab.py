@@ -39,12 +39,14 @@ from PyQt6.QtCore import Qt, QTimer
 from PyQt6.QtGui import QColor, QFont
 from PyQt6.QtWidgets import (
     QAbstractItemView,
+    QButtonGroup,
     QCheckBox,
     QComboBox,
     QDialog,
     QDialogButtonBox,
     QFileDialog,
     QFormLayout,
+    QFrame,
     QGroupBox,
     QHBoxLayout,
     QHeaderView,
@@ -57,6 +59,7 @@ from PyQt6.QtWidgets import (
     QScrollArea,
     QSizePolicy,
     QSplitter,
+    QStackedWidget,
     QTableWidget,
     QTableWidgetItem,
     QTabWidget,
@@ -72,6 +75,24 @@ from .widgets import CollapsibleGroupBox, _bgr_to_pixmap
 # Severity presentation for the preflight checklist.
 _SEV_ICON = {"ok": "✓", "warn": "▲", "fail": "✗"}
 _SEV_COLOUR = {"ok": "#2a7a2a", "warn": "#b8860b", "fail": "#b22222"}
+
+# UP1r2: the tab's three input modes and their segmented-switch styling.
+_MODES = ("project", "video", "camera")
+_VIDEO_EXTS = (".mp4", ".mov", ".avi", ".mkv")
+_SEG_QSS = """
+QPushButton {
+    padding: 5px 22px;
+    border: 1px solid #4a4a5e;
+    background: transparent;
+    color: #999;
+}
+QPushButton:hover:!checked { background: rgba(80, 100, 140, 0.25); }
+QPushButton:checked {
+    background: #2d5a88;
+    color: white;
+    font-weight: bold;
+}
+"""
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -430,59 +451,19 @@ class RunStudyTab(QWidget):
         outer.setContentsMargins(8, 8, 8, 8)
         outer.setSpacing(6)
 
-        # Project picker row: editable path field (type/paste + Enter or Open,
-        # G-FIX-3) + Browse dialog + Recent dropdown (D12)
-        top = QHBoxLayout()
-        top.addWidget(QLabel("Project:"))
-        self._project_dir = QLineEdit()
-        self._project_dir.setPlaceholderText(
-            "Type or paste a project folder path, or Browse...")
-        self._project_dir.returnPressed.connect(self._open_typed_path)
-        top.addWidget(self._project_dir, 1)
-        go_btn = QPushButton("Open")
-        go_btn.setToolTip("Open the typed project path")
-        go_btn.clicked.connect(self._open_typed_path)
-        top.addWidget(go_btn)
-        open_btn = QPushButton("Browse...")
-        open_btn.clicked.connect(self._open_project_dialog)
-        top.addWidget(open_btn)
-        new_btn = QPushButton("New Project...")
-        new_btn.setToolTip("Create a blank project folder and open it")
-        new_btn.clicked.connect(self._new_project_dialog)
-        top.addWidget(new_btn)
-        infer_btn = QPushButton("Inference Settings...")
-        infer_btn.setToolTip(
-            "Edit the inference configuration every run launched here uses "
-            "(quick and project modes)")
-        infer_btn.clicked.connect(self._open_inference_settings)
-        top.addWidget(infer_btn)
-        self._recent = QComboBox()
-        self._recent.setMinimumWidth(180)
-        self._recent.setToolTip("Recently opened projects")
-        self._recent.activated.connect(self._open_recent)
-        top.addWidget(self._recent)
-        outer.addLayout(top)
-        self._refresh_recent_dropdown()
-
-        self._status_label = QLabel(
-            "No project open -- quick analysis available below, or open a "
-            "project.")
-        self._status_label.setStyleSheet("color: #888; font-style: italic;")
-        outer.addWidget(self._status_label)
+        # UP1r2: segmented mode switch -- Project | Video File | Camera.  The
+        # ENTIRE tab commits to the chosen mode: the source card and both panes
+        # morph, so nothing mode-irrelevant is ever on screen.
+        outer.addLayout(self._build_mode_switch())
+        outer.addWidget(self._build_source_stack())
 
         splitter = QSplitter(Qt.Orientation.Horizontal)
 
-        # LEFT: preflight + runs table + resume controls + manual, stacked in a
-        # vertical splitter (B9) so the RA can drag the boundaries -- e.g. grow
-        # the runs list without losing the study-setup area below.
+        # LEFT: a stack -- page 0 = the project column (preflight + runs +
+        # study setup in a vertical splitter, B9), page 1 = live charts (UP1r2:
+        # in video/camera modes the left pane is exclusively live charts).
         left_split = QSplitter(Qt.Orientation.Vertical)
         self._left_split = left_split
-
-        # Quick analysis (UP1 D3): a first-class projectless run path. Sits at
-        # the top of the left column; expanded and alone when no project is
-        # open, collapsed-but-available once a project is.
-        self._quick_grp = self._build_quick_analysis()
-        left_split.addWidget(self._quick_grp)
 
         pf_grp = QGroupBox("Preflight")
         self._pf_grp = pf_grp
@@ -539,15 +520,29 @@ class RunStudyTab(QWidget):
         # conditions editing has room; the runs table above stays compact.
         self._study_setup_grp = self._build_study_setup()
         left_split.addWidget(self._study_setup_grp)
-        # Preserve the prior proportions: quick/preflight/runs stay compact,
-        # study setup takes the growing space (indices shifted by the quick
-        # group now at 0).
+        # Preflight/runs stay compact; study setup takes the growing space.
         left_split.setStretchFactor(0, 0)
         left_split.setStretchFactor(1, 0)
-        left_split.setStretchFactor(2, 0)
-        left_split.setStretchFactor(3, 1)
+        left_split.setStretchFactor(2, 1)
 
-        splitter.addWidget(left_split)
+        # Live-charts pane (page 1): hosts the shared LiveDashboardPanel while
+        # a quick mode is active (the panel is reparented, see _place_dashboard).
+        charts_pane = QWidget()
+        self._charts_pane_lay = QVBoxLayout(charts_pane)
+        self._charts_pane_lay.setContentsMargins(0, 0, 0, 0)
+        hdr = QLabel("Live charts")
+        hdr.setStyleSheet("font-weight: bold;")
+        self._charts_pane_lay.addWidget(hdr)
+        self._charts_hint = QLabel(
+            "Live charts appear here during analysis.")
+        self._charts_hint.setStyleSheet("color: #888; font-style: italic;")
+        self._charts_pane_lay.addWidget(self._charts_hint)
+        self._charts_pane_lay.addStretch(1)
+
+        self._left_stack = QStackedWidget()
+        self._left_stack.addWidget(left_split)     # page 0: project column
+        self._left_stack.addWidget(charts_pane)    # page 1: live charts
+        splitter.addWidget(self._left_stack)
 
         # RIGHT: preview + output tabs, stacked in a vertical splitter (B9) so
         # the preview / output-panel boundary is draggable.
@@ -570,148 +565,404 @@ class RunStudyTab(QWidget):
         outer.addWidget(splitter, 1)
 
         # Status-bar buttons (injected by main_window, T11); provide fallbacks so
-        # the tab is testable standalone.
+        # the tab is testable standalone.  Visible in project mode only -- the
+        # quick modes own their inline Analyze / Start Camera button (UP1r2).
         self._run_btn = QPushButton("▶  Run")
         self._run_btn.clicked.connect(self._start)
         self._stop_btn = QPushButton("■  Stop")
         self._stop_btn.setEnabled(False)
         self._stop_btn.clicked.connect(self._stop)
 
-        # UP1 D3: start in projectless mode (Quick group expanded, project-only
-        # groups hidden) until a project is opened.
-        self._apply_project_mode()
+        # Drag & drop: a video file switches to Video File mode, a folder opens
+        # as a project (UP1r2 extras).
+        self.setAcceptDrops(True)
 
-    # ── Quick analysis (UP1 D3) ──────────────────────────────────────────────
+        # Preset indicator follows the RunSettings store.
+        self._settings.changed.connect(self._refresh_preset_labels)
+        self._refresh_preset_labels()
 
-    def _build_quick_analysis(self):
-        """The projectless Quick analysis panel: pick a single video file OR a
-        live camera, accept/edit an output folder, press Analyze (UP1 D3)."""
-        from PyQt6.QtWidgets import QButtonGroup, QRadioButton
+        # Start in the last-used mode (stored GUI state, not inference config).
+        self._quick_running = False
+        from .settings_manager import SettingsManager
+        saved = SettingsManager().load_gui_state().get("analyze_mode")
+        self._set_mode(saved if saved in _MODES else "project", persist=False)
 
-        grp = CollapsibleGroupBox("Quick analysis -- no project needed")
-        inner = QWidget()
-        lay = QVBoxLayout(inner)
-        lay.setContentsMargins(4, 4, 4, 4)
+    # ── Mode switch + source cards (UP1r2) ───────────────────────────────────
 
-        # Source choice: video file vs live camera.
-        src_row = QHBoxLayout()
-        self._quick_src_video = QRadioButton("Video file")
-        self._quick_src_camera = QRadioButton("Camera")
-        self._quick_src_video.setChecked(True)
-        self._quick_src_group = QButtonGroup(inner)
-        self._quick_src_group.addButton(self._quick_src_video)
-        self._quick_src_group.addButton(self._quick_src_camera)
-        self._quick_src_video.toggled.connect(self._quick_update_source_mode)
-        src_row.addWidget(self._quick_src_video)
-        src_row.addWidget(self._quick_src_camera)
-        src_row.addStretch(1)
-        lay.addLayout(src_row)
+    def _build_mode_switch(self):
+        """The segmented Project | Video File | Camera switch.  One mode, one
+        UI: everything below the switch commits to the selected mode."""
+        row = QHBoxLayout()
+        seg = QHBoxLayout()
+        seg.setSpacing(0)
+        self._mode_group = QButtonGroup(self)
+        self._mode_group.setExclusive(True)
+        self._mode_btns = {}
+        for key, label in (("project", "Project"),
+                           ("video", "Video File"),
+                           ("camera", "Camera")):
+            btn = QPushButton(label)
+            btn.setCheckable(True)
+            btn.setStyleSheet(_SEG_QSS)
+            btn.clicked.connect(lambda _=False, k=key: self._set_mode(k))
+            self._mode_group.addButton(btn)
+            self._mode_btns[key] = btn
+            seg.addWidget(btn)
+        row.addLayout(seg)
+        row.addStretch(1)
+        return row
 
-        # Video file row.
-        vid_row = QHBoxLayout()
-        vid_row.addWidget(QLabel("Video:"))
+    def _build_source_stack(self):
+        """One source card per mode, stacked -- only the active mode's inputs
+        are ever on screen."""
+        self._source_stack = QStackedWidget()
+        self._source_stack.setSizePolicy(
+            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Maximum)
+        self._source_stack.addWidget(self._build_project_card())
+        self._source_stack.addWidget(self._build_video_card())
+        self._source_stack.addWidget(self._build_camera_card())
+        return self._source_stack
+
+    def _card(self):
+        card = QFrame()
+        card.setFrameShape(QFrame.Shape.StyledPanel)
+        lay = QVBoxLayout(card)
+        lay.setContentsMargins(8, 6, 8, 6)
+        lay.setSpacing(4)
+        return card, lay
+
+    def _build_project_card(self):
+        """Project picker row (editable path + Enter or Open, G-FIX-3; Browse;
+        New Project; Inference Settings; Recent, D12) + the status line."""
+        card, lay = self._card()
+        top = QHBoxLayout()
+        self._project_dir = QLineEdit()
+        self._project_dir.setPlaceholderText(
+            "Type or paste a project folder path, or Browse...")
+        self._project_dir.returnPressed.connect(self._open_typed_path)
+        top.addWidget(self._project_dir, 1)
+        go_btn = QPushButton("Open")
+        go_btn.setToolTip("Open the typed project path")
+        go_btn.clicked.connect(self._open_typed_path)
+        top.addWidget(go_btn)
+        open_btn = QPushButton("Browse...")
+        open_btn.clicked.connect(self._open_project_dialog)
+        top.addWidget(open_btn)
+        new_btn = QPushButton("New Project...")
+        new_btn.setToolTip("Create a blank project folder and open it")
+        new_btn.clicked.connect(self._new_project_dialog)
+        top.addWidget(new_btn)
+        infer_btn = QPushButton("Inference Settings...")
+        infer_btn.setToolTip(
+            "Edit the inference configuration every run launched here uses")
+        infer_btn.clicked.connect(self._open_inference_settings)
+        top.addWidget(infer_btn)
+        self._recent = QComboBox()
+        self._recent.setMinimumWidth(180)
+        self._recent.setToolTip("Recently opened projects")
+        self._recent.activated.connect(self._open_recent)
+        top.addWidget(self._recent)
+        lay.addLayout(top)
+        self._refresh_recent_dropdown()
+
+        self._status_label = QLabel("No project open.")
+        self._status_label.setStyleSheet("color: #888; font-style: italic;")
+        lay.addWidget(self._status_label)
+        return card
+
+    def _build_video_card(self):
+        """Single-video card: file + output + preset/settings + Analyze."""
+        card, lay = self._card()
+        row = QHBoxLayout()
+        row.addWidget(QLabel("Video:"))
         self._quick_video = QLineEdit()
-        self._quick_video.setPlaceholderText("Select a video file...")
-        self._quick_video.textChanged.connect(self._quick_recompute_output)
-        vid_browse = QPushButton("Browse...")
-        vid_browse.clicked.connect(self._quick_browse_video)
-        vid_row.addWidget(self._quick_video, 1)
-        vid_row.addWidget(vid_browse)
-        lay.addLayout(vid_row)
+        self._quick_video.setPlaceholderText(
+            "Choose a video file, or drop one anywhere on this tab...")
+        self._quick_video.textChanged.connect(self._video_recompute_output)
+        row.addWidget(self._quick_video, 1)
+        browse = QPushButton("Browse...")
+        browse.clicked.connect(self._quick_browse_video)
+        row.addWidget(browse)
+        lay.addLayout(row)
 
-        # Camera row (no device probing at build time -- probing triggers macOS
-        # permission prompts + multi-second hangs; the capture opens only on
-        # Analyze, and a bad index surfaces the pipeline's plain-English error).
-        cam_row = QHBoxLayout()
-        cam_row.addWidget(QLabel("Camera:"))
-        self._quick_camera = QComboBox()
-        self._quick_camera.addItems([f"Camera {i}" for i in range(4)])
-        self._quick_camera.currentIndexChanged.connect(
-            self._quick_recompute_output)
-        cam_row.addWidget(self._quick_camera, 1)
-        lay.addLayout(cam_row)
-
-        # Output folder row (auto-defaulted, user edits stick via a dirty flag).
-        self._quick_output_dirty = False
+        self._video_output_dirty = False
         out_row = QHBoxLayout()
         out_row.addWidget(QLabel("Output:"))
-        self._quick_output = QLineEdit()
-        self._quick_output.setPlaceholderText("Output folder...")
-        self._quick_output.textEdited.connect(self._quick_mark_output_dirty)
+        self._video_output = QLineEdit()
+        self._video_output.setPlaceholderText("Output folder...")
+        self._video_output.textEdited.connect(self._video_mark_output_dirty)
+        out_row.addWidget(self._video_output, 1)
         out_browse = QPushButton("Browse...")
-        out_browse.clicked.connect(self._quick_browse_output)
-        out_row.addWidget(self._quick_output, 1)
+        out_browse.clicked.connect(
+            lambda: self._browse_output_into(self._video_output, "video"))
         out_row.addWidget(out_browse)
         lay.addLayout(out_row)
 
-        analyze = QPushButton("Analyze")
-        analyze.setToolTip("Run inference on the chosen video or camera")
-        analyze.clicked.connect(self._run_quick)
-        lay.addWidget(analyze)
+        bottom = QHBoxLayout()
+        self._video_preset = QLabel("")
+        self._video_preset.setStyleSheet("color: #888;")
+        bottom.addWidget(self._video_preset)
+        settings_btn = QPushButton("Inference Settings...")
+        settings_btn.clicked.connect(self._open_inference_settings)
+        bottom.addWidget(settings_btn)
+        bottom.addStretch(1)
+        self._video_go = QPushButton("▶  Analyze")
+        self._video_go.setMinimumHeight(34)
+        self._video_go.setStyleSheet("font-weight: bold; padding: 4px 26px;")
+        self._video_go.clicked.connect(self._quick_go_clicked)
+        bottom.addWidget(self._video_go)
+        lay.addLayout(bottom)
+        return card
 
-        grp.set_content(inner)
-        self._quick_update_source_mode()
-        return grp
+    def _build_camera_card(self):
+        """Live-camera card: device + output + preset/settings + Start.  No
+        device probing at build time -- probing triggers macOS permission
+        prompts + multi-second hangs; Refresh probes on demand and the capture
+        opens only on Start (a bad index surfaces the pipeline's plain-English
+        error)."""
+        card, lay = self._card()
+        row = QHBoxLayout()
+        row.addWidget(QLabel("Camera:"))
+        self._camera_combo = QComboBox()
+        self._camera_combo.addItems([f"Camera {i}" for i in range(4)])
+        self._camera_combo.currentIndexChanged.connect(
+            self._camera_recompute_output)
+        row.addWidget(self._camera_combo, 1)
+        refresh = QPushButton("Refresh")
+        refresh.setToolTip(
+            "Detect connected cameras and show their names (may trigger a "
+            "one-time camera permission prompt)")
+        refresh.clicked.connect(self._refresh_cameras)
+        row.addWidget(refresh)
+        lay.addLayout(row)
 
-    def _quick_update_source_mode(self, *_):
-        video_mode = self._quick_src_video.isChecked()
-        self._quick_video.setEnabled(video_mode)
-        self._quick_camera.setEnabled(not video_mode)
-        self._quick_recompute_output()
+        self._camera_output_dirty = False
+        out_row = QHBoxLayout()
+        out_row.addWidget(QLabel("Output:"))
+        self._camera_output = QLineEdit()
+        self._camera_output.setPlaceholderText("Output folder...")
+        self._camera_output.textEdited.connect(self._camera_mark_output_dirty)
+        out_row.addWidget(self._camera_output, 1)
+        out_browse = QPushButton("Browse...")
+        out_browse.clicked.connect(
+            lambda: self._browse_output_into(self._camera_output, "camera"))
+        out_row.addWidget(out_browse)
+        lay.addLayout(out_row)
 
-    def _quick_mark_output_dirty(self, *_):
-        self._quick_output_dirty = True
+        bottom = QHBoxLayout()
+        self._camera_preset = QLabel("")
+        self._camera_preset.setStyleSheet("color: #888;")
+        bottom.addWidget(self._camera_preset)
+        settings_btn = QPushButton("Inference Settings...")
+        settings_btn.clicked.connect(self._open_inference_settings)
+        bottom.addWidget(settings_btn)
+        bottom.addStretch(1)
+        self._camera_go = QPushButton("▶  Start Camera")
+        self._camera_go.setMinimumHeight(34)
+        self._camera_go.setStyleSheet("font-weight: bold; padding: 4px 26px;")
+        self._camera_go.clicked.connect(self._quick_go_clicked)
+        bottom.addWidget(self._camera_go)
+        lay.addLayout(bottom)
+        return card
 
-    def _quick_default_output(self) -> str:
-        """The auto output default: ``<PROJECT_ROOT>/Outputs/<stem>`` for a
-        video, ``<PROJECT_ROOT>/Outputs/camera<idx>`` for a camera (UP1 ruling
-        1 -- PROJECT_ROOT honors MINDSIGHT_HOME)."""
+    # ── Mode machinery (UP1r2) ───────────────────────────────────────────────
+
+    def _set_mode(self, mode: str, persist: bool = True):
+        """Commit the whole tab to *mode*: source card, left pane, output
+        tabs, status-bar buttons, and empty-state hints all follow.  No
+        mode-irrelevant UI survives the switch."""
+        self._mode = mode
+        self._source_stack.setCurrentIndex(_MODES.index(mode))
+        btn = self._mode_btns[mode]
+        if not btn.isChecked():
+            btn.setChecked(True)
+        project_mode = mode == "project"
+        self._left_stack.setCurrentIndex(0 if project_mode else 1)
+        self._place_dashboard(project_mode)
+        # Post-run Charts render per-project run; quick modes chart LIVE on the
+        # left pane instead.
+        self._output_tabs.setTabVisible(1, project_mode)
+        self._run_btn.setVisible(project_mode)
+        self._stop_btn.setVisible(project_mode)
+        self._apply_preview_hint()
+        if mode == "video":
+            self._video_recompute_output()
+        elif mode == "camera":
+            self._camera_recompute_output()
+        if persist:
+            from .settings_manager import SettingsManager
+            try:
+                SettingsManager().save_gui_state({"analyze_mode": mode})
+            except Exception:  # pragma: no cover - GUI state is best-effort
+                pass
+
+    def _place_dashboard(self, project_mode: bool):
+        """Reparent the single LiveDashboardPanel: the Live output tab in
+        project mode, the left charts pane in the quick modes."""
+        panel = self._dashboard_panel
+        in_tabs = self._output_tabs.indexOf(panel)
+        if project_mode:
+            if in_tabs < 0:
+                self._charts_pane_lay.removeWidget(panel)
+                self._output_tabs.insertTab(2, panel, "Live")
+        else:
+            if in_tabs >= 0:
+                self._output_tabs.removeTab(in_tabs)
+            if self._charts_pane_lay.indexOf(panel) < 0:
+                # Before the trailing stretch, taking the growing space.
+                self._charts_pane_lay.insertWidget(
+                    self._charts_pane_lay.count() - 1, panel, 1)
+                panel.show()
+
+    def _apply_preview_hint(self):
+        """Empty-state hint in the preview area (only while no frame shown)."""
+        pm = self._preview.pixmap()
+        if pm is not None and not pm.isNull():
+            return
+        hints = {
+            "project": "Open a project and press Run -- the preview shows here.",
+            "video": "Choose a video (or drop one here), then press Analyze.",
+            "camera": "Pick a camera and press Start Camera.",
+        }
+        self._preview.setText(hints[self._mode])
+        self._preview.setStyleSheet(
+            "background: #1a1a2e; color: #556; font-style: italic;")
+
+    def _refresh_preset_labels(self):
+        """The quick cards' 'Preset: <source> (modified)' indicator follows the
+        RunSettings store."""
+        text = "Preset: " + self._settings.source_label()
+        if self._settings.is_modified():
+            text += " (modified)"
+        for lab in (self._video_preset, self._camera_preset):
+            lab.setText(text)
+
+    def _update_quick_buttons(self):
+        running = self._quick_running
+        self._video_go.setText("■  Stop" if running else "▶  Analyze")
+        self._camera_go.setText("■  Stop" if running else "▶  Start Camera")
+
+    def _quick_go_clicked(self):
+        """Inline primary button: launches the mode's run, or stops the quick
+        run it started."""
+        if self._quick_running:
+            self._stop()
+        else:
+            self._run_quick()
+
+    def _refresh_cameras(self):
+        """Probe cameras ON DEMAND (never at startup) and show device names
+        where the OS provides them; falls back to a cv2 open/close probe, then
+        to the blind Camera 0-3 list."""
+        names = []
+        try:
+            from PyQt6.QtMultimedia import QMediaDevices
+            names = [d.description() or f"Camera {i}"
+                     for i, d in enumerate(QMediaDevices.videoInputs())]
+        except Exception:  # pragma: no cover - QtMultimedia optional
+            pass
+        if not names:
+            import cv2
+            for i in range(6):
+                cap = cv2.VideoCapture(i)
+                ok = cap.isOpened()
+                cap.release()
+                if ok:
+                    names.append(f"Camera {i}")
+        if not names:
+            names = [f"Camera {i}" for i in range(4)]
+        current = max(self._camera_combo.currentIndex(), 0)
+        self._camera_combo.blockSignals(True)
+        self._camera_combo.clear()
+        self._camera_combo.addItems(names)
+        self._camera_combo.setCurrentIndex(min(current, len(names) - 1))
+        self._camera_combo.blockSignals(False)
+        self._camera_recompute_output()
+
+    # ── Drag & drop: video file -> Video File mode, folder -> project ───────
+
+    def dragEnterEvent(self, event):
+        if any(u.isLocalFile() for u in event.mimeData().urls()):
+            event.acceptProposedAction()
+
+    def dropEvent(self, event):
+        for url in event.mimeData().urls():
+            if not url.isLocalFile():
+                continue
+            path = Path(url.toLocalFile())
+            if path.is_dir():
+                self._set_mode("project")
+                self._project_dir.setText(str(path))
+                self._open_project(str(path))
+                return
+            if path.suffix.lower() in _VIDEO_EXTS:
+                self._set_mode("video")
+                self._quick_video.setText(str(path))
+                return
+
+    # ── Output defaults (auto-filled, user edits stick via dirty flags) ─────
+
+    def _default_output_for(self, stem: str) -> str:
+        """``<PROJECT_ROOT>/Outputs/<stem>`` (UP1 ruling 1 -- PROJECT_ROOT
+        honors MINDSIGHT_HOME)."""
         from mindsight.constants import PROJECT_ROOT
-        outputs = PROJECT_ROOT / "Outputs"
-        if self._quick_src_camera.isChecked():
-            return str(outputs / f"camera{self._quick_camera.currentIndex()}")
-        stem = Path(self._quick_video.text().strip()).stem
-        return str(outputs / stem) if stem else ""
+        return str(PROJECT_ROOT / "Outputs" / stem) if stem else ""
 
-    def _quick_recompute_output(self, *_):
-        """Refresh the auto output default unless the user has edited the field."""
-        if self._quick_output_dirty:
+    def _video_mark_output_dirty(self, *_):
+        self._video_output_dirty = True
+
+    def _camera_mark_output_dirty(self, *_):
+        self._camera_output_dirty = True
+
+    def _video_recompute_output(self, *_):
+        if self._video_output_dirty:
             return
         # setText fires textChanged, not textEdited, so the dirty flag stays off.
-        self._quick_output.setText(self._quick_default_output())
+        stem = Path(self._quick_video.text().strip()).stem
+        self._video_output.setText(self._default_output_for(stem))
+
+    def _camera_recompute_output(self, *_):
+        if self._camera_output_dirty:
+            return
+        self._camera_output.setText(self._default_output_for(
+            f"camera{self._camera_combo.currentIndex()}"))
 
     def _quick_browse_video(self):
         path, _ = QFileDialog.getOpenFileName(
             self, "Select a video", "",
             "Video (*.mp4 *.mov *.avi *.mkv);;All (*)")
         if path:
-            self._quick_src_video.setChecked(True)
             self._quick_video.setText(path)
 
-    def _quick_browse_output(self):
+    def _browse_output_into(self, edit, which: str):
         path = QFileDialog.getExistingDirectory(self, "Output folder")
         if path:
-            self._quick_output.setText(path)
-            self._quick_output_dirty = True
+            edit.setText(path)
+            if which == "video":
+                self._video_output_dirty = True
+            else:
+                self._camera_output_dirty = True
 
     def _run_quick(self):
-        """Launch a projectless quick run from the current source choice (UP1
-        D3): a single video via ``single_run_spec`` or a live camera via
-        ``camera_run_spec``, then the shared one-off launch tail."""
+        """Launch a run from the active quick mode (UP1r2): a single video via
+        ``single_run_spec`` or a live camera via ``camera_run_spec``, then the
+        shared one-off launch tail."""
         if self._any_worker_alive():
             # B1 F2: never start a second worker over a live one (shared guard).
             self._append_log(
                 "Previous run is still finishing -- try again in a moment.")
             return
         from mindsight.project.staging import camera_run_spec, single_run_spec
-        output_dir = self._quick_output.text().strip()
+        camera = self._mode == "camera"
+        output_dir = (self._camera_output if camera
+                      else self._video_output).text().strip()
         if not output_dir:
             QMessageBox.warning(self, "Quick analysis",
                                 "Choose an output folder.")
             return
         try:
-            if self._quick_src_camera.isChecked():
-                spec = camera_run_spec(self._quick_camera.currentIndex(),
+            if camera:
+                spec = camera_run_spec(self._camera_combo.currentIndex(),
                                        output_dir)
             else:
                 spec = single_run_spec(self._quick_video.text().strip(),
@@ -720,17 +971,6 @@ class RunStudyTab(QWidget):
             QMessageBox.warning(self, "Quick analysis", str(exc))
             return
         self._launch_one_off(spec)
-
-    def _apply_project_mode(self):
-        """Toggle the tab between projectless (Quick analysis expanded, alone)
-        and project (Preflight/Runs/Study-setup shown, Quick collapsed but
-        available) modes (UP1 D3).  Does NOT touch the status label -- the open
-        success/failure paths own that text."""
-        has_project = self._project is not None
-        self._pf_grp.setVisible(has_project)
-        self._runs_grp.setVisible(has_project)
-        self._study_setup_grp.setVisible(has_project)
-        self._quick_grp.setChecked(not has_project)
 
     def _build_study_setup(self):
         grp = CollapsibleGroupBox("Study setup")
@@ -1149,9 +1389,6 @@ class RunStudyTab(QWidget):
             # a crash (G-FIX-3).
             self._status_label.setText(f"Invalid project: {exc}")
             self._status_label.setStyleSheet("color: #b22222; font-weight: bold;")
-            # UP1 D3: reflect current project state (unchanged on a failed open),
-            # keeping the Quick panel available -- the error text stays put.
-            self._apply_project_mode()
             return
         self._project = project
         self._project_path = project.path
@@ -1177,8 +1414,8 @@ class RunStudyTab(QWidget):
 
         self._status_label.setText(f"Open: {project.path.name}")
         self._status_label.setStyleSheet("color: #2a7a2a; font-weight: bold;")
-        # UP1 D3: a project is open -- show the project groups, collapse Quick.
-        self._apply_project_mode()
+        # UP1r2: opening a project commits the tab to project mode.
+        self._set_mode("project")
 
     def _project_pipeline_path(self) -> Path | None:
         """The project's pipeline.yaml path (for Save-to-project), or None when
@@ -1606,6 +1843,12 @@ class RunStudyTab(QWidget):
         # B1 F1: always tell the user where the one-off files land (absolute).
         out_dir = str(Path(spec.output_paths["log"]).resolve().parent)
         self._append_log(f"One-off outputs -> {out_dir}")
+        # UP1r2: remember where this one-off writes so the CSV viewer can pick
+        # the files up on finish (quick runs have no project discovery).
+        self._last_one_off = (spec.run_id, out_dir)
+        self._quick_running = True
+        self._update_quick_buttons()
+        self._charts_hint.setVisible(False)
         self._stop_requested = False
         self._run_btn.setEnabled(False)
         self._stop_btn.setEnabled(True)
@@ -1770,6 +2013,9 @@ class RunStudyTab(QWidget):
         self._dashboard_panel.stop()   # B6: live dashboard stops with the run
         self._run_btn.setEnabled(True)
         self._stop_btn.setEnabled(False)
+        was_quick = self._quick_running
+        self._quick_running = False
+        self._update_quick_buttons()
         if self._stop_requested:
             self._append_log("Cancelled.")
         self._stop_requested = False
@@ -1778,6 +2024,31 @@ class RunStudyTab(QWidget):
         if self._project:
             self._refresh_runs_table()
             self._refresh_output_panels()
+        elif was_quick:
+            # UP1r2: surface the finished quick run's CSVs in the viewer.
+            self._register_one_off_outputs()
+
+    def _register_one_off_outputs(self):
+        """Make a finished quick run's CSVs selectable in the Output CSVs tab
+        (quick runs bypass project discovery)."""
+        if not getattr(self, "_last_one_off", None):
+            return
+        run_id, out_dir = self._last_one_off
+        from .run_outputs import RunOutputs
+        csvs = tuple(sorted(Path(out_dir).glob(f"{run_id}*.csv")))
+        if not csvs:
+            return
+        out = RunOutputs(
+            run_id=run_id, stem=run_id, csv_paths=csvs,
+            summary=next((p for p in csvs
+                          if p.name == f"{run_id}_summary.csv"), None),
+            events=next((p for p in csvs
+                         if p.name == f"{run_id}_Events.csv"), None))
+        self._run_outputs[run_id] = out
+        if self._csv_run.findText(run_id) < 0:
+            self._csv_run.addItem(run_id)
+        self._csv_run.setCurrentText(run_id)
+        self._populate_csv_files()
 
     def _append_log(self, msg: str):
         self._log_box.append(str(msg))
