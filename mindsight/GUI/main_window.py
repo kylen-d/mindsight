@@ -102,6 +102,11 @@ class MainWindow(QMainWindow):
         file_menu.addSeparator()
         file_menu.addAction("&Quit", self.close)
 
+        # Tools menu (UP2 B2): the Inference Settings dialog entry point.
+        tools_menu = menu.addMenu("&Tools")
+        tools_menu.addAction("Inference Settings...",
+                             self._open_inference_settings)
+
         # Help menu (UP1 D4)
         help_menu = menu.addMenu("&Help")
         help_menu.addAction("Documentation", self._open_documentation)
@@ -121,6 +126,12 @@ class MainWindow(QMainWindow):
         """Switch to Analyze Footage and browse-open a project there."""
         self._tabs.setCurrentIndex(_TAB_ANALYZE)
         self._run_study_tab.open_project_browse()
+
+    def _open_inference_settings(self):
+        """Switch to Analyze Footage and open the Inference Settings dialog
+        there (it owns the shared RunSettings store + project context)."""
+        self._tabs.setCurrentIndex(_TAB_ANALYZE)
+        self._run_study_tab._open_inference_settings()
 
     def _open_documentation(self):
         """Open the documentation site in the user's browser."""

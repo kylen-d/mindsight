@@ -450,6 +450,12 @@ class RunStudyTab(QWidget):
         new_btn.setToolTip("Create a blank project folder and open it")
         new_btn.clicked.connect(self._new_project_dialog)
         top.addWidget(new_btn)
+        infer_btn = QPushButton("Inference Settings...")
+        infer_btn.setToolTip(
+            "Edit the inference configuration every run launched here uses "
+            "(quick and project modes)")
+        infer_btn.clicked.connect(self._open_inference_settings)
+        top.addWidget(infer_btn)
         self._recent = QComboBox()
         self._recent.setMinimumWidth(180)
         self._recent.setToolTip("Recently opened projects")
@@ -1173,6 +1179,25 @@ class RunStudyTab(QWidget):
         self._status_label.setStyleSheet("color: #2a7a2a; font-weight: bold;")
         # UP1 D3: a project is open -- show the project groups, collapse Quick.
         self._apply_project_mode()
+
+    def _project_pipeline_path(self) -> Path | None:
+        """The project's pipeline.yaml path (for Save-to-project), or None when
+        no project is open."""
+        if not self._project or not self._project_path:
+            return None
+        cfg = self._project.config
+        if cfg and cfg.pipeline_path:
+            return self._project_path / cfg.pipeline_path
+        return self._project_path / "Pipeline" / "pipeline.yaml"
+
+    def _open_inference_settings(self):
+        """Open the Inference Settings dialog over the shared RunSettings store
+        (both quick and project modes -- the store drives every run here)."""
+        from .inference_settings import InferenceSettingsDialog
+        dlg = InferenceSettingsDialog(
+            self._settings, self, gaze_tab=self._gaze_tab,
+            project_pipeline_path=self._project_pipeline_path())
+        dlg.exec()
 
     def _load_project_pipeline_into_settings(self):
         if not self._project:
