@@ -355,19 +355,39 @@ class MainWindow(QMainWindow):
     # ── Close ─────────────────────────────────────────────────────────────────
 
     def closeEvent(self, event):
-        """Clean up workers and save session on exit."""
-        # Stop gaze worker
-        if hasattr(self._gaze_tab, '_worker') and self._gaze_tab._worker:
-            if self._gaze_tab._worker.is_alive():
-                self._gaze_tab._worker.stop()
-        # Stop VP inference worker
-        if hasattr(self._vp_tab, '_vp_worker') and self._vp_tab._vp_worker:
-            if self._vp_tab._vp_worker.is_alive():
-                self._vp_tab._vp_worker.stop()
-        # Stop Analyze Footage (project) worker
-        if hasattr(self._run_study_tab, '_worker') and self._run_study_tab._worker:
-            if self._run_study_tab._worker.is_alive():
-                self._run_study_tab._worker.stop()
+        """Clean up workers and save session on exit.
+
+        UP4 follow-up (found in a real user session): the workers are daemon
+        threads, so quitting mid-run killed them before output finalization --
+        a live camera run lost its summary CSV. A live run now prompts, and
+        "stop and quit" WAITS (bounded) for the workers to finalize."""
+        workers = [w for w in (
+            getattr(self._gaze_tab, "_worker", None),
+            getattr(self._vp_tab, "_vp_worker", None),
+            getattr(self._run_study_tab, "_worker", None),
+            getattr(self._run_study_tab, "_one_off_worker", None),
+        ) if w is not None and w.is_alive()]
+        if workers:
+            reply = QMessageBox.question(
+                self, "Run in progress",
+                "A run is still in progress. Stop it and finalize its "
+                "outputs before quitting?",
+                QMessageBox.StandardButton.Yes
+                | QMessageBox.StandardButton.Cancel)
+            if reply != QMessageBox.StandardButton.Yes:
+                event.ignore()
+                return
+            for w in workers:
+                w.stop()
+            # Finalization (CSV/summary/video writers) happens inside the
+            # worker threads; wait for them, but bounded so a hung worker
+            # can never trap the user in a window that won't close.
+            import time
+            deadline = time.monotonic() + 15.0
+            while (any(w.is_alive() for w in workers)
+                   and time.monotonic() < deadline):
+                QApplication.processEvents()
+                time.sleep(0.05)
         # Save last-used settings. Never fatal: an unwritable settings dir must
         # not block the window from closing. Failures are WARNED, never silent.
         try:

@@ -2059,6 +2059,23 @@ class RunStudyTab(QWidget):
         if not getattr(self, "_last_one_off", None):
             return
         run_id, out_dir = self._last_one_off
+        # UP4 follow-up (real session): a macOS camera can open but deliver
+        # ZERO frames (e.g. a Continuity Camera placeholder) -- the run then
+        # "succeeds" with empty outputs and nothing says so. Check the saved
+        # recording's frame count and say it plainly.
+        video = Path(out_dir) / f"{run_id}_Video_Output.mp4"
+        if video.is_file():
+            import cv2
+            cap = cv2.VideoCapture(str(video))
+            frames = (int(cap.get(cv2.CAP_PROP_FRAME_COUNT) or 0)
+                      if cap.isOpened() else 0)
+            cap.release()
+            if frames == 0:
+                self._append_log(
+                    "Note: this run captured NO frames. If the source was a "
+                    "camera, it may be a placeholder device -- press Refresh "
+                    "to list real cameras, try another one, or check the "
+                    "macOS camera permission.")
         from .run_outputs import RunOutputs
         csvs = tuple(sorted(Path(out_dir).glob(f"{run_id}*.csv")))
         if not csvs:
