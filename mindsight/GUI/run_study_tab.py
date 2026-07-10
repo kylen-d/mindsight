@@ -391,9 +391,14 @@ _RUN_COLS = ["Run", "Source", "Participants", "Conditions", "Status",
 class RunStudyTab(QWidget):
     """The Analyze Footage home: open project -> preflight -> run batch."""
 
-    def __init__(self, gaze_tab=None, parent=None):
+    def __init__(self, gaze_tab=None, settings=None, parent=None):
         super().__init__(parent)
         self._gaze_tab = gaze_tab
+        # Decoupling (UP2): the RunSettings store -- not Gaze Tuning -- is the
+        # config source for every run launched here.  One instance is passed by
+        # the main window; a self-constructed one keeps offscreen tests working.
+        from .run_settings import RunSettingsStore
+        self._settings = settings if settings is not None else RunSettingsStore()
         self._project = None
         self._project_path: Path | None = None
         self._resume = True                 # Q6: resume ON by default
@@ -1155,10 +1160,10 @@ class RunStudyTab(QWidget):
             pass
         self._refresh_recent_dropdown()
 
-        # Load the project pipeline into Gaze Tuning so runs reproduce project
-        # numbers (Batch B T7 finding: the GUI namespace must carry the pipeline
-        # YAML values, not bare widget defaults).
-        self._load_project_pipeline_into_gaze()
+        # Load the project pipeline into the RunSettings store so runs reproduce
+        # project numbers.  Decoupling (UP2): Gaze Tuning is NOT updated on
+        # project open anymore -- the store is the run-config source.
+        self._load_project_pipeline_into_settings()
         self._populate_study_setup()
         self._run_preflight()
         self._refresh_runs_table()
@@ -1169,8 +1174,8 @@ class RunStudyTab(QWidget):
         # UP1 D3: a project is open -- show the project groups, collapse Quick.
         self._apply_project_mode()
 
-    def _load_project_pipeline_into_gaze(self):
-        if not self._gaze_tab or not self._project:
+    def _load_project_pipeline_into_settings(self):
+        if not self._project:
             return
         cfg = self._project.config
         if cfg and cfg.pipeline_path:
@@ -1180,9 +1185,7 @@ class RunStudyTab(QWidget):
         if not pipe.is_file():
             return
         try:
-            from mindsight.config_compat import load_pipeline
-            ns = load_pipeline(str(pipe), Namespace())
-            self._gaze_tab.apply_namespace(ns)
+            self._settings.apply_yaml(str(pipe), source_label="project pipeline")
         except Exception as exc:  # pragma: no cover - GUI error path
             self._append_log(f"[WARN] could not load pipeline: {exc}")
 
@@ -1213,9 +1216,10 @@ class RunStudyTab(QWidget):
     # ── Preflight / runs table ───────────────────────────────────────────────
 
     def _current_ns(self) -> Namespace:
-        if self._gaze_tab:
-            return self._gaze_tab._build_namespace()
-        return Namespace()
+        # Single seam for preflight, batch runs, per-row re-runs, manual dialog
+        # runs, quick runs, camera runs, and weight collection.  Reads the
+        # RunSettings store (decoupling ruling); Gaze Tuning no longer feeds it.
+        return self._settings.ns()
 
     def _run_preflight(self):
         if not self._project:
@@ -1451,6 +1455,9 @@ class RunStudyTab(QWidget):
                                     sort_keys=False))
         self._pipeline_path.setText(pipe_text)
         self._append_log(f"Wrote {target.name}")
+        # Decoupling: the store drives runs, so re-apply the freshly written
+        # project pipeline into it -- the two stay coherent after an import.
+        self._load_project_pipeline_into_settings()
 
     def _build_project_config(self):
         from mindsight.pipeline_config import ProjectConfig, ProjectOutputConfig
@@ -1546,10 +1553,18 @@ class RunStudyTab(QWidget):
         # Save-on-run checkpoint (warn-not-raise): persist the launched config.
         from .settings_manager import checkpoint
         checkpoint(ns)
+        # Output toggles (Q7/A3): Events + summary paths are ALWAYS set from the
+        # RunSpec; annotated video / heatmap follow the store toggles (ON -> the
+        # RunSpec path, OFF -> None).  Charts have no per-run path, so they never
+        # write to disk here (the in-GUI Charts tab renders regardless) -- keep
+        # today's one-off behavior byte-neutral.
+        from .run_settings import want_artifact
         ns.log = spec.output_paths["log"]
         ns.summary = spec.output_paths["summary"]
-        ns.save = spec.output_paths["save"]
-        ns.heatmap = spec.output_paths["heatmap"]
+        ns.save = spec.output_paths["save"] if want_artifact(ns, "save") else None
+        ns.heatmap = (spec.output_paths["heatmap"]
+                      if want_artifact(ns, "heatmap") else None)
+        ns.charts = None
         # UP1 ruling 1: create the output folder on run (writers open the log
         # path directly and do not mkdir it).
         Path(spec.output_paths["log"]).parent.mkdir(parents=True, exist_ok=True)

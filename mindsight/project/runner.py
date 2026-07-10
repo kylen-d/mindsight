@@ -333,7 +333,8 @@ def project_output_paths(project: Path, source: Path,
 
 
 def iter_project_runs(project_dir: str | Path, ns, *, project_cfg=None,
-                      cancel=None, resume=True, gui_plugins=None):
+                      cancel=None, resume=True, gui_plugins=None,
+                      output_toggles=None):
     """Run every source in a project, yielding a :mod:`ProjectEvent <mindsight.project.events>` stream.
 
     This is the SINGLE project-batch implementation (SP3.1 D1) consumed by both
@@ -583,11 +584,19 @@ def iter_project_runs(project_dir: str | Path, ns, *, project_cfg=None,
         yield VideoStarted(index=i, total=len(run_specs),
                            run_id=run_id, source=source)
 
+        # Output artifact toggles (Q7/A3): Events + summary paths are ALWAYS
+        # written; annotated video / heatmap follow the GUI store toggles when
+        # supplied.  ``output_toggles`` is a GUI-only opt-in (like gui_plugins):
+        # None -- the CLI path -- keeps today's behavior (every path set), so
+        # CLI project runs stay byte-identical.
+        def _want(key):
+            return output_toggles is None or output_toggles.get(key, True)
+
         run_output = OutputConfig(
-            save=paths['save'],
+            save=paths['save'] if _want('save') else None,
             log_path=paths['log'],
             summary_path=paths['summary'],
-            heatmap_path=paths['heatmap'],
+            heatmap_path=paths['heatmap'] if _want('heatmap') else None,
             pid_map=video_pid_map,
             aux_streams=run_aux,
             video_name=name,

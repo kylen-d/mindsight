@@ -129,7 +129,7 @@ class Project:
     # ── run / preflight ─────────────────────────────────────────────────────
 
     def run(self, ns, *, resume=True, cancel=None, project_cfg=None,
-            gui_plugins=None):
+            gui_plugins=None, output_toggles=None):
         """Run the batch, yielding a :mod:`ProjectEvent <mindsight.project.events>` stream.
 
         Thin wrapper over ``iter_project_runs``.  ``project_cfg`` overrides the
@@ -142,7 +142,8 @@ class Project:
         cfg = project_cfg if project_cfg is not None else self._config
         return iter_project_runs(self._path, ns, project_cfg=cfg,
                                  cancel=cancel, resume=resume,
-                                 gui_plugins=gui_plugins)
+                                 gui_plugins=gui_plugins,
+                                 output_toggles=output_toggles)
 
     def decisions(self, ns, *, resume=True, project_cfg=None) -> dict:
         """Preview the resume plan per run: ``run_id -> "skip"|"redo"|"redo_archive"``.

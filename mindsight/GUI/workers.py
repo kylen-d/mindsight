@@ -279,11 +279,20 @@ class ProjectWorker(threading.Thread):
                 self.dashboard_q, throttle=6 if _fast else 0)
             gui_plugins = [bridge]
 
+        # Output artifact toggles (Q7/A3): the RunSettings store rides its
+        # save/heatmap/charts booleans on the namespace; map them so an unticked
+        # toggle drops that per-video path.  Default (all produce) is byte-neutral
+        # with today's project batch.
+        from .run_settings import want_artifact
+        output_toggles = {k: want_artifact(self.ns, k)
+                          for k in ("save", "heatmap", "charts")}
+
         total = 0
         pos = 0  # 1-based source position, tracked for the "[i/N]" log prefix
         for event in project.run(self.ns, resume=resume, cancel=cancel,
                                  project_cfg=self.project_cfg,
-                                 gui_plugins=gui_plugins):
+                                 gui_plugins=gui_plugins,
+                                 output_toggles=output_toggles):
             # Propagate a stop request to the iterator on every event.
             if self._stop_event.is_set():
                 cancel.cancel()

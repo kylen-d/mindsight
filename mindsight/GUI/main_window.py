@@ -49,7 +49,12 @@ class MainWindow(QMainWindow):
         # it first so Analyze Footage + Models can hold a reference to it.
         self._gaze_tab = GazeTab()
         self._vp_tab = VisualPromptBuilderTab()
-        self._run_study_tab = RunStudyTab(gaze_tab=self._gaze_tab)
+        # UP2 decoupling: one RunSettings store drives every Analyze Footage run
+        # (project / quick / camera), independent of Gaze Tuning.
+        from .run_settings import RunSettingsStore
+        self._settings = RunSettingsStore()
+        self._run_study_tab = RunStudyTab(gaze_tab=self._gaze_tab,
+                                          settings=self._settings)
         self._models_tab = ModelsTab(gaze_tab=self._gaze_tab)
 
         tabs.addTab(self._run_study_tab, "  Analyze Footage  ")

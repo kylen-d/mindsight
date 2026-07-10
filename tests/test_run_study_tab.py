@@ -259,8 +259,6 @@ def test_preflight_offers_and_fetches_missing_weights(qapp, tmp_path, monkeypatc
     """A failing preflight with fetchable missing weights offers a download
     button; clicking it downloads (monkeypatched -- no network) and re-runs
     preflight, which clears the offer."""
-    from argparse import Namespace
-
     from mindsight import weights
     from mindsight.GUI.run_study_tab import RunStudyTab
 
@@ -289,14 +287,13 @@ def test_preflight_offers_and_fetches_missing_weights(qapp, tmp_path, monkeypatc
     monkeypatch.setattr(weights, "downloadable_missing", fake_missing)
     monkeypatch.setattr(weights, "download", fake_download)
 
-    class FakeGaze:
-        def _build_namespace(self):
-            # A configured model that is absent on disk -> weights check FAILS.
-            return Namespace(model=str(tmp_path / "no_such_weight.pt"))
-
     tab = RunStudyTab()
     tab._open_project(str(proj))
-    tab._gaze_tab = FakeGaze()          # attach after open (no apply_namespace)
+    # Decoupling (UP2): the run config comes from the RunSettings store, not the
+    # Gaze Tuning tab.  Commit a configured-but-absent model so preflight FAILS.
+    cfg_ns = tab._settings.working_copy()
+    cfg_ns.model = str(tmp_path / "no_such_weight.pt")
+    tab._settings.commit(cfg_ns)
 
     tab._run_preflight()
     assert tab._fetchable == [entry]    # the offer surfaced

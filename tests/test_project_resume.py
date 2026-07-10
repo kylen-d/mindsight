@@ -339,3 +339,31 @@ def test_no_anonymize_defaults_to_none(tmp_path, monkeypatch):
     ns = parse_cli(["--project", str(proj)])
     list(iter_project_runs(proj, ns, resume=False))
     assert seen and seen[0].anonymize is None
+
+
+# ── UP2 A3: output artifact toggles gate the per-video OutputConfig ───────────
+
+def test_output_toggles_none_keeps_all_paths(tmp_path, monkeypatch):
+    """The CLI path passes no toggles (None) -> every per-video path stays set,
+    byte-identical to today."""
+    proj = _project(tmp_path)
+    seen = _capture_output_cfgs(monkeypatch)
+    ns = parse_cli(["--project", str(proj)])
+    list(iter_project_runs(proj, ns, resume=False))          # output_toggles=None
+    assert seen
+    assert seen[0].save and seen[0].heatmap_path             # video + heatmap on
+    assert seen[0].log_path and seen[0].summary_path         # always written
+
+
+def test_output_toggles_off_drop_video_and_heatmap(tmp_path, monkeypatch):
+    """save/heatmap OFF -> those per-video paths become None; Events + summary
+    are always written."""
+    proj = _project(tmp_path)
+    seen = _capture_output_cfgs(monkeypatch)
+    ns = parse_cli(["--project", str(proj)])
+    list(iter_project_runs(proj, ns, resume=False,
+                           output_toggles={"save": False, "heatmap": False}))
+    assert seen
+    assert seen[0].save is None
+    assert seen[0].heatmap_path is None
+    assert seen[0].log_path and seen[0].summary_path
