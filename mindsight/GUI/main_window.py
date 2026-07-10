@@ -7,6 +7,7 @@ the menu bar for presets, pipeline import/export, and application settings.
 from __future__ import annotations
 
 import sys
+from argparse import Namespace
 from pathlib import Path
 
 from PyQt6.QtGui import QIcon
@@ -18,6 +19,7 @@ from PyQt6.QtWidgets import (
     QTabWidget,
 )
 
+from ..config_compat import known_good_preset_path, load_pipeline
 from .gaze_tab import GazeTab
 from .models_tab import ModelsTab
 from .run_study_tab import RunStudyTab
@@ -67,7 +69,12 @@ class MainWindow(QMainWindow):
         # ── Initialise plugin panels ─────────────────────────────────────────
         self._init_plugin_panels()
 
-        # ── Restore last session ──────────────────────────────────────────────
+        # ── Seed defaults, then restore last session ──────────────────────────
+        # Ordering contract: widget/schema defaults < preset seed <
+        # last_used.json restore < explicit project pipeline load. The preset
+        # seed runs FIRST so a saved session (restored next) still wins for
+        # every dest it carries.
+        self._seed_from_preset()
         self._try_restore_last_session()
 
     def _build_menu_bar(self):
@@ -98,6 +105,28 @@ class MainWindow(QMainWindow):
             self._gaze_tab.set_plugin_panel(panel)
         except ImportError:
             pass
+
+    def _seed_from_preset(self):
+        """Seed the Gaze Tuning widgets from the shipped known-good preset.
+
+        Bug B2: without this, every phenomena tracker defaults OFF and a default
+        run records no phenomena data. The preset (configs/pipeline_known_good.
+        yaml) enables all trackers, so seeding it at startup makes the shipped
+        defaults record the full phenomena census. Uses the same proven load
+        path as the Import Pipeline button (load_pipeline -> apply_namespace).
+
+        Runs BEFORE _try_restore_last_session so a saved session still wins.
+        Never fatal: a missing/broken preset must not kill startup.
+        """
+        path = None
+        try:
+            path = known_good_preset_path()
+            if path is None:
+                return
+            ns = load_pipeline(str(path), Namespace())
+            self._gaze_tab.apply_namespace(ns)
+        except Exception as exc:  # noqa: BLE001 -- startup must survive a bad preset
+            print(f"[WARN] could not seed from preset {path}: {exc}")
 
     def _try_restore_last_session(self):
         """Attempt to restore the last-used settings on startup."""

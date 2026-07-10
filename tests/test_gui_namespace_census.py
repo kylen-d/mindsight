@@ -70,6 +70,11 @@ def main_window(qapp, monkeypatch, tmp_path):
     monkeypatch.setattr(SettingsManager, "PRESETS_DIR",
                         settings_dir / "presets")
 
+    # The census must capture pure widget DEFAULTS: neutralize the startup
+    # known-good preset seed too (it would otherwise flip phenomena on etc.).
+    import mindsight.GUI.main_window as mw
+    monkeypatch.setattr(mw, "known_good_preset_path", lambda: None)
+
     from mindsight.GUI.main_window import MainWindow
     win = MainWindow()
     yield win

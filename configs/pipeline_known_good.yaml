@@ -45,6 +45,29 @@ gaze:
   # Re-identification grace window in seconds. KNOWN_GOOD range 4-5 s; 4.5 point.
   reid_grace_seconds: 4.5
 
+# ── Phenomena trackers ───────────────────────────────────────────────────────
+# User ruling 2026-07-09: every phenomena tracker defaults ON in the shipped
+# preset, so a default run records the full phenomena census rather than
+# nothing. All eight built-in trackers are enabled explicitly below. The keys
+# are the canonical phenomena-list names the loader recognizes (config_compat
+# _PHENOMENA_TOGGLES); each maps to a strict PhenomenaSection field:
+#   joint_attention -> joint_attention   social_referencing -> social_ref
+#   mutual_gaze     -> mutual_gaze       gaze_following     -> gaze_follow
+#   gaze_aversion   -> gaze_aversion     gaze_leadership    -> gaze_leader
+#   scanpath        -> scanpath          attention_span     -> attn_span
+# Per-tracker numeric params (windows/lags/quorum) are left at their code
+# defaults on purpose -- not written here -- so the schema stays the source of
+# truth for those values.
+phenomena:
+  - joint_attention
+  - mutual_gaze
+  - social_referencing
+  - gaze_following
+  - gaze_aversion
+  - scanpath
+  - gaze_leadership
+  - attention_span
+
 # ── Plugin / backend settings (namespace pass-through) ───────────────────────
 # Keys here map directly to CLI flags (hyphens or underscores). This section
 # carries the per-face gaze backend, the Gaze-LLE blend wiring, and the merge-

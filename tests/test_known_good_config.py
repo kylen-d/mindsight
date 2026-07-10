@@ -20,11 +20,27 @@ Two loaders are exercised, because they see different parts of the file:
 from argparse import Namespace
 from pathlib import Path
 
+from mindsight.cli_flags import build_parser
 from mindsight.config_compat import load_pipeline, load_yaml
+from mindsight.Phenomena.phenomena_config import PhenomenaConfig
+from mindsight.Phenomena.phenomena_pipeline import init_phenomena_trackers
 from mindsight.pipeline_config import DetectionConfig
 from mindsight.PostProcessing.RayForming.ray_config import resolve_min_call_gap
 
 CONFIG = Path(__file__).resolve().parent.parent / "configs" / "pipeline_known_good.yaml"
+
+# The eight built-in trackers the preset must enable (schema PhenomenaSection
+# toggle fields), each paired with the tracker class init_phenomena_trackers
+# instantiates for it.
+PHENOMENA_TOGGLES = (
+    "joint_attention", "mutual_gaze", "social_ref", "gaze_follow",
+    "gaze_aversion", "scanpath", "gaze_leader", "attn_span",
+)
+EXPECTED_TRACKER_NAMES = {
+    "JointAttentionTracker", "MutualGazeTracker", "SocialReferenceTracker",
+    "GazeFollowingTracker", "AttentionSpanTracker", "GazeAversionTracker",
+    "ScanpathTracker", "GazeLeadershipTracker",
+}
 
 
 def test_config_file_exists():
@@ -60,6 +76,52 @@ def test_runtime_blend_and_interval():
     assert getattr(ns, "rf_gazelle_interval") == 10
     assert resolve_min_call_gap(ns) == 10
     assert getattr(ns, "mgaze_arch") == "resnet50"
+
+
+def test_all_phenomena_enabled_strict_load():
+    """Every built-in phenomena toggle is ON under the strict schema loader.
+
+    User ruling 2026-07-09: all phenomena default ON via the preset. The strict
+    loader silently drops unknown keys, so this asserts VALUES, not just a load.
+    """
+    cfg = load_yaml(CONFIG)
+    for toggle in PHENOMENA_TOGGLES:
+        assert getattr(cfg.phenomena, toggle) is True, f"{toggle} not enabled"
+
+
+def test_all_phenomena_build_eight_trackers():
+    """The preset enables all 8 trackers via the runtime loader, and
+    init_phenomena_trackers instantiates one instance per tracker."""
+    ns = load_pipeline(CONFIG, build_parser().parse_args([]))
+    cfg = PhenomenaConfig.from_namespace(ns)
+    assert all(getattr(cfg, t) for t in PHENOMENA_TOGGLES)
+    trackers = init_phenomena_trackers(cfg)
+    assert len(trackers) == 8
+    assert {type(t).__name__ for t in trackers} == EXPECTED_TRACKER_NAMES
+
+
+def test_known_good_preset_path_present():
+    """The resolver returns the shipped preset when it exists under the resource
+    root (PROJECT_ROOT), which is what the GUI seeds from."""
+    from mindsight.config_compat import known_good_preset_path
+    resolved = known_good_preset_path()
+    assert resolved is not None
+    assert resolved == CONFIG
+    assert resolved.name == "pipeline_known_good.yaml"
+
+
+def test_known_good_preset_path_absent(monkeypatch, tmp_path):
+    """When the resource root carries no preset, the resolver returns None.
+
+    Patches only mindsight.constants.PROJECT_ROOT (which is what MINDSIGHT_HOME
+    resolves into at import); the resolver reads it at call time. No GUI or
+    weights are constructed here, so the import-time-bound Weights root is
+    untouched -- no stale-path leak.
+    """
+    import mindsight.constants as constants
+    monkeypatch.setattr(constants, "PROJECT_ROOT", tmp_path)
+    from mindsight.config_compat import known_good_preset_path
+    assert known_good_preset_path() is None
 
 
 def test_runtime_merge_overlaps_effective():

@@ -52,6 +52,24 @@ from mindsight.pipeline_config import (
 )
 from mindsight.PostProcessing.RayForming.ray_config import RayFormingConfig
 
+
+# ══════════════════════════════════════════════════════════════════════════════
+# Shipped preset discovery
+# ══════════════════════════════════════════════════════════════════════════════
+
+def known_good_preset_path() -> Path | None:
+    """Return the shipped known-good pipeline preset path, or None if absent.
+
+    Reads ``mindsight.constants.PROJECT_ROOT`` at call time so a relocated
+    install is honored (MINDSIGHT_HOME is resolved into PROJECT_ROOT at import,
+    which is how release installs relocate bundled resources) and so tests can
+    point the resource root at a temp dir.
+    """
+    from mindsight import constants
+    preset = constants.PROJECT_ROOT / "configs" / "pipeline_known_good.yaml"
+    return preset if preset.exists() else None
+
+
 # ══════════════════════════════════════════════════════════════════════════════
 # CLI flag tables
 # ══════════════════════════════════════════════════════════════════════════════
