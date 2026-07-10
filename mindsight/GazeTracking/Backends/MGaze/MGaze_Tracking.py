@@ -137,11 +137,19 @@ class MGazePlugin(GazePlugin):
     @classmethod
     def from_args(cls, args):
         """Create an MGaze engine from parsed CLI args."""
-        from mindsight.weights import resolve_weight
+        from mindsight.weights import resolve_mgaze_family, resolve_weight
         model = getattr(args, "mgaze_model", None)
         if not model:
             return None
-        model = Path(resolve_weight("MGaze", str(model)))
+        model = str(model)
+        # Extensionless family name (e.g. "resnet50"): pick the build for
+        # this machine -- .pt on CUDA, _gaze.onnx elsewhere -- so one shared
+        # preset works on NVIDIA lab machines and Macs alike.
+        family = None
+        if not Path(model).suffix:
+            family = model
+            model = resolve_mgaze_family(model, getattr(args, "device", "auto"))
+        model = Path(resolve_weight("MGaze", model))
         if not model.exists():
             raise FileNotFoundError(f"MGaze model not found: {model}")
 
@@ -149,6 +157,9 @@ class MGazePlugin(GazePlugin):
         dataset = getattr(args, "mgaze_dataset", "gaze360")
 
         if model.suffix.lower() == ".pt":
+            if not arch and family:
+                # The family stem IS the architecture name for these builds.
+                arch = family
             if not arch:
                 raise ValueError("--mgaze-arch is required for .pt models")
             device = getattr(args, "device", "auto")

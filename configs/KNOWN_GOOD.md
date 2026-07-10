@@ -41,10 +41,14 @@ length jitter.
 
 ## Per-face gaze backend
 
-- **MobileGaze resnet34** -- `.onnx` (KG_Standard export 2026-07-09; lighter
-  than resnet50, runs on Apple Silicon/CPU). resnet50 remains the validated
-  heavier option (`.pt` on CUDA, `.onnx` elsewhere; cookbook, paper 7.3).
-  Confidence scale ~0.08-0.29; see floor note above.
+- **MobileGaze resnet50, device-switching** (user ruling 2026-07-09, revising
+  the resnet34 pick from the same day): the preset says `mgaze_model: resnet50`
+  -- an extensionless family name that resolves to `resnet50.pt` on NVIDIA/CUDA
+  systems and `resnet50_gaze.onnx` on Macs/CPU (cookbook, paper 7.3). Lighter
+  builds live in `configs/pipeline_low_power.yaml` (mobileone_s0, unvalidated
+  throughput profile for weak hardware). The Models tab tags weights that are
+  optimal for the current machine. Confidence scale ~0.08-0.29; see floor
+  note above.
 
 ## Object detection
 
@@ -99,6 +103,12 @@ From cookbook testing on the primary validation study footage (2026-05):
 
 ## Changelog
 
+- **2026-07-09 (later still)**: MobileGaze resnet34 -> resnet50 with
+  device-switching family names (extensionless `mgaze_model` resolves .pt on
+  CUDA, `_gaze.onnx` elsewhere); `configs/pipeline_low_power.yaml` added
+  (UNVALIDATED throughput profile: mobileone_s0, detect_scale 0.75, fast,
+  min_call_gap 40); weights manifest tags MGaze builds with optimal devices,
+  surfaced in the Models tab.
 - **2026-07-09 (later)**: KG_Standard -- the user's first full-fidelity GUI
   export -- becomes the preset, with four review rulings: merge overlaps stay
   on/dynamic/0.55; blend cadence 25; detector yolov8n (YOLO mode); ReID grace

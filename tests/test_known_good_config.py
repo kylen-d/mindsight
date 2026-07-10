@@ -80,16 +80,36 @@ def test_runtime_passthrough_values():
 
 
 def test_runtime_weight_names_are_bare_filenames():
-    """Weight paths are bare filenames (portable via resolve_weight)."""
+    """Weight paths are bare filenames (portable via resolve_weight); the
+    MobileGaze value is a device-switching family name (user ruling
+    2026-07-09: resnet50.pt on CUDA, resnet50_gaze.onnx elsewhere)."""
     ns = load_pipeline(CONFIG, Namespace())
     for attr, expected in (
         ("model", "yolov8n.pt"),
-        ("mgaze_model", "resnet34_gaze.onnx"),
+        ("mgaze_model", "resnet50"),
         ("rf_gazelle_model", "gazelle_dinov2_vitb14.pt"),
     ):
         val = getattr(ns, attr)
         assert val == expected
         assert "/" not in val and "\\" not in val, f"{attr} is not a bare filename: {val}"
+
+
+LOW_POWER = CONFIG.parent / "pipeline_low_power.yaml"
+
+
+def test_low_power_preset_values():
+    """The unvalidated throughput profile keeps study semantics (all
+    phenomena, blend on) with lighter models and cheaper detection."""
+    assert LOW_POWER.is_file()
+    ns = load_pipeline(LOW_POWER, Namespace())
+    assert getattr(ns, "mgaze_model") == "mobileone_s0"   # device-switching
+    assert getattr(ns, "detect_scale") == 0.75
+    assert getattr(ns, "fast") is True
+    assert resolve_min_call_gap(ns) == 40
+    assert getattr(ns, "rf_gazelle_model") == "gazelle_dinov2_vitb14.pt"
+    full_ns = load_pipeline(LOW_POWER, build_parser().parse_args([]))
+    cfg = PhenomenaConfig.from_namespace(full_ns)
+    assert len(init_phenomena_trackers(cfg)) == 8
 
 
 def test_runtime_blend_and_interval():

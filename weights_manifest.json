@@ -155,7 +155,11 @@
       "license": "MIT",
       "required": true,
       "source": "github-release",
-      "note": null
+      "note": null,
+      "optimal": [
+        "mps",
+        "cpu"
+      ]
     },
     {
       "backend": "MGaze",
@@ -167,7 +171,11 @@
       "license": "MIT",
       "required": true,
       "source": "github-release",
-      "note": null
+      "note": null,
+      "optimal": [
+        "mps",
+        "cpu"
+      ]
     },
     {
       "backend": "MGaze",
@@ -179,7 +187,10 @@
       "license": "MIT",
       "required": false,
       "source": "github-release",
-      "note": null
+      "note": null,
+      "optimal": [
+        "cuda"
+      ]
     },
     {
       "backend": "MGaze",
@@ -191,7 +202,10 @@
       "license": "MIT",
       "required": false,
       "source": "github-release",
-      "note": "sha256 recorded from a fresh upstream download; a local copy predating the manifest may verify as mismatch -- re-download from the Models tab to align it."
+      "note": "sha256 recorded from a fresh upstream download; a local copy predating the manifest may verify as mismatch -- re-download from the Models tab to align it.",
+      "optimal": [
+        "cuda"
+      ]
     },
     {
       "backend": "MGaze",
@@ -203,7 +217,11 @@
       "license": "MIT",
       "required": false,
       "source": "github-release",
-      "note": "sha256 recorded from a fresh upstream download; a local copy predating the manifest may verify as mismatch -- re-download from the Models tab to align it."
+      "note": "sha256 recorded from a fresh upstream download; a local copy predating the manifest may verify as mismatch -- re-download from the Models tab to align it.",
+      "optimal": [
+        "mps",
+        "cpu"
+      ]
     },
     {
       "backend": "MGaze",
@@ -215,7 +233,10 @@
       "license": "MIT",
       "required": false,
       "source": "github-release",
-      "note": "sha256 recorded from a fresh upstream download; a local copy predating the manifest may verify as mismatch -- re-download from the Models tab to align it."
+      "note": "sha256 recorded from a fresh upstream download; a local copy predating the manifest may verify as mismatch -- re-download from the Models tab to align it.",
+      "optimal": [
+        "cuda"
+      ]
     },
     {
       "backend": "MGaze",
@@ -227,7 +248,11 @@
       "license": "MIT",
       "required": false,
       "source": "github-release",
-      "note": "sha256 recorded from a fresh upstream download; a local copy predating the manifest may verify as mismatch -- re-download from the Models tab to align it."
+      "note": "sha256 recorded from a fresh upstream download; a local copy predating the manifest may verify as mismatch -- re-download from the Models tab to align it.",
+      "optimal": [
+        "mps",
+        "cpu"
+      ]
     },
     {
       "backend": "MGaze",
@@ -239,7 +264,10 @@
       "license": "MIT",
       "required": false,
       "source": "github-release",
-      "note": "sha256 recorded from a fresh upstream download; a local copy predating the manifest may verify as mismatch -- re-download from the Models tab to align it."
+      "note": "sha256 recorded from a fresh upstream download; a local copy predating the manifest may verify as mismatch -- re-download from the Models tab to align it.",
+      "optimal": [
+        "cuda"
+      ]
     },
     {
       "backend": "MobileClip",

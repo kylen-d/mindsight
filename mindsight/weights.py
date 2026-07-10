@@ -71,6 +71,27 @@ def resolve_weight(backend: str, filename: str) -> Path:
     return target_dir / p.name
 
 
+def resolve_mgaze_family(name: str, device: str = "auto") -> str:
+    """Resolve an extensionless MobileGaze family name per device.
+
+    A bare family name (``resnet50``, ``mobileone_s0``, ...) selects the
+    optimal build for the machine it runs on: ``{name}.pt`` when the resolved
+    torch device is CUDA (PyTorch build), ``{name}_gaze.onnx`` everywhere else
+    (Apple Silicon / CPU via onnxruntime). Names that already carry an
+    extension are returned unchanged, so explicit choices always win.
+
+    This is what lets one shared preset say ``mgaze_model: "resnet50"`` and
+    mean the right weight on both an NVIDIA lab machine and a Mac.
+    """
+    if Path(name).suffix:
+        return name
+    from mindsight.utils.device import resolve_device
+    dev = resolve_device(device)
+    if getattr(dev, "type", str(dev)) == "cuda":
+        return f"{name}.pt"
+    return f"{name}_gaze.onnx"
+
+
 # ══════════════════════════════════════════════════════════════════════════════
 # Hashing (single source; provenance wraps this in a cache)
 # ══════════════════════════════════════════════════════════════════════════════

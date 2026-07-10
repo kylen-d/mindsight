@@ -171,3 +171,26 @@ def test_unmanaged_custom_weight_row(qapp, tmp_path):
     assert "my_custom_yolo.pt" in labels
     row = labels.index("my_custom_yolo.pt")
     assert "unmanaged" in _state_text(tab, row).lower()
+
+
+def test_optimal_for_device_tag(qapp, tmp_path):
+    """Manifest entries whose 'optimal' list matches this machine's device
+    class show 'optimal for this device' in the tag column."""
+    from mindsight.GUI.models_tab import ModelsTab
+    e_match = _entry("MGaze", "match_gaze.onnx", b"a", required=True)
+    e_match["optimal"] = ["mps", "cpu"]
+    e_other = _entry("MGaze", "other.pt", b"b")
+    e_other["optimal"] = ["cuda"]
+    manifest = _write_manifest(tmp_path, [e_match, e_other])
+    wroot = tmp_path / "Weights"
+    (wroot / "MGaze").mkdir(parents=True)
+
+    ModelsTab._device_class_cache = "cpu"
+    try:
+        tab = ModelsTab(manifest_path=manifest, weights_root=wroot)
+        tags = {tab._table.item(r, 0).text(): tab._table.item(r, 2).text()
+                for r in range(tab._table.rowCount())}
+        assert tags["MGaze match_gaze.onnx"] == "required, optimal for this device"
+        assert tags["MGaze other.pt"] == ""
+    finally:
+        ModelsTab._device_class_cache = None

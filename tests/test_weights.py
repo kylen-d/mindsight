@@ -313,3 +313,71 @@ def test_cli_missing_manifest_returns_1(tmp_path, capsys):
     rc = weights.main(["--required", "--manifest", str(tmp_path / "nope.json")])
     out = capsys.readouterr().out
     assert rc == 1 and "ERROR" in out
+
+
+# ── Device-switching MobileGaze family names (user ruling 2026-07-09) ────────
+
+def _fake_device(monkeypatch, dev_type):
+    import torch
+
+    monkeypatch.setattr("mindsight.utils.device.resolve_device",
+                        lambda device="auto": torch.device(dev_type))
+
+
+def test_mgaze_family_picks_pt_on_cuda(monkeypatch):
+    _fake_device(monkeypatch, "cpu")  # ensure the patch target is importable
+    monkeypatch.setattr("mindsight.utils.device.resolve_device",
+                        lambda device="auto": __import__("torch").device("cuda"))
+    assert weights.resolve_mgaze_family("resnet50") == "resnet50.pt"
+    assert weights.resolve_mgaze_family("mobileone_s0") == "mobileone_s0.pt"
+
+
+def test_mgaze_family_picks_onnx_elsewhere(monkeypatch):
+    for dev in ("mps", "cpu"):
+        _fake_device(monkeypatch, dev)
+        assert weights.resolve_mgaze_family("resnet50") == "resnet50_gaze.onnx"
+
+
+def test_mgaze_family_explicit_extension_wins(monkeypatch):
+    _fake_device(monkeypatch, "cpu")
+    assert weights.resolve_mgaze_family("resnet50.pt") == "resnet50.pt"
+    assert (weights.resolve_mgaze_family("resnet34_gaze.onnx")
+            == "resnet34_gaze.onnx")
+
+
+def test_committed_manifest_optimal_tags_cover_mgaze():
+    """Every MGaze entry carries an optimal-device tag: .pt -> cuda,
+    .onnx -> mps/cpu (drives the Models tab 'optimal for this device')."""
+    entries = [e for e in weights.manifest_entries() if e["backend"] == "MGaze"]
+    assert entries
+    for e in entries:
+        if e["filename"].endswith(".pt"):
+            assert e.get("optimal") == ["cuda"], e["filename"]
+        else:
+            assert e.get("optimal") == ["mps", "cpu"], e["filename"]
+
+
+def test_mgaze_from_args_resolves_family_on_this_machine():
+    """End to end: an extensionless mgaze_model builds the right engine for
+    this machine (onnx on non-CUDA boxes; arch auto-derived for .pt)."""
+    from argparse import Namespace
+    from pathlib import Path
+
+    onnx = (Path(__file__).resolve().parents[1]
+            / "Weights" / "MGaze" / "resnet50_gaze.onnx")
+    if not onnx.exists():
+        pytest.skip("resnet50_gaze.onnx not present")
+    import torch
+    if torch.cuda.is_available():
+        pytest.skip("CUDA box: family resolves to .pt (heavier load)")
+
+    import importlib
+    mg = importlib.import_module(
+        "mindsight.GazeTracking.Backends.MGaze.MGaze_Tracking")
+    plugin = mg.MGazePlugin if hasattr(mg, "MGazePlugin") else None
+    cls = plugin or next(
+        v for v in vars(mg).values()
+        if isinstance(v, type) and hasattr(v, "from_args")
+        and v.__module__ == mg.__name__)
+    engine = cls.from_args(Namespace(mgaze_model="resnet50", device="auto"))
+    assert engine is not None

@@ -190,11 +190,30 @@ class ModelsTab(QWidget):
         self._entry_row[(entry["backend"], entry["filename"])] = row
         self._set(row, 0, entry.get("label", entry["filename"]))
         self._set(row, 1, entry["backend"])
-        self._set(row, 2, "required" if entry.get("required") else "")
+        tags = []
+        if entry.get("required"):
+            tags.append("required")
+        if self._device_class() in (entry.get("optimal") or ()):
+            tags.append("optimal for this device")
+        self._set(row, 2, ", ".join(tags))
         self._set(row, 3, "yes" if entry["filename"] in needed else "")
         self._set_state(row, info["state"])
         self._set(row, 5, self._disk_text(info["dest"]))
         self._set_actions(row, info)
+
+    @staticmethod
+    def _device_class() -> str:
+        """This machine's device class ("cuda"/"mps"/"cpu") for the manifest
+        ``optimal`` tags. Cached after the first torch query."""
+        cls = getattr(ModelsTab, "_device_class_cache", None)
+        if cls is None:
+            try:
+                from mindsight.utils.device import resolve_device
+                cls = resolve_device("auto").type
+            except Exception:
+                cls = "cpu"
+            ModelsTab._device_class_cache = cls
+        return cls
 
     def _disk_text(self, dest: Path) -> str:
         try:

@@ -1,0 +1,131 @@
+# MindSight -- Low-Power Pipeline Configuration
+#
+# UNVALIDATED throughput profile derived from the known-good preset
+# (configs/pipeline_known_good.yaml, KG_Standard 2026-07-09) for weaker
+# hardware (no discrete GPU, older laptops). Same study semantics -- all
+# phenomena on, Gaze-LLE blend on -- with lighter models and cheaper
+# detection. A/B against the known-good preset on your own footage before
+# trusting numbers for analysis; record validated values in KNOWN_GOOD.md.
+#
+# Differences from the known-good preset, all throughput-motivated:
+#   mgaze_model    mobileone_s0 (lightest gaze backend; device-switching)
+#   detect_scale   0.75 (detection on a 3/4-size frame)
+#   fast           true (skip phenomena on non-detection frames, throttled
+#                  dashboard bridge and GUI poll rate)
+#   min_call_gap   40 (fewer Gaze-LLE inferences)
+#
+# Usage:
+#   python MindSight.py --pipeline configs/pipeline_low_power.yaml \
+#       --source path/to/video.mp4
+
+# ── Object detection ─────────────────────────────────────────────────────────
+detection:
+  model: "yolov8n.pt"
+  conf: 0.25
+  detect_scale: 0.75
+  vp_model: "yoloe-26l-seg.pt"
+  skip_frames: 1
+  obj_persistence: 0
+
+# ── Gaze / ray geometry ──────────────────────────────────────────────────────
+gaze:
+  ray_length: 1.3
+  adaptive_ray: "off"
+  snap_dist: 150.0
+  snap_bbox_scale: 0.0
+  snap_w_dist: 1.0
+  snap_w_angle: 0.8
+  snap_w_size: 0.0
+  snap_w_intersect: 0.5
+  snap_w_temporal: 0.3
+  snap_gate_angle: 60.0
+  snap_head_blend: 0.3
+  snap_quality_thresh: 0.8
+  snap_tip_dist: -1.0
+  snap_tip_quality: -1.0
+  conf_ray: false
+  gaze_tips: true
+  tip_radius: 70
+  gaze_cone: 5.0
+  gaze_lock: false
+  dwell_frames: 15
+  lock_dist: 100
+  gaze_debug: false
+  snap_release_frames: 5
+  snap_engage_frames: 0
+  reid_grace_seconds: 4.5
+  hit_conf_gate: 0.0
+  detect_extend: 0.0
+  detect_extend_scope: both
+
+# ── Output ───────────────────────────────────────────────────────────────────
+output:
+  anonymize_padding: 0.3
+
+# ── Performance ──────────────────────────────────────────────────────────────
+performance:
+  fast: true
+  skip_phenomena: 0
+  lite_overlay: false
+  no_dashboard: true
+  profile: false
+
+# ── Depth (disabled) ─────────────────────────────────────────────────────────
+depth:
+  enabled: false
+  backend: midas_small
+  input_size: 384
+  skip_frames: 1
+  depth_aware_scoring: false
+  snap_w_depth: 0.4
+
+# ── Phenomena trackers (all on, same as known-good) ──────────────────────────
+phenomena:
+  - joint_attention:
+      ja_window: 0
+      ja_quorum: 1.0
+      ja_window_thresh: 0.7
+  - mutual_gaze
+  - social_referencing
+  - gaze_following
+  - gaze_aversion
+  - scanpath
+  - gaze_leadership
+  - attention_span
+
+# ── Plugin / backend settings ────────────────────────────────────────────────
+plugins:
+  all_phenomena: true
+
+  # Lightest MobileGaze build; extensionless = device-switching
+  # (mobileone_s0.pt on CUDA, mobileone_s0_gaze.onnx elsewhere).
+  mgaze_model: "mobileone_s0"
+  mgaze_dataset: "gaze360"
+
+  # Gaze-LLE blend stays ON (primary operating mode), lighter cadence.
+  rf_gazelle_model: "gazelle_dinov2_vitb14.pt"
+  rf_gazelle_name: "gazelle_dinov2_vitb14"
+  gazelle_name: "gazelle_dinov2_vitb14"
+  min_call_gap: 40
+  gazelle_device: auto
+  gazelle_inout_threshold: 0.5
+  gazelle_skip_frames: 0
+  gazelle_fp16: false
+  gazelle_compile: false
+  dir_beta: 0.5
+  len_beta: 0.3
+  len_hold_tau: 5.0
+  fixation_v_threshold: 0.04
+  fixation_d_threshold: 0.15
+  dir_min_cutoff: 1.0
+  len_min_cutoff: 1.0
+
+  forward_gaze_threshold: 13.0
+  smooth_snap: all
+  smooth_snap_alpha: 0.9
+  gaze_leader_tips: false
+  gaze_leader_tip_lag: 15
+
+  merge_overlaps: true
+  merge_overlap_strategy: "dynamic"
+  merge_overlap_threshold: 0.55

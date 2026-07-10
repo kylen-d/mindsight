@@ -116,9 +116,11 @@ phenomena:
 plugins:
   all_phenomena: true
 
-  # Per-face gaze backend: MobileGaze resnet34 ONNX (user export 2026-07-09;
-  # lighter than resnet50, runs on CPU/Apple Silicon).
-  mgaze_model: "resnet34_gaze.onnx"
+  # Per-face gaze backend: MobileGaze resnet50, DEVICE-SWITCHING (user ruling
+  # 2026-07-09). An extensionless family name resolves per machine:
+  # resnet50.pt on NVIDIA/CUDA systems, resnet50_gaze.onnx on Macs/CPU.
+  # The lighter builds live in configs/pipeline_low_power.yaml.
+  mgaze_model: "resnet50"
   mgaze_dataset: "gaze360"
 
   # ── Gaze-LLE Blend (primary operating mode) ──
