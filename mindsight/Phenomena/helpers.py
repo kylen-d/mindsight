@@ -27,6 +27,52 @@ def joint_attention(persons_gaze, hits, quorum: float = 1.0) -> set:
     return {oi for oi, w in watchers.items() if len(w) >= min_watchers}
 
 
+class EpisodeLog:
+    """Tiny append-only recorder of phenomenon episodes.
+
+    An *episode* is a contiguous stretch during which a phenomenon holds
+    (e.g. a mutual-gaze pair being active, or a single point event).  Each
+    tracker owns one ``EpisodeLog``; the writer collects every tracker's
+    closed episodes into the merged ``{stem}_phenomena_events.csv``.
+
+    Episodes are keyed by any hashable ``key`` so a tracker can juggle many
+    concurrent episodes (one per pair / object / face-set).  A closed episode
+    is a dict ``{phenomenon, participant, partner, object, frame_start,
+    frame_end}``.  Dependency-free by design.
+    """
+
+    def __init__(self) -> None:
+        self.rows: list = []      # closed episodes, in close order
+        self._open: dict = {}     # key -> partial episode dict
+
+    def open(self, key, *, phenomenon, participant, partner, object,
+             frame_start) -> None:
+        """Start an episode for *key* (no-op if one is already open)."""
+        if key in self._open:
+            return
+        self._open[key] = {
+            "phenomenon": phenomenon, "participant": participant,
+            "partner": partner, "object": object,
+            "frame_start": frame_start, "frame_end": frame_start,
+        }
+
+    def close(self, key, frame_end) -> None:
+        """Close the episode for *key*, stamping *frame_end* (no-op if none)."""
+        ep = self._open.pop(key, None)
+        if ep is None:
+            return
+        ep["frame_end"] = frame_end
+        self.rows.append(ep)
+
+    def close_all(self, frame_end) -> None:
+        """Close every still-open episode at *frame_end* (run-end flush)."""
+        for key in list(self._open):
+            self.close(key, frame_end)
+
+    def is_open(self, key) -> bool:
+        return key in self._open
+
+
 def gaze_convergence(persons_gaze, tip_radius):
     """Cluster gaze-ray tips that are within 2*tip_radius of each other.
 

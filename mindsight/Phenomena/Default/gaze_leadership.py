@@ -4,6 +4,7 @@ from collections import deque
 import numpy as np
 
 from mindsight.outputs.dashboard_output import _DASH_DIM, _draw_panel_section
+from mindsight.Phenomena.helpers import EpisodeLog
 from mindsight.pipeline_config import resolve_display_pid
 from Plugins import PhenomenaPlugin
 
@@ -29,6 +30,7 @@ class GazeLeadershipTracker(PhenomenaPlugin):
         self.lead_counts:   dict = {}   # face_idx -> int
         self._current_leadership: dict = {}
         self._history:      list = []   # [(frame_no, max_lead_credit)]
+        self._episodes = EpisodeLog()   # point leadership-credit events
 
         # Tip-convergence leadership state
         self._tip_mode = tip_mode
@@ -61,6 +63,12 @@ class GazeLeadershipTracker(PhenomenaPlugin):
                     leader_fi, _ = self._first_look.pop(cls)
                     self.lead_counts[leader_fi] = self.lead_counts.get(leader_fi, 0) + 1
                     awarded_this_frame.add(leader_fi)
+                    key = ('obj', cls, leader_fi, frame_no)
+                    self._episodes.open(
+                        key, phenomenon="gaze_leadership",
+                        participant=leader_fi, partner="", object=cls,
+                        frame_start=frame_no)
+                    self._episodes.close(key, frame_no)
 
         self._prev_lookers = current
 
@@ -99,6 +107,12 @@ class GazeLeadershipTracker(PhenomenaPlugin):
                         self.lead_counts[leader_fi] = (
                             self.lead_counts.get(leader_fi, 0) + 1)
                         awarded_this_frame.add(leader_fi)
+                        key = ('tip', leader_fi, frame_no)
+                        self._episodes.open(
+                            key, phenomenon="gaze_leadership",
+                            participant=leader_fi, partner="", object="",
+                            frame_start=frame_no)
+                        self._episodes.close(key, frame_no)
 
             self._prev_convergence_sets = current_conv_sets
 

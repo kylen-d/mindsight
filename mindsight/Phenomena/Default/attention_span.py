@@ -2,6 +2,7 @@
 import numpy as np
 
 from mindsight.outputs.dashboard_output import _DASH_DIM, _draw_panel_section
+from mindsight.Phenomena.helpers import EpisodeLog
 from mindsight.pipeline_config import resolve_display_pid
 from Plugins import PhenomenaPlugin
 
@@ -27,6 +28,7 @@ class AttentionSpanTracker(PhenomenaPlugin):
         self._active:    dict = {}   # (face_idx, cls) -> frame_no of glance start
         self._durations: dict = {}   # (face_idx, cls) -> list[int] of completed glance lengths
         self._history:   list = []   # [(frame_no, max_avg_glance)]
+        self._episodes = EpisodeLog()  # completed glance episodes
 
     def update(self, **kwargs):
         frame_no = kwargs['frame_no']
@@ -42,9 +44,7 @@ class AttentionSpanTracker(PhenomenaPlugin):
         # Close glances that ended this frame
         for key in list(self._active):
             if key not in looking:
-                dur = frame_no - self._active.pop(key)
-                if dur > 0:
-                    self._durations.setdefault(key, []).append(dur)
+                self._close_glance(key, frame_no)
 
         # Open new glances
         for key in looking:
@@ -59,6 +59,23 @@ class AttentionSpanTracker(PhenomenaPlugin):
                 max_avg = max(max_avg, result[1])
         self._history.append((frame_no, max_avg))
         return {}
+
+    def _close_glance(self, key, frame_no: int) -> None:
+        """Close an active glance, recording its duration and an episode."""
+        start = self._active.pop(key)
+        dur = frame_no - start
+        if dur > 0:
+            self._durations.setdefault(key, []).append(dur)
+            fi, cls = key
+            self._episodes.open(key, phenomenon="attention_span",
+                                participant=fi, partner="", object=cls,
+                                frame_start=start)
+            self._episodes.close(key, frame_no)
+
+    def finalize(self, frame_no, **kwargs):
+        """Flush in-flight glances so console/summary/episodes all agree."""
+        for key in list(self._active):
+            self._close_glance(key, frame_no)
 
     def avg_glance_duration(self, face_idx: int, cls: str) -> float:
         """Return mean completed-glance duration for (face_idx, cls) in frames."""
@@ -136,6 +153,24 @@ class AttentionSpanTracker(PhenomenaPlugin):
                 marker = " *" if obj_cls == (result[0] if result else None) else ""
                 lines.append(f"    {obj_cls}: {obj_avg:.1f}f{marker}")
         return "\n".join(lines)
+
+    def summary_metrics(self, total_frames, fps, *, pid_map=None):
+        rows = []
+        for (fi, cls), durs in sorted(self._durations.items()):
+            if not durs:
+                continue
+            pid = resolve_display_pid(fi, pid_map)
+            mean_f = float(np.mean(durs))
+            total_f = sum(durs)
+            mean_sec = f"{mean_f / fps:.3f}" if fps else ""
+            total_sec = f"{total_f / fps:.3f}" if fps else ""
+            rows.append({"participant": pid, "partner": "", "object": cls,
+                         "metric": "glance_count", "value": len(durs)})
+            rows.append({"participant": pid, "partner": "", "object": cls,
+                         "metric": "mean_glance_seconds", "value": mean_sec})
+            rows.append({"participant": pid, "partner": "", "object": cls,
+                         "metric": "total_seconds", "value": total_sec})
+        return rows
 
     def time_series_data(self):
         if not self._history:

@@ -50,9 +50,11 @@ from mindsight.ObjectDetection.detection_pipeline import run_detection_step
 from mindsight.ObjectDetection.object_detection import ObjectPersistenceCache
 from mindsight.Phenomena.helpers import gaze_convergence, joint_attention
 from mindsight.Phenomena.phenomena_pipeline import (
+    finalize_trackers,
     init_phenomena_trackers,
     post_run_summary,
     update_phenomena_step,
+    warn_leader_tips_without_tips,
 )
 from mindsight.pipeline_config import (
     DetectionConfig,
@@ -370,6 +372,10 @@ def _run_video(source, *, yolo, face_det, gaze_eng,
     is_image = isinstance(source, str) and Path(source).suffix.lower() in IMAGE_EXTS
     ja_mode_str = _ja_mode_string(phenomena_cfg, gaze_cfg)
 
+    # --gaze-leader-tips silently no-ops without --gaze-tips (the tip mode has
+    # no tip convergences to consume). Warn loudly instead of quietly ignoring.
+    warn_leader_tips_without_tips(phenomena_cfg, gaze_cfg)
+
     # -- Static image mode -----------------------------------------------------
     if is_image:
         display, ctx = _run_image(source, yolo=yolo, face_det=face_det,
@@ -669,6 +675,10 @@ def _run_video(source, *, yolo, face_det, gaze_eng,
         if log_fh:  log_fh.close()
         # Window teardown (cv2.destroyAllWindows) is the display driver's job --
         # run_to_completion owns it, so the generator stays display-free.
+
+    # Run-end hook: let every tracker close in-flight episodes before summaries.
+    # frame_no is one past the last processed frame index.
+    finalize_trackers(all_trackers, frame_no)
 
     # Post-run phenomena summaries
     post_run_summary(all_trackers, total_frames, pid_map=output_cfg.pid_map)

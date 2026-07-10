@@ -2,6 +2,7 @@
 import numpy as np
 
 from mindsight.outputs.dashboard_output import _DASH_DIM, _draw_panel_section
+from mindsight.Phenomena.helpers import EpisodeLog
 from mindsight.pipeline_config import resolve_display_pid
 from Plugins import PhenomenaPlugin
 
@@ -26,6 +27,7 @@ class GazeFollowingTracker(PhenomenaPlugin):
         self.event_log:     list = []
         self._current_events: list = []
         self._history:      list = []   # [(frame_no, cumulative_event_count)]
+        self._episodes = EpisodeLog()  # point follow events (start == end)
 
     def update(self, **kwargs):
         frame_no = kwargs['frame_no']
@@ -47,13 +49,24 @@ class GazeFollowingTracker(PhenomenaPlugin):
 
         for fi, oi in new_acqs:
             for s in self._shifts:
-                if s['leader'] != fi and s['obj'] == oi:
+                # Award at most one follow per (shift, follower): a follower that
+                # re-acquires the same object within lag (hit flicker) must not
+                # double-award, but distinct followers of the same shift still do.
+                if (s['leader'] != fi and s['obj'] == oi
+                        and fi not in s['awarded']):
                     ev = {'leader': s['leader'], 'follower': fi,
                           'obj_idx': oi, 'lag_frames': frame_no - s['frame'],
                           'frame': frame_no}
                     events.append(ev)
                     self.event_log.append(ev)
-            self._shifts.append({'leader': fi, 'obj': oi, 'frame': frame_no})
+                    s['awarded'].add(fi)
+                    key = (s['leader'], fi, frame_no)
+                    self._episodes.open(
+                        key, phenomenon="gaze_following", participant=fi,
+                        partner=s['leader'], object="", frame_start=frame_no)
+                    self._episodes.close(key, frame_no)
+            self._shifts.append({'leader': fi, 'obj': oi, 'frame': frame_no,
+                                 'awarded': set()})
 
         self._prev_targets = current
         self._current_events = events

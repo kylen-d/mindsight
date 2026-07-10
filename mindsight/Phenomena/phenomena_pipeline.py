@@ -171,6 +171,32 @@ def update_phenomena_step(ctx, **kwargs):
     ctx['joint_pct'] = joint_pct
 
 
+def warn_leader_tips_without_tips(phenomena_cfg, gaze_cfg) -> bool:
+    """Warn if ``--gaze-leader-tips`` was set without ``--gaze-tips``.
+
+    Tip-convergence leadership consumes gaze-tip convergences, which are only
+    computed when ``--gaze-tips`` is on; otherwise the flag silently no-ops.
+    Prints one clear line and returns ``True`` when the warning fired.
+    """
+    if (getattr(phenomena_cfg, "gaze_leader_tips", False)
+            and not getattr(gaze_cfg, "gaze_tips", False)):
+        print("Warning: --gaze-leader-tips has no effect without --gaze-tips")
+        return True
+    return False
+
+
+def finalize_trackers(all_trackers: list, frame_no: int) -> None:
+    """Run every tracker's run-end ``finalize`` hook.
+
+    Called once after the frame loop so trackers can close any in-flight
+    episodes (glances, aversion streaks, mutual-gaze pairs, JA/tip spans)
+    before summaries are written.  *frame_no* is one past the last processed
+    frame index.
+    """
+    for tracker in all_trackers:
+        tracker.finalize(frame_no)
+
+
 def post_run_summary(all_trackers: list, total_frames: int,
                      pid_map=None) -> None:
     """

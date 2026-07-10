@@ -144,6 +144,35 @@ def write_summary_tables(path, total_frames, fps, look_counts,
                     writer.writerow(prefix + list(r))
             print(f"  Stream → {out_path}")
 
+    # ── Merged phenomena episode stream ───────────────────────────────────────
+    # One file per run: every tracker's episodes (mutual-gaze pairs, aversion
+    # streaks, JA/tip spans, point events, …) merged, sorted, and timestamped.
+    # Written by the writer (not per tracker) so trackers cannot clobber it.
+    episode_rows: list = []
+    for tracker in (all_trackers or []):
+        episode_rows.extend(
+            tracker.episode_rows(total_frames, fps, pid_map=pid_map))
+    if episode_rows:
+        episode_rows.sort(key=lambda e: (e["frame_start"],
+                                         str(e["phenomenon"]),
+                                         str(e["participant"])))
+        out_path = parent / f"{base}_phenomena_events.csv"
+        with open(out_path, "w", newline="") as fh:
+            writer = csv.writer(fh)
+            writer.writerow(["video_name", "conditions", "phenomenon",
+                             "participant", "partner", "object",
+                             "frame_start", "frame_end", "t_start", "t_end",
+                             "duration_s"])
+            for e in episode_rows:
+                fs, fe = e["frame_start"], e["frame_end"]
+                t_start = f"{fs / fps:.3f}" if fps else ""
+                t_end = f"{fe / fps:.3f}" if fps else ""
+                duration = f"{(fe - fs) / fps:.3f}" if fps else ""
+                writer.writerow(prefix + [e["phenomenon"], e["participant"],
+                                e["partner"], e["object"], fs, fe,
+                                t_start, t_end, duration])
+        print(f"  Stream → {out_path}")
+
     # ── Legacy csv_rows passthrough ───────────────────────────────────────────
     # A plugin overriding ONLY the legacy csv_rows hook (neither tidy hook) has
     # its rows dumped verbatim so third-party plugins keep producing output.

@@ -125,3 +125,25 @@ def test_global_tables_registry_shape():
     suffixes = [s for s, _ in GLOBAL_TABLES]
     assert "_summary.csv" in suffixes
     assert "_Events.csv" in suffixes
+    assert "_phenomena_events.csv" in suffixes
+
+
+def test_phenomena_events_aggregation(tmp_path):
+    """The merged phenomena-events stream aggregates like any tidy table."""
+    header = ["video_name", "conditions", "phenomenon", "participant",
+              "partner", "object", "frame_start", "frame_end", "t_start",
+              "t_end", "duration_s"]
+    _write(tmp_path / "a_phenomena_events.csv", header, [
+        ["a", "Cond1", "mutual_gaze", "P0", "P1", "", "10", "40",
+         "0.333", "1.333", "1.000"],
+    ])
+    _write(tmp_path / "b_phenomena_events.csv", header, [
+        ["b", "Cond2", "gaze_following", "P1", "P0", "", "5", "5",
+         "0.167", "0.167", "0.000"],
+    ])
+    out = generate_global_csv(
+        tmp_path, "_phenomena_events.csv", "Global_phenomena_events.csv")
+    rows = _read(out)
+    assert rows[0] == header
+    assert len(rows) == 3            # header + 2 data rows
+    assert rows.count(header) == 1

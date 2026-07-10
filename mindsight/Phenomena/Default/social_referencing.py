@@ -2,6 +2,7 @@
 import numpy as np
 
 from mindsight.outputs.dashboard_output import _DASH_DIM, _draw_panel_section
+from mindsight.Phenomena.helpers import EpisodeLog
 from mindsight.pipeline_config import resolve_display_pid
 from Plugins import PhenomenaPlugin
 from mindsight.utils.geometry import extend_ray, ray_hits_box
@@ -26,6 +27,7 @@ class SocialReferenceTracker(PhenomenaPlugin):
         self.event_log: list = []
         self._current_events: list = []
         self._history:  list = []   # [(frame_no, cumulative_event_count)]
+        self._episodes = EpisodeLog()  # point events (frame_start == frame_end)
 
     def update(self, **kwargs):
         frame_no = kwargs['frame_no']
@@ -80,6 +82,12 @@ class SocialReferenceTracker(PhenomenaPlugin):
                           'frame': frame_no}
                     events.append(ev)
                     self.event_log.append(ev)
+                    key = (fi, frame_no)
+                    self._episodes.open(
+                        key, phenomenon="social_referencing", participant=fi,
+                        partner="", object=",".join(obj_names),
+                        frame_start=frame_no)
+                    self._episodes.close(key, frame_no)
                 self._state.pop(fi, None)
             elif not looking_at_face and state is not None:
                 if frame_no - state['frame'] > self.window:

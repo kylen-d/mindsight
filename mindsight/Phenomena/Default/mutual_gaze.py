@@ -2,6 +2,7 @@
 import numpy as np
 
 from mindsight.outputs.dashboard_output import _DASH_DIM, _draw_panel_section
+from mindsight.Phenomena.helpers import EpisodeLog
 from mindsight.pipeline_config import resolve_display_pid
 from Plugins import PhenomenaPlugin
 from mindsight.utils.geometry import extend_ray, ray_hits_box
@@ -23,6 +24,7 @@ class MutualGazeTracker(PhenomenaPlugin):
         self.pair_counts: dict = {}   # (i,j) i<j -> total mutual-gaze frames
         self._current_pairs: set = set()
         self._history: list = []      # [(frame_no, n_active_pairs)]
+        self._episodes = EpisodeLog()  # per-pair mutual-gaze spans
 
     def update(self, **kwargs):
         persons_gaze = kwargs.get('persons_gaze', [])
@@ -53,9 +55,25 @@ class MutualGazeTracker(PhenomenaPlugin):
                         ray_hits_box(origins[j], endpoints[j], x1i, y1i, x2i, y2i)):
                     mutual.add((i, j))
                     self.pair_counts[(i, j)] = self.pair_counts.get((i, j), 0) + 1
+
+        # Episode bookkeeping: open pairs that just became mutual, close pairs
+        # that just stopped. pair_counts accumulation above is unchanged.
+        frame_no = kwargs.get('frame_no', 0)
+        for pair in mutual - self._current_pairs:
+            i, j = pair
+            self._episodes.open(pair, phenomenon="mutual_gaze",
+                                participant=i, partner=j, object="",
+                                frame_start=frame_no)
+        for pair in self._current_pairs - mutual:
+            self._episodes.close(pair, frame_no)
+
         self._current_pairs = mutual
-        self._history.append((kwargs.get('frame_no', 0), len(mutual)))
+        self._history.append((frame_no, len(mutual)))
         return {'pairs': mutual}
+
+    def finalize(self, frame_no, **kwargs):
+        """Close any mutual-gaze pairs still active at the final frame."""
+        self._episodes.close_all(frame_no)
 
     def dashboard_section(self, panel, y, line_h, *, pid_map=None):
         rows = []

@@ -18,6 +18,8 @@ The tracker handles:
 import collections
 import math
 
+from mindsight.Phenomena.helpers import EpisodeLog
+from mindsight.pipeline_config import resolve_display_pid
 from Plugins import PhenomenaPlugin
 
 
@@ -56,6 +58,18 @@ class JointAttentionTracker(PhenomenaPlugin):
         self._joint_frames: int = 0
         self._confirmed_frames: int = 0
         self._total_frames: int = 0
+
+        # Tip convergence counts as joint attention (union with object JA,
+        # never double-counted per frame -- user ruling 2026-07-09) and is
+        # ALSO counted on its own so the summary can report it as a visible
+        # breakdown (phenomenon="tip_convergence").
+        self._tip_frames: int = 0
+
+        # Episode recording: confirmed object-JA spans (keyed by class name) and
+        # tip-convergence spans (keyed by frozenset of face indices).
+        self._episodes = EpisodeLog()
+        self._prev_ja_cls: set = set()
+        self._prev_tip_sets: set = set()
 
         # Time-series history for charts
         self._history: list = []  # [(frame_no, joint_pct)]
@@ -131,12 +145,43 @@ class JointAttentionTracker(PhenomenaPlugin):
             for oi in sorted(confirmed) if oi < len(dets)
         ]
 
-        # 4. Update running counters
+        # 4. Update running counters.  Joint attention is the UNION of the two
+        #    detection modes (user ruling 2026-07-09): a frame with object JA,
+        #    tip convergence, or both counts as ONE JA frame -- tip convergence
+        #    tracks phenomena in lieu of object detections, so it must count.
+        #    The separate tip counter feeds the tip_convergence breakdown rows.
         self._total_frames += 1
         if raw_ja or tip_convergences:
             self._joint_frames += 1
         if confirmed or tip_convergences:
             self._confirmed_frames += 1
+        if tip_convergences:
+            self._tip_frames += 1
+
+        # 4b. Episode recording.
+        pid_map = kwargs.get('pid_map')
+
+        # Confirmed object-JA spans, keyed by class name.
+        current_cls = set(self._current_obj_names)
+        for cls in current_cls - self._prev_ja_cls:
+            self._episodes.open(('ja', cls), phenomenon="joint_attention",
+                                participant="all", partner="", object=cls,
+                                frame_start=frame_no)
+        for cls in self._prev_ja_cls - current_cls:
+            self._episodes.close(('ja', cls), frame_no)
+        self._prev_ja_cls = current_cls
+
+        # Tip-convergence spans, keyed by the converging face-set.
+        current_tips = {faces for faces, _ in tip_convergences}
+        for faces in current_tips - self._prev_tip_sets:
+            parts = "+".join(resolve_display_pid(fi, pid_map)
+                             for fi in sorted(faces))
+            self._episodes.open(('tip', faces), phenomenon="tip_convergence",
+                                participant=parts, partner="", object="",
+                                frame_start=frame_no)
+        for faces in self._prev_tip_sets - current_tips:
+            self._episodes.close(('tip', faces), frame_no)
+        self._prev_tip_sets = current_tips
 
         # 5. Build HUD text
         if self._filter_history is not None:
@@ -175,6 +220,10 @@ class JointAttentionTracker(PhenomenaPlugin):
             'empty_text': 'No joint attention',
         }
 
+    def finalize(self, frame_no, **kwargs):
+        """Close any object-JA or tip-convergence spans still open at run end."""
+        self._episodes.close_all(frame_no)
+
     def summary_metrics(self, total_frames, fps, *, pid_map=None):
         tf = total_frames or self._total_frames
         if not tf:
@@ -182,7 +231,7 @@ class JointAttentionTracker(PhenomenaPlugin):
         frames = self._confirmed_frames
         pct = frames / tf * 100
         sec = f"{frames / fps:.3f}" if fps else ""
-        return [
+        rows = [
             {"participant": "all", "partner": "", "object": "",
              "metric": "frames_active", "value": frames},
             {"participant": "all", "partner": "", "object": "",
@@ -190,6 +239,22 @@ class JointAttentionTracker(PhenomenaPlugin):
             {"participant": "all", "partner": "", "object": "",
              "metric": "pct_of_video", "value": f"{pct:.4f}"},
         ]
+        # Tip convergence is its own phenomenon; emit only when it occurred.
+        if self._tip_frames:
+            tip_pct = self._tip_frames / tf * 100
+            tip_sec = f"{self._tip_frames / fps:.3f}" if fps else ""
+            rows += [
+                {"phenomenon": "tip_convergence", "participant": "all",
+                 "partner": "", "object": "", "metric": "frames_active",
+                 "value": self._tip_frames},
+                {"phenomenon": "tip_convergence", "participant": "all",
+                 "partner": "", "object": "", "metric": "seconds_active",
+                 "value": tip_sec},
+                {"phenomenon": "tip_convergence", "participant": "all",
+                 "partner": "", "object": "", "metric": "pct_of_video",
+                 "value": f"{tip_pct:.4f}"},
+            ]
+        return rows
 
     def time_series_data(self):
         if not self._history:

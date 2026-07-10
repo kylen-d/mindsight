@@ -427,6 +427,54 @@ class PhenomenaPlugin(ABC):
         """
         return {}
 
+    def finalize(self, frame_no: int, **kwargs) -> None:
+        """
+        *Optional.*  Run-end hook, called once after the last frame so trackers
+        can close any in-flight episodes (glances, aversion streaks, mutual-gaze
+        pairs, …) before summaries are written.
+
+        *frame_no* is one past the last processed frame index.  Base default is
+        a no-op.
+        """
+
+    def episode_rows(self, total_frames: int, fps: float, *,
+                     pid_map=None) -> list:
+        """Return this tracker's recorded episodes as tidy row dicts.
+
+        Reads ``self._episodes`` (a :class:`~mindsight.Phenomena.helpers.EpisodeLog`)
+        when present, else returns ``[]``.  Participant/partner fields that are
+        raw integer track IDs are resolved through ``resolve_display_pid`` (the
+        same convention :meth:`summary_metrics` uses); pre-formatted strings
+        (e.g. ``"all"`` or ``"P0+P1"``) pass through unchanged.
+
+        Each row is a dict ``{phenomenon, participant, partner, object,
+        frame_start, frame_end}``; the writer merges every tracker's rows into
+        one ``{stem}_phenomena_events.csv``.
+        """
+        episodes = getattr(self, "_episodes", None)
+        if episodes is None:
+            return []
+        from mindsight.pipeline_config import resolve_display_pid
+
+        def _fmt(value):
+            if isinstance(value, bool):
+                return value
+            if isinstance(value, int):
+                return resolve_display_pid(value, pid_map)
+            return value if value is not None else ""
+
+        rows = []
+        for ep in episodes.rows:
+            rows.append({
+                "phenomenon": ep["phenomenon"],
+                "participant": _fmt(ep["participant"]),
+                "partner": _fmt(ep["partner"]),
+                "object": ep["object"] if ep["object"] is not None else "",
+                "frame_start": ep["frame_start"],
+                "frame_end": ep["frame_end"],
+            })
+        return rows
+
     def draw_frame(self, frame) -> None:
         """
         *Optional.*  Annotate the video frame in-place.

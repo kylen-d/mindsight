@@ -1,5 +1,6 @@
 """Phenomena/Default/gaze_aversion.py — Gaze aversion detection."""
 from mindsight.outputs.dashboard_output import _DASH_DIM, _draw_panel_section
+from mindsight.Phenomena.helpers import EpisodeLog
 from mindsight.pipeline_config import resolve_display_pid
 from Plugins import PhenomenaPlugin
 
@@ -20,8 +21,10 @@ class GazeAversionTracker(PhenomenaPlugin):
         self.window   = window_frames
         self.min_conf = min_obj_conf
         self._no_look: dict = {}   # (face_idx, class_name) -> consec frames without look
+        self._streak_start: dict = {}  # (face_idx, class_name) -> frame streak began
         self._current_aversions: set = set()
         self._history: list = []   # [(frame_no, n_active_aversions)]
+        self._episodes = EpisodeLog()  # resolved (>= window) aversion episodes
 
     def update(self, **kwargs):
         persons_gaze = kwargs.get('persons_gaze', [])
@@ -35,6 +38,7 @@ class GazeAversionTracker(PhenomenaPlugin):
             if oi < len(objects):
                 looking.setdefault(fi, set()).add(objects[oi]['class_name'])
 
+        frame_no = kwargs.get('frame_no', 0)
         aversions = set()
         for obj in objects:
             if obj['conf'] < self.min_conf:
@@ -43,14 +47,31 @@ class GazeAversionTracker(PhenomenaPlugin):
             for fi in range(n_faces_local):
                 key = (fi, cls)
                 if cls in looking.get(fi, set()):
+                    # Look resolves the streak -- close any open episode.
+                    if self._no_look.get(key, 0) >= self.window:
+                        self._episodes.close(key, frame_no)
                     self._no_look[key] = 0
+                    self._streak_start.pop(key, None)
                 else:
+                    if self._no_look.get(key, 0) == 0:
+                        self._streak_start[key] = frame_no
                     self._no_look[key] = self._no_look.get(key, 0) + 1
+                    if self._no_look[key] == self.window:
+                        # Streak just crossed the threshold: open an episode
+                        # anchored at the frame the streak began.
+                        self._episodes.open(
+                            key, phenomenon="gaze_aversion",
+                            participant=fi, partner="", object=cls,
+                            frame_start=self._streak_start[key])
                     if self._no_look[key] >= self.window:
                         aversions.add(key)
         self._current_aversions = aversions
-        self._history.append((kwargs.get('frame_no', 0), len(aversions)))
+        self._history.append((frame_no, len(aversions)))
         return {'aversions': aversions}
+
+    def finalize(self, frame_no, **kwargs):
+        """Close aversion episodes still open (unresolved) at the final frame."""
+        self._episodes.close_all(frame_no)
 
     def dashboard_section(self, panel, y, line_h, *, pid_map=None):
         rows = []
@@ -74,16 +95,29 @@ class GazeAversionTracker(PhenomenaPlugin):
         }
 
     def summary_metrics(self, total_frames, fps, *, pid_map=None):
-        active = [(k, cnt) for k, cnt in self._no_look.items()
-                  if cnt >= self.window]
+        # Aggregate resolved episodes (all closed by finalize()) per
+        # (participant, object): count, total frames, seconds, pct-of-video.
+        # Replaces the old live-streak-only reporting that dropped every
+        # aversion resolved mid-run.
+        agg: dict = {}   # (fi, cls) -> [episode_count, total_frames]
+        for ep in self._episodes.rows:
+            k = (ep['participant'], ep['object'])
+            a = agg.setdefault(k, [0, 0])
+            a[0] += 1
+            a[1] += ep['frame_end'] - ep['frame_start']
         rows = []
-        for (fi, cls), cnt in sorted(active):
+        for (fi, cls), (cnt, frames) in sorted(agg.items()):
             pid = resolve_display_pid(fi, pid_map)
-            sec = f"{cnt / fps:.3f}" if fps else ""
+            sec = f"{frames / fps:.3f}" if fps else ""
+            pct = frames / total_frames * 100 if total_frames else 0.0
             rows.append({"participant": pid, "partner": "", "object": cls,
-                         "metric": "frames_active", "value": cnt})
+                         "metric": "episode_count", "value": cnt})
+            rows.append({"participant": pid, "partner": "", "object": cls,
+                         "metric": "frames_active", "value": frames})
             rows.append({"participant": pid, "partner": "", "object": cls,
                          "metric": "seconds_active", "value": sec})
+            rows.append({"participant": pid, "partner": "", "object": cls,
+                         "metric": "pct_of_video", "value": f"{pct:.4f}"})
         return rows
 
     def time_series_data(self):
