@@ -15,7 +15,15 @@ def open_video_source(source):
 
     Raises ``RuntimeError`` if the source cannot be opened.  ``fps`` falls back
     to 30.0 when the backend reports 0 (typical for webcams / some codecs).
+
+    A digit-only *source* string (e.g. ``"0"``) is normalized to the ``int``
+    camera index cv2 needs -- ``cv2.VideoCapture("0")`` does NOT open a webcam,
+    only ``cv2.VideoCapture(0)`` does.  File paths are passed through unchanged
+    (they never satisfy ``str.isdigit``), so this is the single seam that makes
+    a GUI/CLI ``source = "0"`` open camera 0.
     """
+    if isinstance(source, str) and source.isdigit():
+        source = int(source)
     cap = cv2.VideoCapture(source)
     if not cap.isOpened():
         raise RuntimeError(f"Cannot open source: {source}")
