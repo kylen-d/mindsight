@@ -19,6 +19,9 @@ class GazeLeadershipTracker(PhenomenaPlugin):
     """
 
     name = "gaze_leader"
+
+    #: Live-dashboard style; mirrors time_series_data chart_type.
+    live_chart_type = "step"
     summary_label = "gaze_leadership"
     dashboard_panel = "right"
     _COLOUR = (255, 210, 60)

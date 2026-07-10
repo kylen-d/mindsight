@@ -39,7 +39,7 @@ class FakeProjectWorker(threading.Thread):
     instances: list = []
 
     def __init__(self, project_dir, ns, progress_q, log_q, frame_q, *,
-                 project_cfg=None):
+                 project_cfg=None, dashboard_q=None):
         super().__init__(daemon=True)
         self.progress_q = progress_q
         self.log_q = log_q
@@ -166,7 +166,7 @@ class FakeGazeWorker(threading.Thread):
 
     instances: list = []
 
-    def __init__(self, ns, frame_q, log_q):
+    def __init__(self, ns, frame_q, log_q, dashboard_q=None):
         super().__init__(daemon=True)
         self.ns = ns
         self._alive = False

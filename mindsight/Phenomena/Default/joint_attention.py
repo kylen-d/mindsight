@@ -35,6 +35,9 @@ class JointAttentionTracker(PhenomenaPlugin):
     """
 
     name = "joint_attention"
+
+    #: Live-dashboard style; mirrors time_series_data chart_type.
+    live_chart_type = "area"
     dashboard_panel = "left"
     _COLOUR = (0, 200, 255)  # BGR cyan
 

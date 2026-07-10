@@ -17,6 +17,9 @@ class SocialReferenceTracker(PhenomenaPlugin):
     """
 
     name = "social_ref"
+
+    #: Live-dashboard style; mirrors time_series_data chart_type.
+    live_chart_type = "step"
     summary_label = "social_referencing"
     dashboard_panel = "left"
     _COLOUR = (100, 255, 130)

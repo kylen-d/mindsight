@@ -351,6 +351,12 @@ class PhenomenaPlugin(ABC):
     #: Which dashboard panel to draw into: ``"left"`` or ``"right"``.
     dashboard_panel: str = "right"
 
+    #: Live-dashboard chart style: ``"line"`` (default), ``"area"``, or
+    #: ``"step"``.  A cheap class-level mirror of the ``chart_type`` the
+    #: tracker's :meth:`time_series_data` declares -- the live bridge reads
+    #: this attribute per frame instead of calling the (heavy) method.
+    live_chart_type: str = "line"
+
     #: Preferred auxiliary stream video types (e.g. [VideoType.EYE_ONLY]).
     #: Used for auto-routing aux frames to this plugin.
     preferred_video_types: list = []

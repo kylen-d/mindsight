@@ -235,3 +235,41 @@ class OutputSection(QWidget):
             idx = self._anonymize_mode.findText(anon)
             if idx >= 0:
                 self._anonymize_mode.setCurrentIndex(idx)
+        self._apply_aux_streams(getattr(ns, 'aux_streams', None))
+
+    def _apply_aux_streams(self, aux):
+        """Repopulate the Auxiliary Streams table from a namespace's
+        ``aux_streams``.  Accepts both live ``AuxStreamConfig`` objects (preset /
+        pipeline load) and the plain dicts restored from ``last_used.json`` --
+        without this, aux streams never survived a save/restore (or a preset
+        that carried them)."""
+        self._aux_table.setRowCount(0)
+        if not aux:
+            return
+        for item in aux:
+            if isinstance(item, dict):
+                source = item.get('source', '')
+                vtype = item.get('video_type', 'custom')
+                label = item.get('stream_label', '')
+                parts = item.get('participants', []) or []
+                auto = item.get('auto_detect_faces', True)
+            else:
+                source = getattr(item, 'source', '')
+                vt = getattr(item, 'video_type', 'custom')
+                vtype = getattr(vt, 'value', vt)
+                label = getattr(item, 'stream_label', '')
+                parts = list(getattr(item, 'participants', []) or [])
+                auto = getattr(item, 'auto_detect_faces', True)
+            self._aux_add_row()
+            r = self._aux_table.rowCount() - 1
+            self._aux_table.item(r, 0).setText(str(source))
+            combo = self._aux_table.cellWidget(r, 1)
+            if combo is not None:
+                idx = combo.findText(str(vtype))
+                if idx >= 0:
+                    combo.setCurrentIndex(idx)
+            self._aux_table.item(r, 2).setText(str(label))
+            self._aux_table.item(r, 3).setText(", ".join(str(p) for p in parts))
+            cb = self._aux_table.cellWidget(r, 4)
+            if cb is not None:
+                cb.setChecked(bool(auto))

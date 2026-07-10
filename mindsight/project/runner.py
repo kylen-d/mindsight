@@ -333,7 +333,7 @@ def project_output_paths(project: Path, source: Path,
 
 
 def iter_project_runs(project_dir: str | Path, ns, *, project_cfg=None,
-                      cancel=None, resume=True):
+                      cancel=None, resume=True, gui_plugins=None):
     """Run every source in a project, yielding a :mod:`ProjectEvent <mindsight.project.events>` stream.
 
     This is the SINGLE project-batch implementation (SP3.1 D1) consumed by both
@@ -611,6 +611,12 @@ def iter_project_runs(project_dir: str | Path, ns, *, project_cfg=None,
         if gazelle_provider is not None:
             gazelle_provider.reset()
         active_plugins, detection_plugins = rebuild_plugin_instances(ns)
+        # GUI-only extra plugins (the live-dashboard bridge) join each video's
+        # fresh plugin set. Byte-neutral for the CLI: gui_plugins is None there,
+        # so active_plugins is untouched and outputs are identical.
+        if gui_plugins:
+            active_plugins = (list(active_plugins) if active_plugins else [])
+            active_plugins += list(gui_plugins)
 
         # Per-video Pipeline sharing the once-built models; fresh cancel token
         # per video (batch cancel is mirrored into it so the current video

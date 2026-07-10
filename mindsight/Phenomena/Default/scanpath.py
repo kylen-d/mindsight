@@ -13,6 +13,9 @@ class ScanpathTracker(PhenomenaPlugin):
     """
 
     name = "scanpath"
+
+    #: Live-dashboard style; mirrors time_series_data chart_type.
+    live_chart_type = "step"
     dashboard_panel = "right"
     _COLOUR = (200, 200, 60)
 

@@ -216,7 +216,7 @@ class ProjectWorker(threading.Thread):
     def __init__(self, project_dir: str, ns: Namespace,
                  progress_q: queue.Queue, log_q: queue.Queue,
                  frame_q: queue.Queue, *,
-                 project_cfg=None):
+                 project_cfg=None, dashboard_q: queue.Queue | None = None):
         super().__init__(daemon=True)
         self.project_dir = project_dir
         self.ns          = ns
@@ -224,6 +224,7 @@ class ProjectWorker(threading.Thread):
         self.log_q       = log_q
         self.frame_q     = frame_q
         self.project_cfg = project_cfg
+        self.dashboard_q = dashboard_q
         self._stop_event = threading.Event()
 
     def stop(self):
@@ -266,10 +267,23 @@ class ProjectWorker(threading.Thread):
         # keeps the in-memory project_cfg (possibly-unsaved edits) authoritative.
         project = Project.open(self.project_dir)
 
+        # GUI-only live dashboard bridge, fed the same way GazeWorker feeds it:
+        # a phenomena plugin appended to EACH video's plugin set inside the run
+        # loop. Passed as `gui_plugins` so the CLI path (which never sets a
+        # dashboard_q) stays byte-identical -- nothing is injected there.
+        gui_plugins = None
+        if self.dashboard_q is not None:
+            from .live_dashboard_bridge import LiveDashboardBridge
+            _fast = getattr(self.ns, 'fast', False)
+            bridge = LiveDashboardBridge(
+                self.dashboard_q, throttle=6 if _fast else 0)
+            gui_plugins = [bridge]
+
         total = 0
         pos = 0  # 1-based source position, tracked for the "[i/N]" log prefix
         for event in project.run(self.ns, resume=resume, cancel=cancel,
-                                 project_cfg=self.project_cfg):
+                                 project_cfg=self.project_cfg,
+                                 gui_plugins=gui_plugins):
             # Propagate a stop request to the iterator on every event.
             if self._stop_event.is_set():
                 cancel.cancel()

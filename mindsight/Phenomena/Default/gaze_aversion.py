@@ -14,6 +14,9 @@ class GazeAversionTracker(PhenomenaPlugin):
     """
 
     name = "gaze_aversion"
+
+    #: Live-dashboard style; mirrors time_series_data chart_type.
+    live_chart_type = "area"
     dashboard_panel = "right"
     _COLOUR = (60, 60, 230)
 

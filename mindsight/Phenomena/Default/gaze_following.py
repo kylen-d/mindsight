@@ -16,6 +16,9 @@ class GazeFollowingTracker(PhenomenaPlugin):
     """
 
     name = "gaze_follow"
+
+    #: Live-dashboard style; mirrors time_series_data chart_type.
+    live_chart_type = "step"
     summary_label = "gaze_following"
     dashboard_panel = "left"
     _COLOUR = (80, 200, 255)

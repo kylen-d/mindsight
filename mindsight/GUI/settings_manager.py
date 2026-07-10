@@ -12,6 +12,28 @@ from argparse import Namespace
 from pathlib import Path
 
 
+def _is_aux_stream(x) -> bool:
+    """True when *x* looks like an ``AuxStreamConfig`` (duck-typed to avoid a
+    hard import of pipeline_config in this lightweight settings module)."""
+    return all(hasattr(x, attr) for attr in
+               ("source", "video_type", "stream_label", "participants",
+                "auto_detect_faces"))
+
+
+def _aux_stream_to_dict(a) -> dict:
+    """Serialize one ``AuxStreamConfig`` to a JSON-safe dict (video_type as its
+    plain string value; the enum reconstructs on restore)."""
+    vtype = getattr(a.video_type, "value", a.video_type)
+    return {
+        "source": a.source,
+        "video_type": str(vtype),
+        "stream_label": a.stream_label,
+        "participants": (list(a.participants)
+                         if a.participants is not None else None),
+        "auto_detect_faces": bool(a.auto_detect_faces),
+    }
+
+
 class SettingsManager:
     """Manages persistent user settings (presets and last-used session)."""
 
@@ -37,9 +59,14 @@ class SettingsManager:
             if v is None or isinstance(v, (str, int, float, bool)):
                 d[k] = v
             elif isinstance(v, (list, tuple)):
-                # Only keep lists of primitives
+                # Lists of primitives round-trip as-is.
                 if all(isinstance(x, (str, int, float, bool, type(None))) for x in v):
                     d[k] = list(v)
+                # AuxStreamConfig lists (the Auxiliary Streams table) serialize
+                # to plain dicts so they survive a save/restore -- silently
+                # dropping them left the table empty on every relaunch.
+                elif k == "aux_streams" and all(_is_aux_stream(x) for x in v):
+                    d[k] = [_aux_stream_to_dict(x) for x in v]
             elif isinstance(v, set):
                 d[k] = sorted(v)
         d["_version"] = 1
@@ -92,7 +119,9 @@ class SettingsManager:
             return None
         try:
             return self._dict_to_ns(json.loads(self.LAST_USED.read_text()))
-        except (json.JSONDecodeError, Exception):
+        except Exception as exc:  # noqa: BLE001 -- a bad file must not kill startup
+            print(f"[WARN] could not read last session "
+                  f"({self.LAST_USED.name}): {exc}")
             return None
 
     # ── Recent projects (D12) ─────────────────────────────────────────────
@@ -120,3 +149,18 @@ class SettingsManager:
         self.RECENT_PROJECTS.write_text(
             json.dumps({"_version": 1, "projects": recent}, indent=2))
         return recent
+
+
+def checkpoint(ns: Namespace) -> None:
+    """Save *ns* as the last-used session, WARNING (never raising) on failure.
+
+    A run start is the natural checkpoint of a configuration worth keeping:
+    ``MainWindow.closeEvent`` is otherwise the ONLY writer, so a crash or
+    force-quit mid-run loses the whole session. Shared by the Gaze tab Start
+    button and the Analyze Footage run starts so there is one guarded writer,
+    not three copies of the try/except.
+    """
+    try:
+        SettingsManager().save_last_used(ns)
+    except Exception as exc:  # noqa: BLE001 -- a checkpoint must never break a run
+        print(f"[WARN] could not checkpoint session: {exc}")

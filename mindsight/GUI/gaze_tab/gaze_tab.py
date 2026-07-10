@@ -29,6 +29,7 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
+from ...config_compat import known_good_preset_path, load_pipeline
 from ..schema_panel import SchemaPanel
 from ..widgets import _bgr_to_pixmap, _hrow
 
@@ -215,7 +216,23 @@ class GazeTab(QWidget):
     # -- Reset defaults -------------------------------------------------------
 
     def _reset_gaze_defaults(self):
+        # First reset the schema surface to bare widget/schema defaults, then --
+        # when the shipped known-good preset resolves -- apply it on top so
+        # "Reset Defaults" means "known-good shipped defaults" (phenomena ON),
+        # matching a fresh install's seeded state. Existing installs whose
+        # last_used.json otherwise supersedes the seed forever get a one-click
+        # route back to the phenomena-on defaults. Never fatal: a missing/broken
+        # preset just leaves the schema defaults in place.
         self._schema_panel.reset_defaults()
+        path = None
+        try:
+            path = known_good_preset_path()
+            if path is None:
+                return
+            ns = load_pipeline(str(path), Namespace())
+            self.apply_namespace(ns)
+        except Exception as exc:  # noqa: BLE001 -- reset must survive a bad preset
+            print(f"[WARN] could not apply known-good preset on reset: {exc}")
 
     # -- Namespace construction -----------------------------------------------
 
@@ -268,6 +285,12 @@ class GazeTab(QWidget):
             QMessageBox.critical(
                 self, "Error", f"VP file not found:\n{ns.vp_file}")
             return
+
+        # Save-on-run checkpoint: persist the launched config now so a crash or
+        # force-quit mid-run does not lose the session (closeEvent is otherwise
+        # the only writer). Warn-not-raise -- never blocks the run.
+        from ..settings_manager import checkpoint
+        checkpoint(ns)
 
         self._frame_q = queue.Queue(maxsize=4)
         self._log_q = queue.Queue()

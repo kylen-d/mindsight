@@ -74,11 +74,18 @@ class TrackerChartWidget(QWidget):
     """
 
     WINDOW = 300  # rolling window (~10s at 30fps)
+    #: Frames a series may go without an update before it is dropped. Ended
+    #: states (a mutual-gaze pair breaking, an aversion resolving) used to
+    #: linger frozen at their last value for the full WINDOW (~10 s).
+    STALE_GRACE = 30
 
     def __init__(self, name: str, colour_bgr: tuple = (180, 180, 180),
-                 parent=None):
+                 parent=None, chart_type: str = "line"):
         super().__init__(parent)
         self._name = name
+        self._chart_type = chart_type if chart_type in ("line", "area",
+                                                        "step") else "line"
+        self._fills: dict = {}
         self._accent = _bgr_to_rgb01(colour_bgr)
         self._accent_hex = _bgr_to_hex(colour_bgr)
 
@@ -176,13 +183,15 @@ class TrackerChartWidget(QWidget):
             if not data:
                 continue
 
-            # Hide stale series whose newest point is more than WINDOW
-            # frames behind the current frame (e.g. placeholder series
-            # superseded by per-participant series).
-            if global_latest - data[-1][0] > self.WINDOW:
+            # Drop series that stopped updating: ended states must visibly
+            # end (STALE_GRACE), not linger frozen for the whole window.
+            if global_latest - data[-1][0] > self.STALE_GRACE:
                 line = self._lines.pop(key, None)
                 if line is not None:
                     line.remove()
+                fill = self._fills.pop(key, None)
+                if fill is not None:
+                    fill.remove()
                 del self._series_data[key]
                 self._series_labels.pop(key, None)
                 self._series_colours.pop(key, None)
@@ -193,11 +202,20 @@ class TrackerChartWidget(QWidget):
             colour = self._get_series_colour(key)
             label = self._series_labels.get(key, key)
 
+            drawstyle = ("steps-post" if self._chart_type == "step"
+                         else "default")
             if key in self._lines:
                 self._lines[key].set_data(x, y)
             else:
-                line, = ax.plot(x, y, color=colour, linewidth=1.2, label=label)
+                line, = ax.plot(x, y, color=colour, linewidth=1.2,
+                                label=label, drawstyle=drawstyle)
                 self._lines[key] = line
+            if self._chart_type == "area":
+                fill = self._fills.pop(key, None)
+                if fill is not None:
+                    fill.remove()
+                self._fills[key] = ax.fill_between(
+                    x, 0, y, color=colour, alpha=0.25, linewidth=0)
 
             all_x_min = min(all_x_min, x[0])
             all_x_max = max(all_x_max, x[-1])
@@ -393,7 +411,9 @@ class LiveDashboardPanel(QWidget):
                 return None
 
         colour = self._tracker_colours.get(name, (180, 180, 180))
-        chart = TrackerChartWidget(name, colour)
+        chart = TrackerChartWidget(
+            name, colour,
+            chart_type=getattr(tracker, "live_chart_type", "line"))
         self._charts[name] = chart
         self._relayout()
         return chart

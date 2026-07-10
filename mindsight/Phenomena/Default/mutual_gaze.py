@@ -17,6 +17,9 @@ class MutualGazeTracker(PhenomenaPlugin):
     """
 
     name = "mutual_gaze"
+
+    #: Live-dashboard style; mirrors time_series_data chart_type.
+    live_chart_type = "area"
     dashboard_panel = "left"
     _COLOUR = (255, 150, 50)
 

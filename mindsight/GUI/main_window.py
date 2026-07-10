@@ -129,15 +129,20 @@ class MainWindow(QMainWindow):
             print(f"[WARN] could not seed from preset {path}: {exc}")
 
     def _try_restore_last_session(self):
-        """Attempt to restore the last-used settings on startup."""
+        """Attempt to restore the last-used settings on startup.
+
+        Never fatal: a corrupt/unreadable last_used.json must not kill startup.
+        Failures are WARNED (printed), never silently swallowed -- a silent
+        except:pass here once hid a real restore regression.
+        """
         try:
             from .settings_manager import SettingsManager
             mgr = SettingsManager()
             ns = mgr.load_last_used()
             if ns is not None:
                 self._gaze_tab.apply_namespace(ns)
-        except (ImportError, Exception):
-            pass  # Settings manager not yet created or no saved session
+        except Exception as exc:  # noqa: BLE001 -- startup must survive a bad session
+            print(f"[WARN] could not restore last session: {exc}")
 
     # ── Status-bar buttons ─────────────────────────────────────────────────────
 
@@ -302,14 +307,15 @@ class MainWindow(QMainWindow):
         if hasattr(self._run_study_tab, '_worker') and self._run_study_tab._worker:
             if self._run_study_tab._worker.is_alive():
                 self._run_study_tab._worker.stop()
-        # Save last-used settings
+        # Save last-used settings. Never fatal: an unwritable settings dir must
+        # not block the window from closing. Failures are WARNED, never silent.
         try:
             from .settings_manager import SettingsManager
             mgr = SettingsManager()
             ns = self._gaze_tab._build_namespace()
             mgr.save_last_used(ns)
-        except (ImportError, Exception):
-            pass
+        except Exception as exc:  # noqa: BLE001 -- close must never be blocked
+            print(f"[WARN] could not save session: {exc}")
         event.accept()
 
 

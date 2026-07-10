@@ -190,7 +190,7 @@ def test_output_tabs_render_from_written_csvs(qapp, tmp_path):
     # three tabs: Log | Charts | Output CSVs
     labels = [tab._output_tabs.tabText(i)
               for i in range(tab._output_tabs.count())]
-    assert labels == ["Log", "Charts", "Output CSVs"]
+    assert labels == ["Log", "Charts", "Live", "Output CSVs"]
 
     # charts: the run is selectable and a canvas rendered
     assert tab._charts_run.currentText() == "a.mp4"

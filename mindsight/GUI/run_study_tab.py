@@ -406,6 +406,7 @@ class RunStudyTab(QWidget):
         self._progress_q: queue.Queue = queue.Queue()
         self._log_q: queue.Queue = queue.Queue()
         self._frame_q: queue.Queue = queue.Queue(maxsize=2)
+        self._dashboard_q: queue.Queue = queue.Queue(maxsize=30)
         self._poll_timer = QTimer()
         self._poll_timer.timeout.connect(self._poll)
 
@@ -458,11 +459,11 @@ class RunStudyTab(QWidget):
 
         splitter = QSplitter(Qt.Orientation.Horizontal)
 
-        # LEFT: preflight + runs table + resume controls + manual
-        left = QWidget()
-        left_lay = QVBoxLayout(left)
-        left_lay.setContentsMargins(0, 0, 0, 0)
-        left_lay.setSpacing(6)
+        # LEFT: preflight + runs table + resume controls + manual, stacked in a
+        # vertical splitter (B9) so the RA can drag the boundaries -- e.g. grow
+        # the runs list without losing the study-setup area below.
+        left_split = QSplitter(Qt.Orientation.Vertical)
+        self._left_split = left_split
 
         pf_grp = QGroupBox("Preflight")
         pf_lay = QVBoxLayout(pf_grp)
@@ -475,7 +476,7 @@ class RunStudyTab(QWidget):
         rerun_pf = QPushButton("Re-run preflight")
         rerun_pf.clicked.connect(self._run_preflight)
         pf_lay.addWidget(rerun_pf)
-        left_lay.addWidget(pf_grp)
+        left_split.addWidget(pf_grp)
 
         runs_grp = QGroupBox("Runs")
         runs_lay = QVBoxLayout(runs_grp)
@@ -510,31 +511,36 @@ class RunStudyTab(QWidget):
         ctl_row.addWidget(add_run_btn)
         ctl_row.addStretch(1)
         runs_lay.addLayout(ctl_row)
-        left_lay.addWidget(runs_grp)
+        left_split.addWidget(runs_grp)
 
         # Study setup (collapsible) -- relocated from the retired Project Mode tab.
         # G-DEFER-2: it takes the growing space (stretch) so participants /
         # conditions editing has room; the runs table above stays compact.
-        self._build_study_setup(left_lay)
+        left_split.addWidget(self._build_study_setup())
+        # Preserve the prior proportions: preflight/runs stay compact, study
+        # setup takes the growing space.
+        left_split.setStretchFactor(0, 0)
+        left_split.setStretchFactor(1, 0)
+        left_split.setStretchFactor(2, 1)
 
-        splitter.addWidget(left)
+        splitter.addWidget(left_split)
 
-        # RIGHT: preview + log
-        right = QWidget()
-        right_lay = QVBoxLayout(right)
-        right_lay.setContentsMargins(0, 0, 0, 0)
-        right_lay.setSpacing(6)
+        # RIGHT: preview + output tabs, stacked in a vertical splitter (B9) so
+        # the preview / output-panel boundary is draggable.
+        right_split = QSplitter(Qt.Orientation.Vertical)
+        self._right_split = right_split
         self._preview = QLabel()
         self._preview.setStyleSheet("background: #1a1a2e;")
         self._preview.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self._preview.setMinimumSize(240, 160)
         self._preview.setSizePolicy(
             QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
-        right_lay.addWidget(self._preview, 2)
+        right_split.addWidget(self._preview)
+        right_split.addWidget(self._build_output_tabs())
+        right_split.setStretchFactor(0, 2)
+        right_split.setStretchFactor(1, 1)
 
-        right_lay.addWidget(self._build_output_tabs(), 1)
-
-        splitter.addWidget(right)
+        splitter.addWidget(right_split)
         splitter.setStretchFactor(0, 3)
         splitter.setStretchFactor(1, 2)
         outer.addWidget(splitter, 1)
@@ -547,7 +553,7 @@ class RunStudyTab(QWidget):
         self._stop_btn.setEnabled(False)
         self._stop_btn.clicked.connect(self._stop)
 
-    def _build_study_setup(self, parent_lay):
+    def _build_study_setup(self):
         grp = CollapsibleGroupBox("Study setup")
         inner = QWidget()
         lay = QVBoxLayout(inner)
@@ -635,7 +641,7 @@ class RunStudyTab(QWidget):
         scroll.setFrameShape(QScrollArea.Shape.NoFrame)
         scroll.setWidget(inner)
         grp.set_content(scroll)
-        parent_lay.addWidget(grp, 1)
+        return grp
 
     # ── Output panel: Log | Charts | Output CSVs (G-ENH-4) ──────────────────
 
@@ -672,9 +678,23 @@ class RunStudyTab(QWidget):
         self._chart_placeholder.setStyleSheet("color: #888; font-style: italic;")
         self._chart_placeholder.setAlignment(Qt.AlignmentFlag.AlignCenter)
         charts_lay.addWidget(self._chart_placeholder, 1)
+        # B4a: host the canvas in a scroll area (widgetResizable False so the
+        # figure keeps its NATURAL height) -- with N phenomena panels the canvas
+        # is taller than the tab, so it scrolls instead of squashing every panel.
+        self._chart_scroll = QScrollArea()
+        self._chart_scroll.setWidgetResizable(False)
+        self._chart_scroll.setHorizontalScrollBarPolicy(
+            Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        self._chart_scroll.setVisible(False)
+        charts_lay.addWidget(self._chart_scroll, 1)
         self._chart_canvas = None            # created lazily on first render
         self._charts_layout = charts_lay
         tabs.addTab(charts_w, "Charts")
+
+        # -- Live (live dashboard during a run, B6) -------------------------
+        from .live_dashboard import LiveDashboardPanel
+        self._dashboard_panel = LiveDashboardPanel(self._dashboard_q)
+        tabs.addTab(self._dashboard_panel, "Live")
 
         # -- Output CSVs (read-only viewer) ---------------------------------
         csv_w = QWidget()
@@ -741,8 +761,7 @@ class RunStudyTab(QWidget):
         from its written summary/Events CSVs."""
         out = self._run_outputs.get(self._charts_run.currentText())
         if out is None or (out.summary is None and out.events is None):
-            if self._chart_canvas is not None:
-                self._chart_canvas.setVisible(False)
+            self._chart_scroll.setVisible(False)
             self._chart_placeholder.setVisible(True)
             return
 
@@ -767,8 +786,7 @@ class RunStudyTab(QWidget):
             except Exception:
                 pass
         if not panels:
-            if self._chart_canvas is not None:
-                self._chart_canvas.setVisible(False)
+            self._chart_scroll.setVisible(False)
             self._chart_placeholder.setVisible(True)
             return
 
@@ -789,10 +807,18 @@ class RunStudyTab(QWidget):
 
         if self._chart_canvas is None:
             self._chart_canvas = FigureCanvasQTAgg(fig)
-            self._charts_layout.addWidget(self._chart_canvas, 1)
+            self._chart_scroll.setWidget(self._chart_canvas)
         else:
             self._chart_canvas.figure = fig
             fig.set_canvas(self._chart_canvas)
+        # Size the canvas to the figure's natural pixel size so the scroll area
+        # (widgetResizable False) scrolls past the tab height instead of
+        # squashing the stacked panels.
+        w_in, h_in = fig.get_size_inches()
+        dpi = fig.get_dpi()
+        self._chart_canvas.setMinimumSize(int(w_in * dpi), int(h_in * dpi))
+        self._chart_canvas.resize(int(w_in * dpi), int(h_in * dpi))
+        self._chart_scroll.setVisible(True)
         self._chart_canvas.setVisible(True)
         self._chart_placeholder.setVisible(False)
         self._chart_canvas.draw_idle()
@@ -1322,6 +1348,9 @@ class RunStudyTab(QWidget):
         ns = self._current_ns()
         self._apply_anonymize(ns)
         ns.source = str(spec.source)
+        # Save-on-run checkpoint (warn-not-raise): persist the launched config.
+        from .settings_manager import checkpoint
+        checkpoint(ns)
         ns.log = spec.output_paths["log"]
         ns.summary = spec.output_paths["summary"]
         ns.save = spec.output_paths["save"]
@@ -1329,8 +1358,12 @@ class RunStudyTab(QWidget):
         self._frame_q = queue.Queue(maxsize=2)
         self._log_q = queue.Queue()
         from .workers import GazeWorker
-        self._one_off_worker = GazeWorker(ns, self._frame_q, self._log_q)
+        self._one_off_worker = GazeWorker(ns, self._frame_q, self._log_q,
+                                          dashboard_q=self._dashboard_q)
         self._one_off_worker.start()
+        # B6: live dashboard follows the one-off run too.
+        self._dashboard_panel.reset()
+        self._dashboard_panel.start()
         self._append_log(f"Running '{spec.run_id}' now...")
         # B1 F1: always tell the user where the one-off files land (absolute).
         out_dir = str(Path(spec.output_paths["log"]).resolve().parent)
@@ -1378,6 +1411,11 @@ class RunStudyTab(QWidget):
         self._apply_anonymize(ns)
         project_cfg = self._build_project_config()
 
+        # Save-on-run checkpoint (warn-not-raise): persist the launched config so
+        # a crash mid-batch does not lose the session.
+        from .settings_manager import checkpoint
+        checkpoint(ns)
+
         self._progress_q = queue.Queue()
         self._log_q = queue.Queue()
         self._frame_q = queue.Queue(maxsize=2)
@@ -1385,8 +1423,12 @@ class RunStudyTab(QWidget):
         from .workers import ProjectWorker
         self._worker = ProjectWorker(
             str(self._project_path), ns, self._progress_q, self._log_q,
-            self._frame_q, project_cfg=project_cfg)
+            self._frame_q, project_cfg=project_cfg,
+            dashboard_q=self._dashboard_q)
         self._worker.start()
+        # B6: live dashboard follows the run (mirror gaze_tab.py's wiring).
+        self._dashboard_panel.reset()
+        self._dashboard_panel.start()
         self._stop_requested = False
         self._run_btn.setEnabled(False)
         self._stop_btn.setEnabled(True)
@@ -1487,6 +1529,7 @@ class RunStudyTab(QWidget):
         """Terminal UI transition: buttons back, log line, workers cleared so a
         following Start launches a FRESH worker (G-FIX-2)."""
         self._poll_timer.stop()
+        self._dashboard_panel.stop()   # B6: live dashboard stops with the run
         self._run_btn.setEnabled(True)
         self._stop_btn.setEnabled(False)
         if self._stop_requested:
