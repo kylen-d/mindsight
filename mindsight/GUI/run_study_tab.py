@@ -707,13 +707,24 @@ class RunStudyTab(QWidget):
         (keeping the current selection when it survives)."""
         if not self._project:
             return
-        from .run_outputs import discover_run_outputs
+        from .run_outputs import discover_global_outputs, discover_run_outputs
         try:
             outputs = discover_run_outputs(self._project.runs())
         except Exception as exc:
             self._append_log(f"[WARN] could not scan run outputs: {exc}")
             return
         self._run_outputs = {o.run_id: o for o in outputs}
+        # Project-level aggregates (Global_*.csv + By Condition/) are staged by
+        # no RunSpec -- surface them as a "Global (project)" entry in both
+        # selectors when the batch post-processing has written any.  Resolve the
+        # output root the same way the runner does (Project._out_root).
+        try:
+            glob = discover_global_outputs(self._project._out_root())
+        except Exception as exc:
+            glob = None
+            self._append_log(f"[WARN] could not scan global outputs: {exc}")
+        if glob is not None:
+            self._run_outputs[glob.run_id] = glob
         for combo, on_change in ((self._charts_run, self._render_charts),
                                  (self._csv_run, self._populate_csv_files)):
             current = combo.currentText()
@@ -830,10 +841,11 @@ class RunStudyTab(QWidget):
             self._csv_table.setRowCount(0)
             self._csv_table.setColumnCount(0)
             self._csv_note.setText("")
+            self._csv_note.setStyleSheet("color: #888; font-size: 11px;")
             return
         from .run_outputs import load_csv_rows
         try:
-            header, rows, truncated = load_csv_rows(path)
+            header, rows, total_rows = load_csv_rows(path)
         except Exception as exc:
             self._csv_note.setText(f"Could not read CSV: {exc}")
             return
@@ -843,9 +855,19 @@ class RunStudyTab(QWidget):
         for r, row in enumerate(rows):
             for c, val in enumerate(row[:len(header)]):
                 self._csv_table.setItem(r, c, QTableWidgetItem(val))
-        self._csv_note.setText(
-            f"{Path(path).name}: {len(rows)} row(s)"
-            + (" (truncated to the first 1000)" if truncated else ""))
+        name = Path(path).name
+        if total_rows > len(rows):
+            # Loud, warn-coloured so a capped view is never mistaken for the
+            # run's true row count.
+            self._csv_note.setText(
+                f"{name}: showing first {len(rows):,} of {total_rows:,} rows"
+                " -- open the file for the full data")
+            self._csv_note.setStyleSheet(
+                f"color: {_SEV_COLOUR['warn']}; font-size: 11px;"
+                " font-weight: bold;")
+        else:
+            self._csv_note.setText(f"{name}: {total_rows:,} row(s)")
+            self._csv_note.setStyleSheet("color: #888; font-size: 11px;")
 
     # ── Project open / recent ────────────────────────────────────────────────
 

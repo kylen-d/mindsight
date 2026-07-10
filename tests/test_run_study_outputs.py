@@ -95,9 +95,77 @@ def test_load_csv_rows_truncates(tmp_path):
     from mindsight.GUI.run_outputs import load_csv_rows
     p = tmp_path / "big.csv"
     p.write_text("h1,h2\n" + "\n".join(f"{i},{i}" for i in range(50)))
-    header, rows, truncated = load_csv_rows(p, max_rows=10)
+    header, rows, total_rows = load_csv_rows(p, max_rows=10)
     assert header == ["h1", "h2"]
-    assert len(rows) == 10 and truncated is True
+    # capped view, but the FULL row count is still reported (all 50 rows).
+    assert len(rows) == 10 and total_rows == 50
+
+
+def test_load_csv_rows_untruncated_reports_full_count(tmp_path):
+    from mindsight.GUI.run_outputs import load_csv_rows
+    p = tmp_path / "small.csv"
+    p.write_text("h1,h2\n" + "\n".join(f"{i},{i}" for i in range(5)))
+    header, rows, total_rows = load_csv_rows(p, max_rows=10)
+    assert len(rows) == 5 and total_rows == 5
+
+
+def test_discover_run_outputs_stem_no_prefix_collision(tmp_path):
+    """stem 'video1' must NOT swallow 'video10_*.csv' in a shared flat dir."""
+    from mindsight.GUI.run_outputs import discover_run_outputs
+
+    csv_dir = tmp_path / "Outputs" / "CSV Files"
+    csv_dir.mkdir(parents=True)
+    for stem in ("video1", "video10"):
+        (csv_dir / f"{stem}_summary.csv").write_text(_SUMMARY)
+        (csv_dir / f"{stem}_Events.csv").write_text(_EVENTS)
+        (csv_dir / f"{stem}_scanpath.csv").write_text("a,b\n1,2\n")
+
+    class _Spec:
+        def __init__(self, stem):
+            self.run_id = f"{stem}.mp4"
+            self.source = f"{stem}.mp4"
+            self.output_paths = {
+                "summary": str(csv_dir / f"{stem}_summary.csv"),
+                "log": str(csv_dir / f"{stem}_Events.csv"),
+            }
+
+    outs = {o.run_id: o for o in discover_run_outputs(
+        [_Spec("video1"), _Spec("video10")])}
+    names = [p.name for p in outs["video1.mp4"].csv_paths]
+    assert names == ["video1_Events.csv", "video1_scanpath.csv",
+                     "video1_summary.csv"]
+    assert not any("video10" in n for n in names)
+
+
+def test_discover_global_outputs(tmp_path):
+    from mindsight.GUI.run_outputs import discover_global_outputs
+
+    out_root = tmp_path / "Outputs"
+    csv_dir = out_root / "CSV Files"
+    cond_dir = out_root / "By Condition"
+    csv_dir.mkdir(parents=True)
+    cond_dir.mkdir(parents=True)
+    (csv_dir / "Global_summary.csv").write_text(_SUMMARY)
+    (csv_dir / "Global_Events.csv").write_text(_EVENTS)
+    (csv_dir / "Global_scanpath.csv").write_text("a,b\n1,2\n")
+    # a per-run file in the same dir must NOT be picked up as a global.
+    (csv_dir / "a_summary.csv").write_text(_SUMMARY)
+    (cond_dir / "GroupA_summary.csv").write_text(_SUMMARY)
+
+    out = discover_global_outputs(out_root)
+    assert out is not None
+    assert out.run_id == "Global (project)" and out.stem == "Global"
+    assert out.summary.name == "Global_summary.csv"
+    assert out.events.name == "Global_Events.csv"
+    names = [p.name for p in out.csv_paths]
+    assert names == ["GroupA_summary.csv", "Global_Events.csv",
+                     "Global_scanpath.csv", "Global_summary.csv"]
+    assert "a_summary.csv" not in names
+
+
+def test_discover_global_outputs_absent(tmp_path):
+    from mindsight.GUI.run_outputs import discover_global_outputs
+    assert discover_global_outputs(tmp_path / "Outputs") is None
 
 
 # ── Qt panel ─────────────────────────────────────────────────────────────────
@@ -139,6 +207,44 @@ def test_output_tabs_render_from_written_csvs(qapp, tmp_path):
 
     # HARD CONSTRAINT: rendering wrote NOTHING into the Outputs tree
     after = sorted(p.name for p in (proj / "Outputs" / "CSV Files").iterdir())
+    assert after == before
+
+
+def test_output_tabs_include_global_entry(qapp, tmp_path):
+    from mindsight.GUI.run_study_tab import RunStudyTab
+    proj = _make_project(tmp_path)
+    csv_dir = proj / "Outputs" / "CSV Files"
+    (csv_dir / "Global_summary.csv").write_text(_SUMMARY)
+    (csv_dir / "Global_Events.csv").write_text(_EVENTS)
+    cond = proj / "Outputs" / "By Condition"
+    cond.mkdir(parents=True)
+    (cond / "GroupA_summary.csv").write_text(_SUMMARY)
+    before = sorted(str(p.relative_to(proj))
+                    for p in (proj / "Outputs").rglob("*") if p.is_file())
+
+    tab = RunStudyTab()
+    tab._open_project(str(proj))
+
+    # Both selectors list the project-level aggregate entry (after the runs).
+    runs = [tab._csv_run.itemText(i) for i in range(tab._csv_run.count())]
+    assert "a.mp4" in runs and "Global (project)" in runs
+
+    idx = tab._csv_run.findText("Global (project)")
+    tab._csv_run.setCurrentIndex(idx)
+    files = [tab._csv_file.itemText(i) for i in range(tab._csv_file.count())]
+    assert "Global_summary.csv" in files
+    assert "Global_Events.csv" in files
+    assert "GroupA_summary.csv" in files
+
+    # Charts render from the Global summary/Events (prefixed columns tolerated).
+    cidx = tab._charts_run.findText("Global (project)")
+    tab._charts_run.setCurrentIndex(cidx)
+    assert tab._chart_canvas is not None
+    assert tab._chart_canvas.isVisibleTo(tab._output_tabs.widget(1))
+
+    # HARD CONSTRAINT: surfacing the aggregates wrote NOTHING new to Outputs.
+    after = sorted(str(p.relative_to(proj))
+                   for p in (proj / "Outputs").rglob("*") if p.is_file())
     assert after == before
 
 

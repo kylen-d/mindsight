@@ -36,7 +36,7 @@ class UiField:
     schema home (fully specified here)."""
     dest: str
     schema_path: str | None
-    widget: str                       # 'spin' | 'double' | 'check' | 'combo' | 'line'
+    widget: str                       # 'spin'|'double'|'check'|'combo'|'line'|'path'
     default: object
     label: str
     tooltip: str = ""
@@ -47,6 +47,7 @@ class UiField:
     decimals: int | None = None
     choices: tuple | None = None
     inverted: bool = False            # checkbox whose dest value = not checked
+    file_filter: str | None = None    # 'path' widget file-dialog filter (e.g. "*.pt")
 
 
 @dataclass(frozen=True)
@@ -68,6 +69,7 @@ class UiGroup:
     toggle_choices: tuple | None = None
     toggle_label: str = ""
     toggle_tooltip: str = ""
+    toggle_filter: str | None = None   # 'path' owner file-dialog filter
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -79,8 +81,8 @@ class UiGroup:
 
 _EXCLUDED_FIELDS: dict[str, dict] = {
     # Gaze-LLE blend model wiring (rendered inside the blend group).
-    "rf_gazelle_model": dict(group="gazelle_blend", widget="line", default=None,
-                             label="Model"),
+    "rf_gazelle_model": dict(group="gazelle_blend", widget="path", default=None,
+                             label="Model", file_filter="*.pt"),
     "rf_gazelle_name": dict(
         group="gazelle_blend", widget="combo", default="gazelle_dinov2_vitb14",
         label="Variant",
@@ -295,6 +297,7 @@ def _toggle_kwargs(owner_dest: str, schema_idx: dict, help_by_flag: dict) -> dic
     return dict(toggle_dest=owner_dest, toggle_off_value=spec["default"],
                 toggle_owner_widget=spec["widget"],
                 toggle_on_default=spec["default"],
+                toggle_filter=spec.get("file_filter"),
                 toggle_label=spec.get("label", owner_dest),
                 toggle_tooltip=help_by_flag.get(flag) or "")
 

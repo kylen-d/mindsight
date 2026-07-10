@@ -4,7 +4,8 @@ D7).
 
 ``SchemaPanel(groups, show_advanced)`` renders the ``UiGroup`` tree from
 ``ui_spec.build_ui_spec()`` into spin / double-spin / checkbox / combo /
-line-edit controls inside (optionally checkable) QGroupBoxes, and exposes the
+line-edit / path (line-edit + Browse button) controls inside (optionally
+checkable) QGroupBoxes, and exposes the
 SAME namespace contract as the hand-written sections it will replace:
 ``namespace_values()`` / ``apply_namespace(ns)`` / ``reset_defaults()``.
 
@@ -27,6 +28,7 @@ from PyQt6.QtWidgets import (
     QCheckBox,
     QComboBox,
     QDoubleSpinBox,
+    QFileDialog,
     QGroupBox,
     QHBoxLayout,
     QLabel,
@@ -39,6 +41,7 @@ from PyQt6.QtWidgets import (
 from mindsight.PostProcessing.RayForming.ray_config import resolve_min_call_gap
 
 from .ui_spec import UiField, UiGroup, build_ui_spec
+from .widgets import _browse_btn
 
 
 class SchemaPanel(QWidget):
@@ -94,7 +97,7 @@ class SchemaPanel(QWidget):
                 idx = w.findText(str(f.default))
                 if idx >= 0:
                     w.setCurrentIndex(idx)
-        elif f.widget == "line":
+        elif f.widget in ("line", "path"):
             w = QLineEdit()
             w.setText("" if f.default is None else str(f.default))
         else:  # pragma: no cover - guarded by ui_spec tests
@@ -102,6 +105,21 @@ class SchemaPanel(QWidget):
         if f.tooltip:
             w.setToolTip(f.tooltip)
         return w
+
+    def _path_browse_btn(self, line_edit: QLineEdit, filt: str | None):
+        """A shared 'Browse...' button that fills *line_edit* from a file
+        dialog (same pattern as the hand-written backend checkpoint field)."""
+        btn = _browse_btn()
+        f = filt or "*"
+        btn.clicked.connect(
+            lambda _=False, le=line_edit, ft=f: self._browse_path(le, ft))
+        return btn
+
+    def _browse_path(self, line_edit: QLineEdit, filt: str = "*"):
+        path, _ = QFileDialog.getOpenFileName(
+            self, "Select file", "", f"Files ({filt});;All (*)")
+        if path:
+            line_edit.setText(path)
 
     def _add_field_row(self, f: UiField, layout: QVBoxLayout):
         control = self._make_control(f)
@@ -113,6 +131,8 @@ class SchemaPanel(QWidget):
         else:
             rlay.addWidget(QLabel(f.label))
             rlay.addWidget(control, 1)
+            if f.widget == "path":
+                rlay.addWidget(self._path_browse_btn(control, f.file_filter))
         layout.addWidget(row)
         self._fields[f.dest] = (f, control)
         if f.advanced:
@@ -139,7 +159,7 @@ class SchemaPanel(QWidget):
                     idx = inner.findText(str(group.toggle_on_default))
                     if idx >= 0:
                         inner.setCurrentIndex(idx)
-                else:  # line
+                else:  # line / path
                     inner = QLineEdit()
                     inner.setText("" if group.toggle_on_default is None
                                   else str(group.toggle_on_default))
@@ -150,6 +170,9 @@ class SchemaPanel(QWidget):
                 rlay.setContentsMargins(0, 0, 0, 0)
                 rlay.addWidget(QLabel(group.toggle_label))
                 rlay.addWidget(inner, 1)
+                if owner_w == "path":
+                    rlay.addWidget(
+                        self._path_browse_btn(inner, group.toggle_filter))
                 vbox.addWidget(row)
                 self._toggles[group.toggle_dest] = {
                     "group": box, "widget": owner_w, "inner": inner,
@@ -222,7 +245,7 @@ class SchemaPanel(QWidget):
             idx = w.findText(str(val).lower())
             if idx >= 0:
                 w.setCurrentIndex(idx)
-        elif f.widget == "line":
+        elif f.widget in ("line", "path"):
             w.setText("" if val is None else str(val))
 
     def _apply_toggle(self, dest: str, tg: dict, ns: Namespace):
@@ -232,7 +255,7 @@ class SchemaPanel(QWidget):
             group.setChecked(bool(getattr(ns, dest, off)))
             return
         val = getattr(ns, dest, off)
-        if tg["widget"] == "line":
+        if tg["widget"] in ("line", "path"):
             text = val or ""
             group.setChecked(bool(text))
             tg["inner"].setText(str(text))

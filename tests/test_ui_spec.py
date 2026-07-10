@@ -50,7 +50,7 @@ def test_every_field_fully_specified():
     """Each field carries a dest, a known widget type, a default, and a
     tooltip string (tooltips come from FlagSpec help; may be empty)."""
     groups = build_ui_spec()
-    known = {"spin", "double", "check", "combo", "line"}
+    known = {"spin", "double", "check", "combo", "line", "path"}
     for f in iter_fields(groups):
         assert isinstance(f, UiField)
         assert f.dest
@@ -68,7 +68,7 @@ def test_widget_types_match_schema():
     assert by_dest["conf_ray"].widget == "check"
     assert by_dest["detect_extend_scope"].widget == "combo"
     assert by_dest["depth_backend"].widget == "combo"
-    # rf_gazelle_model is a toggle owner (line-edit) -- see test_toggle_groups_resolve.
+    # rf_gazelle_model is a toggle owner (path field) -- see test_toggle_groups_resolve.
 
 
 def test_harvested_ranges_present():
@@ -115,10 +115,11 @@ def test_toggle_groups_resolve():
     assert tg["adaptive_snap"].toggle_on_default == "extend"
     assert tg["smoothing"].toggle_off_value == "off"
     assert tg["smoothing"].toggle_on_default == "all"
-    # line owner: rf_gazelle_model, off = None.
+    # path owner: rf_gazelle_model, off = None, *.pt file filter.
     assert tg["gazelle_blend"].toggle_dest == "rf_gazelle_model"
     assert tg["gazelle_blend"].toggle_off_value is None
-    assert tg["gazelle_blend"].toggle_owner_widget == "line"
+    assert tg["gazelle_blend"].toggle_owner_widget == "path"
+    assert tg["gazelle_blend"].toggle_filter == "*.pt"
 
 
 def test_advanced_filtering():

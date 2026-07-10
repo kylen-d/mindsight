@@ -52,8 +52,10 @@ def discover_run_outputs(specs) -> list:
         run_dir = summary.parent
         found = []
         if run_dir.is_dir():
+            # Underscore-anchored so stem "video1" does NOT swallow the legacy
+            # flat-layout "video10_*.csv" files sitting in the same directory.
             found = sorted(
-                p for p in run_dir.glob(f"{stem}*.csv") if p.is_file())
+                p for p in run_dir.glob(f"{stem}_*.csv") if p.is_file())
         if not found:
             continue
         out.append(RunOutputs(
@@ -66,27 +68,62 @@ def discover_run_outputs(specs) -> list:
     return out
 
 
+def discover_global_outputs(out_root) -> "RunOutputs | None":
+    """Return a :class:`RunOutputs` for the project-level aggregates, or None.
+
+    Scans ``<out_root>/CSV Files/`` for the ``Global_*.csv`` tables and
+    ``<out_root>/By Condition/`` (recursively) for every per-condition CSV --
+    the project-wide files ``mindsight.outputs.global_csv`` writes after all
+    per-run processing.  These are otherwise invisible in the GUI because no
+    ``RunSpec`` stages them.  Nothing is written here (D11).
+    """
+    out_root = Path(out_root)
+    csv_dir = out_root / "CSV Files"
+    cond_dir = out_root / "By Condition"
+    found: list = []
+    if csv_dir.is_dir():
+        found += [p for p in csv_dir.glob("Global_*.csv") if p.is_file()]
+    if cond_dir.is_dir():
+        found += [p for p in cond_dir.rglob("*.csv") if p.is_file()]
+    if not found:
+        return None
+    summary = csv_dir / "Global_summary.csv"
+    events = csv_dir / "Global_Events.csv"
+    return RunOutputs(
+        run_id="Global (project)",
+        stem="Global",
+        csv_paths=tuple(sorted(found)),
+        summary=summary if summary.is_file() else None,
+        events=events if events.is_file() else None,
+    )
+
+
 # ══════════════════════════════════════════════════════════════════════════════
 # CSV table loading (read-only viewer)
 # ══════════════════════════════════════════════════════════════════════════════
 
 
 def load_csv_rows(path, max_rows: int = 1000) -> tuple:
-    """Read a CSV: ``(header, rows, truncated)``, capped at *max_rows* rows."""
+    """Read a CSV: ``(header, rows, total_rows)``, capped at *max_rows* rows.
+
+    *total_rows* is the FULL data-row count (header excluded), even when the
+    returned *rows* are capped -- the rows past the cap are counted cheaply
+    (iterated, never stored) so the viewer can say "showing first N of M"
+    instead of implying the run only recorded ``max_rows`` frames.
+    """
     header: list = []
     rows: list = []
-    truncated = False
+    total_rows = 0
     with open(path, newline="") as fh:
         reader = csv.reader(fh)
         for i, row in enumerate(reader):
             if i == 0:
                 header = row
                 continue
-            if len(rows) >= max_rows:
-                truncated = True
-                break
-            rows.append(row)
-    return header, rows, truncated
+            total_rows += 1
+            if len(rows) < max_rows:
+                rows.append(row)
+    return header, rows, total_rows
 
 
 # ══════════════════════════════════════════════════════════════════════════════
