@@ -223,10 +223,15 @@ def test_run_folder_two_videos_raises(tmp_path):
 
 
 def test_run_folder_zero_videos_raises(tmp_path):
+    """UP5 premise change: a videoless folder WITH run.yaml is now a PLANNED
+    session (skipped, not an error); the raise belongs to yaml-less junk."""
     proj = tmp_path / "proj"
     folder = proj / "Inputs" / "Runs" / "run01"
     folder.mkdir(parents=True)
     (folder / "run.yaml").write_text("conditions: [x]\n")
+    assert discover_run_specs(proj, None, layout=RUN_FOLDER) == []
+    junk = proj / "Inputs" / "Runs" / "junk"
+    junk.mkdir()
     with pytest.raises(ValueError, match="no video"):
         discover_run_specs(proj, None, layout=RUN_FOLDER)
 

@@ -319,12 +319,27 @@ def _check_runs(runs, project: Path, layout: str) -> CheckResult:
             return CheckResult("runs_discovered", label, _FAIL,
                                "no run folders found in Inputs/Runs/",
                                "add a run folder Inputs/Runs/<run_id>/ with one video")
-        bad = [r["run_id"] for r in runs if len(r["info"].videos) != 1]
+        # UP5: run.yaml-without-video = a PLANNED live session, not an error.
+        from mindsight.project.staging import is_planned
+        planned = [r["run_id"] for r in runs if is_planned(r["info"])]
+        bad = [r["run_id"] for r in runs
+               if len(r["info"].videos) != 1 and r["run_id"] not in planned]
         if bad:
             return CheckResult("runs_discovered", label, _FAIL,
                                "run folder(s) not holding exactly one video: "
                                + ", ".join(bad),
                                "each Inputs/Runs/<run_id>/ needs exactly one primary video")
+        recorded = len(runs) - len(planned)
+        if planned and not recorded:
+            return CheckResult("runs_discovered", label, _WARN,
+                               f"all {len(planned)} session(s) awaiting "
+                               "recording",
+                               "record them live or attach their footage "
+                               "from the runs table in Analyze Footage")
+        if planned:
+            return CheckResult("runs_discovered", label, _OK,
+                               f"{recorded} run folder(s) discovered, "
+                               f"{len(planned)} session(s) awaiting recording")
         return CheckResult("runs_discovered", label, _OK,
                            f"{len(runs)} run folder(s) discovered")
     if not (project / "Inputs" / "Videos").is_dir():

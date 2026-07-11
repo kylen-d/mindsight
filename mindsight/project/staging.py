@@ -236,6 +236,98 @@ def inspect_run_folders(project) -> list:
 
 
 # ══════════════════════════════════════════════════════════════════════════════
+# Planned sessions (UP5) -- run.yaml present, no video yet; fulfilled by a
+# LIVE recording OR by attaching footage from a separate device (UP5r2)
+# ══════════════════════════════════════════════════════════════════════════════
+
+
+def is_planned(info: RunFolderInfo) -> bool:
+    """UP5 rule: a run folder with a ``run.yaml`` but NO primary video is a
+    PLANNED session -- awaiting footage, from a live recording or a file
+    recorded on another device (UP5r2).  A videoless folder without run.yaml
+    stays an error -- junk folders must not silently pass."""
+    return not info.videos and (info.folder / "run.yaml").is_file()
+
+
+def planned_runs(project) -> list:
+    """Every planned session in *project* (list of RunFolderInfo)."""
+    return [i for i in inspect_run_folders(project) if is_planned(i)]
+
+
+def plan_run(project, run_id, meta=None) -> Path:
+    """Create a PLANNED session folder: ``Inputs/Runs/<id>/run.yaml`` only,
+    no video yet (UP5 ruling 3 + r2: fulfilled later by a live recording or
+    attached footage).  Collision-safe like :func:`stage_run`; *meta* uses
+    the same Q2 keys.  Returns the created folder."""
+    project = Path(project)
+    _validated_meta(meta)                       # plain-English errors first
+    runs_dir = _runs_dir(project)
+    runs_dir.mkdir(parents=True, exist_ok=True)
+    base = _sanitize_run_id(str(run_id))
+    run_dir = runs_dir / base
+    n = 2
+    while run_dir.exists():
+        run_dir = runs_dir / f"{base}_{n}"
+        n += 1
+    run_dir.mkdir()
+    _write_run_yaml(run_dir, dict(meta or {}))
+    # An empty meta still needs the file -- run.yaml IS the planned marker.
+    (run_dir / "run.yaml").touch(exist_ok=True)
+    return run_dir
+
+
+def attach_recording(project, run_id, recording, *, sidecar=None,
+                     meta=None, mode="move") -> Path:
+    """Stage footage as run *run_id*'s primary video (UP5/UP5r2).
+
+    Fills a PLANNED folder, or creates the folder for an ad-hoc session.  The
+    footage lands as ``<run_id><suffix>`` -- ``mode="move"`` (default; right
+    for a live capture's temp file) or ``mode="copy"`` (right for footage
+    recorded on a separate device: the original stays untouched, matching the
+    wizard's copy default).  *meta* (Q2 keys) merges over any existing
+    run.yaml values; the capture-timestamps *sidecar* moves alongside
+    (non-media, so discovery never sees it).  Returns the staged video path.
+    Raises plain-English ``ValueError`` on missing footage or a run that
+    already holds a video.
+    """
+    project = Path(project)
+    recording = Path(recording)
+    if not recording.is_file():
+        raise ValueError(f"recording not found: {recording}")
+    rid = _sanitize_run_id(str(run_id))
+    run_dir = _runs_dir(project) / rid
+    run_dir.mkdir(parents=True, exist_ok=True)
+    existing = _primary_videos(run_dir)
+    if existing:
+        raise ValueError(
+            f"run '{rid}' already has a video ({existing[0].name}) -- "
+            "record into a new or planned session instead")
+    if meta:
+        _validated_meta(meta)
+        current = parse_run_yaml(run_dir / "run.yaml")
+        data: dict = {}
+        if current.pid_map:
+            data["participants"] = dict(current.pid_map)
+        if current.conditions:
+            data["conditions"] = list(current.conditions)
+        data.update({k: v for k, v in dict(current.manifest_meta).items()
+                     if v is not None})
+        data.update({k: v for k, v in dict(meta).items() if v is not None})
+        _write_run_yaml(run_dir, data)
+        (run_dir / "run.yaml").touch(exist_ok=True)
+    dest = run_dir / (rid + recording.suffix.lower())
+    if mode == "copy":
+        shutil.copy2(str(recording), str(dest))
+    else:
+        shutil.move(str(recording), str(dest))
+    if sidecar is not None and Path(sidecar).is_file():
+        # Rename to the run's identity -- the temp capture name is noise.
+        shutil.move(str(sidecar),
+                    str(run_dir / f"{rid}_capture_timestamps.csv"))
+    return dest
+
+
+# ══════════════════════════════════════════════════════════════════════════════
 # Output-path placement
 # ══════════════════════════════════════════════════════════════════════════════
 
@@ -317,6 +409,8 @@ def _run_folder_specs(project: Path, project_cfg, *, pid_maps):
         if info.meta.error:
             raise ValueError(f"Run folder '{rid}': {info.meta.error}")
         if not info.videos:
+            if is_planned(info):
+                continue    # UP5: planned live session -- awaiting recording
             raise ValueError(
                 f"Run folder '{rid}' has no video -- expected exactly one "
                 f"primary video in Inputs/Runs/{rid}/")
@@ -593,7 +687,7 @@ def _run_timestamp() -> str:
     return _dt.datetime.now().strftime("%Y%m%d-%H%M%S")
 
 
-def camera_run_spec(index: int, output_dir) -> RunSpec:
+def camera_run_spec(index: int, output_dir, meta=None) -> RunSpec:
     """A one-off :class:`RunSpec` for a live-camera quick run (UP1 D2).
 
     No staging, no ledger: the capture writes the same project-shaped CSVs +
@@ -611,13 +705,14 @@ def camera_run_spec(index: int, output_dir) -> RunSpec:
         raise ValueError(
             "choose an output directory -- a live camera capture has no source "
             "folder to write beside, so one must be given")
+    parsed = _validated_meta(meta)              # UP5: optional session details
     run_id = _sanitize_run_id(f"camera{index}_{_run_timestamp()}")
     out_dir = Path(output_dir)
     return RunSpec(
         run_id=run_id,
         source=str(index),
-        pid_map={},
-        conditions="",
+        pid_map=parsed.pid_map or {},
+        conditions="|".join(parsed.conditions) if parsed.conditions else "",
         aux_streams=None,
         output_paths={
             'save':    str(out_dir / f"{run_id}_Video_Output.mp4"),
@@ -625,7 +720,7 @@ def camera_run_spec(index: int, output_dir) -> RunSpec:
             'summary': str(out_dir / f"{run_id}_summary.csv"),
             'heatmap': str(out_dir / f"{run_id}_Heatmap"),
         },
-        meta={},
+        meta=dict(parsed.manifest_meta),
     )
 
 

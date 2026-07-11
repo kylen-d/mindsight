@@ -366,12 +366,13 @@ class MainWindow(QMainWindow):
             getattr(self._vp_tab, "_vp_worker", None),
             getattr(self._run_study_tab, "_worker", None),
             getattr(self._run_study_tab, "_one_off_worker", None),
+            getattr(self._run_study_tab, "_recorder", None),   # UP5 capture
         ) if w is not None and w.is_alive()]
         if workers:
             reply = QMessageBox.question(
                 self, "Run in progress",
-                "A run is still in progress. Stop it and finalize its "
-                "outputs before quitting?",
+                "A run or live recording is still in progress. Stop it and "
+                "finalize its outputs before quitting?",
                 QMessageBox.StandardButton.Yes
                 | QMessageBox.StandardButton.Cancel)
             if reply != QMessageBox.StandardButton.Yes:

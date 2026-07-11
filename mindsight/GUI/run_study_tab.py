@@ -518,8 +518,15 @@ class RunStudyTab(QWidget):
         self._rerun_all_btn.clicked.connect(self._toggle_rerun_all)
         add_run_btn = QPushButton("Add single run...")
         add_run_btn.clicked.connect(self._add_single_run)
+        self._record_btn = QPushButton("⏺ Record Session...")
+        self._record_btn.setToolTip(
+            "Record a live session with this camera into the project -- the "
+            "raw feed becomes the run's video and analysis starts when you "
+            "end the session (UP5)")
+        self._record_btn.clicked.connect(self._record_session_dialog)
         ctl_row.addWidget(self._rerun_all_btn)
         ctl_row.addWidget(add_run_btn)
+        ctl_row.addWidget(self._record_btn)
         ctl_row.addStretch(1)
         runs_lay.addLayout(ctl_row)
         left_split.addWidget(runs_grp)
@@ -587,6 +594,11 @@ class RunStudyTab(QWidget):
         # status-bar Run/Stop buttons for this tab anymore (UP1r3).
         self._running = False
         self._run_kind = None            # "project" | "quick" while running
+        # UP5 live-session recording state.
+        self._recorder = None
+        self._recording_meta = None
+        self._record_timer = QTimer(self)
+        self._record_timer.timeout.connect(self._recording_tick)
         from .settings_manager import SettingsManager
         saved = SettingsManager().load_gui_state().get("analyze_mode")
         self._set_mode(saved if saved in _MODES else "project", persist=False)
@@ -759,6 +771,28 @@ class RunStudyTab(QWidget):
         out_row.addWidget(out_browse)
         lay.addLayout(out_row)
 
+        # UP5 ruling 2: one-off live captures can carry session details (for
+        # labs using MindSight alongside other tools, without a project).
+        details = CollapsibleGroupBox("Session details (optional)")
+        inner = QWidget()
+        dform = QFormLayout(inner)
+        dform.setContentsMargins(4, 2, 4, 2)
+        self._cam_participants = QLineEdit()
+        self._cam_participants.setPlaceholderText(
+            "left to right on screen, comma-separated -- e.g. S80, S81")
+        dform.addRow("Participants:", self._cam_participants)
+        self._cam_conditions = QLineEdit()
+        self._cam_conditions.setPlaceholderText(
+            "optional -- separate multiple with |")
+        dform.addRow("Conditions:", self._cam_conditions)
+        self._cam_session = QLineEdit()
+        dform.addRow("Session:", self._cam_session)
+        self._cam_notes = QLineEdit()
+        dform.addRow("Notes:", self._cam_notes)
+        details.set_content(inner)
+        details.setChecked(False)
+        lay.addWidget(details)
+
         bottom = QHBoxLayout()
         self._camera_preset = QLabel("")
         self._camera_preset.setStyleSheet("color: #888;")
@@ -848,7 +882,15 @@ class RunStudyTab(QWidget):
     def _update_go_buttons(self):
         """One primary button per source card: green go, flipping to a red
         Stop while ANY run is live (stopping is global, whichever card shows).
-        The project Run greys out until a project is open."""
+        The project Run greys out until a project is open.  While a live
+        session records (UP5), the project button is the red End Session."""
+        if self._recorder is not None:
+            self._project_go.setText("■  End Session")
+            self._project_go.setStyleSheet(_GO_RED)
+            self._project_go.setEnabled(True)
+            for btn in (self._video_go, self._camera_go):
+                btn.setEnabled(False)
+            return
         running = self._running
         for btn, idle in ((self._project_go, "▶  Run"),
                           (self._video_go, "▶  Analyze"),
@@ -859,9 +901,11 @@ class RunStudyTab(QWidget):
         self._project_go.setEnabled(running or self._project is not None)
 
     def _go_clicked(self):
-        """The inline primary button: stop the live run, or launch the active
-        mode's run."""
-        if self._running:
+        """The inline primary button: end the recording, stop the live run,
+        or launch the active mode's run."""
+        if self._recorder is not None:
+            self._end_session_recording()
+        elif self._running:
             self._stop()
         elif self._mode == "project":
             self._start()
@@ -980,8 +1024,17 @@ class RunStudyTab(QWidget):
             return
         try:
             if camera:
+                meta = self._camera_session_meta()
                 spec = camera_run_spec(self._camera_combo.currentIndex(),
-                                       output_dir)
+                                       output_dir, meta=meta)
+                if meta:
+                    # A run.yaml-shaped record beside the outputs, so a
+                    # one-off is later importable into a project (UP5r2).
+                    out = Path(output_dir)
+                    out.mkdir(parents=True, exist_ok=True)
+                    (out / f"{spec.run_id}_session.yaml").write_text(
+                        yaml.dump(meta, default_flow_style=False,
+                                  sort_keys=False))
             else:
                 spec = single_run_spec(self._quick_video.text().strip(),
                                        meta=None, output_dir=output_dir)
@@ -989,6 +1042,23 @@ class RunStudyTab(QWidget):
             QMessageBox.warning(self, "Quick analysis", str(exc))
             return
         self._launch_one_off(spec)
+
+    def _camera_session_meta(self) -> dict:
+        """The camera card's optional session details as a Q2 meta dict."""
+        meta: dict = {}
+        labels = [p.strip() for p in self._cam_participants.text().split(",")
+                  if p.strip()]
+        if labels:
+            meta["participants"] = {i: lab for i, lab in enumerate(labels)}
+        tags = [t.strip() for t in self._cam_conditions.text().split("|")
+                if t.strip()]
+        if tags:
+            meta["conditions"] = tags
+        if self._cam_session.text().strip():
+            meta["session"] = self._cam_session.text().strip()
+        if self._cam_notes.text().strip():
+            meta["notes"] = self._cam_notes.text().strip()
+        return meta
 
     def _build_study_setup(self):
         grp = CollapsibleGroupBox("Study setup")
@@ -1593,11 +1663,14 @@ class RunStudyTab(QWidget):
             statuses = {s.run_id: s for s in self._project.status()}
             plan = self._project.decisions(
                 self._current_ns(), resume=self._resume)
+            from mindsight.project.staging import planned_runs
+            planned = planned_runs(self._project_path)
         except Exception as exc:
             self._append_log(f"[WARN] could not list runs: {exc}")
             return
         self._run_rows = {}
-        self._runs_table.setRowCount(len(specs))
+        self._planned_ids = {p.run_id for p in planned}
+        self._runs_table.setRowCount(len(specs) + len(planned))
         for i, spec in enumerate(specs):
             self._run_rows[spec.run_id] = i
             st = statuses.get(spec.run_id)
@@ -1612,6 +1685,21 @@ class RunStudyTab(QWidget):
             self._set_cell(i, 5, self._plan_text(plan.get(spec.run_id)))
             self._set_cell(i, 6, "")
             self._set_cell(i, 7, (st.error if st and st.error else ""))
+        # UP5: planned sessions -- awaiting a live recording or attached
+        # footage; right-click offers both.
+        for j, info in enumerate(planned):
+            i = len(specs) + j
+            pid = (", ".join(f"{k}:{v}"
+                             for k, v in (info.meta.pid_map or {}).items())
+                   or "—")
+            self._set_cell(i, 0, info.run_id)
+            self._set_cell(i, 1, "(no video yet)")
+            self._set_cell(i, 2, pid)
+            self._set_cell(i, 3, ", ".join(info.meta.conditions) or "—")
+            self._set_cell(i, 4, "awaiting recording")
+            self._set_cell(i, 5, "record live or attach footage")
+            self._set_cell(i, 6, "")
+            self._set_cell(i, 7, "")
 
     @staticmethod
     def _plan_text(decision) -> str:
@@ -1661,6 +1749,23 @@ class RunStudyTab(QWidget):
         if run_id_item is None:
             return
         run_id = run_id_item.text()
+        if run_id in getattr(self, "_planned_ids", set()):
+            # UP5: a planned session offers its two fulfillment paths.
+            menu = QMenu(self)
+            record_act = menu.addAction("Record this session...")
+            attach_act = menu.addAction("Attach footage...")
+            chosen = menu.exec(self._runs_table.viewport().mapToGlobal(pos))
+            if chosen == record_act:
+                from mindsight.project.staging import planned_runs
+                from .record_session_dialog import RecordSessionDialog
+                dlg = RecordSessionDialog(planned_runs(self._project_path),
+                                          self, preselect=run_id)
+                if dlg.exec():
+                    self._start_session_recording(dlg.camera_index,
+                                                  dlg.run_id, dlg.meta)
+            elif chosen == attach_act:
+                self._attach_footage(run_id)
+            return
         menu = QMenu(self)
         edit_act = menu.addAction("Edit run...")
         rerun_act = menu.addAction("Re-run this run")
@@ -1875,6 +1980,128 @@ class RunStudyTab(QWidget):
         self._charts_hint.setVisible(False)
         self._stop_requested = False
         self._poll_timer.start(60)
+
+    # ── Live session recording (UP5) ─────────────────────────────────────────
+
+    def _record_session_dialog(self):
+        if not self._project:
+            QMessageBox.information(self, "Record Live Session",
+                                    "Open a project first.")
+            return
+        if self._recorder is not None or self._any_worker_alive():
+            self._append_log(
+                "A run or recording is already in progress -- finish it "
+                "first.")
+            return
+        from mindsight.project.staging import planned_runs
+        from .record_session_dialog import RecordSessionDialog
+        dlg = RecordSessionDialog(planned_runs(self._project_path), self)
+        if dlg.exec():
+            self._start_session_recording(dlg.camera_index, dlg.run_id,
+                                          dlg.meta)
+
+    def _start_session_recording(self, camera_index: int, run_id: str,
+                                 meta: dict):
+        """Begin the raw capture (record-then-analyze, UP5 ruling 1)."""
+        from mindsight.io.live_capture import LiveRecorder
+        from mindsight.project.staging import _sanitize_run_id
+        rid = _sanitize_run_id(run_id)
+        tmp = (self._project_path / "Inputs" / "Runs"
+               / f"_recording_{rid}.mp4")   # a FILE here is invisible to
+        tmp.parent.mkdir(parents=True, exist_ok=True)  # run discovery
+        self._recorder = LiveRecorder(str(camera_index), tmp)
+        self._recording_meta = (rid, meta)
+        self._recorder.start()
+        for w in (self._record_btn, self._rerun_all_btn):
+            w.setEnabled(False)
+        for b in self._mode_btns.values():
+            b.setEnabled(False)
+        self._update_go_buttons()
+        self._append_log(f"⏺ Recording session '{rid}' -- press End Session "
+                         "to stop and analyze.")
+        self._record_timer.start(200)
+
+    def _recording_tick(self):
+        rec = self._recorder
+        if rec is None:
+            self._record_timer.stop()
+            return
+        frame = rec.latest_frame()
+        if frame is not None:
+            pw = self._preview.width() or 480
+            ph = self._preview.height() or 320
+            self._preview.setPixmap(_bgr_to_pixmap(frame, pw, ph))
+        rid, _ = self._recording_meta
+        mins, secs = divmod(int(rec.elapsed), 60)
+        self._status_label.setText(
+            f"⏺ REC {rid} — {mins:02d}:{secs:02d} · "
+            f"{rec.frames_captured} frames")
+        self._status_label.setStyleSheet("color: #b22222; font-weight: bold;")
+        if not rec.is_alive() and rec.error:
+            # Camera died / never delivered -- surface it, clean up.
+            self._end_session_recording()
+
+    def _end_session_recording(self):
+        rec, (rid, meta) = self._recorder, self._recording_meta
+        self._record_timer.stop()
+        self._recorder = None
+        self._recording_meta = None
+        rec.stop()
+        rec.join(timeout=15)
+        for w in (self._record_btn, self._rerun_all_btn):
+            w.setEnabled(True)
+        for b in self._mode_btns.values():
+            b.setEnabled(True)
+        self._update_go_buttons()
+        self._status_label.setText(f"Open: {self._project_path.name}")
+        self._status_label.setStyleSheet("color: #2a7a2a; font-weight: bold;")
+        if rec.error:
+            QMessageBox.warning(
+                self, "Recording failed",
+                f"{rec.error}\n\nNothing was saved. Try Refresh in the "
+                "Record dialog to pick a different camera.")
+            if rec.dest.exists():
+                rec.dest.unlink()
+            return
+        from mindsight.project.staging import attach_recording
+        try:
+            dest = attach_recording(self._project_path, rid, rec.dest,
+                                    sidecar=rec.sidecar, meta=meta,
+                                    mode="move")
+        except ValueError as exc:
+            QMessageBox.warning(
+                self, "Could not stage the recording",
+                f"{exc}\n\nThe recording is safe at:\n{rec.dest}")
+            return
+        self._append_log(
+            f"Session '{rid}' recorded ({rec.frames_captured} frames, "
+            f"{rec.measured_fps:.1f} fps measured) -> {Path(dest).name}. "
+            "Starting analysis...")
+        self._open_project(str(self._project_path))   # rediscover runs
+        self._start()                                  # resume skips done runs
+
+    def _attach_footage(self, run_id: str):
+        """UP5r2: fulfill a planned session with footage from another device
+        (copied in; the original stays untouched)."""
+        path, _ = QFileDialog.getOpenFileName(
+            self, f"Attach footage for '{run_id}'", "",
+            "Video (*.mp4 *.mov *.avi *.mkv);;All (*)")
+        if not path:
+            return
+        from mindsight.project.staging import attach_recording
+        try:
+            attach_recording(self._project_path, run_id, path, mode="copy")
+        except ValueError as exc:
+            QMessageBox.warning(self, "Attach footage", str(exc))
+            return
+        self._append_log(f"Footage attached to session '{run_id}'.")
+        self._open_project(str(self._project_path))
+        if QMessageBox.question(
+                self, "Attach footage",
+                f"Footage attached to '{run_id}'. Analyze it now?",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+        ) == QMessageBox.StandardButton.Yes:
+            self._start()
 
     # ── Batch run / stop / poll ──────────────────────────────────────────────
 

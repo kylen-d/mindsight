@@ -318,10 +318,17 @@ class BuildProjectWizard(QDialog):
         add_files.clicked.connect(self._add_videos)
         add_dir = QPushButton("Add Folder...")
         add_dir.clicked.connect(self._add_folder)
+        add_planned = QPushButton("Add Planned Sessions...")
+        add_planned.setToolTip(
+            "Define sessions you will record live (or attach footage to) "
+            "AFTER creating the project -- they appear in Analyze Footage "
+            "as 'awaiting recording' (UP5)")
+        add_planned.clicked.connect(self._add_planned_sessions)
         rm = QPushButton("Remove selected")
         rm.clicked.connect(self._remove_videos)
         btn_row.addWidget(add_files)
         btn_row.addWidget(add_dir)
+        btn_row.addWidget(add_planned)
         btn_row.addWidget(rm)
         btn_row.addStretch(1)
         lay.addLayout(btn_row)
@@ -366,11 +373,35 @@ class BuildProjectWizard(QDialog):
             if not src.is_file() or src in existing:
                 continue
             self._videos.append({
+                "kind": "file",
                 "source": src,
                 "run_id": _sanitize_run_id(src.stem),
                 "meta": {},
                 "pixmap": None,
             })
+        self._refresh_video_table()
+
+    def _add_planned_sessions(self):
+        """UP5: sessions defined now, recorded (or footage-attached) later."""
+        from PyQt6.QtWidgets import QInputDialog
+        count, ok = QInputDialog.getInt(
+            self, "Add Planned Sessions",
+            "How many future sessions should this project expect?\n"
+            "(You can rename them in the table.)", 4, 1, 50)
+        if not ok:
+            return
+        existing = {v["run_id"].lower() for v in self._videos}
+        n = 1
+        added = 0
+        while added < count:
+            rid = f"session{n:02d}"
+            n += 1
+            if rid in existing:
+                continue
+            self._videos.append({"kind": "planned", "source": None,
+                                 "run_id": rid, "meta": {}, "pixmap": None})
+            existing.add(rid)
+            added += 1
         self._refresh_video_table()
 
     def _remove_videos(self):
@@ -387,15 +418,20 @@ class BuildProjectWizard(QDialog):
         for r, v in enumerate(self._videos):
             name_item = QTableWidgetItem(v["run_id"])
             self._video_table.setItem(r, 0, name_item)
-            src_item = QTableWidgetItem(str(v["source"]))
+            src_text = ("(planned -- record later)" if v["source"] is None
+                        else str(v["source"]))
+            src_item = QTableWidgetItem(src_text)
             src_item.setFlags(src_item.flags()
                               & ~Qt.ItemFlag.ItemIsEditable)
             self._video_table.setItem(r, 1, src_item)
-            try:
-                size = v["source"].stat().st_size / 1e6
-                size_text = f"{size:,.0f} MB"
-            except OSError:
-                size_text = "?"
+            if v["source"] is None:
+                size_text = "—"
+            else:
+                try:
+                    size = v["source"].stat().st_size / 1e6
+                    size_text = f"{size:,.0f} MB"
+                except OSError:
+                    size_text = "?"
             size_item = QTableWidgetItem(size_text)
             size_item.setFlags(size_item.flags()
                                & ~Qt.ItemFlag.ItemIsEditable)
@@ -405,13 +441,15 @@ class BuildProjectWizard(QDialog):
     def _validate_videos(self) -> bool:
         from mindsight.project.staging import _sanitize_run_id
         if not self._videos:
-            QMessageBox.warning(self, "Videos", "Add at least one video.")
+            QMessageBox.warning(self, "Videos",
+                                "Add at least one video or planned session.")
             return False
         # Pull (sanitized) edited run names back from the table.
         seen = set()
         for r, v in enumerate(self._videos):
             item = self._video_table.item(r, 0)
-            raw = (item.text().strip() if item else "") or v["source"].stem
+            fallback = v["source"].stem if v["source"] else v["run_id"]
+            raw = (item.text().strip() if item else "") or fallback
             run_id = _sanitize_run_id(raw)
             if run_id.lower() in seen:
                 QMessageBox.warning(
@@ -536,14 +574,22 @@ class BuildProjectWizard(QDialog):
         self._tag_jump.addItems([x["run_id"] for x in self._videos])
         self._tag_jump.setCurrentIndex(self._tag_index)
         self._tag_jump.blockSignals(False)
-        self._tag_file_label.setText(v["source"].name)
-        if v["pixmap"] is None:
-            v["pixmap"] = middle_frame_pixmap(v["source"]) or False
-        if v["pixmap"]:
-            self._tag_frame.setPixmap(v["pixmap"])
-        else:
+        if v["source"] is None:
+            self._tag_file_label.setText("(planned session)")
+            self._tag_frame.clear()
             self._tag_frame.setText(
-                "Preview unavailable -- you can still tag this video.")
+                "No video yet -- record this session (or attach its footage) "
+                "from Analyze Footage after creating the project.\n"
+                "You can still tag who/what it will be.")
+        else:
+            self._tag_file_label.setText(v["source"].name)
+            if v["pixmap"] is None:
+                v["pixmap"] = middle_frame_pixmap(v["source"]) or False
+            if v["pixmap"]:
+                self._tag_frame.setPixmap(v["pixmap"])
+            else:
+                self._tag_frame.setText(
+                    "Preview unavailable -- you can still tag this video.")
         # Restore any previously entered meta.
         meta = v["meta"]
         for i, edit in enumerate(self._participant_edits):
@@ -554,11 +600,12 @@ class BuildProjectWizard(QDialog):
         if self._cond_free is not None:
             self._cond_free.setText("|".join(tags))
         default_date = ""
-        try:
-            default_date = datetime.fromtimestamp(
-                v["source"].stat().st_mtime).strftime("%Y-%m-%d")
-        except OSError:
-            pass
+        if v["source"] is not None:
+            try:
+                default_date = datetime.fromtimestamp(
+                    v["source"].stat().st_mtime).strftime("%Y-%m-%d")
+            except OSError:
+                pass
         self._date_edit.setText(meta.get("date", default_date))
         self._session_edit.setText(str(meta.get("session", "") or ""))
         self._run_notes_edit.setText(meta.get("notes", "") or "")
@@ -710,12 +757,14 @@ class BuildProjectWizard(QDialog):
     def _refresh_review(self):
         tagged = sum(1 for v in self._videos
                      if v["meta"].get("participants"))
+        planned = sum(1 for v in self._videos if v["source"] is None)
+        files = len(self._videos) - planned
         mode = "copied" if self._copy_radio.isChecked() else "moved"
         conds = ", ".join(self.conditions()) or "none defined"
         lines = [
             f"<b>{self._name.text().strip()}</b> in "
             f"{self._location.text().strip()}",
-            f"{len(self._videos)} video(s), {mode} into the project "
+            f"{files} video(s) {mode} in + {planned} planned session(s) "
             f"({tagged} tagged, {len(self._videos) - tagged} to tag later)",
             f"Conditions: {conds}",
             f"Analysis settings: {self._pipeline_choice_text()}",
@@ -747,13 +796,19 @@ class BuildProjectWizard(QDialog):
         staged, failed = [], []
         for i, v in enumerate(self._videos):
             progress.setValue(i)
+            label = (v["run_id"] if v["source"] is None
+                     else v["source"].name)
             progress.setLabelText(
-                f"Adding {v['source'].name} ({i + 1}/{len(self._videos)})")
+                f"Adding {label} ({i + 1}/{len(self._videos)})")
             from PyQt6.QtWidgets import QApplication
             QApplication.processEvents()
             try:
-                stage_run(project, v["source"], v["meta"] or None,
-                          run_id=v["run_id"], mode=mode)
+                if v["source"] is None:
+                    from mindsight.project.staging import plan_run
+                    plan_run(project, v["run_id"], v["meta"] or None)
+                else:
+                    stage_run(project, v["source"], v["meta"] or None,
+                              run_id=v["run_id"], mode=mode)
                 staged.append(v["run_id"])
             except (ValueError, OSError) as exc:
                 failed.append(f"{v['run_id']}: {exc}")
