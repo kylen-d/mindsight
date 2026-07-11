@@ -180,9 +180,16 @@ under **File**) assembles the folder for you in five steps:
 2. **Videos** -- add your recordings. Each gets an editable, unique **run name**
    (this becomes its folder and output name). Files are **copied** into the
    project by default (safest); tick *move* only if you want the originals
-   gone from their old location. You can also add **planned sessions** --
-   named sessions with no video yet, to be recorded live or attached later
-   (see [recording sessions](#record-a-session-live)).
+   gone from their old location.
+
+    You do not need all the footage up front. **Add Planned Sessions...**
+    defines future sessions now -- name them and take their participant and
+    condition tags in the tagging step like any other video -- and they sit in
+    the project as *awaiting recording* until the day you record them live or
+    attach their footage (see [recording sessions](#record-a-session-live)).
+    If your study has a known schedule (say, ten weekly sessions), planning
+    them all at creation time means the metadata is done once and each
+    session day is just record-and-go.
 3. **Tag each video** -- one video at a time: a middle-frame preview on the
    left, and on the right the participant fields ("Leftmost person",
    "2nd from left", ... -- type each person's ID by their on-screen position),
@@ -280,6 +287,12 @@ automatically.
 To use footage recorded on another device (a camcorder, a phone), right-click
 the planned session's row and choose **Attach footage...** -- the file is
 copied in (your original is untouched) and MindSight offers to analyze it.
+
+Sessions do not have to be planned in the wizard to land in an existing
+project later: **⏺ Record Session...** can target *a new session* (named on
+the spot) just as well as a planned one, and footage that arrives as a file
+goes in through **Add single run...**. Planning ahead just means the tags are
+already filled in.
 
 ### Study-wide settings
 
@@ -384,6 +397,12 @@ If a camera captured more room than the study needs, or a device recorded at an
 odd frame rate, use **Crop & Adjust Videos...** on the project overview
 (Projects tab). Drag a rectangle over the preview to crop, or set a new frame
 rate; queue edits across several videos and apply them in one batch.
+
+Cropping is worth doing: MindSight generally performs best when the footage is
+**tightly cropped to the areas that matter to your study**. For a desk task,
+that means the participants and the desktop -- crop away the feet, the floor,
+and the blank space above their heads. Less irrelevant frame means fewer
+spurious detections and more of the resolution spent on faces and objects.
 
 - Edits are **non-destructive by default**: the untouched original is kept in
   an `original/` folder beside the video. (A warned checkbox overwrites
