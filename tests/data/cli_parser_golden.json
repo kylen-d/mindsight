@@ -235,7 +235,12 @@
       "type": null,
       "nargs": null,
       "const": null,
-      "choices": null,
+      "choices": [
+        "auto",
+        "cpu",
+        "cuda",
+        "mps"
+      ],
       "required": false,
       "metavar": null,
       "help": "Compute device for all backends: auto, cpu, cuda, or mps.  'auto' selects CUDA > MPS > CPU  (default: auto).",
@@ -1817,9 +1822,14 @@
       "type": null,
       "nargs": null,
       "const": null,
-      "choices": null,
+      "choices": [
+        "auto",
+        "cpu",
+        "cuda",
+        "mps"
+      ],
       "required": false,
-      "metavar": "DEV",
+      "metavar": null,
       "help": "Compute device: auto, cpu, cuda, or mps.  'auto' selects CUDA > MPS > CPU  (default: auto).",
       "group": "Gazelle backend"
     },

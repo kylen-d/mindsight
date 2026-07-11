@@ -257,7 +257,7 @@ class GazeEstimationGazelle(GazePlugin):
         )
         g.add_argument(
             "--gazelle-device",
-            default="auto", metavar="DEV",
+            default="auto", choices=("auto", "cpu", "cuda", "mps"),
             help=(
                 "Compute device: auto, cpu, cuda, or mps.  "
                 "'auto' selects CUDA > MPS > CPU  (default: auto)."

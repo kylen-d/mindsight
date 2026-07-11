@@ -31,6 +31,7 @@ _TAB_PROJECTS = 1
 _TAB_VP = 2
 _TAB_TUNING = 3
 _TAB_MODELS = 4
+_TAB_ABOUT = 5
 
 
 class MainWindow(QMainWindow):
@@ -38,7 +39,7 @@ class MainWindow(QMainWindow):
 
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("MindSight — Analyze Footage + Visual Prompt Builder")
+        self.setWindowTitle("MindSight")
         self.resize(1280, 800)
         self.setMinimumSize(900, 600)
 
@@ -62,11 +63,16 @@ class MainWindow(QMainWindow):
         self._projects_tab = ProjectsTab(settings=self._settings)
         self._projects_tab.open_in_analyze.connect(self._open_project_from_tab)
 
+        # About: program identity + in-app doc reader (eyes-on 2026-07-11).
+        from .about_tab import AboutTab
+        self._about_tab = AboutTab()
+
         tabs.addTab(self._run_study_tab, "  Analyze Footage  ")
         tabs.addTab(self._projects_tab, "  Projects  ")
         tabs.addTab(self._vp_tab, "  VP Builder  ")
         tabs.addTab(self._gaze_tab, "  Gaze Tuning  ")
         tabs.addTab(self._models_tab, "  Models  ")
+        tabs.addTab(self._about_tab, "  About  ")
 
         # ── Menu bar ──────────────────────────────────────────────────────────
         self._build_menu_bar()
@@ -157,12 +163,8 @@ class MainWindow(QMainWindow):
         QDesktopServices.openUrl(QUrl(self._DOCS_URL))
 
     def _show_about(self):
-        """Show an About box carrying the installed version."""
-        from mindsight import __version__
-        QMessageBox.about(
-            self, "About MindSight",
-            f"MindSight {__version__}\n\n"
-            "Gaze-based social attention analysis for developmental research.")
+        """Jump to the About tab (version, logo, in-app guides)."""
+        self._tabs.setCurrentIndex(_TAB_ABOUT)
 
     def _init_plugin_panels(self):
         """Initialise and embed the plugin panel into the Gaze Tuning tab.
@@ -270,7 +272,9 @@ class MainWindow(QMainWindow):
         # Models (tab 3) has no status-bar action.
 
     def _on_tab_changed(self, index: int):
-        """Show only the buttons relevant to the active tab (T11)."""
+        """Show only the buttons relevant to the active tab (T11); the title
+        bar follows the tab (eyes-on 2026-07-11)."""
+        self.setWindowTitle(f"MindSight — {self._tabs.tabText(index).strip()}")
         for btn in self._analyze_buttons:
             btn.setVisible(index == _TAB_ANALYZE)
         for btn in self._vp_buttons:

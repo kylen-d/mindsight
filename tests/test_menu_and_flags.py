@@ -100,18 +100,20 @@ def test_documentation_action_opens_docs_url(qapp, monkeypatch):
         win.close()
 
 
-def test_about_carries_version(qapp, monkeypatch):
-    import mindsight.GUI.main_window as mw
+def test_about_opens_about_tab_with_version(qapp):
+    # Eyes-on 2026-07-11: Help > About jumps to the About TAB (hero page
+    # carrying the version) instead of the retired QMessageBox popup.
+    from PyQt6.QtWidgets import QLabel
+
     from mindsight import __version__
-    from mindsight.GUI.main_window import MainWindow
+    from mindsight.GUI.main_window import _TAB_ABOUT, MainWindow
     win = MainWindow()
     try:
-        shown = []
-        # Assert the About text carries __version__ WITHOUT exec'ing a modal.
-        monkeypatch.setattr(mw.QMessageBox, "about",
-                            lambda parent, title, text: shown.append(text))
         _action(_submenu(win, "&Help"), "About MindSight").trigger()
-        assert shown and __version__ in shown[0]
+        assert win._tabs.currentIndex() == _TAB_ABOUT
+        hero = win._about_tab._stack.widget(0)
+        labels = [lab.text() for lab in hero.findChildren(QLabel)]
+        assert any(__version__ in t for t in labels)
     finally:
         win.close()
 

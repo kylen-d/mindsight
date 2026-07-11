@@ -5,7 +5,8 @@ usage: MindSight -- Eye-Gaze Intersection Tracker [-h] [--source SOURCE] [--save
                                                   [--preflight] [--participant-ids IDS]
                                                   [--participant-csv CSV]
                                                   [--aux-stream SOURCE:VIDEO_TYPE:LABEL:PIDS]
-                                                  [--aux-auto-detect] [--device DEVICE]
+                                                  [--aux-auto-detect]
+                                                  [--device {auto,cpu,cuda,mps}]
                                                   [--anonymize {blur,black}]
                                                   [--anonymize-padding FRAC] [--fast]
                                                   [--skip-phenomena N] [--lite-overlay]
@@ -68,9 +69,10 @@ usage: MindSight -- Eye-Gaze Intersection Tracker [-h] [--source SOURCE] [--save
                                                   [--all-phenomena] [--gazelle-model PATH]
                                                   [--gazelle-name NAME]
                                                   [--gazelle-inout-threshold F]
-                                                  [--gazelle-device DEV] [--gazelle-skip-frames N]
-                                                  [--gazelle-fp16] [--gazelle-compile]
-                                                  [--iris-refine] [--iris-refine-weight F]
+                                                  [--gazelle-device {auto,cpu,cuda,mps}]
+                                                  [--gazelle-skip-frames N] [--gazelle-fp16]
+                                                  [--gazelle-compile] [--iris-refine]
+                                                  [--iris-refine-weight F]
                                                   [--iris-refine-upscale F]
                                                   [--mgaze-model MGAZE_MODEL]
                                                   [--mgaze-arch {resnet18,resnet34,resnet50,mobilenetv2,mobileone_s0,mobileone_s1,mobileone_s2,mobileone_s3,mobileone_s4}]
@@ -134,7 +136,8 @@ options:
                         Repeatable for multiple streams.
   --aux-auto-detect     Enable automatic face detection on wide/face auxiliary streams (default:
                         enabled).
-  --device DEVICE       Compute device for all backends: auto, cpu, cuda, or mps. 'auto' selects
+  --device {auto,cpu,cuda,mps}
+                        Compute device for all backends: auto, cpu, cuda, or mps. 'auto' selects
                         CUDA > MPS > CPU (default: auto).
   --anonymize {blur,black}
                         Anonymize faces in the output video: 'blur' applies heavy Gaussian blur,
@@ -324,7 +327,8 @@ Gazelle backend:
   --gazelle-inout-threshold F
                         In/out-of-view confidence threshold for *_inout model variants. No effect
                         on non-inout models (default: 0.5).
-  --gazelle-device DEV  Compute device: auto, cpu, cuda, or mps. 'auto' selects CUDA > MPS > CPU
+  --gazelle-device {auto,cpu,cuda,mps}
+                        Compute device: auto, cpu, cuda, or mps. 'auto' selects CUDA > MPS > CPU
                         (default: auto).
   --gazelle-skip-frames N
                         Reuse the previous gaze result for N frames between inference runs. 0 = no
