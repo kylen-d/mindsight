@@ -115,6 +115,22 @@ class MainWindow(QMainWindow):
         file_menu.addSeparator()
         file_menu.addAction("&Quit", self.close)
 
+        # View menu: theme (eyes-on 2026-07-11 -- auto follows the OS).
+        view_menu = menu.addMenu("&View")
+        theme_menu = view_menu.addMenu("&Theme")
+        from PyQt6.QtGui import QActionGroup
+        from .settings_manager import SettingsManager
+        from .theming import THEME_MODES
+        current = SettingsManager().load_gui_state().get("theme", "auto")
+        group = QActionGroup(self)
+        for mode in THEME_MODES:
+            act = theme_menu.addAction(mode.capitalize())
+            act.setCheckable(True)
+            act.setChecked(mode == current)
+            act.triggered.connect(
+                lambda _c, m=mode: self._set_theme(m))
+            group.addAction(act)
+
         # Tools menu (UP2 B2): the Inference Settings dialog entry point.
         tools_menu = menu.addMenu("&Tools")
         tools_menu.addAction("Inference Settings...",
@@ -165,6 +181,14 @@ class MainWindow(QMainWindow):
     def _show_about(self):
         """Jump to the About tab (version, logo, in-app guides)."""
         self._tabs.setCurrentIndex(_TAB_ABOUT)
+
+    def _set_theme(self, mode: str):
+        """Apply + persist a View > Theme choice."""
+        from PyQt6.QtWidgets import QApplication
+        from .settings_manager import SettingsManager
+        from .theming import apply_theme
+        apply_theme(QApplication.instance(), mode)
+        SettingsManager().save_gui_state({"theme": mode})
 
     def _init_plugin_panels(self):
         """Initialise and embed the plugin panel into the Gaze Tuning tab.
@@ -409,6 +433,12 @@ def main():
     """Entry point for the MindSight GUI application."""
     app = QApplication(sys.argv)
     app.setStyle("Fusion")
+    # Theme before any window exists; auto tracks the OS scheme live.
+    from .settings_manager import SettingsManager
+    from .theming import apply_theme, wire_auto_theme
+    apply_theme(app, SettingsManager().load_gui_state().get("theme", "auto"))
+    wire_auto_theme(
+        app, lambda: SettingsManager().load_gui_state().get("theme", "auto"))
     icon_path = Path(__file__).resolve().parents[2] / "assets" / "mindsight_icon.png"
     if icon_path.exists():
         app.setWindowIcon(QIcon(str(icon_path)))

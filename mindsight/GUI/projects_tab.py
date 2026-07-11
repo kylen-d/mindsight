@@ -71,6 +71,7 @@ class ProjectsTab(QWidget):
         super().__init__(parent)
         self._settings = settings
         self._current: Path | None = None
+        self._run_outputs_map: dict = {}
         self._stack = QStackedWidget()
         self._stack.addWidget(self._build_landing())
         self._stack.addWidget(self._build_overview())
@@ -201,8 +202,15 @@ class ProjectsTab(QWidget):
     # ── Overview ─────────────────────────────────────────────────────────────
 
     def _build_overview(self):
+        # Left column (runs + notes + outputs) | right data pane (eyes-on
+        # 2026-07-11: selected run's charts + CSV preview live here).
         page = QWidget()
-        lay = QVBoxLayout(page)
+        page_lay = QVBoxLayout(page)
+        page_lay.setContentsMargins(0, 0, 0, 0)
+        from PyQt6.QtWidgets import QSplitter
+        ov_split = QSplitter(Qt.Orientation.Horizontal)
+        left_col = QWidget()
+        lay = QVBoxLayout(left_col)
 
         head = QHBoxLayout()
         back = QPushButton("‹  All projects")
@@ -258,6 +266,7 @@ class ProjectsTab(QWidget):
             QAbstractItemView.SelectionBehavior.SelectRows)
         self._runs_table.setEditTriggers(
             QAbstractItemView.EditTrigger.NoEditTriggers)
+        self._runs_table.itemSelectionChanged.connect(self._on_run_selected)
         lay.addWidget(self._runs_table, 1)
 
         edit_hint = QLabel(
@@ -281,7 +290,25 @@ class ProjectsTab(QWidget):
         out_row.addWidget(open_charts)
         out_row.addStretch(1)
         lay.addLayout(out_row)
+
+        from .data_pane import RunDataPane
+        self._data_pane = RunDataPane()
+        ov_split.addWidget(left_col)
+        ov_split.addWidget(self._data_pane)
+        ov_split.setStretchFactor(0, 3)
+        ov_split.setStretchFactor(1, 2)
+        page_lay.addWidget(ov_split)
         return page
+
+    def _on_run_selected(self):
+        row = self._runs_table.currentRow()
+        item = self._runs_table.item(row, 0) if row >= 0 else None
+        if item is None:
+            self._data_pane.clear()
+            return
+        run_id = item.text()
+        self._data_pane.set_outputs(
+            run_id, self._run_outputs_map.get(run_id))
 
     def show_landing(self):
         self._current = None
@@ -302,11 +329,15 @@ class ProjectsTab(QWidget):
 
     def _refresh_runs(self):
         rows = []
+        self._run_outputs_map = {}
         try:
             from mindsight.project.project import Project
             from mindsight.project.staging import planned_runs
+            from .run_outputs import discover_run_outputs
             proj = Project.open(str(self._current))
             statuses = {s.run_id: s for s in proj.status()}
+            self._run_outputs_map = {
+                o.run_id: o for o in discover_run_outputs(proj.runs())}
             for spec in proj.runs():
                 st = statuses.get(spec.run_id)
                 pid = ", ".join(str(v) for v in (spec.pid_map or {}).values())

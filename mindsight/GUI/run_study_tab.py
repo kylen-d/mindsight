@@ -1275,52 +1275,17 @@ class RunStudyTab(QWidget):
 
     def _render_charts(self):
         """Render the selected run's phenomena charts in-GUI (display-only)
-        from its written summary/Events CSVs."""
-        out = self._run_outputs.get(self._charts_run.currentText())
-        if out is None or (out.summary is None and out.events is None):
-            self._chart_scroll.setVisible(False)
-            self._chart_placeholder.setVisible(True)
-            return
-
+        from its written summary/Events CSVs (shared builder: csv_charts)."""
         from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg
-        from matplotlib.figure import Figure
 
-        from .run_outputs import gaze_timeline, look_time_table
+        from .csv_charts import build_charts_figure
 
-        panels = []
-        if out.summary is not None:
-            try:
-                table = look_time_table(out.summary)
-                if table:
-                    panels.append(("look", table))
-            except Exception:
-                pass
-        if out.events is not None:
-            try:
-                objects, per = gaze_timeline(out.events)
-                if objects and per:
-                    panels.append(("timeline", (objects, per)))
-            except Exception:
-                pass
-        if not panels:
+        out = self._run_outputs.get(self._charts_run.currentText())
+        fig = build_charts_figure(out)
+        if fig is None:
             self._chart_scroll.setVisible(False)
             self._chart_placeholder.setVisible(True)
             return
-
-        fig = Figure(figsize=(6, 3.2 * len(panels)), facecolor="#121212")
-        for i, (kind, data) in enumerate(panels):
-            ax = fig.add_subplot(len(panels), 1, i + 1)
-            ax.set_facecolor("#1e1e1e")
-            ax.tick_params(colors="#cccccc", labelsize=8)
-            for spine in ax.spines.values():
-                spine.set_color("#2a2a2a")
-            if kind == "look":
-                self._draw_look_time(ax, data)
-            else:
-                self._draw_timeline(ax, *data)
-            ax.legend(fontsize=7, facecolor="#1e1e1e",
-                      labelcolor="#cccccc", edgecolor="#2a2a2a")
-        fig.tight_layout()
 
         if self._chart_canvas is None:
             self._chart_canvas = FigureCanvasQTAgg(fig)
@@ -1339,33 +1304,6 @@ class RunStudyTab(QWidget):
         self._chart_canvas.setVisible(True)
         self._chart_placeholder.setVisible(False)
         self._chart_canvas.draw_idle()
-
-    @staticmethod
-    def _draw_look_time(ax, table: dict):
-        objects = sorted({o for objs in table.values() for o in objs})
-        participants = sorted(table)
-        width = 0.8 / max(1, len(participants))
-        for pi, who in enumerate(participants):
-            vals = [table[who].get(o, 0.0) for o in objects]
-            xs = [i + pi * width for i in range(len(objects))]
-            ax.bar(xs, vals, width=width, label=who)
-        ax.set_xticks([i + 0.4 - width / 2 for i in range(len(objects))])
-        ax.set_xticklabels(objects, rotation=30, ha="right",
-                           color="#cccccc", fontsize=7)
-        ax.set_ylabel("% of video", color="#cccccc", fontsize=8)
-        ax.set_title("Object look time", color="#cccccc", fontsize=9,
-                     loc="left")
-
-    @staticmethod
-    def _draw_timeline(ax, objects: list, per: dict):
-        for who in sorted(per):
-            xs, ys = per[who]
-            ax.scatter(xs, ys, s=4, label=who)
-        ax.set_yticks(range(len(objects)))
-        ax.set_yticklabels(objects, color="#cccccc", fontsize=7)
-        ax.set_xlabel("t (seconds)", color="#cccccc", fontsize=8)
-        ax.set_title("Gaze target timeline", color="#cccccc", fontsize=9,
-                     loc="left")
 
     def _populate_csv_files(self):
         out = self._run_outputs.get(self._csv_run.currentText())
