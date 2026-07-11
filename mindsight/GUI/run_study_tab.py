@@ -1091,9 +1091,9 @@ class RunStudyTab(QWidget):
         pipe_row.addWidget(pipe_browse)
         lay.addLayout(pipe_row)
 
-        import_gaze = QPushButton("Import from Gaze Tuning")
+        import_gaze = QPushButton("Import from Inference Tuning")
         import_gaze.setToolTip(
-            "Write the current Gaze Tuning settings as this project's "
+            "Write the current Inference Tuning settings as this project's "
             "pipeline.yaml")
         import_gaze.clicked.connect(self._import_from_gaze)
         lay.addWidget(import_gaze)
@@ -1846,7 +1846,8 @@ class RunStudyTab(QWidget):
         if target.exists():
             reply = QMessageBox.question(
                 self, "Overwrite pipeline?",
-                f"{target.name} exists. Overwrite with Gaze Tuning settings?",
+                f"{target.name} exists. Overwrite with Inference Tuning "
+                "settings?",
                 QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
             if reply != QMessageBox.StandardButton.Yes:
                 return

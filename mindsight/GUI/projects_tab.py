@@ -24,11 +24,15 @@ from PyQt6.QtCore import Qt, QUrl, pyqtSignal
 from PyQt6.QtGui import QDesktopServices
 from PyQt6.QtWidgets import (
     QAbstractItemView,
+    QDialog,
+    QDialogButtonBox,
     QFileDialog,
+    QFormLayout,
     QHBoxLayout,
     QHeaderView,
     QInputDialog,
     QLabel,
+    QLineEdit,
     QMessageBox,
     QPushButton,
     QStackedWidget,
@@ -233,9 +237,19 @@ class ProjectsTab(QWidget):
         self._ov_notes.setWordWrap(True)
         lay.addWidget(self._ov_notes)
 
+        runs_head_row = QHBoxLayout()
         runs_head = QLabel("Runs")
         runs_head.setStyleSheet("font-weight: bold;")
-        lay.addWidget(runs_head)
+        runs_head_row.addWidget(runs_head)
+        runs_head_row.addStretch(1)
+        plan_btn = QPushButton("＋ Plan Session...")
+        plan_btn.setToolTip(
+            "Add a future session now -- name and tags only, no footage yet. "
+            "It shows as 'awaiting recording' until you record it live or "
+            "attach its footage in Analyze Footage (UP5).")
+        plan_btn.clicked.connect(self._plan_session)
+        runs_head_row.addWidget(plan_btn)
+        lay.addLayout(runs_head_row)
         self._runs_table = QTableWidget(0, len(_RUN_COLS))
         self._runs_table.setHorizontalHeaderLabels(_RUN_COLS)
         self._runs_table.horizontalHeader().setSectionResizeMode(
@@ -290,6 +304,7 @@ class ProjectsTab(QWidget):
         rows = []
         try:
             from mindsight.project.project import Project
+            from mindsight.project.staging import planned_runs
             proj = Project.open(str(self._current))
             statuses = {s.run_id: s for s in proj.status()}
             for spec in proj.runs():
@@ -298,12 +313,36 @@ class ProjectsTab(QWidget):
                 date = str((spec.meta or {}).get("date", "") or "")
                 rows.append((spec.run_id, pid, spec.conditions or "",
                              date, (st.status if st else "") or "not run"))
+            # Planned sessions (UP5): metadata staged, footage still to come.
+            for info in planned_runs(self._current):
+                pid = ", ".join(
+                    str(v) for v in (info.meta.pid_map or {}).values())
+                conds = "|".join(info.meta.conditions or [])
+                date = str(info.meta.manifest_meta.get("date", "") or "")
+                rows.append((info.run_id, pid, conds, date,
+                             "awaiting recording"))
         except Exception as exc:  # noqa: BLE001 -- unreadable project stays viewable
             rows = [("(could not read runs: %s)" % exc, "", "", "", "")]
         self._runs_table.setRowCount(len(rows))
         for r, row in enumerate(rows):
             for c, val in enumerate(row):
                 self._runs_table.setItem(r, c, QTableWidgetItem(str(val)))
+
+    def _plan_session(self):
+        """Add a planned session (UP5) to the open project: name + tags now,
+        footage recorded live or attached later from Analyze Footage."""
+        if not self._current:
+            return
+        dlg = _PlanSessionDialog(self)
+        if dlg.exec() != QDialog.DialogCode.Accepted:
+            return
+        from mindsight.project.staging import plan_run
+        try:
+            plan_run(self._current, dlg.run_id(), meta=dlg.meta())
+        except Exception as exc:  # noqa: BLE001 -- plain-English, not a crash
+            QMessageBox.warning(self, "Plan session", str(exc))
+            return
+        self._refresh_runs()
 
     def _open_crop_tool(self):
         """Launch the Crop & Adjust dialog (UP4); refresh runs afterwards."""
@@ -330,3 +369,67 @@ class ProjectsTab(QWidget):
                 "first.")
             return
         QDesktopServices.openUrl(QUrl.fromLocalFile(str(target)))
+
+
+class _PlanSessionDialog(QDialog):
+    """Name + tags for a future session -- no footage yet (UP5)."""
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Plan a session")
+        form = QFormLayout(self)
+        hint = QLabel(
+            "Define a session before its footage exists. It appears as "
+            "'awaiting recording' until you record it live (⏺ Record "
+            "Session) or attach its video, both in Analyze Footage.")
+        hint.setWordWrap(True)
+        hint.setStyleSheet("color: #888;")
+        form.addRow(hint)
+        self._name = QLineEdit()
+        self._name.setPlaceholderText("e.g. session03")
+        form.addRow("Session name:", self._name)
+        self._participants = QLineEdit()
+        self._participants.setPlaceholderText(
+            "left to right on screen, comma-separated -- e.g. S80, S81")
+        form.addRow("Participants:", self._participants)
+        self._conditions = QLineEdit()
+        self._conditions.setPlaceholderText(
+            "optional -- separate multiple with |")
+        form.addRow("Conditions:", self._conditions)
+        self._date = QLineEdit()
+        self._date.setPlaceholderText("optional -- YYYY-MM-DD")
+        form.addRow("Date:", self._date)
+        self._session = QLineEdit()
+        form.addRow("Session label:", self._session)
+        self._notes = QLineEdit()
+        form.addRow("Notes:", self._notes)
+        btns = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok
+                                | QDialogButtonBox.StandardButton.Cancel)
+        btns.accepted.connect(self._accept)
+        btns.rejected.connect(self.reject)
+        form.addRow(btns)
+
+    def _accept(self):
+        if not self._name.text().strip():
+            QMessageBox.warning(self, "Plan session", "Name the session.")
+            return
+        self.accept()
+
+    def run_id(self) -> str:
+        return self._name.text().strip()
+
+    def meta(self) -> dict:
+        meta: dict = {}
+        labels = [p.strip() for p in self._participants.text().split(",")
+                  if p.strip()]
+        if labels:
+            meta["participants"] = {i: lab for i, lab in enumerate(labels)}
+        tags = [t.strip() for t in self._conditions.text().split("|")
+                if t.strip()]
+        if tags:
+            meta["conditions"] = tags
+        for key, edit in (("date", self._date), ("session", self._session),
+                          ("notes", self._notes)):
+            if edit.text().strip():
+                meta[key] = edit.text().strip()
+        return meta

@@ -119,7 +119,7 @@ class InferenceSettingsDialog(QDialog):
         exp.clicked.connect(self._on_export_yaml)
         footer.addWidget(exp)
         if self._gaze_tab is not None:
-            gz = QPushButton("Import from Gaze Tuning...")
+            gz = QPushButton("Import from Inference Tuning...")
             gz.clicked.connect(self._on_import_gaze)
             footer.addWidget(gz)
         footer.addStretch(1)
