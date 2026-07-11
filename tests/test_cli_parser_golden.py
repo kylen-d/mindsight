@@ -65,8 +65,8 @@ def test_parser_prog_and_action_count():
     spec = _live_spec()
     golden = _load_golden()
     assert spec["prog"] == golden["prog"]
-    assert len(spec["actions"]) == 150
-    assert len(golden["actions"]) == 150
+    assert len(spec["actions"]) == 151
+    assert len(golden["actions"]) == 151
 
 
 def test_parser_spec_matches_golden():
@@ -97,7 +97,7 @@ def test_census_partition_welds_to_tables():
     spec = _live_spec()
     core = [a for a in spec["actions"] if a["group"] in CORE_GROUPS]
     plugin = [a for a in spec["actions"] if a["group"] not in CORE_GROUPS]
-    assert len(core) == 107
+    assert len(core) == 108
     assert len(plugin) == 43
 
     schema_cli: set[str] = set()
@@ -115,10 +115,10 @@ def test_census_partition_welds_to_tables():
 
     assert len(schema_cli) == 71
     assert len(CLI_ALIASES) == 12
-    assert len(EXCLUDED_CLI_FLAGS) == 24
+    assert len(EXCLUDED_CLI_FLAGS) == 25
 
     core_flags = {a["option_strings"][0] for a in core}
     union = schema_cli | set(CLI_ALIASES) | set(EXCLUDED_CLI_FLAGS)
     # disjoint and exactly covering the core flag set
-    assert len(union) == 107
+    assert len(union) == 108
     assert core_flags == union

@@ -93,6 +93,12 @@ _TAB_MODELS = SpecTab(
             SpecField("device", "Compute device",
                       "Where models run: Auto picks the best available "
                       "(NVIDIA GPU > Apple GPU > CPU)."),
+            SpecField("no_detector", "No object detection",
+                      "Run without an object-detection model: faces, gaze "
+                      "rays, and gaze-tip phenomena only. Object hits and "
+                      "object lock-on are disabled -- for lightweight "
+                      "attention studies. Not compatible with a visual "
+                      "prompt file."),
             SpecField("model", "Object detection model",
                       "The YOLO model that finds objects and people in each "
                       "frame. Smaller = faster, larger = more accurate."),

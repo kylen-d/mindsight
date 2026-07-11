@@ -614,6 +614,22 @@
     },
     {
       "option_strings": [
+        "--no-detector"
+      ],
+      "dest": "no_detector",
+      "action": "_StoreTrueAction",
+      "default": false,
+      "type": null,
+      "nargs": 0,
+      "const": true,
+      "choices": null,
+      "required": false,
+      "metavar": null,
+      "help": "Run without any object-detection model: faces, gaze rays, and gaze-tip phenomena only (no object hits or lock-on). Not compatible with --vp-file.",
+      "group": "options"
+    },
+    {
+      "option_strings": [
         "--obj-persistence"
       ],
       "dest": "obj_persistence",

@@ -19,7 +19,8 @@ usage: MindSight -- Eye-Gaze Intersection Tracker [-h] [--source SOURCE] [--save
                                                   [--skip-frames SKIP_FRAMES]
                                                   [--detect-scale DETECT_SCALE]
                                                   [--vp-file VP_FILE] [--vp-model VP_MODEL]
-                                                  [--obj-persistence N] [--merge-overlaps]
+                                                  [--no-detector] [--obj-persistence N]
+                                                  [--merge-overlaps]
                                                   [--merge-overlap-strategy {filter,merge,dynamic}]
                                                   [--merge-overlap-threshold THR]
                                                   [--ray-length RAY_LENGTH] [--conf-ray]
@@ -153,6 +154,8 @@ options:
                         Detection scale for Object Recognition
   --vp-file VP_FILE     Path to visual prompt file for use with YOLOE object detection models
   --vp-model VP_MODEL   YOLOE model to use alongside visual prompting for object detection
+  --no-detector         Run without any object-detection model: faces, gaze rays, and gaze-tip
+                        phenomena only (no object hits or lock-on). Not compatible with --vp-file.
   --obj-persistence N   Dead-reckon object bboxes for N frames after they disappear (default 0).
   --merge-overlaps      Merge or filter overlapping same-class detections.
   --merge-overlap-strategy {filter,merge,dynamic}

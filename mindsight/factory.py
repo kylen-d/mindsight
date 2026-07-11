@@ -97,14 +97,28 @@ def build_from_namespace(ns):
     args = ns
     from mindsight.Phenomena.phenomena_config import PhenomenaConfig
 
-    yolo, class_ids, blacklist = create_yolo_detector(
-        model_path=args.model,
-        classes=args.classes or None,
-        blacklist_names=args.blacklist,
-        vp_file=args.vp_file,
-        vp_model=args.vp_model,
-        device=getattr(args, "device", "auto"),
-    )
+    if getattr(args, "no_detector", False):
+        # LP2: lightweight attention studies -- faces + gaze rays + tip-based
+        # phenomena only.  The stub keeps the detector contract; nulling
+        # args.model lets downstream weight collection omit the YOLO family.
+        if args.vp_file:
+            raise ValueError(
+                "--no-detector cannot be combined with --vp-file: a visual "
+                "prompt needs the YOLOE detector. Drop one of the two.")
+        from mindsight.ObjectDetection.model_factory import NullDetector
+        print("Object detection: OFF (--no-detector) -- faces, gaze rays, "
+              "and tip-based phenomena only")
+        yolo, class_ids, blacklist = NullDetector(), None, set()
+        args.model = None
+    else:
+        yolo, class_ids, blacklist = create_yolo_detector(
+            model_path=args.model,
+            classes=args.classes or None,
+            blacklist_names=args.blacklist,
+            vp_file=args.vp_file,
+            vp_model=args.vp_model,
+            device=getattr(args, "device", "auto"),
+        )
     face_det = create_face_detector()
 
     # Plugin discovery summary

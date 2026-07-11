@@ -104,6 +104,7 @@ EXCLUDED_CLI_FLAGS: dict[str, str] = {
     "--model":             "model wiring: YOLO weights path, create_yolo_detector",
     "--vp-file":           "model wiring: YOLOE visual-prompt file",
     "--vp-model":          "model wiring: YOLOE VP model path",
+    "--no-detector":       "model wiring: run with the NullDetector stub (LP2)",
     "--device":            "model wiring: compute device for all backends",
     "--rf-gazelle-model":  "model wiring: GazelleProvider checkpoint",
     "--rf-gazelle-name":   "model wiring: GazelleProvider variant",

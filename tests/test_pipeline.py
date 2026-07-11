@@ -164,3 +164,39 @@ def test_from_config_matches_direct(built):
     assert pipeline.ray_cfg == ray_cfg
     assert pipeline.yolo is yolo
     assert pipeline.gazelle_provider is gazelle_provider
+
+
+def test_no_detector_runs_faces_and_tips_only(tmp_path):
+    """LP2: the NullDetector build runs the real pipeline -- faces + gaze
+    rays + tip-based phenomena, zero objects, outputs finalized."""
+    from mindsight.cli import _args
+    from mindsight.factory import build_from_namespace
+    from mindsight.pipeline import CancelToken, RunOptions
+
+    ns = _args(["--source", str(VIDEO), "--no-dashboard", "--no-detector",
+                "--gaze-tips", "--joint-attention"])
+    try:
+        tup = build_from_namespace(ns)
+    except Exception as exc:  # missing weights / backends in this environment
+        pytest.skip(f"could not build pipeline models: {exc}")
+    from mindsight.ObjectDetection.model_factory import NullDetector
+    assert isinstance(tup[0], NullDetector)
+    assert ns.model is None            # YOLO weight dropped from provenance
+
+    log_path = tmp_path / "events.csv"
+    summary_path = tmp_path / "summary.csv"
+    pipeline = _make_pipeline(
+        tup, log_path=str(log_path), summary_path=str(summary_path))
+    cancel = CancelToken()
+    frames = 0
+    for i, r in enumerate(pipeline.run(str(VIDEO),
+                                       options=RunOptions(no_dashboard=True),
+                                       cancel=cancel)):
+        frames += 1
+        assert r.context.get("objects", []) == []     # detector finds nothing
+        if i == 39:
+            cancel.cancel()
+    assert frames == 40
+    # Outputs finalized through the normal post-run path.
+    assert log_path.exists()
+    assert summary_path.exists() and summary_path.stat().st_size > 0

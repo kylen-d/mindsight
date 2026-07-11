@@ -127,7 +127,12 @@ def collect_weights(ns) -> dict:
     """
     out: dict = {}
     vp_file = getattr(ns, "vp_file", None)
+    # LP2 --no-detector: the YOLO family is never loaded, so it must not
+    # appear in preflight checks or the run-identity weight set.
+    no_detector = getattr(ns, "no_detector", False)
     for backend, dest in _WEIGHT_TABLE:
+        if no_detector and dest in ("model", "vp_model", "vp_file"):
+            continue
         val = getattr(ns, dest, None)
         if not val:
             continue

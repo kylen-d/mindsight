@@ -17,6 +17,22 @@ def _resolve_yolo_path(model_path: str) -> str:
     return str(resolve_weight("YOLO", model_path))
 
 
+class NullDetector:
+    """LP2 ``--no-detector``: the same duck-type as YOLO/YOLOEVPDetector
+    (called per detection frame, exposes ``.names``), but finds nothing.
+
+    Faces, gaze rays, and tip-based phenomena (tip-convergence joint
+    attention, mutual gaze, aversion) run normally; object hits and object
+    lock-on simply never fire.  Keeping the ``parse_dets(yolo(...),
+    yolo.names, ...)`` contract intact means zero None-checks on the hot
+    path."""
+
+    names: dict = {}
+
+    def __call__(self, frame, **kwargs):
+        return []
+
+
 def create_yolo_detector(
     model_path: str = "yolov8n.pt",
     classes: list | None = None,
