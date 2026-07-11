@@ -24,12 +24,15 @@ from PyQt6.QtWidgets import (
     QComboBox,
     QDialog,
     QDoubleSpinBox,
+    QFileDialog,
     QHBoxLayout,
     QLabel,
+    QLineEdit,
     QMessageBox,
     QProgressDialog,
     QPushButton,
     QRubberBand,
+    QSpinBox,
     QVBoxLayout,
 )
 
@@ -143,6 +146,15 @@ class _CropCanvas(QLabel):
         self._origin = None
         self.rect_changed.emit(None)
 
+    def show_rect(self, vrect):
+        """Programmatically place the band (auto-crop pre-placement, LP1)."""
+        disp = self._video_to_display(vrect) if vrect else None
+        if disp is None:
+            self._band.hide()
+        else:
+            self._band.setGeometry(disp)
+            self._band.show()
+
 
 class CropVideosDialog(QDialog):
     """Step through the project's videos; queue crops/fps edits; apply batch."""
@@ -202,6 +214,45 @@ class CropVideosDialog(QDialog):
         self._native_label.setStyleSheet("color: #888;")
         info_row.addWidget(self._native_label)
         lay.addLayout(info_row)
+
+        # Auto-crop (LP1): pre-place the rectangle from detections; the user
+        # reviews/adjusts in the same rubber band before anything re-encodes.
+        auto_row = QHBoxLayout()
+        auto_row.addWidget(QLabel("Auto-crop:"))
+        self._auto_mode = QComboBox()
+        self._auto_mode.addItems(["Objects by name", "Visual prompt file"])
+        self._auto_mode.setToolTip(
+            "Find the crop by naming objects (YOLOE text prompt) or by "
+            "your study's visual prompt file")
+        self._auto_mode.currentIndexChanged.connect(self._auto_mode_changed)
+        auto_row.addWidget(self._auto_mode)
+        self._auto_classes = QLineEdit("person, dining table")
+        self._auto_classes.setToolTip(
+            "Comma-separated object names the crop should contain")
+        auto_row.addWidget(self._auto_classes, 1)
+        self._auto_vp_btn = QPushButton("Choose VP...")
+        self._auto_vp_btn.clicked.connect(self._choose_auto_vp)
+        self._auto_vp_btn.setVisible(False)
+        auto_row.addWidget(self._auto_vp_btn, 1)
+        auto_row.addWidget(QLabel("Padding:"))
+        self._auto_pad = QSpinBox()
+        self._auto_pad.setRange(0, 1000)
+        self._auto_pad.setValue(100)
+        self._auto_pad.setSuffix(" px")
+        auto_row.addWidget(self._auto_pad)
+        auto_this = QPushButton("This video")
+        auto_this.clicked.connect(self._auto_crop_current)
+        auto_row.addWidget(auto_this)
+        auto_all = QPushButton("All videos")
+        auto_all.setToolTip(
+            "Place a crop on every video, then step through to review "
+            "before applying")
+        auto_all.clicked.connect(self._auto_crop_all)
+        auto_row.addWidget(auto_all)
+        lay.addLayout(auto_row)
+        self._auto_vp_file = None
+        self._detector = None
+        self._detector_key = None
 
         self._overwrite = QCheckBox(
             "Overwrite original files (no backup kept)")
@@ -335,6 +386,117 @@ class CropVideosDialog(QDialog):
         self._apply_btn.setText(f"Apply changes ({n})" if n
                                 else "Apply changes")
         self._apply_btn.setEnabled(bool(n))
+
+    # -- auto-crop (LP1) --------------------------------------------------------
+
+    def _auto_mode_changed(self, idx: int):
+        text_mode = idx == 0
+        self._auto_classes.setVisible(text_mode)
+        self._auto_vp_btn.setVisible(not text_mode)
+
+    def _choose_auto_vp(self):
+        path, _ = QFileDialog.getOpenFileName(
+            self, "Choose a visual prompt file", "",
+            "Visual Prompt (*.vp.json);;All (*)")
+        if path:
+            self._auto_vp_file = path
+            self._auto_vp_btn.setText(Path(path).name)
+
+    def _ensure_detector(self):
+        """Lazy-load (and cache) the landmark detector for the current mode."""
+        from .auto_crop import load_landmark_detector
+        if self._auto_mode.currentIndex() == 1:
+            if not self._auto_vp_file:
+                QMessageBox.warning(self, "Auto-crop",
+                                    "Choose a visual prompt file first.")
+                return None
+            key = ("vp", self._auto_vp_file)
+        else:
+            classes = [c.strip() for c in self._auto_classes.text().split(",")
+                       if c.strip()]
+            if not classes:
+                QMessageBox.warning(
+                    self, "Auto-crop",
+                    "Name at least one object (e.g. person, dining table).")
+                return None
+            key = ("text", tuple(classes))
+        if self._detector_key == key and self._detector is not None:
+            return self._detector
+        self._crop_label.setText(
+            "Loading detector (first use takes a moment)...")
+        from PyQt6.QtWidgets import QApplication
+        QApplication.processEvents()
+        try:
+            if key[0] == "vp":
+                self._detector = load_landmark_detector(
+                    "vp", vp_file=self._auto_vp_file)
+            else:
+                self._detector = load_landmark_detector(
+                    "text", classes=list(key[1]))
+        except Exception as exc:  # noqa: BLE001 -- plain-English, not a crash
+            self._detector = None
+            self._refresh_crop_label()
+            QMessageBox.critical(
+                self, "Auto-crop",
+                f"Could not load the detector:\n{exc}\n\nCheck that the "
+                "YOLOE weights (yoloe-26l-seg.pt) are installed in the "
+                "Models tab.")
+            return None
+        self._detector_key = key
+        self._refresh_crop_label()
+        return self._detector
+
+    def _auto_rect_for(self, run_id: str, source: Path):
+        from .auto_crop import detect_boxes, union_rect
+        frame = self._load_frame(run_id, source)
+        if frame is None:
+            return None
+        h, w = frame.shape[:2]
+        boxes = detect_boxes(self._detector, frame)
+        return union_rect(boxes, self._auto_pad.value(), w, h)
+
+    def _auto_crop_current(self):
+        if not self._videos or self._ensure_detector() is None:
+            return
+        run_id, source = self._videos[self._index]
+        rect = self._auto_rect_for(run_id, source)
+        if rect is None:
+            QMessageBox.information(
+                self, "Auto-crop",
+                "Nothing matching was found in this video's frame -- adjust "
+                "the object names or padding, or crop by hand.")
+            return
+        self._edit_for(run_id)["rect"] = rect
+        self._canvas.show_rect(rect)
+        self._refresh_crop_label()
+        self._update_apply_btn()
+
+    def _auto_crop_all(self):
+        """LP1's batch flow: soft-crop every video, review, then Apply."""
+        if not self._videos or self._ensure_detector() is None:
+            return
+        progress = QProgressDialog("Auto-cropping...", None, 0,
+                                   len(self._videos), self)
+        progress.setWindowModality(Qt.WindowModality.WindowModal)
+        progress.setMinimumDuration(0)
+        found = 0
+        for i, (run_id, source) in enumerate(self._videos):
+            progress.setValue(i)
+            progress.setLabelText(
+                f"Detecting in {source.name} ({i + 1}/{len(self._videos)})")
+            from PyQt6.QtWidgets import QApplication
+            QApplication.processEvents()
+            rect = self._auto_rect_for(run_id, source)
+            if rect is not None:
+                self._edit_for(run_id)["rect"] = rect
+                found += 1
+        progress.setValue(len(self._videos))
+        self._show_video(self._index)      # re-render the current band
+        self._update_apply_btn()
+        QMessageBox.information(
+            self, "Auto-crop",
+            f"Placed crop rectangles on {found} of {len(self._videos)} "
+            "video(s). Step through to review and adjust, then Apply.")
 
     # -- apply -----------------------------------------------------------------
 

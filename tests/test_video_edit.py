@@ -182,3 +182,104 @@ def test_crop_dialog_batch_apply(qapp, tmp_path, monkeypatch):
     assert _dims_fps(b_run / "b.mp4")[2] == pytest.approx(5.0, abs=0.2)
     assert (b_run / "original" / "b.mp4").is_file()
     assert not dlg.pending()                          # edits consumed
+
+
+# ── LP1: auto-crop ───────────────────────────────────────────────────────────
+
+def test_union_rect_pads_and_clamps():
+    from mindsight.GUI.auto_crop import union_rect
+    # Union of two boxes + 100px pad, clamped to the frame.
+    rect = union_rect([(200, 300, 400, 500), (350, 150, 600, 450)],
+                      100, 1280, 720)
+    assert rect == (100, 50, 600, 550)
+    # Clamping at the edges.
+    assert union_rect([(5, 5, 30, 30)], 100, 640, 360) == (0, 0, 130, 130)
+    # Nothing to fit.
+    assert union_rect([], 100, 640, 360) is None
+    assert union_rect([(10, 10, 12, 12)], 0, 640, 360) is None  # degenerate
+
+
+class _FakeBoxes:
+    def __init__(self, xyxy):
+        import numpy as np
+        self.xyxy = np.array(xyxy, dtype=float)
+
+
+class _FakeResult:
+    def __init__(self, xyxy):
+        self.boxes = _FakeBoxes(xyxy)
+
+
+class _FakeDetector:
+    """Mimics the ultralytics __call__ -> [result] interface."""
+
+    def __init__(self, xyxy):
+        self._xyxy = xyxy
+        self.calls = 0
+
+    def __call__(self, frame, **kw):
+        self.calls += 1
+        return [_FakeResult(self._xyxy)]
+
+
+def test_detect_boxes_extracts_xyxy():
+    from mindsight.GUI.auto_crop import detect_boxes
+    det = _FakeDetector([(10, 20, 110, 220)])
+    boxes = detect_boxes(det, object())
+    assert boxes == [(10.0, 20.0, 110.0, 220.0)]
+
+
+def test_auto_crop_all_places_reviewable_rects(qapp, tmp_path, monkeypatch):
+    """LP1 batch flow: detect on every middle frame, pre-place the rects as
+    pending edits, leave the user in the review loop (nothing re-encoded)."""
+    from PyQt6.QtWidgets import QMessageBox
+
+    from mindsight.GUI import crop_dialog as cd
+    from mindsight.project.runner import create_project
+    from mindsight.project.staging import stage_run
+
+    proj = create_project(tmp_path, "AutoStudy")
+    stage_run(proj, _make_video(tmp_path / "vid" / "a.mp4"), None)
+    stage_run(proj, _make_video(tmp_path / "vid" / "b.mp4"), None)
+
+    fake = _FakeDetector([(10, 10, 30, 25), (20, 12, 40, 30)])
+    import mindsight.GUI.auto_crop as ac
+    monkeypatch.setattr(ac, "load_landmark_detector",
+                        lambda *a, **k: fake)
+    infos = []
+    monkeypatch.setattr(QMessageBox, "information",
+                        lambda *a, **k: infos.append(a[2]))
+
+    dlg = cd.CropVideosDialog(proj)
+    dlg._auto_pad.setValue(5)
+    dlg._auto_classes.setText("person, dining table")
+    dlg._auto_crop_all()
+    # Union (10,10)-(40,30) + 5px pad, clamped to the 64x48 frame.
+    expected = (5, 5, 40, 30)
+    pending = dlg.pending()
+    assert set(pending) == {"a", "b"}
+    assert all(e["rect"] == expected for e in pending.values())
+    assert fake.calls == 2
+    assert infos and "2 of 2" in infos[-1]
+    assert "(2)" in dlg._apply_btn.text()
+    # Nothing was re-encoded: sources untouched (review-first flow).
+    assert _dims_fps(proj / "Inputs" / "Runs" / "a" / "a.mp4")[:2] == (64, 48)
+
+
+def test_auto_crop_requires_object_names(qapp, tmp_path, monkeypatch):
+    from PyQt6.QtWidgets import QMessageBox
+
+    from mindsight.GUI import crop_dialog as cd
+    from mindsight.project.runner import create_project
+    from mindsight.project.staging import stage_run
+
+    proj = create_project(tmp_path, "EmptyNames")
+    stage_run(proj, _make_video(tmp_path / "vid" / "a.mp4"), None)
+    warned = []
+    monkeypatch.setattr(QMessageBox, "warning",
+                        lambda *a, **k: warned.append(a[2]))
+    dlg = cd.CropVideosDialog(proj)
+    dlg._auto_classes.setText("  ")
+    dlg._auto_crop_current()
+    assert warned and "object" in warned[-1]
+    assert not dlg.pending()
