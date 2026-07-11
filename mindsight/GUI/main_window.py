@@ -433,12 +433,10 @@ def main():
     """Entry point for the MindSight GUI application."""
     app = QApplication(sys.argv)
     app.setStyle("Fusion")
-    # Theme before any window exists; auto tracks the OS scheme live.
+    # Theme before any window exists; "auto" natively tracks the OS scheme.
     from .settings_manager import SettingsManager
-    from .theming import apply_theme, wire_auto_theme
+    from .theming import apply_theme
     apply_theme(app, SettingsManager().load_gui_state().get("theme", "auto"))
-    wire_auto_theme(
-        app, lambda: SettingsManager().load_gui_state().get("theme", "auto"))
     icon_path = Path(__file__).resolve().parents[2] / "assets" / "mindsight_icon.png"
     if icon_path.exists():
         app.setWindowIcon(QIcon(str(icon_path)))

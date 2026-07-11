@@ -78,7 +78,10 @@ class RunDataPane(QWidget):
         split.addWidget(csv_host)
         split.setStretchFactor(0, 3)
         split.setStretchFactor(1, 2)
-        lay.addWidget(split, 1)
+        # Stretch 100 vs the trailing spacer: with the splitter hidden (hint
+        # states) the labels stay TOP-aligned instead of drifting to center.
+        lay.addWidget(split, 100)
+        lay.addStretch(1)
         split.setVisible(False)
 
     # ── population ───────────────────────────────────────────────────────────

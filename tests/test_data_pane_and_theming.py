@@ -49,17 +49,19 @@ def test_data_pane_renders_outputs_and_empty_state(qapp, tmp_path):
     assert "No outputs yet" in pane._hint.text()
 
 
-def test_dark_palette_and_apply_theme(qapp):
-    from PyQt6.QtGui import QPalette
-    from mindsight.GUI.theming import apply_theme, dark_palette
-    p = dark_palette()
-    # Logo-family plum highlight on indigo window.
-    assert p.color(QPalette.ColorRole.Highlight).name() == "#a8447c"
-    assert p.color(QPalette.ColorRole.Window).name() == "#1d1a2b"
+def test_apply_theme_steers_native_color_scheme(qapp):
+    # Eyes-on r2: no custom palettes -- Qt's own scheme control (6.8+).
+    # The offscreen QPA reports Unknown regardless of the override, so the
+    # readback assert only applies where the platform reports schemes; every
+    # mode must at minimum apply without raising.
+    from PyQt6.QtCore import Qt
+    from mindsight.GUI.theming import apply_theme
     apply_theme(qapp, "dark")
-    assert qapp.palette().color(
-        QPalette.ColorRole.Window).name() == "#1d1a2b"
+    scheme = qapp.styleHints().colorScheme()
+    if scheme != Qt.ColorScheme.Unknown:  # real desktop platforms
+        assert scheme == Qt.ColorScheme.Dark
+        apply_theme(qapp, "light")
+        assert qapp.styleHints().colorScheme() == Qt.ColorScheme.Light
     apply_theme(qapp, "light")
-    assert qapp.palette().color(
-        QPalette.ColorRole.Window).name() != "#1d1a2b"
-    apply_theme(qapp, "auto")  # must not raise regardless of Qt version
+    apply_theme(qapp, "auto")   # unsets the override; must not raise
+    apply_theme(qapp, "bogus")  # unknown mode behaves like auto

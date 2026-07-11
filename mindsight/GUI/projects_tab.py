@@ -202,15 +202,16 @@ class ProjectsTab(QWidget):
     # ── Overview ─────────────────────────────────────────────────────────────
 
     def _build_overview(self):
-        # Left column (runs + notes + outputs) | right data pane (eyes-on
-        # 2026-07-11: selected run's charts + CSV preview live here).
+        # Header + notes span the full width; below them the runs area sits
+        # beside the data pane (eyes-on r2: the pane must NOT intrude into
+        # the header row, and stays hidden until a run is selected).
         page = QWidget()
         page_lay = QVBoxLayout(page)
-        page_lay.setContentsMargins(0, 0, 0, 0)
         from PyQt6.QtWidgets import QSplitter
         ov_split = QSplitter(Qt.Orientation.Horizontal)
         left_col = QWidget()
         lay = QVBoxLayout(left_col)
+        lay.setContentsMargins(0, 0, 0, 0)
 
         head = QHBoxLayout()
         back = QPushButton("‹  All projects")
@@ -238,12 +239,12 @@ class ProjectsTab(QWidget):
             lambda: self._current and self.open_in_analyze.emit(
                 str(self._current)))
         head.addWidget(analyze)
-        lay.addLayout(head)
+        page_lay.addLayout(head)
 
         self._ov_notes = QLabel("")
         self._ov_notes.setStyleSheet("color: #999; font-style: italic;")
         self._ov_notes.setWordWrap(True)
-        lay.addWidget(self._ov_notes)
+        page_lay.addWidget(self._ov_notes)
 
         runs_head_row = QHBoxLayout()
         runs_head = QLabel("Runs")
@@ -293,22 +294,25 @@ class ProjectsTab(QWidget):
 
         from .data_pane import RunDataPane
         self._data_pane = RunDataPane()
+        # Hidden until a run is selected -- no dead pane on an empty screen.
+        self._data_pane.setVisible(False)
         ov_split.addWidget(left_col)
         ov_split.addWidget(self._data_pane)
         ov_split.setStretchFactor(0, 3)
         ov_split.setStretchFactor(1, 2)
-        page_lay.addWidget(ov_split)
+        page_lay.addWidget(ov_split, 1)
         return page
 
     def _on_run_selected(self):
         row = self._runs_table.currentRow()
         item = self._runs_table.item(row, 0) if row >= 0 else None
         if item is None:
-            self._data_pane.clear()
+            self._data_pane.setVisible(False)
             return
         run_id = item.text()
         self._data_pane.set_outputs(
             run_id, self._run_outputs_map.get(run_id))
+        self._data_pane.setVisible(True)
 
     def show_landing(self):
         self._current = None
@@ -317,6 +321,8 @@ class ProjectsTab(QWidget):
 
     def show_overview(self, project: Path):
         self._current = Path(project)
+        self._data_pane.setVisible(False)
+        self._runs_table.clearSelection()
         self._remember(self._current)
         self._ov_name.setText(self._current.name)
         self._ov_path.setText(str(self._current))
