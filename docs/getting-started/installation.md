@@ -83,8 +83,8 @@ python scripts/download_weights.py --dry-run         # preview only
 
 | Backend | Method | Notes |
 |---------|--------|-------|
-| **MGaze** (default) | Download script | ONNX + PyTorch variants in `Weights/MGaze/` |
-| **Gazelle** | Download script | Checkpoints in `Weights/Gazelle/` |
+| **MobileGaze** (default) | Download script | ONNX + PyTorch variants in `Weights/MGaze/` |
+| **Gaze-LLE** | Download script | Checkpoints in `Weights/Gazelle/` |
 | **YOLO** | Auto (Ultralytics) | Downloaded on first use, cached in `Weights/YOLO/` |
 
 ---

@@ -20,7 +20,7 @@ flowchart LR
     A --> C["Face Detection\n(RetinaFace)"]
     B --> D["Object\nBounding Boxes"]
     C --> E["Face\nBounding Boxes"]
-    E --> F["Gaze Estimation\n(MGaze / Gazelle)"]
+    E --> F["Gaze Estimation\n(MobileGaze / Gaze-LLE)"]
     F --> G["Pitch + Yaw\nper Face"]
     D --> H["Ray-BBox\nIntersection"]
     G --> H
@@ -42,7 +42,7 @@ flowchart LR
 
 - Frame-by-frame gaze-to-object intersection via ray casting
 - Swappable object-detection backends (YOLO, YOLOE with visual prompts)
-- Swappable gaze-estimation backends (MGaze, Gazelle)
+- Swappable gaze-estimation backends (MobileGaze, Gaze-LLE)
 - Face anonymization for privacy-sensitive recordings
 - Auxiliary video stream support for multi-camera setups
 - CLI and GUI interfaces for flexible workflows
