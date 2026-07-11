@@ -31,7 +31,7 @@ from pathlib import Path
 
 from mindsight import __version__
 from mindsight.constants import OUTPUTS_ROOT as _OUTPUTS_ROOT
-from mindsight.weights import resolve_weight, sha256_file
+from mindsight.weights import resolve_mgaze_family, resolve_weight, sha256_file
 
 MANIFEST_SCHEMA_VERSION = 1
 
@@ -138,7 +138,15 @@ def collect_weights(ns) -> dict:
             continue
         if dest == "vp_model" and not vp_file:
             continue
-        resolved = resolve_weight(backend, str(val)) if backend else Path(val)
+        name = str(val)
+        if dest == "mgaze_model":
+            # Extensionless family names pick their build per device at load
+            # time (resnet50 -> resnet50_gaze.onnx off-CUDA).  Resolve the
+            # same way here so preflight / manifest / run-identity all point
+            # at the file the run actually loads (eyes-on A4: preflight
+            # flagged "resnet50" missing while the run itself worked).
+            name = resolve_mgaze_family(name, getattr(ns, "device", "auto"))
+        resolved = resolve_weight(backend, name) if backend else Path(val)
         resolved = Path(resolved)
         entry = {
             "backend": backend,

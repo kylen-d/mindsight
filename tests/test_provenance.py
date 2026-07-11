@@ -77,6 +77,20 @@ class TestWeights:
         w = provenance.collect_weights(ns)
         assert "vp_model" not in w
 
+    def test_mgaze_family_resolved_per_device(self):
+        # Extensionless family names must resolve to the device build the run
+        # actually loads (eyes-on A4: preflight flagged bare "resnet50" as a
+        # missing file while the run itself worked).
+        ns = _ns("--mgaze-model", "resnet50", "--device", "cpu")
+        w = provenance.collect_weights(ns)
+        assert w["mgaze_model"]["requested"] == "resnet50"
+        assert w["mgaze_model"]["resolved"].endswith("resnet50_gaze.onnx")
+
+    def test_mgaze_explicit_extension_unchanged(self):
+        ns = _ns("--mgaze-model", "resnet50.pt", "--device", "cpu")
+        w = provenance.collect_weights(ns)
+        assert w["mgaze_model"]["resolved"].endswith("resnet50.pt")
+
 
 # ── environment ───────────────────────────────────────────────────────────────
 

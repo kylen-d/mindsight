@@ -469,10 +469,13 @@ class RunStudyTab(QWidget):
         splitter = QSplitter(Qt.Orientation.Horizontal)
 
         # LEFT: a stack -- page 0 = the project column (preflight + runs +
-        # study setup in a vertical splitter, B9), page 1 = live charts (UP1r2:
-        # in video/camera modes the left pane is exclusively live charts).
-        left_split = QSplitter(Qt.Orientation.Vertical)
-        self._left_split = left_split
+        # study setup in ONE scrollable column, eyes-on A1: nothing clips or
+        # fights for space at small window sizes), page 1 = live charts
+        # (UP1r2: in video/camera modes the left pane is exclusively charts).
+        left_col = QWidget()
+        left_lay = QVBoxLayout(left_col)
+        left_lay.setContentsMargins(0, 0, 0, 0)
+        left_lay.setSpacing(6)
 
         pf_grp = QGroupBox("Preflight")
         self._pf_grp = pf_grp
@@ -486,15 +489,12 @@ class RunStudyTab(QWidget):
         rerun_pf = QPushButton("Re-run preflight")
         rerun_pf.clicked.connect(self._run_preflight)
         pf_lay.addWidget(rerun_pf)
-        left_split.addWidget(pf_grp)
+        left_lay.addWidget(pf_grp)
 
         runs_grp = QGroupBox("Runs")
         self._runs_grp = runs_grp
         runs_lay = QVBoxLayout(runs_grp)
         self._runs_table = QTableWidget(0, len(_RUN_COLS))
-        # G-DEFER-2: keep the runs window compact + scrollable so the study-setup
-        # area below gets the room; the table scrolls internally past a few runs.
-        self._runs_table.setMaximumHeight(220)
         self._runs_table.setHorizontalScrollBarPolicy(
             Qt.ScrollBarPolicy.ScrollBarAsNeeded)
         self._runs_table.setHorizontalHeaderLabels(_RUN_COLS)
@@ -509,6 +509,12 @@ class RunStudyTab(QWidget):
         self._runs_table.setContextMenuPolicy(
             Qt.ContextMenuPolicy.CustomContextMenu)
         self._runs_table.customContextMenuRequested.connect(self._run_context_menu)
+        # Eyes-on A1: room for ~8 runs before the table scrolls internally;
+        # the whole left column scrolls, so it need not stay compact.
+        self._runs_table.setMinimumHeight(
+            self._runs_table.horizontalHeader().sizeHint().height()
+            + 8 * self._runs_table.verticalHeader().defaultSectionSize()
+            + 2 * self._runs_table.frameWidth())
         runs_lay.addWidget(self._runs_table)
 
         ctl_row = QHBoxLayout()
@@ -529,17 +535,18 @@ class RunStudyTab(QWidget):
         ctl_row.addWidget(self._record_btn)
         ctl_row.addStretch(1)
         runs_lay.addLayout(ctl_row)
-        left_split.addWidget(runs_grp)
+        left_lay.addWidget(runs_grp)
 
         # Study setup (collapsible) -- relocated from the retired Project Mode tab.
-        # G-DEFER-2: it takes the growing space (stretch) so participants /
-        # conditions editing has room; the runs table above stays compact.
         self._study_setup_grp = self._build_study_setup()
-        left_split.addWidget(self._study_setup_grp)
-        # Preflight/runs stay compact; study setup takes the growing space.
-        left_split.setStretchFactor(0, 0)
-        left_split.setStretchFactor(1, 0)
-        left_split.setStretchFactor(2, 1)
+        left_lay.addWidget(self._study_setup_grp)
+        left_lay.addStretch(1)
+
+        left_scroll = QScrollArea()
+        left_scroll.setWidgetResizable(True)
+        left_scroll.setFrameShape(QScrollArea.Shape.NoFrame)
+        left_scroll.setWidget(left_col)
+        self._left_scroll = left_scroll
 
         # Live-charts pane (page 1): hosts the shared LiveDashboardPanel while
         # a quick mode is active (the panel is reparented, see _place_dashboard).
@@ -556,7 +563,7 @@ class RunStudyTab(QWidget):
         self._charts_pane_lay.addStretch(1)
 
         self._left_stack = QStackedWidget()
-        self._left_stack.addWidget(left_split)     # page 0: project column
+        self._left_stack.addWidget(left_scroll)    # page 0: project column
         self._left_stack.addWidget(charts_pane)    # page 1: live charts
         splitter.addWidget(self._left_stack)
 
@@ -746,7 +753,8 @@ class RunStudyTab(QWidget):
         row = QHBoxLayout()
         row.addWidget(QLabel("Camera:"))
         self._camera_combo = QComboBox()
-        self._camera_combo.addItems([f"Camera {i}" for i in range(4)])
+        for i in range(4):
+            self._camera_combo.addItem(f"Camera {i}", i)
         self._camera_combo.currentIndexChanged.connect(
             self._camera_recompute_output)
         row.addWidget(self._camera_combo, 1)
@@ -851,9 +859,10 @@ class RunStudyTab(QWidget):
             if in_tabs >= 0:
                 self._output_tabs.removeTab(in_tabs)
             if self._charts_pane_lay.indexOf(panel) < 0:
-                # Before the trailing stretch, taking the growing space.
+                # Before the trailing stretch; stretch 100 vs the spacer's 1 so
+                # the charts take essentially all free space (eyes-on A1).
                 self._charts_pane_lay.insertWidget(
-                    self._charts_pane_lay.count() - 1, panel, 1)
+                    self._charts_pane_lay.count() - 1, panel, 100)
                 panel.show()
 
     def _apply_preview_hint(self):
@@ -913,33 +922,28 @@ class RunStudyTab(QWidget):
             self._run_quick()
 
     def _refresh_cameras(self):
-        """Probe cameras ON DEMAND (never at startup) and show device names
-        where the OS provides them; falls back to a cv2 open/close probe, then
-        to the blind Camera 0-3 list."""
-        names = []
-        try:
-            from PyQt6.QtMultimedia import QMediaDevices
-            names = [d.description() or f"Camera {i}"
-                     for i, d in enumerate(QMediaDevices.videoInputs())]
-        except Exception:  # pragma: no cover - QtMultimedia optional
-            pass
-        if not names:
-            import cv2
-            for i in range(6):
-                cap = cv2.VideoCapture(i)
-                ok = cap.isOpened()
-                cap.release()
-                if ok:
-                    names.append(f"Camera {i}")
-        if not names:
-            names = [f"Camera {i}" for i in range(4)]
-        current = max(self._camera_combo.currentIndex(), 0)
+        """Probe cameras ON DEMAND (never at startup).  Names come from
+        camera_enum, which matches cv2's device ordering -- the combo stores
+        each device's cv2 index as item data (eyes-on A3: combo position is
+        NOT the cv2 index)."""
+        from .camera_enum import list_cameras
+        cams = list_cameras()
+        current = self._camera_combo.currentData()
         self._camera_combo.blockSignals(True)
         self._camera_combo.clear()
-        self._camera_combo.addItems(names)
-        self._camera_combo.setCurrentIndex(min(current, len(names) - 1))
+        for idx, name in cams:
+            self._camera_combo.addItem(name, idx)
+        pos = self._camera_combo.findData(current)
+        self._camera_combo.setCurrentIndex(max(pos, 0))
         self._camera_combo.blockSignals(False)
         self._camera_recompute_output()
+
+    def _camera_cv2_index(self) -> int:
+        """The selected camera's cv2 index (item data, position fallback)."""
+        data = self._camera_combo.currentData()
+        if isinstance(data, int):
+            return data
+        return max(self._camera_combo.currentIndex(), 0)
 
     # ── Drag & drop: video file -> Video File mode, folder -> project ───────
 
@@ -977,17 +981,27 @@ class RunStudyTab(QWidget):
         self._camera_output_dirty = True
 
     def _video_recompute_output(self, *_):
+        # Picking a DIFFERENT video re-autofills even over a manual edit
+        # (eyes-on A2 ruling): an edited path holds for the current video
+        # only, so consecutive runs never silently share a custom folder.
+        stem = Path(self._quick_video.text().strip()).stem
+        if stem != getattr(self, "_video_output_stem", None):
+            self._video_output_stem = stem
+            self._video_output_dirty = False
         if self._video_output_dirty:
             return
         # setText fires textChanged, not textEdited, so the dirty flag stays off.
-        stem = Path(self._quick_video.text().strip()).stem
         self._video_output.setText(self._default_output_for(stem))
 
     def _camera_recompute_output(self, *_):
+        # Same ruling as video: choosing a different camera re-autofills.
+        stem = f"camera{self._camera_cv2_index()}"
+        if stem != getattr(self, "_camera_output_stem", None):
+            self._camera_output_stem = stem
+            self._camera_output_dirty = False
         if self._camera_output_dirty:
             return
-        self._camera_output.setText(self._default_output_for(
-            f"camera{self._camera_combo.currentIndex()}"))
+        self._camera_output.setText(self._default_output_for(stem))
 
     def _quick_browse_video(self):
         path, _ = QFileDialog.getOpenFileName(
@@ -1025,7 +1039,7 @@ class RunStudyTab(QWidget):
         try:
             if camera:
                 meta = self._camera_session_meta()
-                spec = camera_run_spec(self._camera_combo.currentIndex(),
+                spec = camera_run_spec(self._camera_cv2_index(),
                                        output_dir, meta=meta)
                 if meta:
                     # A run.yaml-shaped record beside the outputs, so a
@@ -1141,13 +1155,9 @@ class RunStudyTab(QWidget):
         self._save_btn.clicked.connect(self._save_project_yaml)
         lay.addWidget(self._save_btn)
 
-        # G-DEFER-2: wrap the setup content in a scroll area so everything stays
-        # reachable at the default window size even when both tables are populated.
-        scroll = QScrollArea()
-        scroll.setWidgetResizable(True)
-        scroll.setFrameShape(QScrollArea.Shape.NoFrame)
-        scroll.setWidget(inner)
-        grp.set_content(scroll)
+        # The whole left column scrolls (eyes-on A1), so the content goes in
+        # directly -- a nested scroll area here would trap the wheel.
+        grp.set_content(inner)
         return grp
 
     # ── Output panel: Log | Charts | Output CSVs (G-ENH-4) ──────────────────

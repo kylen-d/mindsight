@@ -49,7 +49,8 @@ class RecordSessionDialog(QDialog):
 
         cam_row = QHBoxLayout()
         self._camera = QComboBox()
-        self._camera.addItems([f"Camera {i}" for i in range(4)])
+        for i in range(4):
+            self._camera.addItem(f"Camera {i}", i)
         cam_row.addWidget(self._camera, 1)
         refresh = QPushButton("Refresh")
         refresh.setToolTip("Detect connected cameras (may trigger a one-time "
@@ -131,19 +132,15 @@ class RecordSessionDialog(QDialog):
         return w
 
     def _refresh_cameras(self):
-        names = []
-        try:
-            from PyQt6.QtMultimedia import QMediaDevices
-            names = [d.description() or f"Camera {i}"
-                     for i, d in enumerate(QMediaDevices.videoInputs())]
-        except Exception:  # pragma: no cover - QtMultimedia optional
-            pass
-        if not names:
-            names = [f"Camera {i}" for i in range(4)]
-        current = max(self._camera.currentIndex(), 0)
+        # camera_enum matches cv2's device ordering; the combo stores each
+        # device's cv2 index as item data (eyes-on A3).
+        from .camera_enum import list_cameras
+        current = self._camera.currentData()
         self._camera.clear()
-        self._camera.addItems(names)
-        self._camera.setCurrentIndex(min(current, len(names) - 1))
+        for idx, name in list_cameras():
+            self._camera.addItem(name, idx)
+        pos = self._camera.findData(current)
+        self._camera.setCurrentIndex(max(pos, 0))
 
     def _prefill_from_planned(self, *_):
         if not (self._planned and self._use_planned_radio.isChecked()):
@@ -193,6 +190,8 @@ class RecordSessionDialog(QDialog):
             QMessageBox.warning(self, "Record Live Session",
                                 "Name the session.")
             return
-        self.camera_index = self._camera.currentIndex()
+        data = self._camera.currentData()
+        self.camera_index = (data if isinstance(data, int)
+                             else max(self._camera.currentIndex(), 0))
         self.meta = self._build_meta()
         self.accept()

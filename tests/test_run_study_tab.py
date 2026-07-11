@@ -486,12 +486,16 @@ def test_quick_output_auto_defaults_and_sticks_when_edited(qapp, tmp_path,
     tab._set_mode("camera")
     tab._camera_combo.setCurrentIndex(2)
     assert tab._camera_output.text() == str(tmp_path / "Outputs" / "camera2")
-    # A manual edit sticks: no more auto-recompute.
+    # A manual edit sticks for the CURRENT video...
     tab._set_mode("video")
     tab._video_output.setText("/my/custom/out")
     tab._video_mark_output_dirty()
-    tab._quick_video.setText(str(tmp_path / "other.mp4"))
+    tab._quick_video.setText(str(tmp_path / "footage" / "sess1.mp4"))
     assert tab._video_output.text() == "/my/custom/out"
+    # ...but picking a DIFFERENT video re-autofills (eyes-on A2 ruling:
+    # consecutive runs must never silently share a custom folder).
+    tab._quick_video.setText(str(tmp_path / "other.mp4"))
+    assert tab._video_output.text() == str(tmp_path / "Outputs" / "other")
 
 
 def test_run_quick_video_builds_spec_and_guards(qapp, tmp_path, monkeypatch):

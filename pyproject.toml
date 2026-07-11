@@ -33,6 +33,9 @@ dependencies = [
     "imageio-ffmpeg>=0.5",  # bundled ffmpeg binary: crop tool + H.264 remux without PATH
     # GUI
     "PyQt6>=6.5",
+    # Camera names in cv2's index order (cv2 sorts AVFoundation devices by
+    # uniqueID; Qt/ffmpeg/system_profiler all enumerate differently)
+    "pyobjc-framework-AVFoundation; sys_platform == 'darwin'",
     # Data & analysis
     "numpy>=1.24",
     "matplotlib>=3.7",
