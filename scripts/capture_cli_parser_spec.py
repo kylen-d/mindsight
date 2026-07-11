@@ -59,6 +59,19 @@ def _json_safe(value):
     return value
 
 
+# Weight defaults resolve to absolute paths under the checkout root; the golden
+# must pin them checkout-relative so it is portable (and free of machine
+# paths).  MIRRORS tests/test_cli_parser_golden.py::_portable -- the write and
+# compare sides must sanitize identically.
+_ROOT_PREFIX = str(REPO_ROOT) + __import__("os").sep
+
+
+def _portable(value):
+    if isinstance(value, str) and value.startswith(_ROOT_PREFIX):
+        return value[len(_ROOT_PREFIX):]
+    return value
+
+
 def parser_spec(parser):
     """Serialisable spec of a parser: prog + ordered non-help actions."""
     titles = _group_titles(parser)
@@ -66,7 +79,7 @@ def parser_spec(parser):
     for action in parser._actions:
         if action.dest == "help":
             continue
-        default = _json_safe(action.default)
+        default = _portable(_json_safe(action.default))
         # fail loudly on anything json can't represent
         json.dumps(default)
         actions.append({
