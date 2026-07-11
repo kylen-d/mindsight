@@ -103,10 +103,10 @@ The other tabs are for occasional tasks:
   wizard, reopen a recent one, or review a project's runs, notes, and outputs.
 - **VP Builder** -- make a visual prompt (teaches the detector your study's
   objects).
-- **Gaze Tuning** -- an interactive playground for experimenting with gaze
-  settings on a live preview. *Settings here do NOT affect your study runs* --
-  those come from the project's pipeline preset and the **Inference Settings**
-  dialog (see the appendix).
+- **Inference Tuning** -- an interactive playground for experimenting with
+  gaze settings on a live preview. *Settings here do NOT affect your study
+  runs* -- those come from the project's pipeline preset and the **Inference
+  Settings** dialog (see the appendix).
 - **Models** -- check, verify, or re-download the model weights.
 
 ---
@@ -288,11 +288,13 @@ To use footage recorded on another device (a camcorder, a phone), right-click
 the planned session's row and choose **Attach footage...** -- the file is
 copied in (your original is untouched) and MindSight offers to analyze it.
 
-Sessions do not have to be planned in the wizard to land in an existing
-project later: **⏺ Record Session...** can target *a new session* (named on
-the spot) just as well as a planned one, and footage that arrives as a file
-goes in through **Add single run...**. Planning ahead just means the tags are
-already filled in.
+Sessions do not have to be planned in the wizard: for an existing project,
+**＋ Plan Session...** (next to the runs table on the project's Projects-tab
+overview) adds a future session -- name and tags now, footage later. And
+unplanned sessions land just as easily: **⏺ Record Session...** can target
+*a new session* named on the spot, and footage that arrives as a file goes in
+through **Add single run...**. Planning ahead just means the tags are already
+filled in when the session day comes.
 
 ### Study-wide settings
 
@@ -484,17 +486,17 @@ current settings into the open project's preset so the whole study runs with
 them; coordinate with your study lead before changing a running study's
 settings.
 
-### Gaze Tuning
+### Inference Tuning
 
-The **Gaze Tuning** tab is an interactive playground: load a clip, watch the
-gaze overlay live, and experiment with detector and ray settings to see their
-effect immediately. It is the right place to *find* good values -- and since
-it is deliberately decoupled from everything else, nothing you try here
+The **Inference Tuning** tab is an interactive playground: load a clip, watch
+the gaze overlay live, and experiment with detector and ray settings to see
+their effect immediately. It is the right place to *find* good values -- and
+since it is deliberately decoupled from everything else, nothing you try here
 changes your study's runs. When an experiment is worth keeping, bring it
-across with **Import from Gaze Tuning** in the Inference Settings dialog (or
-the Study setup panel's pipeline import).
+across with **Import from Inference Tuning** in the Inference Settings dialog
+(or the Study setup panel's pipeline import).
 
-![Gaze Tuning, basic view](../assets/tutorial/gaze-tuning-basic.png)
+![Inference Tuning, basic view](../assets/tutorial/gaze-tuning-basic.png)
 
 ### Models
 

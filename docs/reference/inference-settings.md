@@ -23,13 +23,14 @@ authoritative). Typing a value beyond the slider's range never clamps it: the
 slider greys or pins and the value turns **amber** with a tooltip noting it is
 outside the usual range.
 
-!!! note "Gaze Tuning is decoupled"
-    The **Gaze Tuning** tab is a live playground for *finding* good values; by
-    design nothing you try there changes your study's runs. Only this dialog's
-    stored settings drive runs. When a Gaze Tuning experiment is worth keeping,
-    bring the values across with **Import from Gaze Tuning** in this dialog. See
-    the [Gaze Tuning](../studies/run-a-study-tutorial.md#gaze-tuning) section of
-    the Run a Study tutorial.
+!!! note "Inference Tuning is decoupled"
+    The **Inference Tuning** tab is a live playground for *finding* good
+    values; by design nothing you try there changes your study's runs. Only
+    this dialog's stored settings drive runs. When an Inference Tuning
+    experiment is worth keeping, bring the values across with **Import from
+    Inference Tuning** in this dialog. See the
+    [Inference Tuning](../studies/run-a-study-tutorial.md#inference-tuning)
+    section of the Run a Study tutorial.
 
 Throughout, weight paths display as model family names or bare filenames and
 resolve against the shared `Weights/` folder -- you never type absolute paths.
