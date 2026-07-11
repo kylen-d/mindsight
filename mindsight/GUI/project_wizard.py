@@ -480,34 +480,46 @@ class BuildProjectWizard(QDialog):
         head.addWidget(self._tag_jump)
         lay.addLayout(head)
 
+        # Eyes-on C ruling: thumbnail LEFT, tagging fields RIGHT -- the form
+        # column gets real vertical room instead of a 190px strip under the
+        # preview.
+        body = QHBoxLayout()
+
+        left_col = QVBoxLayout()
         self._tag_frame = QLabel()
         self._tag_frame.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self._tag_frame.setMinimumHeight(220)
         self._tag_frame.setStyleSheet("background: #1a1a2e; color: #556;")
-        lay.addWidget(self._tag_frame, 1)
+        self._tag_frame.setWordWrap(True)
+        left_col.addWidget(self._tag_frame, 1)
+        self._tag_file_label = QLabel("")
+        self._tag_file_label.setStyleSheet("color: #888;")
+        self._tag_file_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        left_col.addWidget(self._tag_file_label)
+        body.addLayout(left_col, 3)
 
+        right_col = QVBoxLayout()
         guide = QLabel(
             "MindSight numbers people by where they appear on screen, left "
             "to right. Type each person's ID under their position.")
         guide.setStyleSheet("color: #888;")
         guide.setWordWrap(True)
-        lay.addWidget(guide)
+        right_col.addWidget(guide)
 
         # Participant fields + conditions + manifest fields live in a scroll
-        # area so many-participant studies don't squash the frame.
+        # area so many-participant studies never clip.
         form_host = QWidget()
         self._tag_form = QFormLayout(form_host)
         self._tag_form.setContentsMargins(0, 0, 0, 0)
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QScrollArea.Shape.NoFrame)
         scroll.setWidget(form_host)
-        scroll.setMaximumHeight(190)
-        lay.addWidget(scroll)
+        right_col.addWidget(scroll, 1)
+        body.addLayout(right_col, 2)
+        lay.addLayout(body, 1)
 
         nav = QHBoxLayout()
-        self._tag_file_label = QLabel("")
-        self._tag_file_label.setStyleSheet("color: #888;")
-        nav.addWidget(self._tag_file_label)
         nav.addStretch(1)
         prev_b = QPushButton("‹ Prev video")
         prev_b.clicked.connect(lambda: self._step_video(-1))
@@ -780,7 +792,7 @@ class BuildProjectWizard(QDialog):
         location = Path(self._location.text().strip())
         mode = "copy" if self._copy_radio.isChecked() else "move"
         try:
-            project = create_project(location, name)
+            project = create_project(location, name, layout="run_folder")
         except ValueError as exc:
             QMessageBox.warning(self, "Create project", str(exc))
             return

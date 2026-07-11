@@ -108,10 +108,13 @@ def save_project_config(project: Path, cfg: ProjectConfig) -> Path:
 
 
 def create_project(parent_dir: str | Path, name: str,
-                   *, pipeline_path: str | None = "Pipeline/pipeline.yaml") -> Path:
+                   *, pipeline_path: str | None = "Pipeline/pipeline.yaml",
+                   layout: str = "flat") -> Path:
     """Scaffold a new, empty project folder with the standard layout.
 
-    Creates ``<parent_dir>/<name>/`` containing ``Inputs/Videos/``,
+    Creates ``<parent_dir>/<name>/`` containing ``Inputs/Videos/`` (or
+    ``Inputs/Runs/`` when ``layout="run_folder"`` -- the wizard stages run
+    folders and must not leave a vestigial empty Videos/ behind, eyes-on C),
     ``Inputs/Prompts/``, ``Pipeline/`` and a minimal ``project.yaml`` (via
     :func:`save_project_config`). No videos or pipeline file are written -- a
     fresh project preflights with advisories (no sources yet, pipeline defaults),
@@ -150,7 +153,8 @@ def create_project(parent_dir: str | Path, name: str,
     if project.exists() and any(project.iterdir()):
         raise ValueError(f"a non-empty folder already exists at {project}")
 
-    (project / "Inputs" / "Videos").mkdir(parents=True, exist_ok=True)
+    inputs_sub = "Runs" if layout == "run_folder" else "Videos"
+    (project / "Inputs" / inputs_sub).mkdir(parents=True, exist_ok=True)
     (project / "Inputs" / "Prompts").mkdir(parents=True, exist_ok=True)
     (project / "Pipeline").mkdir(parents=True, exist_ok=True)
     save_project_config(project, ProjectConfig(pipeline_path=pipeline_path))

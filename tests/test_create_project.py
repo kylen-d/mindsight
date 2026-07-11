@@ -56,3 +56,12 @@ def test_create_project_allows_empty_existing_dir(tmp_path):
     (tmp_path / "Empty").mkdir()
     proj = create_project(tmp_path, "Empty")   # empty existing dir is fine
     assert (proj / "project.yaml").is_file()
+
+
+def test_create_project_run_folder_layout_no_vestigial_videos(tmp_path):
+    # Eyes-on C: wizard projects stage Inputs/Runs/ -- an empty Inputs/Videos/
+    # beside it is a vestige (and a step toward the dual-layout error).
+    proj = create_project(tmp_path, "Staged", layout="run_folder")
+    assert (proj / "Inputs" / "Runs").is_dir()
+    assert not (proj / "Inputs" / "Videos").exists()
+    assert (proj / "Inputs" / "Prompts").is_dir()

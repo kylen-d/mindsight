@@ -12,18 +12,24 @@ crop, so the user always reviews/adjusts before anything is re-encoded.
 from __future__ import annotations
 
 
-def union_rect(boxes, pad: int, frame_w: int, frame_h: int):
+def union_rect(boxes, pad, frame_w: int, frame_h: int):
     """Fit one rectangle around xyxy *boxes* + *pad*, clamped to the frame.
 
+    ``pad`` is a uniform int or a ``(left, top, right, bottom)`` tuple;
+    negative values shrink the fit inside the detections (eyes-on D3).
     Returns ``(x, y, w, h)`` in pixels, or None when there is nothing to fit
     (no boxes, or a degenerate result).
     """
     if not boxes:
         return None
-    x1 = max(0, int(min(b[0] for b in boxes) - pad))
-    y1 = max(0, int(min(b[1] for b in boxes) - pad))
-    x2 = min(int(frame_w), int(max(b[2] for b in boxes) + pad))
-    y2 = min(int(frame_h), int(max(b[3] for b in boxes) + pad))
+    if isinstance(pad, (int, float)):
+        pl = pt = pr = pb = int(pad)
+    else:
+        pl, pt, pr, pb = (int(v) for v in pad)
+    x1 = max(0, int(min(b[0] for b in boxes) - pl))
+    y1 = max(0, int(min(b[1] for b in boxes) - pt))
+    x2 = min(int(frame_w), int(max(b[2] for b in boxes) + pr))
+    y2 = min(int(frame_h), int(max(b[3] for b in boxes) + pb))
     if x2 - x1 < 8 or y2 - y1 < 8:
         return None
     return (x1, y1, x2 - x1, y2 - y1)

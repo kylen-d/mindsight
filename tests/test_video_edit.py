@@ -199,6 +199,19 @@ def test_union_rect_pads_and_clamps():
     assert union_rect([(10, 10, 12, 12)], 0, 640, 360) is None  # degenerate
 
 
+def test_union_rect_per_side_and_negative_padding():
+    from mindsight.GUI.auto_crop import union_rect
+    # (left, top, right, bottom) applied independently.
+    rect = union_rect([(200, 300, 400, 500)], (10, 20, 30, 40), 1280, 720)
+    assert rect == (190, 280, 240, 260)
+    # Negative padding crops INSIDE the detections (eyes-on D3).
+    rect = union_rect([(200, 300, 400, 500)], (-50, -50, -50, -50), 1280, 720)
+    assert rect == (250, 350, 100, 100)
+    # Over-negative padding collapses -> degenerate -> None.
+    assert union_rect([(200, 300, 400, 500)], (-150, 0, -150, 0),
+                      1280, 720) is None
+
+
 class _FakeBoxes:
     def __init__(self, xyxy):
         import numpy as np

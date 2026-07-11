@@ -199,7 +199,10 @@ def test_slidervalue_preserves_over_range_and_flags(qapp):
     sv.setValue(9.9)                         # beyond the recommended max
     assert sv.value() == 9.9                 # NOT clamped
     assert sv.is_over_range() is True
-    assert sv._slider.isEnabled() is False   # slider pins/greys
+    assert sv._slider.isEnabled() is False   # slider greys...
+    assert sv._slider.value() == sv._steps   # ...and PINS to the max end (B2)
+    sv.setValue(0.05)                        # below the recommended min
+    assert sv._slider.value() == 0           # pins to the min end
     sv.setValue(2.0)                         # back in range
     assert sv.is_over_range() is False
     assert sv._slider.isEnabled() is True

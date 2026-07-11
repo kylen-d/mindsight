@@ -34,6 +34,7 @@ from PyQt6.QtWidgets import (
     QRubberBand,
     QSpinBox,
     QVBoxLayout,
+    QWidget,
 )
 
 from .widgets import _bgr_to_pixmap
@@ -249,7 +250,46 @@ class CropVideosDialog(QDialog):
             "before applying")
         auto_all.clicked.connect(self._auto_crop_all)
         auto_row.addWidget(auto_all)
+        adv_btn = QPushButton("Advanced...")
+        adv_btn.setCheckable(True)
+        adv_btn.setToolTip("Detector model + per-side padding")
+        auto_row.addWidget(adv_btn)
         lay.addLayout(auto_row)
+
+        # Advanced row (eyes-on D3): detector model choice + independent
+        # per-side padding, negatives allowed (crop INSIDE the detections).
+        self._adv_host = QWidget()
+        adv = QHBoxLayout(self._adv_host)
+        adv.setContentsMargins(0, 0, 0, 0)
+        adv.addWidget(QLabel("Model:"))
+        self._auto_model = QComboBox()
+        self._auto_model.setToolTip(
+            "Detector weight for auto-crop. Text prompts need a YOLOE model; "
+            "plain YOLO models detect their built-in classes only.")
+        from mindsight.weights import WEIGHTS_ROOT
+        names = sorted(p.name for p in (WEIGHTS_ROOT / "YOLO").glob("*.pt"))
+        self._auto_model.addItems(names or ["yoloe-26l-seg.pt"])
+        default_ix = self._auto_model.findText("yoloe-26l-seg.pt")
+        self._auto_model.setCurrentIndex(max(default_ix, 0))
+        adv.addWidget(self._auto_model, 1)
+        self._auto_pads = {}
+        for label, tip in (("L", "Left padding"), ("T", "Top padding"),
+                           ("R", "Right padding"), ("B", "Bottom padding")):
+            adv.addWidget(QLabel(label + ":"))
+            spin = QSpinBox()
+            spin.setRange(-1000, 1000)
+            spin.setValue(self._auto_pad.value())
+            spin.setSuffix(" px")
+            spin.setToolTip(tip + " (negative crops inside the detections)")
+            adv.addWidget(spin)
+            self._auto_pads[label] = spin
+        # The uniform Padding spin drives all four sides.
+        self._auto_pad.valueChanged.connect(
+            lambda v: [s.setValue(v) for s in self._auto_pads.values()])
+        self._adv_host.setVisible(False)
+        adv_btn.toggled.connect(self._adv_host.setVisible)
+        lay.addWidget(self._adv_host)
+
         self._auto_vp_file = None
         self._detector = None
         self._detector_key = None
@@ -405,12 +445,13 @@ class CropVideosDialog(QDialog):
     def _ensure_detector(self):
         """Lazy-load (and cache) the landmark detector for the current mode."""
         from .auto_crop import load_landmark_detector
+        model = self._auto_model.currentText()
         if self._auto_mode.currentIndex() == 1:
             if not self._auto_vp_file:
                 QMessageBox.warning(self, "Auto-crop",
                                     "Choose a visual prompt file first.")
                 return None
-            key = ("vp", self._auto_vp_file)
+            key = ("vp", self._auto_vp_file, model)
         else:
             classes = [c.strip() for c in self._auto_classes.text().split(",")
                        if c.strip()]
@@ -419,7 +460,7 @@ class CropVideosDialog(QDialog):
                     self, "Auto-crop",
                     "Name at least one object (e.g. person, dining table).")
                 return None
-            key = ("text", tuple(classes))
+            key = ("text", tuple(classes), model)
         if self._detector_key == key and self._detector is not None:
             return self._detector
         self._crop_label.setText(
@@ -429,18 +470,17 @@ class CropVideosDialog(QDialog):
         try:
             if key[0] == "vp":
                 self._detector = load_landmark_detector(
-                    "vp", vp_file=self._auto_vp_file)
+                    "vp", vp_file=self._auto_vp_file, vp_model=model)
             else:
                 self._detector = load_landmark_detector(
-                    "text", classes=list(key[1]))
+                    "text", classes=list(key[1]), vp_model=model)
         except Exception as exc:  # noqa: BLE001 -- plain-English, not a crash
             self._detector = None
             self._refresh_crop_label()
             QMessageBox.critical(
                 self, "Auto-crop",
                 f"Could not load the detector:\n{exc}\n\nCheck that the "
-                "YOLOE weights (yoloe-26l-seg.pt) are installed in the "
-                "Models tab.")
+                f"weights ({model}) are installed in the Models tab.")
             return None
         self._detector_key = key
         self._refresh_crop_label()
@@ -453,7 +493,8 @@ class CropVideosDialog(QDialog):
             return None
         h, w = frame.shape[:2]
         boxes = detect_boxes(self._detector, frame)
-        return union_rect(boxes, self._auto_pad.value(), w, h)
+        pads = tuple(self._auto_pads[s].value() for s in ("L", "T", "R", "B"))
+        return union_rect(boxes, pads, w, h)
 
     def _auto_crop_current(self):
         if not self._videos or self._ensure_detector() is None:

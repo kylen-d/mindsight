@@ -115,7 +115,11 @@ class SliderValue(QWidget):
                 self._slider.setEnabled(True)
                 self._slider.setValue(self._val_to_tick(v))
             else:
-                # Pin + grey the slider; never clamp the number (Q14).
+                # Pin to the nearest end + grey the slider; never clamp the
+                # number (Q14).  (Eyes-on B2: it greyed but sat wherever it
+                # was, misreading as a live value.)
+                self._slider.setValue(
+                    0 if float(v) < float(self._min) else self._steps)
                 self._slider.setEnabled(False)
             self._syncing = False
         self._apply_range_style(v)
@@ -157,6 +161,8 @@ class SliderValue(QWidget):
                 self._slider.setEnabled(True)
                 self._slider.setValue(self._val_to_tick(v))
             else:
+                self._slider.setValue(
+                    0 if float(v) < float(self._min) else self._steps)
                 self._slider.setEnabled(False)
         self._syncing = False
         self._apply_range_style(v)

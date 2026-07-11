@@ -110,7 +110,8 @@ options:
                         value to use Outputs/Charts/[stem]_Charts.png, or supply a custom path.
   --pipeline YAML       Load pipeline configuration from a YAML file. CLI flags override YAML
                         values.
-  --project DIR         Run in project mode: process all videos in DIR/Inputs/Videos/ using
+  --project DIR         Run in project mode: process all staged videos (DIR/Inputs/Runs/ run
+                        folders, or the legacy flat DIR/Inputs/Videos/) using
                         DIR/Pipeline/pipeline.yaml as config.
   --no-resume           Project mode: reprocess every video, ignoring the resume ledger. Does not
                         archive prior outputs. Default resumes -- skipping videos whose ledger

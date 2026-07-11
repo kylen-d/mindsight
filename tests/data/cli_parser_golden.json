@@ -126,7 +126,7 @@
       "choices": null,
       "required": false,
       "metavar": "DIR",
-      "help": "Run in project mode: process all videos in DIR/Inputs/Videos/ using DIR/Pipeline/pipeline.yaml as config.",
+      "help": "Run in project mode: process all staged videos (DIR/Inputs/Runs/ run folders, or the legacy flat DIR/Inputs/Videos/) using DIR/Pipeline/pipeline.yaml as config.",
       "group": "options"
     },
     {
