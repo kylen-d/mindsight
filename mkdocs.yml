@@ -62,7 +62,6 @@ nav:
       - Quickstart (GUI): getting-started/quickstart-gui.md
   - Design a study:
       - Your First Project: getting-started/first-project.md
-      - Visual Prompts: design/visual-prompts.md
       - Inference Settings: reference/inference-settings.md
       - CLI Flags: reference/cli-flags.md
       - pipeline.yaml Schema: reference/pipeline-yaml-schema.md

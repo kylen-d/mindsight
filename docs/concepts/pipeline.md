@@ -33,8 +33,10 @@ head turns before it is dropped.
 
 For studies whose objects of interest are not ordinary COCO classes -- a
 particular toy, a specific piece of apparatus -- YOLOE lets you define the
-classes visually rather than retraining a model. See
-[Visual Prompts](../design/visual-prompts.md) for how that works.
+classes visually rather than retraining a model: you show it a few reference
+images with boxes drawn around your objects (a `.vp.json` visual prompt file,
+built with the GUI's VP Builder tab), and it detects things that look like
+them.
 
 ## Stage 2 -- Gaze Estimation
 

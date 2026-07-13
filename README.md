@@ -578,7 +578,7 @@ VP files encode reference images and bounding-box annotations used by YOLOE for 
 - The **first** reference image is used to initialise YOLOE class embeddings. Additional reference images are currently reserved for future use.
 - Class IDs must be contiguous and start at `0`.
 
-> See the [visual prompts guide](https://kylen-d.github.io/mindsight-docs/design/visual-prompts/) for tips on creating effective prompts.
+> Tip: prompts detect best when reference boxes are drawn tightly around the object, from footage that matches your study's camera angle and lighting.
 
 ---
 
