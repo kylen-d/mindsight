@@ -1,14 +1,72 @@
 # Changelog
 
-## [0.8.0] - Unreleased
+## [1.0.0] - 2026-07-12
+
+First stable release. Everything between the v0.2.0 beta and here was a
+ground-up rebuild: a public pipeline API under a typed configuration schema,
+a reworked GUI organized around studies, research-grade outputs, one-click
+installers, and a documentation site.
 
 ### Changed (breaking)
-- **Gazelle Blend redesigned around a fixation-aware scheduler.** The belief-map tuning knobs (`direction_blend`, `length_blend`, `length_only`, `direction_decay`, `length_decay`, `diffusion_sigma`, `blend_conf_scale`, `belief_min_peak`, `inout_threshold`, and the fixed `gazelle_interval`) are removed. Replaced with 3 default-visible knobs (`min_call_gap`, `dir_beta`, `len_beta`) and 4 advanced knobs (`fixation_v_threshold`, `fixation_d_threshold`, `dir_min_cutoff`, `len_min_cutoff`). Gaze-LLE inferences now fire only when at least one participant is fixating -- detected per-face from smoothed pitch/yaw velocity and windowed dispersion -- which prevents the post-inference head-turn artifact at its source rather than correcting it after the fact. The output is smoothed with a One Euro Filter (adaptive per-frame cutoff, calibrated to the video's real fps) instead of a fixed-alpha EMA, so the smoothing-vs-jitter trade-off resolves itself.
-- **YAML pipeline / CLI migration.** The removed knobs have no clean 1:1 replacement; pipelines referencing them should move to the new knob set (see the cookbook's "Migrating from the legacy Gazelle Blend"). The legacy `rf_gazelle_interval` key / `--rf-gazelle-interval` flag still works as an alias for `min_call_gap`.
+- **Package restructure.** All domain code lives under `mindsight/` (the old
+  `ms/` package and its shims are gone). The CLI and GUI are thin frontends
+  over a public pipeline API; `pipeline.yaml` configs are validated against a
+  strict typed schema, with compatibility aliases for legacy keys.
+- **Gazelle Blend redesigned around a fixation-aware scheduler.** The
+  belief-map tuning knobs (`direction_blend`, `length_blend`, `length_only`,
+  `direction_decay`, `length_decay`, `diffusion_sigma`, `blend_conf_scale`,
+  `belief_min_peak`, `inout_threshold`, and the fixed `gazelle_interval`) are
+  removed. Replaced with 3 default-visible knobs (`min_call_gap`, `dir_beta`,
+  `len_beta`) and 4 advanced knobs (`fixation_v_threshold`,
+  `fixation_d_threshold`, `dir_min_cutoff`, `len_min_cutoff`). Gaze-LLE
+  inferences fire only when at least one participant is fixating -- detected
+  per-face from smoothed pitch/yaw velocity and windowed dispersion -- which
+  prevents the post-inference head-turn artifact at its source. Output is
+  smoothed with a One Euro Filter (adaptive per-frame cutoff, calibrated to
+  the video's real fps) instead of a fixed-alpha EMA. Legacy
+  `rf_gazelle_interval` / `--rf-gazelle-interval` still work as aliases for
+  `min_call_gap`; the other removed knobs have no 1:1 replacement.
+- **Dependencies are declared once, in `pyproject.toml`,** with exact versions
+  pinned in the committed `uv.lock`. `requirements.txt` is gone.
+
+### Added
+- **Projects workflow**: a Projects tab with a study-creation wizard (videos,
+  conditions, participant tagging), per-run data pane, planned sessions that
+  can be fulfilled by live recording or attached external footage, and live
+  record-then-analyze sessions that keep the raw camera feed as the run's
+  primary video.
+- **Inference Settings dialog** (seven tabs) owning the run-settings store;
+  Gaze Tuning (now "Inference Tuning") no longer affects runs outside it.
+- **Quick analysis**: analyze a bare video file or camera without a project,
+  with live charts in-pane.
+- **Crop & Adjust tool** with YOLOE-assisted auto-crop, non-destructive by
+  default; frame extraction into the Visual Prompt Builder; portable
+  `.vp.zip` visual-prompt archives.
+- **About tab with an in-app documentation reader.** The wheel bundles the
+  docs tree, config presets, and weights manifest as package data, so
+  installed apps read the shipped docs offline.
+- **One-click installers** for macOS and Windows: managed Python, locked
+  dependencies, verified weight downloads -- and a real `MindSight.app` in
+  /Applications (Dock name + icon) on macOS, Start Menu shortcuts with the
+  MindSight icon on Windows.
+- **Known-good pipeline preset** shipped at `configs/pipeline_known_good.yaml`
+  (the validated Gaze-LLE Blend operating point), plus a low-power variant.
+- **`--no-detector` mode** -- face and gaze analysis without any YOLO model.
+- **Documentation site** (tutorial with screenshots, concepts, reference)
+  and a GitHub issue template.
+
+### Fixed
+- `mindsight --help` crashed with `KeyError: 'default'` (help rendered
+  during the explicit-flag detection parse; the real parse now runs first).
+- The committed `uv.lock` had drifted from `pyproject.toml` (it was missing
+  `imageio-ffmpeg` and the macOS camera-enumeration dependency).
 
 ### Removed
-- **UniGaze gaze backend** -- never loaded reliably (required non-commercial `unigaze` PyPI package pinning `timm==0.3.2`); functionality superseded by L2CS-Net and Gazelle backends
-- **GazelleSnap plugin** -- superseded by core Ray Forming + Gazelle Blend pipeline (`ms/PostProcessing/RayForming/gazelle_provider.py`). Legacy `--gs-*` CLI flags are no longer recognized
+- **UniGaze gaze backend** -- never loaded reliably (required non-commercial
+  `unigaze` PyPI package pinning `timm==0.3.2`); superseded by the MobileGaze
+  and Gaze-LLE backends
+- **GazelleSnap plugin** -- superseded by the core Ray Forming + Gazelle
+  Blend pipeline. Legacy `--gs-*` CLI flags are no longer recognized
 
 ## [0.4.0-beta] - 2026-04-05
 

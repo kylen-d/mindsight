@@ -1,0 +1,51 @@
+name: Bug report
+description: Something in MindSight misbehaved -- a crash, wrong output, or a run that would not start.
+labels: ["bug"]
+body:
+  - type: input
+    id: version
+    attributes:
+      label: MindSight version
+      description: Shown on the About tab (or `mindsight --version`).
+      placeholder: "1.0.0"
+    validations:
+      required: true
+  - type: dropdown
+    id: install
+    attributes:
+      label: How is it installed?
+      options:
+        - One-click installer (release zip)
+        - pip / uv from the release wheel
+        - Source checkout
+    validations:
+      required: true
+  - type: input
+    id: os
+    attributes:
+      label: Operating system
+      placeholder: "macOS 15.5 (Apple Silicon) / Windows 11"
+    validations:
+      required: true
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: What did you do, what did you expect, and what happened instead?
+    validations:
+      required: true
+  - type: textarea
+    id: log
+    attributes:
+      label: Log output
+      description: >-
+        Paste the relevant lines from the GUI's Log pane or the terminal,
+        including any preflight messages. Wrap long output in triple backticks.
+      render: text
+  - type: textarea
+    id: config
+    attributes:
+      label: Pipeline settings (if relevant)
+      description: >-
+        For analysis-quality issues: which preset or settings the run used
+        (e.g. the shipped known-good preset, or your pipeline.yaml).

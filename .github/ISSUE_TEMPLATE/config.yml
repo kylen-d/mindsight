@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Documentation
+    url: https://kylen-d.github.io/mindsight-docs/
+    about: Tutorials, concepts, and reference -- check the troubleshooting table first.
