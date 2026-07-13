@@ -6,7 +6,7 @@
 
 <p class="ms-tagline">Multi-person gaze tracking and attention analysis for behavioral research</p>
 
-<p class="ms-version">v1.0.0 &mdash; first stable release. See the <a href="changelog.md">Changelog</a> for what shipped.</p>
+<p class="ms-version" markdown>v1.0.0 -- first stable release. See the [Changelog](changelog.md) for what shipped.</p>
 
 <div class="ms-actions" markdown>
 [Get started](getting-started/installation.md){ .ms-cta }
