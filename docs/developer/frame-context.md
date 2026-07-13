@@ -39,33 +39,35 @@ Each frame follows this lifecycle:
 
 ## Key Registry
 
-The table below lists all known keys, the type of value stored, which component writes the key, and a brief description.
+The **authoritative, exhaustive** key catalogue — every constructor, detection,
+gaze, process-frame, phenomena, run-context-base, run-loop, and finalize key with
+its exact type and producer/consumer — lives in
+[FrameContext Keys](../reference/frame-context-keys.md). Consult that page rather
+than duplicating it here.
+
+The keys below are the ones you will touch most often when writing a plugin. Note
+the shapes that changed in the restructure:
 
 | Key | Type | Written By | Description |
 |-----|------|-----------|-------------|
-| `frame` | `np.ndarray` | constructor | Current BGR frame |
+| `frame` | `np.ndarray` | constructor | Current BGR frame (mutated in-place by overlay) |
 | `frame_no` | `int` | constructor | Frame counter (0-based) |
-| `all_dets` | `list[Detection]` | detection_pipeline | All raw detections before filtering |
+| `objects` | `list[Detection]` | detection_pipeline | Non-person detections |
 | `persons` | `list[Detection]` | detection_pipeline | Person-class detections only |
-| `objects` | `list[Detection]` | detection_pipeline | Non-person detections (furniture, screens, etc.) |
-| `face_bboxes` | `list` | gaze_pipeline | Detected face bounding boxes |
-| `face_confs` | `list[float]` | gaze_pipeline | Face detection confidence scores |
-| `face_track_ids` | `list[int]` | gaze_pipeline | Re-ID track IDs assigned to each face |
-| `persons_gaze` | `list[tuple]` | gaze_pipeline | `(origin_xy, tip_xy)` gaze ray per tracked face |
-| `hits` | `list[set]` | gaze_pipeline | Set of object indices hit by each face's gaze ray |
-| `hit_events` | `list[dict]` | gaze_pipeline | Per-hit dicts with `face_idx`, `object`, `bbox`, `conf` |
+| `persons_gaze` | `list[tuple]` | gaze_pipeline | Per-person gaze as `(origin, ray_end, angles)` tuples; `angles` may be `None` |
+| `face_bboxes` | `list[tuple]` | gaze_pipeline | Face boxes `(x1, y1, x2, y2)` |
+| `face_track_ids` | `list[int]` | gaze_pipeline | Stable Re-ID track ID per face |
+| `hits` | `set[tuple]` | gaze_pipeline | Set of `(face_idx, target_idx)` pairs that intersect this frame |
+| `hit_events` | `list[dict]` | gaze_pipeline | Structured per-hit records for CSV logging (`face_idx` = stable track ID) |
 | `joint_objs` | `set[int]` | process_frame | Object indices under raw joint attention (2+ faces) |
-| `confirmed_objs` | `set[int]` | phenomena_pipeline | Temporally confirmed joint attention objects |
-| `tip_convergences` | `list` | process_frame | Gaze tip convergence clusters |
-| `smoother` | `GazeSmootherReID` | run_ctx_base | Gaze smoothing with re-identification |
-| `locker` | `GazeLockTracker` | run_ctx_base | Fixation lock-on / dwell tracker |
-| `all_trackers` | `list[PhenomenaPlugin]` | run_ctx_base | All active phenomena tracker instances |
-| `look_counts` | `dict` | run_ctx_base | Per-(participant, object) cumulative frame counts |
-| `heatmap_gaze` | `dict` | run_ctx_base | Per-participant gaze point accumulation for heatmaps |
-| `pid_map` | `dict` | run_ctx_base | Track ID to participant label mapping |
-| `aux_frames` | `dict` | run loop | Auxiliary stream frames keyed by `(pid, type)` |
-| `fps` | `float` | run loop | Current rolling FPS estimate |
-| `anonymize` | `str` or `None` | run_ctx_base | Face anonymization mode (`"blur"`, `"box"`, or `None`) |
+| `confirmed_objs` | `set[int]` | phenomena_pipeline | Temporally confirmed joint-attention object indices |
+| `smoother` | `GazeSmootherReID` | run context base | Gaze smoothing with re-identification |
+| `locker` | `GazeLockTracker` | run context base | Fixation lock-on / dwell tracker |
+| `snap_temporal` | `SnapTemporalState` | run context base | Temporal snap engage/release state (replaces the old `snap_hysteresis`) |
+| `all_trackers` | `list` | run context base | All active phenomena tracker instances |
+| `pid_map` | `dict` or `None` | run context base | Track ID to participant-label mapping |
+| `aux_frames` | `dict` | run loop | Auxiliary stream frames keyed by the 3-tuple `(pid, stream_label, video_type)` |
+| `anonymize` | `str` or `None` | run context base | Face anonymization mode (`"blur"`, `"black"`, or `None`) |
 
 ## Extending FrameContext
 

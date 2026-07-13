@@ -41,7 +41,7 @@ The filename does not matter. Only the class and `PLUGIN_CLASS` variable are use
 
 ### Step 2: Set Up Imports
 
-Plugins live in subdirectories and are loaded dynamically. The `ms` package is installed as an editable package, so domain modules are available via `ms.*` imports. Import the base class for your plugin type:
+Plugins live in subdirectories and are loaded dynamically. Domain modules are available via `mindsight.*` imports (e.g. `from mindsight.pipeline_config import resolve_display_pid`); the base classes come from the top-level `Plugins` package. Import the base class for your plugin type:
 
 ```python
 from Plugins import GazePlugin           # for gaze plugins
@@ -179,8 +179,8 @@ def run_pipeline(self, **kwargs):
     objects         : Non-person detection list.
     gaze_cfg        : GazeConfig with ray parameters.
     smoother        : Optional GazeSmootherReID instance.
-    snap_hysteresis : Optional SnapHysteresisTracker instance.
-    aux_frames      : dict[(pid_label, stream_type), ndarray | None] --
+    snap_temporal   : Optional SnapTemporalState instance.
+    aux_frames      : dict[(pid, stream_label, video_type), ndarray | None] --
                       per-participant auxiliary video frames.
 
     Returns

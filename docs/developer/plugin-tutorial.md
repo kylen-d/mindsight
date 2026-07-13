@@ -14,7 +14,7 @@ Worked examples for each of MindSight's four plugin types. Each tutorial walks t
 
 -   **[Gaze Plugin: Building a Backend](gaze-plugin-tutorial.md)**
 
-    Build a custom gaze estimation backend. Walks through the real Gazelle (DINOv2 scene-level) plugin.
+    Build a custom gaze estimation backend. Walks through the real Gaze-LLE (DINOv2 scene-level) plugin.
 
 -   **[Object Detection Plugin: Post-Processing](object-detection-plugin-tutorial.md)**
 

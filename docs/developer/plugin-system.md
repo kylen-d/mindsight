@@ -97,7 +97,7 @@ phenomena_registry         = PluginRegistry()
 data_collection_registry   = PluginRegistry()
 ```
 
-The gaze registry scans `Plugins/GazeTracking/` for third-party gaze plugins. The built-in MGaze backend is a core backend since v1.0 -- resolved directly by `create_gaze_engine`, not through the registry.
+The gaze registry scans `Plugins/GazeTracking/` for third-party gaze plugins. The built-in MobileGaze backend is a core backend since v1.0 -- resolved directly by `create_gaze_engine`, not through the registry.
 
 The other three registries each scan their corresponding `Plugins/<Type>/` directory.
 
@@ -132,8 +132,8 @@ Base class for gaze estimation backends.
 | `objects` | Non-person detection list. |
 | `gaze_cfg` | `GazeConfig` with ray parameters. |
 | `smoother` | Optional `GazeSmootherReID` instance. |
-| `snap_hysteresis` | Optional `SnapHysteresisTracker` instance. |
-| `aux_frames` | `dict[(pid_label, stream_type), ndarray | None]` -- per-participant auxiliary video frames. Empty dict when no auxiliary streams are configured. |
+| `snap_temporal` | Optional `SnapTemporalState` instance. |
+| `aux_frames` | `dict[(pid, stream_label, video_type), ndarray | None]` -- per-participant auxiliary video frames. Empty dict when no auxiliary streams are configured. |
 
 `run_pipeline` returns a tuple of `(persons_gaze, face_confs, face_bboxes, face_track_ids, face_objs, ray_snapped, ray_extended)`.
 
@@ -301,9 +301,19 @@ def from_args(cls, args):
     return None
 ```
 
-### Integration in `MindSight.py`
+### Integration in the parser and factory
 
-On startup, `MindSight.py` iterates all four registries and calls `add_arguments` on every registered class. After argument parsing, it iterates again and calls `from_args`. For gaze plugins, the first non-`None` result wins (fallbacks tried last). For other types, all activated instances are collected and used.
+On startup, `build_parser` (`mindsight/cli_flags.py`) iterates **three** registries
+— gaze, object-detection, and phenomena — and calls `add_arguments` on every
+registered class, so their flags join the core parser. `data_collection_registry`
+is **not** looped here, so DataCollection `add_arguments` flags do not register in
+v1.0.0 (see the wiring note in
+[Plugin Base Classes](../reference/plugin-base-classes.md) and the
+[Data Collection tutorial](data-collection-plugin-tutorial.md)). After argument
+parsing, `factory.build_from_namespace` calls `from_args` across the registries.
+For gaze plugins, the first non-`None` result wins (fallbacks tried last). For the
+other types, all activated instances are collected and used; DataCollection
+plugins are built separately by `factory.build_data_plugins`.
 
 ---
 

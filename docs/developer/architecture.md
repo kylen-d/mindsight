@@ -2,7 +2,12 @@
 
 ## Overview
 
-MindSight is a thin orchestrator (`MindSight.py`, ~718 lines) that wires together four pipeline stage modules. All stages communicate through a shared `FrameContext` object created once per frame. The orchestrator itself contains no domain logic -- it simply sequences the stages, manages the video capture loop, and holds run-level state such as smoothers, trackers, and output paths.
+`MindSight.py` at the repo root is a **6-line shim** — it just calls
+`mindsight.cli.main`. The real orchestration lives in **`mindsight/pipeline.py`**,
+which wires together four pipeline stage modules. All stages communicate through a
+shared `FrameContext` (`ctx`) dict created once per frame. The orchestrator itself
+contains no domain logic — it sequences the stages, manages the video capture
+loop, and holds run-level state such as smoothers, trackers, and output paths.
 
 The four stages are:
 
@@ -15,17 +20,19 @@ The four stages are:
 
 ```mermaid
 graph TD
-    MS[MindSight.py] --> DP[mindsight/ObjectDetection/detection_pipeline]
-    MS --> GP[mindsight/GazeTracking/gaze_pipeline]
-    MS --> PP[mindsight/Phenomena/phenomena_pipeline]
-    MS --> DC[mindsight/outputs/data_pipeline]
+    MS[MindSight.py shim] --> CLI[mindsight/cli.main]
+    CLI --> PL[mindsight/pipeline.py: run / process_frame]
+    PL --> DP[mindsight/ObjectDetection/detection_pipeline]
+    PL --> GP[mindsight/GazeTracking/gaze_pipeline]
+    PL --> PP[mindsight/Phenomena/phenomena_pipeline]
+    PL --> DC[mindsight/outputs/data_pipeline]
 
     DP --> OD[mindsight/ObjectDetection/object_detection]
     DP --> MF[mindsight/ObjectDetection/model_factory]
 
     GP --> GPR[mindsight/GazeTracking/gaze_processing]
-    GP --> GI[mindsight/GazeTracking/__init__]
-    GP --> GBE[mindsight/GazeTracking/Backends/*]
+    GP --> RF[mindsight/PostProcessing/RayForming/*]
+    GP --> GBE[mindsight/GazeTracking/Backends/MGaze only]
 
     PP --> PC[mindsight/Phenomena/phenomena_config]
     PP --> PH[mindsight/Phenomena/helpers]
@@ -35,34 +42,40 @@ graph TD
     DC --> HM[mindsight/outputs/heatmap_output]
     DC --> DB[mindsight/outputs/dashboard_output]
 
-    MS --> CFG[mindsight/pipeline_config.py]
-    MS --> PLG[Plugins/__init__.py]
+    PL --> CFG[mindsight/pipeline_config.py]
+    CLI --> FAC[mindsight/factory.build_from_namespace]
+    FAC --> PLG[Plugins/__init__.py]
 
     PLG --> GREG[gaze_registry]
     PLG --> OREG[object_detection_registry]
     PLG --> PREG[phenomena_registry]
+    PLG --> DREG[data_collection_registry]
 ```
 
-`Plugins/__init__.py` provides base classes and registries that each plugin subdirectory hooks into. `mindsight/pipeline_config.py` defines `FrameContext` and the configuration dataclasses consumed by every stage.
+`Plugins/__init__.py` provides base classes and four registries that each plugin subdirectory hooks into via a module-level `PLUGIN_CLASS` sentinel. `mindsight/pipeline_config.py` defines `FrameContext` and the configuration dataclasses consumed by every stage.
 
-## The Orchestrator: MindSight.py
+## The Orchestrator: `mindsight/pipeline.py`
 
-### `main()`
+### `main()` (in `mindsight/cli.py`)
 
-Entry point. Parses CLI arguments (each module registers its own flags), loads an optional pipeline YAML file, and dispatches into either single-video mode or project mode (batch processing a directory of videos).
+Entry point behind the `MindSight.py` shim. Parses CLI arguments (each module
+registers its own flags), loads an optional pipeline YAML file, calls
+`factory.build_from_namespace` to wire the models, and dispatches into either
+single-video mode or project mode (batch processing a directory of videos).
 
-### `run(video_path, args, ...)`
+### `run(source, yolo, face_det, gaze_eng, ...)`
 
-Opens the video capture and creates the per-run tracker objects that persist across frames:
+Module-level generator in `mindsight/pipeline.py` (there is also a `Pipeline`
+class wrapping the same loop). It opens the video capture and creates the per-run
+tracker objects that persist across frames:
 
-- `GazeSmootherReID` -- temporal smoothing of gaze rays with re-identification.
-- `GazeLockTracker` -- fixation lock-on / dwell detection.
-- `SnapHysteresisTracker` -- hysteresis-based snap-to-object logic.
-- `ObjectPersistenceCache` -- short-term memory for disappeared objects.
+- `GazeSmootherReID` — temporal smoothing of gaze rays with re-identification.
+- `GazeLockTracker` — fixation lock-on / dwell detection (from `PostProcessing/RayForming/fixation.py`).
+- `SnapTemporalState` — temporal snap-to-object state (from `PostProcessing/RayForming/object_snap.py`).
 
-These are bundled into `run_ctx_base` and seeded into every `FrameContext`. The function then iterates frames, calling `process_frame()` for each one.
+These are bundled into `run_ctx_base` and seeded into every `FrameContext`. The loop then iterates frames, calling `process_frame()` for each one.
 
-### `process_frame(ctx, ...)`
+### `process_frame(ctx, *, yolo, face_det, gaze_eng, ...)`
 
 Calls the four pipeline stages in order:
 
@@ -71,11 +84,15 @@ Calls the four pipeline stages in order:
 3. `update_phenomena_step(ctx)`
 4. `collect_frame_data(ctx, ...)`
 
-After the stages complete, it handles display rendering and dashboard updates.
+After the stages complete, the run loop handles display rendering and dashboard updates.
 
-### `_build_from_args(args)`
+### `factory.build_from_namespace(ns)`
 
-Factory function that reads the argparse namespace and instantiates the correct model backends (e.g., YOLO variant, Gazelle variant) via the model factory and plugin registries.
+Factory function (`mindsight/factory.py`) that reads the argparse namespace and
+instantiates the correct model backends (e.g., the YOLO detector, the MobileGaze
+gaze engine, the Gaze-LLE blend provider) via the model factory and plugin
+registries. It returns the full tuple of models + config dataclasses consumed by
+`run()`.
 
 ## Pipeline Stages
 
@@ -150,24 +167,32 @@ plus `events.py`, `staging.py` (RunSpec discovery + run metadata), `preflight.py
 `ledger.py`, and the `Project` facade in `project.py`). Anything more complex than
 formatting lives project-side with a fast test.
 
-- **`main_window.py`** creates the application window with four tabs:
-  - **Analyze Footage** (`run_study_tab.py`) -- the batch-processing home: project
-    picker (typed path / browse / recents), preflight checklist with fix hints, a
+- **`main_window.py`** creates the application window with **six tabs** (in order:
+  Analyze Footage, Projects, VP Builder, Inference Tuning, Models, About) plus a
+  menu bar (File / View > Theme / Tools > Inference Settings / Help):
+  - **Analyze Footage** (`run_study_tab.py`) -- the analysis home: a three-mode
+    switch (Project / Video File / Camera), preflight checklist with fix hints, a
     runs table with ledger status and resume-plan preview, per-run re-run and
     edit-metadata actions, a collapsible Study setup area (pipeline, participants,
-    conditions, anonymize toggle, output root, `project.yaml` save), a manual
-    "Add single run" dialog, and a tabbed output panel (log, in-GUI charts, CSV
-    viewer -- rendered from CSVs already on disk via `run_outputs.py`).
-  - **VP Builder** (`vp_builder_tab.py`) -- visual prompt builder for creating and
-    testing `.vp.json` files.
-  - **Gaze Tuning** (`gaze_tab/`) -- the single-source tuning surface. Its
-    parameter panels are generated from the config schema's `ui` metadata:
-    `ui_spec.py` (pure, headless) resolves schema fields + flag help into a spec
-    tree and `schema_panel.py` renders it, including checkable toggle groups and
-    a basic/advanced tier. Hand-written sections remain only for widgets the
-    schema cannot express (source/model/VP pickers, backend radios, output paths).
+    conditions, anonymize toggle, output root, `project.yaml` save), and a tabbed
+    output panel (log, in-GUI charts, CSV viewer, and a live dashboard --
+    rendered via `run_outputs.py`).
+  - **Projects** (`projects_tab.py`) -- project lifecycle: the Build New Project
+    wizard, session planning, Record Live Session, and Crop & Adjust.
+  - **VP Builder** (`vp_builder_tab.py`) -- visual prompt builder for creating,
+    testing, and exporting `.vp.json` / `.vp.zip` files.
+  - **Inference Tuning** (`gaze_tab/`; class `GazeTab`, so the module name lags the
+    UI label) -- the decoupled parameter-tuning playground. Its panels are
+    generated from the config schema's `ui` metadata: `ui_spec.py` (pure, headless)
+    resolves schema fields + flag help into a spec tree and `schema_panel.py`
+    renders it, including checkable toggle groups and a basic/advanced tier.
+    Hand-written sections remain only for widgets the schema cannot express
+    (source/model/VP pickers, backend radios, output paths). This tab is *not* the
+    per-run authority — the Inference Settings dialog (`Tools` menu) is.
   - **Models** (`models_tab.py`) -- manifest-driven weight manager (install,
     verify against checksums, re-download).
+  - **About** (`about_tab.py`) -- in-app documentation reader that renders bundled
+    guide-card Markdown via `render_mkdocs_markdown`.
 
 - **`workers.py`** contains `threading.Thread`-based workers that keep the UI
   responsive. `ProjectWorker` is a thin consumer of `iter_project_runs` (the same
@@ -191,13 +216,27 @@ Plugins hook into four registries defined in `Plugins/__init__.py`:
 | `phenomena_registry` | New social gaze phenomena | Custom attention metrics |
 | `data_collection_registry` | Custom data sinks built via `from_args` and consumed at `finalize_run` | JSON loggers, custom exports |
 
-Auto-discovery scans `Plugins/` subdirectories at startup; load failures are
-recorded per registry (`registry.load_errors`) and surfaced loudly by project
-preflight. The built-in MobileGaze backend is not discovered this way -- it is a core backend resolved directly by `gaze_factory` and does not live in a registry. Each plugin package exposes a registration function that inserts itself into the appropriate registry. Plugins can also provide `add_arguments(parser)` to register their own CLI flags.
+Auto-discovery scans `Plugins/` subdirectories at startup; each plugin module
+exposes a module-level `PLUGIN_CLASS` **sentinel** that `PluginRegistry.discover()`
+finds and registers — there is no per-package "registration function". Load
+failures are recorded per registry (`registry.load_errors`) and surfaced loudly by
+project preflight. The built-in MobileGaze backend is not discovered this way — it
+is a core backend resolved directly by `gaze_factory` and does not live in a
+registry. Plugins provide `add_arguments(parser)` to register CLI flags, but note
+that only the gaze, object-detection, and phenomena registries are looped into the
+parser in v1.0.0 — `data_collection_registry` is built via `from_args` but its
+`add_arguments` is not wired (see [Plugin Base Classes](../reference/plugin-base-classes.md)).
 
 ## Auxiliary Video Streams
 
-MindSight supports optional per-participant auxiliary video feeds (e.g., eye cameras, first-person views) that are frame-synchronised with the main source. Auxiliary streams are configured via `--aux-stream` CLI flags or the `aux_streams` YAML section and are parsed into `AuxStreamConfig` instances. Each frame, the run loop reads one frame from every auxiliary capture and stores them in `FrameContext['aux_frames']` keyed by `"PID:TYPE"`. Auxiliary frames are not processed by any built-in pipeline stage but are passed to plugins (gaze backends, phenomena trackers) for consumption.
+MindSight supports optional per-participant auxiliary video feeds (e.g., eye cameras, first-person views) that are frame-synchronised with the main source. Auxiliary streams are configured via `--aux-stream` CLI flags
+(`SOURCE:VIDEO_TYPE:LABEL:PIDS`) or the `aux_streams` YAML section and are parsed
+into `AuxStreamConfig` instances. Each frame, the run loop reads one frame from
+every auxiliary capture and stores them in `FrameContext['aux_frames']` keyed by
+the **3-tuple** `(pid, stream_label, video_type)` (`mindsight/io/sources.py:92`).
+Auxiliary frames are not processed by any built-in pipeline stage but are passed to
+plugins (gaze backends, phenomena trackers) for consumption via
+`PhenomenaPlugin.get_aux_frame(...)`.
 
 ## Related Documentation
 

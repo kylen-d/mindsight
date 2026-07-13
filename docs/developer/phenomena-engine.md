@@ -4,13 +4,13 @@ Developer reference for the phenomena tracking system in MindSight.
 
 ## 1. Overview
 
-The phenomena engine is spread across four files:
+The phenomena engine is spread across three files:
 
 | File | Role |
 |---|---|
 | `phenomena_pipeline.py` | Per-frame coordinator and lifecycle manager |
 | `phenomena_config.py` | Configuration dataclass with all toggles and parameters |
-| `helpers.py` | Shared utility functions (joint attention, gaze convergence) |
+| `helpers.py` | Shared utility functions (joint attention, gaze convergence) and the `EpisodeLog` recorder |
 
 ## 2. Phenomena Pipeline
 
@@ -50,6 +50,18 @@ post_run_summary(all_trackers, total_frames, pid_map)
 
 Calls `console_summary()` on each tracker after video processing completes.
 
+### finalize_trackers
+
+```
+finalize_trackers(all_trackers, frame_no)
+```
+
+Called once after the frame loop, **before** summaries are written, so each
+tracker's `finalize(frame_no)` hook can close any in-flight episode (glances,
+aversion streaks, mutual-gaze pairs, JA/tip spans). `frame_no` is one past the
+last processed frame index. Closed episodes are what `episode_rows()` returns into
+the merged `{stem}_phenomena_events.csv`.
+
 ## 3. PhenomenaConfig
 
 **File:** `phenomena_config.py`
@@ -61,7 +73,7 @@ A dataclass holding all phenomena toggles and their parameters. `from_namespace(
 | `joint_attention` | bool | Enable joint attention tracking |
 | `ja_window` | int | Sliding window size (frames) |
 | `ja_window_thresh` | float | Threshold within the JA window |
-| `ja_quorum` | int | Minimum participants for JA |
+| `ja_quorum` | float | Quorum **fraction** of faces required for JA (see below); `1.0` = all faces |
 | `mutual_gaze` | bool | Enable mutual gaze detection |
 | `social_ref` | bool | Enable social referencing |
 | `social_ref_window` | int | Social referencing window (frames) |
@@ -90,10 +102,14 @@ old per-module `add_arguments(parser)` was removed in SP1.3).
 ### joint_attention
 
 ```
-joint_attention(persons_gaze, hits, quorum) -> set[int]
+joint_attention(persons_gaze, hits, quorum=1.0) -> set[int]
 ```
 
-Returns the set of object indices that are under joint attention (i.e., at least `quorum` participants are gazing at the same object).
+Returns the set of object indices under joint attention. `quorum` is a **fraction**
+of the visible faces, not a raw count: an object is flagged when at least
+`max(2, ceil(quorum * n_faces))` distinct faces look at it (`helpers.py:11-27`). So
+`quorum=1.0` requires all faces (minimum 2), and `quorum=0.75` with 4 people
+requires 3. Returns an empty set when fewer than 2 faces are present.
 
 ### gaze_convergence
 
@@ -101,7 +117,11 @@ Returns the set of object indices that are under joint attention (i.e., at least
 gaze_convergence(persons_gaze, tip_radius) -> list[tuple[set, ndarray]]
 ```
 
-Clusters gaze ray tips that fall within `tip_radius` of each other. Returns a list of `(face_set, centroid)` tuples, where `face_set` is the set of participant IDs whose tips converge and `centroid` is the cluster center.
+Clusters gaze ray tips that fall within **`2 * tip_radius`** of each other
+(`helpers.py:85`). Returns a list of `(face_set, centroid)` tuples, where
+`face_set` is the set of participant IDs whose tips converge and `centroid` is the
+cluster center. Tip convergence is itself treated as joint attention downstream (a
+convergence cluster counts as a JA event even with no object under the tips).
 
 ## 6. Tracker Ordering
 

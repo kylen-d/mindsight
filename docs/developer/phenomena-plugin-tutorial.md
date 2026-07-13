@@ -223,11 +223,13 @@ def dashboard_data(self, *, pid_map=None) -> dict:
     if self.events:
         for ev in self.events[-3:]:
             plbl = resolve_display_pid(ev['face_id'], pid_map)
+            speed_str = f"{ev['speed_px']:.0f}px/f"     # formatted saccade speed
             rows.append({
                 'label': f"{plbl} ->  {ev['direction']}",
                 'value': f"{speed_str}  @f{ev['frame_no']}",
             })
         # Per-face tally as final row
+        tally = len(self.events)                        # total events so far
         rows.append({'label': f"total: {tally}"})
     return {
         'title':      'NOVEL SALIENCE',

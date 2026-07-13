@@ -4,8 +4,8 @@
 
 This tutorial covers all three gaze plugin patterns by walking through real backends that ship with MindSight:
 
-- **[Part A — Per-face mode:](#part-a-per-face-backend-mgaze)** The MobileGaze backend (`mindsight/GazeTracking/Backends/MGaze/MGaze_Tracking.py`), which crops each face and estimates pitch/yaw angles independently.
-- **[Part B — Scene-level mode:](#part-b-scene-level-backend-gazelle)** The Gaze-LLE backend (`Plugins/GazeTracking/Gazelle/gazelle_backend.py`), which processes the full frame and all faces in a single DINOv2 forward pass.
+- **[Part A — Per-face mode:](#part-a-per-face-backend-mobilegaze)** The MobileGaze backend (`mindsight/GazeTracking/Backends/MGaze/MGaze_Tracking.py`), which crops each face and estimates pitch/yaw angles independently.
+- **[Part B — Scene-level mode:](#part-b-scene-level-backend-gaze-lle)** The Gaze-LLE backend (`Plugins/GazeTracking/Gazelle/gazelle_backend.py`), which processes the full frame and all faces in a single DINOv2 forward pass.
 - **[Part C — Composite / processing augmentation:](#part-c-composite-backend-temporarily-removed)** Previously demonstrated via the GazelleSnap plugin, which was removed in v0.8. A replacement composite-plugin example is TODO.
 
 ---
@@ -25,9 +25,9 @@ Choose your mode based on what your model produces. If it outputs pitch/yaw angl
 
 ---
 
-# Part A: Per-Face Backend (MGaze)
+# Part A: Per-Face Backend (MobileGaze)
 
-The MGaze plugin is MindSight's default gaze backend. It supports both ONNX and PyTorch inference, wrapping the vendored `gaze-estimation` library. It demonstrates the per-face pattern where `estimate()` receives a single cropped face and returns pitch/yaw angles.
+The MobileGaze plugin (`MGazePlugin`) is MindSight's default gaze backend. It supports both ONNX and PyTorch inference, wrapping the vendored `gaze-estimation` library. It demonstrates the per-face pattern where `estimate()` receives a single cropped face and returns pitch/yaw angles.
 
 **Source:** `mindsight/GazeTracking/Backends/MGaze/MGaze_Tracking.py`
 
@@ -41,18 +41,19 @@ mindsight/GazeTracking/Backends/MGaze/
 ├── MGaze_Tracking.py       # PLUGIN_CLASS = MGazePlugin
 ├── MGaze_Config.py         # DEFAULT_ONNX_MODEL, ARCH_CHOICES, DATA_CONFIG
 └── gaze-estimation/        # Vendored gaze-estimation library
-    ├── weights/
-    │   └── mobileone_s0_gaze.onnx  # Default shipped model
     ├── models/
     │   ├── resnet.py
     │   ├── mobilenet.py
     │   └── mobileone.py
     ├── onnx_inference.py    # GazeEstimationONNX base class
     └── config.py
+
+Weights/MGaze/              # weights live OUTSIDE the code tree
+└── mobileone_s0_gaze.onnx  # default shipped model
 ```
 
 !!! note
-    MGaze is a built-in core backend (resolved directly by `create_gaze_engine` since v1.0, not registered as a plugin); its code lives under `mindsight/GazeTracking/Backends/MGaze/`. The gaze registry scans `Plugins/GazeTracking/` only, for external plugins.
+    MobileGaze is a built-in core backend (resolved directly by `create_gaze_engine` since v1.0, not registered as a plugin); its code lives under `mindsight/GazeTracking/Backends/MGaze/`. Model weights are **not** bundled beside the code — they resolve through `resolve_weight("MGaze", ...)` to the shared `Weights/MGaze/` directory (there is no `gaze-estimation/weights/` subdir). The gaze registry scans `Plugins/GazeTracking/` only, for external plugins.
 
 ---
 
@@ -61,9 +62,10 @@ mindsight/GazeTracking/Backends/MGaze/
 `MGaze_Config.py` centralises model paths and dataset parameters:
 
 ```python
-DEFAULT_ONNX_MODEL = str(
-    Path(__file__).parent / "gaze-estimation" / "weights" / "mobileone_s0_gaze.onnx"
-)
+from mindsight.weights import resolve_weight
+
+# Default ONNX model — resolved via the shared Weights/MGaze/ directory.
+DEFAULT_ONNX_MODEL = str(resolve_weight("MGaze", "mobileone_s0_gaze.onnx"))
 
 ARCH_CHOICES = [
     "resnet18", "resnet34", "resnet50", "mobilenetv2",
@@ -83,7 +85,7 @@ The `DATA_CONFIG` controls bin-based regression: gaze direction is predicted as 
 
 ## A3. The Estimation Engines
 
-MGaze wraps two interchangeable estimation engines behind the same `estimate(face_bgr)` interface.
+MobileGaze wraps two interchangeable estimation engines behind the same `estimate(face_bgr)` interface.
 
 ### PyTorch Engine
 
@@ -96,7 +98,8 @@ class GazeEstimationTorch:
         self.idx_tensor = torch.arange(self._bins, dtype=torch.float32, device=self.device)
 
         model = utils_gaze.helpers.get_model(arch, self._bins, inference_mode=True)
-        model.load_state_dict(torch.load(weight_path, map_location=self.device))
+        model.load_state_dict(torch.load(weight_path, map_location=self.device,
+                                         weights_only=False))
         self.model = model.to(self.device).eval()
 
         self._tf = transforms.Compose([
@@ -184,9 +187,9 @@ class MGazePlugin(GazePlugin):
 
 ### Key decisions
 
-- **`is_fallback = True`** — MGaze is tried last, only if no other gaze plugin was activated. This makes it the automatic default without blocking user-installed plugins.
+- **`is_fallback = True`** — MobileGaze is tried last, only if no other gaze plugin was activated. This makes it the automatic default without blocking user-installed plugins.
 - **Wrapper pattern** — The plugin wraps an interchangeable engine (`GazeEstimationTorch` or `_GazeONNXWithConf`). The plugin class itself is thin — it delegates `estimate()` directly.
-- **`run_pipeline()` delegation** — Instead of letting the gaze coordinator's default handler crop faces and call `estimate()` individually, MGaze delegates to `run_pitchyaw_pipeline`. This shared pipeline handles face cropping, left-to-right sorting, temporal smoothing, ray construction, and adaptive snap for any per-face pitch/yaw backend.
+- **`run_pipeline()` delegation** — Instead of letting the gaze coordinator's default handler crop faces and call `estimate()` individually, MobileGaze delegates to `run_pitchyaw_pipeline`. This shared pipeline handles face cropping, left-to-right sorting, temporal smoothing, ray construction, and adaptive snap for any per-face pitch/yaw backend.
 
 ### The `run_pitchyaw_pipeline` helper
 
@@ -226,26 +229,47 @@ def add_arguments(cls, parser):
                     help="Dataset config key (default: gaze360)")
 ```
 
-The `from_args` method auto-selects between ONNX and PyTorch based on the file extension:
+The `from_args` method resolves the weight through `Weights/MGaze/` and
+auto-selects between ONNX and PyTorch based on the file extension. A bare,
+**extensionless** family name (e.g. `resnet50`) is resolved per-machine by
+`resolve_mgaze_family` — a `.pt` build on CUDA, the `_gaze.onnx` build elsewhere —
+so one shared preset works on NVIDIA lab machines and Macs alike:
 
 ```python
 @classmethod
 def from_args(cls, args):
+    from mindsight.weights import resolve_mgaze_family, resolve_weight
     model = getattr(args, "mgaze_model", None)
     if not model:
         return None
-    model = Path(model)
+    model = str(model)
+    # Extensionless family name: pick the build for this machine.
+    family = None
+    if not Path(model).suffix:
+        family = model
+        model = resolve_mgaze_family(model, getattr(args, "device", "auto"))
+    model = Path(resolve_weight("MGaze", model))
     if not model.exists():
         raise FileNotFoundError(f"MGaze model not found: {model}")
 
+    arch    = getattr(args, "mgaze_arch", None)
+    dataset = getattr(args, "mgaze_dataset", "gaze360")
+
     if model.suffix.lower() == ".pt":
+        if not arch and family:
+            arch = family          # the family stem IS the architecture name
         if not arch:
             raise ValueError("--mgaze-arch is required for .pt models")
+        device = getattr(args, "device", "auto")
         engine = GazeEstimationTorch(str(model), arch, dataset, device=device)
     else:
-        # ONNX path: auto-select execution provider
-        prov = [p for p in prefs if p in ort.get_available_providers()]
-        engine = _GazeONNXWithConf(model_path=None,
+        import onnxruntime as ort
+        prefs = ["CoreMLExecutionProvider", "CUDAExecutionProvider",
+                 "DirectMLExecutionProvider", "CPUExecutionProvider"]
+        avail = ort.get_available_providers()
+        prov = [p for p in prefs if p in avail] or ["CPUExecutionProvider"]
+        engine = _GazeONNXWithConf(
+            model_path=None,
             session=ort.InferenceSession(str(model), providers=prov))
 
     return cls(engine)
@@ -253,11 +277,11 @@ def from_args(cls, args):
 
 ### ONNX provider selection
 
-The ONNX path tries providers in priority order: CoreML (Apple Silicon) → CUDA → DirectML → CPU. This gives automatic hardware acceleration without user configuration.
+The ONNX path tries providers in priority order: CoreML (Apple Silicon) → CUDA → DirectML → CPU, falling back to CPU. This gives automatic hardware acceleration without user configuration.
 
 ---
 
-## A6. Running MGaze
+## A6. Running MobileGaze
 
 ```bash
 # Default ONNX (auto-selected, shipped with MindSight)
@@ -351,16 +375,16 @@ Override `run_pipeline()` entirely to handle smoothing, ray construction, or mul
 | `objects` | list[Detection] | Non-person detections |
 | `gaze_cfg` | GazeConfig | Ray and snap parameters |
 | `smoother` | GazeSmootherReID \| None | Temporal smoothing tracker |
-| `snap_hysteresis` | SnapHysteresisTracker \| None | Snap hysteresis tracker |
+| `snap_temporal` | SnapTemporalState \| None | Temporal snap engage/release state |
 | `aux_frames` | dict | Auxiliary per-participant video streams |
 
 Must return the 7-tuple: `(persons_gaze, face_confs, face_bboxes, face_track_ids, face_objs, ray_snapped, ray_extended)`.
 
 ---
 
-# Part B: Scene-Level Backend (Gazelle)
+# Part B: Scene-Level Backend (Gaze-LLE)
 
-Gazelle is a scene-level gaze estimator built on DINOv2. It processes the entire scene image together with face bounding boxes in a single forward pass, producing per-face gaze-point heatmaps.
+Gaze-LLE is a scene-level gaze estimator built on DINOv2. It processes the entire scene image together with face bounding boxes in a single forward pass, producing per-face gaze-point heatmaps. (Its code identifiers and flags retain the `gazelle` spelling.)
 
 **Source:** `Plugins/GazeTracking/Gazelle/gazelle_backend.py`
 
@@ -444,7 +468,7 @@ def estimate_frame(self, frame_bgr, face_bboxes_px: list) -> list:
 1. **Early return** if no faces.
 2. **Frame-skip check** — reuse cached result if skip is active and face count unchanged.
 3. **BGR→RGB** — `frame_bgr[:, :, ::-1]` zero-copy view, then PIL wrap.
-4. **Normalize bboxes** — `(x1/w, y1/h, x2/w, y2/h)` for Gazelle's `[0,1]` range.
+4. **Normalize bboxes** — `(x1/w, y1/h, x2/w, y2/h)` for Gaze-LLE's `[0,1]` range.
 5. **Transform** — Resize 448×448, ToTensor, ImageNet normalize, unsqueeze, to device.
 6. **Forward pass** — `model({"images": tensor, "bboxes": [norm]})` with `torch.no_grad()`.
 7. **Heatmap extraction** — `out["heatmap"][0]` gives `[N, 64, 64]` per-face heatmaps.
@@ -493,7 +517,7 @@ Returns the full `[N, 64, 64]` sigmoid-activated heatmaps. Useful for visualizat
 
 ---
 
-## B6. Running Gazelle
+## B6. Running Gaze-LLE
 
 ```bash
 # Standard usage
@@ -512,7 +536,7 @@ python MindSight.py --source video.mp4 \
 
 ### Backend selection
 
-The gaze coordinator tries plugins in registration order. The first `from_args` that returns a non-`None` instance wins. Plugins with `is_fallback = True` (like MGaze) are tried last, making them the automatic default.
+The gaze coordinator tries plugins in registration order. The first `from_args` that returns a non-`None` instance wins. Plugins with `is_fallback = True` (like MobileGaze) are tried last, making them the automatic default.
 
 ### Lazy loading
 

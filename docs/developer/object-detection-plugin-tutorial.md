@@ -96,8 +96,10 @@ def detect(self, *, frame, detection_frame, all_dets, det_cfg, **kwargs):
 ```python
 def _near(self, det, person) -> bool:
     """Return True if det's bbox is within margin_px of person's bbox."""
-    dx1, dy1, dx2, dy2 = det['bbox']
-    px1, py1, px2, py2 = person['bbox']
+    # Detection has no 'bbox' key — read the corner fields directly
+    # (dict access d['x1'] and attribute access d.x1 both work).
+    dx1, dy1, dx2, dy2 = det['x1'], det['y1'], det['x2'], det['y2']
+    px1, py1, px2, py2 = person['x1'], person['y1'], person['x2'], person['y2']
 
     # Expand person bbox by margin
     px1 -= self._margin
@@ -189,10 +191,12 @@ You can also add new keys (e.g., `det['boosted'] = True`) for downstream plugins
 
 ### 4. Access detection configuration
 
-The `det_cfg` parameter gives you the current `DetectionConfig`, including the active confidence threshold. This is useful for plugins that need threshold-aware logic:
+The `det_cfg` parameter gives you the current `DetectionConfig`, including the
+active confidence threshold `det_cfg.conf`. This is useful for plugins that need
+threshold-aware logic:
 
 ```python
-if det['conf'] < det_cfg.conf_threshold and boosted_conf >= det_cfg.conf_threshold:
+if det['conf'] < det_cfg.conf and boosted_conf >= det_cfg.conf:
     # This detection was rescued from below threshold
     det['conf'] = boosted_conf
 ```
@@ -250,8 +254,8 @@ class GazeBoostPlugin(ObjectDetectionPlugin):
         return all_dets if modified else None
 
     def _near(self, det, person) -> bool:
-        dx1, dy1, dx2, dy2 = det['bbox']
-        px1, py1, px2, py2 = person['bbox']
+        dx1, dy1, dx2, dy2 = det['x1'], det['y1'], det['x2'], det['y2']
+        px1, py1, px2, py2 = person['x1'], person['y1'], person['x2'], person['y2']
         px1 -= self._margin
         py1 -= self._margin
         px2 += self._margin

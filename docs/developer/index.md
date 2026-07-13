@@ -42,9 +42,9 @@ This guide is for contributors and plugin authors who want to understand how Min
 
     Worked examples for all four plugin types: [Phenomena](phenomena-plugin-tutorial.md), [Gaze](gaze-plugin-tutorial.md), [Object Detection](object-detection-plugin-tutorial.md), [Data Collection](data-collection-plugin-tutorial.md).
 
--   **[Pipeline Configuration (YAML)](pipeline-yaml.md)**
+-   **[Pipeline YAML: Loader Internals](pipeline-yaml.md)**
 
-    Declarative pipeline setup, key mapping, and precedence rules.
+    How the YAML loader maps keys to argparse, resolves precedence, and flows plugin flags into `from_args`.
 
 -   **[Testing](testing.md)**
 

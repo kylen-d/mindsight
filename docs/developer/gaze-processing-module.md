@@ -1,159 +1,237 @@
 # Gaze Processing Module
 
-Developer reference for the gaze estimation and processing pipeline in MindSight.
+Developer reference for gaze estimation and ray forming in MindSight.
 
 ## 1. Overview
 
-The gaze processing subsystem lives across five key locations:
+Two packages share the work:
 
-| File / Directory | Purpose |
+| Package | Role |
 |---|---|
-| `gaze_factory.py` | Selects and instantiates the active gaze backend |
-| `gaze_processing.py` (~1 000 lines) | Core processing classes: smoothing, lock-on, snap hysteresis, ray geometry |
-| `gaze_pipeline.py` | Per-frame coordinator that wires detection, estimation, and post-processing together |
-| `pitchyaw_pipeline.py` | Pitch/yaw-specific pipeline utilities |
-| `Backends/` | Built-in backends (MGaze, Gazelle) |
+| `mindsight/GazeTracking/` | Backend selection, per-frame coordination, per-face pitch/yaw estimation, and the re-identifying smoother. |
+| `mindsight/PostProcessing/RayForming/` | The **primary ray-forming path** — turns raw pitch/yaw (plus optional Gaze-LLE heatmaps) into finalized gaze rays through blend, depth, snap, lock-on, and hit detection. |
 
-## 2. Module Architecture
+Key files in `GazeTracking/`:
 
-```mermaid
-flowchart TD
-    A[gaze_pipeline.py] -->|coordinates| B[face_det]
-    B --> C[faces]
-    C --> D{gaze_eng has custom run_pipeline?}
-    D -- yes --> E[gaze_eng.run_pipeline]
-    D -- no --> F[_default_scene_pipeline]
-    E --> G[apply_tip_snapping]
-    F --> G
-    G --> H[apply_lock_on]
-    H --> I[compute_ray_intersections]
-    I --> J[ctx writes]
-```
+| File | Purpose |
+|---|---|
+| `gaze_factory.py` | `create_gaze_engine(...)` selects and instantiates the active gaze backend. |
+| `gaze_pipeline.py` | `run_gaze_step(ctx, ...)` — per-frame coordinator that wires detection, estimation, and ray forming together. |
+| `gaze_processing.py` | `GazeSmootherReID` (temporal EMA + colour-histogram Re-ID) and the extensible `GazeToolkit`. |
+| `pitchyaw_pipeline.py` | Per-face pitch/yaw estimation helpers. |
+| `Backends/MGaze/` | The built-in **MobileGaze** per-face backend (this is the *only* backend under `Backends/`). |
 
-## 3. Gaze Factory
+!!! note "Gaze-LLE is a plugin, not a backend sibling"
+    Gaze-LLE does **not** live in `GazeTracking/Backends/`. It ships as a
+    discovered plugin at `Plugins/GazeTracking/Gazelle/`. Its heatmaps feed the
+    ray-forming blend through `PostProcessing/RayForming/gazelle_provider.py` and
+    `gazelle_blender.py` (see §5).
 
-**File:** `gaze_factory.py`
+## 2. Per-frame flow
+
+`run_gaze_step(ctx, *, face_det, gaze_eng, gaze_cfg, **kwargs)` is the entry
+point. It runs one of three paths, then a shared post-processing tail:
 
 ```
-create_gaze_engine(plugin_args) -> GazePlugin
+face_det.detect(detection_frame)     # RetinaFace; rescaled by inverse_scale
+        │
+        ├─ Path A (per_face backend + ray_cfg): PRIMARY
+        │    _estimate_pitchyaw → RawGaze list
+        │    gazelle_provider.step(...)            # optional heatmap inference
+        │    run_ray_forming(raw_gazes, objects, ... )   →  RayFormingResult
+        │
+        ├─ Path B (backend overrides run_pipeline, e.g. Gaze-LLE plugin)
+        │    gaze_eng.run_pipeline(frame=..., faces=..., snap_temporal=..., ...)
+        │
+        └─ Path C (scene backend, no ray_cfg): _default_scene_pipeline(...)
+        │
+   apply_tip_snapping(...)      # per-face ray-to-ray tip snapping
+   apply_lock_on(...)           # fixation lock-on
+   compute_ray_intersections(...)   # ray-bbox / ray-cone hits + confidence gate
 ```
 
-Selects and instantiates the active gaze backend based on CLI flags:
+**ctx reads:** `frame`, `detection_frame`, `inverse_scale`, `objects`,
+`cached_faces`, `smoother`, `locker`, `snap_temporal`, `smooth_snap_tracker`,
+`gazelle_provider`, `ray_cfg`, `depth_map`, `depth_cfg`, `video_fps`.
 
-1. Checks `gaze_registry` for installed plugins first.
-2. Falls back to built-in backends if no plugin matches.
+**ctx writes:** `persons_gaze`, `face_confs`, `face_bboxes`, `face_track_ids`,
+`all_targets`, `hits`, `hit_events`, `lock_info`, `ray_snapped`, `ray_extended`,
+`faces`.
 
-The returned engine conforms to the `GazePlugin` interface, which every backend must implement.
+Path A is used whenever the backend is per-face (`mode == "per_face"`) and a
+`RayFormingConfig` is present — this is the default MobileGaze route.
 
-## 4. Gaze Pipeline Coordinator
+## 3. Gaze factory
 
-**File:** `gaze_pipeline.py`
+```
+create_gaze_engine(...) -> GazePlugin
+```
 
-Entry point: `run_gaze_step(ctx, face_det, gaze_eng, gaze_cfg)`
+Selects the active backend. Plugin backends registered in `gaze_registry`
+(the first whose `from_args` returns non-`None`) win; otherwise the built-in
+MobileGaze backend is used. The returned engine conforms to the `GazePlugin`
+interface — see the [plugin base classes reference](../reference/plugin-base-classes.md).
 
-### Execution order
-
-1. **Face detection** -- Run RetinaFace on `detection_frame`, then rescale coordinates back to the original frame space using `inverse_scale`.
-2. **Plugin delegation** -- If `gaze_eng` exposes a custom `run_pipeline()`, delegate to it; otherwise call `_default_scene_pipeline()`.
-3. **Post-processing chain** -- `apply_tip_snapping` -> `apply_lock_on` -> `compute_ray_intersections`.
-
-### FrameContext reads
-
-`frame`, `detection_frame`, `inverse_scale`, `objects`, `cached_faces`, `smoother`, `locker`, `snap_hysteresis`
-
-### FrameContext writes
-
-`persons_gaze`, `face_confs`, `face_bboxes`, `face_track_ids`, `all_targets`, `hits`, `hit_events`, `lock_info`, `ray_snapped`, `ray_extended`
-
-## 5. Core Processing Classes
+## 4. GazeSmootherReID
 
 **File:** `gaze_processing.py`
 
-### GazeSmootherReID
+Per-face temporal EMA smoother with colour-histogram re-identification. Its one
+public entry point is `update` — there is no `smooth_and_track` method.
 
-Temporal EMA smoothing combined with re-identification across frames.
-
-- Tracks faces using **position proximity** and **colour histogram matching**.
-- Lost tracks remain in the buffer for `reid_grace_seconds` (grace period) before being discarded.
-
-```
-smooth_and_track(detections, gaze, face_crops, bboxes)
-    -> (persons_gaze, track_ids)
-```
-
-### GazeLockTracker
-
-Fixation lock-on mechanism.
-
-- When a participant gazes near the same object for >= `dwell_frames` consecutive frames, their gaze is locked to that object.
-
-```
-update(persons_gaze, face_bboxes, objects, hit_events)
-    -> (lock_info, updated_gaze)
+```python
+def update(self, faces):
+    """
+    faces:   [(center, pitch, yaw, crop)]      # crop is optional per entry
+    Returns: [(smooth_pitch, smooth_yaw, track_id)]
+    """
 ```
 
-### SnapHysteresisTracker
+Constructor: `GazeSmootherReID(alpha=SMOOTH_ALPHA, max_dist=200,
+hist_weight=0.35, hist_bins=16, grace_frames=0)`.
 
-Adaptive snap with hysteresis to prevent rapid switching between snap targets.
+- Match score = `positional_distance * (1 + hist_weight * bhattacharyya_dist)`;
+  `hist_weight=0` falls back to positional-only matching.
+- `grace_frames > 0` holds an unmatched track in a dead-track buffer for that
+  many frames so the original ID is revived across brief occlusions.
+- `_estimate_global_shift` subtracts median inter-frame displacement before
+  matching so camera motion does not blow past `max_dist` (handheld/moving-rig
+  robustness).
 
-- **Weighted scoring** combines three factors:
-  - `snap_w_dist` -- distance from ray to target
-  - `snap_w_size` -- angular size of target
-  - `snap_w_intersect` -- ray-bbox intersection depth
-- `switch_frames` sets the minimum number of frames before the tracker will change its snap target.
+`GazeToolkit` (same file) is an extensible base plugin authors can subclass to
+override or add processing steps.
 
-## 6. Ray Geometry
+## 5. RayForming package (primary path)
 
-**Files:** `mindsight/GazeTracking/gaze_processing.py`, `mindsight/utils/geometry.py`
+**Package:** `mindsight/PostProcessing/RayForming/`. Public API is re-exported
+from its `__init__.py`:
 
-| Function | Signature | Description |
-|---|---|---|
-| `pitch_yaw_to_2d` | `(pitch, yaw) -> ndarray` | Converts pitch/yaw angles to a 2D direction vector |
-| `ray_hits_box` | `(origin, endpoint, x1, y1, x2, y2) -> bool` | Liang-Barsky ray-box intersection test |
-| `ray_hits_cone` | `(origin, direction, half_angle, x1, y1, x2, y2) -> bool` | Cone-box intersection test |
-| `extend_ray` | `(origin, endpoint, length) -> ndarray` | Extends a ray to a new endpoint at the given length |
-| `bbox_center` | `(x1, y1, x2, y2) -> ndarray` | Returns the center point of a bounding box |
-| `bbox_diagonal` | `(x1, y1, x2, y2) -> float` | Returns the diagonal length of a bounding box |
-
-## 7. Post-Processing Functions
-
-### apply_tip_snapping
-
-```
-apply_tip_snapping(persons_gaze, ray_snapped, ray_extended, gaze_eng, gaze_cfg)
+```python
+from mindsight.PostProcessing.RayForming import (
+    run_ray_forming, RawGaze, RayFormingConfig,
+    GazeLLEBlender, HeatmapCache, ObjectSnap,
+    SmoothSnapTracker, SnapTemporalState, snap_score, apply_tip_snapping,
+    GazeLockTracker, apply_lock_on, compute_ray_intersections, GazelleProvider,
+)
 ```
 
-Operates in extend/snap mode. Extends gaze rays toward detected objects and snaps ray tips when within the configured threshold.
+Module-level members:
 
-### apply_lock_on
+| Module | Key members |
+|---|---|
+| `ray_pipeline.py` | `run_ray_forming(...)`, `RawGaze`, `RayFormingResult` |
+| `ray_config.py` | `RayFormingConfig` (the largest config object; `.from_namespace(args)`) |
+| `gazelle_provider.py` | `GazelleProvider` — owns the scheduler + heatmap cache; `.from_namespace(args, device=...)` |
+| `gazelle_blender.py` | `GazeLLEBlender` — turns (accept, trust) into a smoothed endpoint |
+| `inference_scheduler.py` | `InferenceScheduler` — fixation-aware Gaze-LLE call gating |
+| `heatmap_cache.py` | `HeatmapCache` |
+| `fixation.py` | `GazeLockTracker`, `apply_lock_on` |
+| `object_snap.py` | `ObjectSnap`, `SmoothSnapTracker`, `SnapTemporalState`, `snap_score`, `apply_tip_snapping` |
+| `hit_detection.py` | `compute_ray_intersections` |
+| `depth_ray.py` | `depth_adjusted_length` |
 
+### run_ray_forming
+
+```python
+def run_ray_forming(
+    raw_gazes: list[RawGaze], objects: list, face_objs: list,
+    frame_h: int, frame_w: int, cfg: RayFormingConfig, *,
+    gazelle_provider=None, gazelle_blender=None, object_snap=None,
+    depth_map=None, dt: float = 1.0/30.0,
+) -> RayFormingResult
 ```
-apply_lock_on(persons_gaze, locker, objects)
+
+Per-face order: (1) base ray from pitch/yaw + confidence-scaled length, (2)
+forward-gaze dead-zone check, (3) Gaze-LLE blend (scheduler trust + One-Euro
+smoothing), (4) depth-adjusted length, (5) object snap. `RawGaze` fields:
+`origin, pitch, yaw, confidence, face_width, track_id, face_bbox`.
+`RayFormingResult` fields: `persons_gaze, face_confs, face_bboxes,
+face_track_ids, face_objs, ray_snapped, ray_extended`, where each `persons_gaze`
+entry is `(origin, ray_end, (pitch, yaw))`.
+
+## 6. Snap and lock-on state
+
+### SnapTemporalState (`object_snap.py`)
+
+Lightweight per-face temporal state for snap scoring — this **replaces** the
+pre-1.0 `SnapHysteresisTracker`, which no longer exists.
+
+```python
+SnapTemporalState(release_frames=5, engage_frames=0, grid_px=40)
 ```
 
-Applies fixation lock using the `GazeLockTracker`. If a participant has been fixating on an object long enough, overrides the raw gaze with the locked target.
+- `release_frames` — no-match frames before releasing a held snap.
+- `engage_frames` — consecutive matches required before first engaging (0 =
+  instant).
+- `grid_px` — grid cell size for quantising object centres to stable keys.
 
-### compute_ray_intersections
+`update(face_idx, snap_center, found, gaze_conf=None) -> (filtered_center_or_None,
+did_snap)` handles the release countdown (accelerated when `gaze_conf` is low)
+and the optional engage delay.
 
+### apply_tip_snapping (`object_snap.py`)
+
+```python
+apply_tip_snapping(persons_gaze, ray_snapped, ray_extended, gaze_eng, gaze_cfg,
+                   *, face_track_ids=None, smooth_snap_tracker=None)
+    -> (persons_gaze, ray_snapped, ray_extended)
 ```
-compute_ray_intersections(persons_gaze, face_confs, track_ids, face_objs, objects, gaze_cfg)
+
+Snaps an unsnapped ray tip to another person's ray tip when the rays converge
+within `gaze_cfg.snap_dist`.
+
+### GazeLockTracker (`fixation.py`)
+
+Moved here from `gaze_processing.py`. Fixation lock-on: snaps a gaze ray to an
+object after `dwell_frames` of sustained attention.
+
+```python
+GazeLockTracker(dwell_frames=15, release_frames=10, lock_dist=100, max_face_dist=120)
+def update(self, persons_gaze, objects) -> list  # [(snapped_end, obj_idx_or_None, frac)]
 ```
 
-Tests ray-bbox or ray-cone intersection for every (person, object) pair. Filters results through `hit_conf_gate` (minimum face-detection confidence) and `detect_extend` (whether to extend rays that miss all objects).
+Wrapper used by the coordinator:
 
-## 8. Global Motion Compensation
+```python
+apply_lock_on(persons_gaze, locker, objects) -> (persons_gaze, lock_info)
+# lock_info: [(obj_idx_or_None, frac)]; ray_end is snapped where locked
+```
 
-When the camera is handheld or mounted on a moving platform, global scene motion can cause false gaze shifts. The gaze pipeline includes an optional global motion compensation step that estimates inter-frame camera motion (via sparse optical flow) and subtracts it from gaze angle deltas before temporal smoothing. This prevents the smoother from integrating camera jitter into gaze tracks.
+## 7. Ray geometry
 
-## 9. GazeToolkit
+**File:** `mindsight/utils/geometry.py`. The bbox helpers take a **detection
+dict** (with `x1, y1, x2, y2` keys), not four scalars.
 
-Extensible toolkit class designed for plugins to add custom processing steps. Plugin authors can subclass `GazeToolkit` and override or add methods to inject behaviour at any stage of the pipeline.
+| Function | Signature |
+|---|---|
+| `pitch_yaw_to_2d` | `(pitch, yaw) -> ndarray` (unit 2-D direction) |
+| `ray_hits_box` | `(start, end, x1, y1, x2, y2) -> bool` (Liang-Barsky) |
+| `ray_hits_cone` | `(origin, direction, x1, y1, x2, y2, cone_half_angle_deg, ray_length=None) -> bool` |
+| `extend_ray` | `(origin, end, length=_RAY_EXT_LENGTH) -> ndarray` |
+| `bbox_center` | `(obj) -> ndarray` (obj is a detection dict) |
+| `bbox_diagonal` | `(obj) -> float` |
+| `sample_depth_patch` | `(depth_map, x, y, radius=2) -> float` (median of patch) |
 
-## 10. Backends
+## 8. Hit detection
 
-| Backend | Model type | Granularity | Notes |
+```python
+compute_ray_intersections(persons_gaze, face_confs, face_track_ids, face_objs,
+                          objects, cfg, *, depth_map=None, gaze_sample_radius=2)
+    -> (all_targets, hits, hit_events)
+```
+
+Tests ray-bbox (or ray-cone) intersection for every (person, object) pair and
+gates by face-detection confidence. `hits` is a set of `(face_list_idx,
+obj_list_idx)` pairs; `hit_events` is a list of per-hit dicts keyed by stable
+track ID.
+
+## 9. Backends
+
+| Backend | Location | Model | Granularity |
 |---|---|---|---|
-| **MGaze** | ONNX or PyTorch (auto-detected) | Per-face | Default gaze estimation backend |
-| **Gazelle** | DINOv2 | Scene-level | Processes the full scene rather than individual faces |
+| **MobileGaze** | `mindsight/GazeTracking/Backends/MGaze/` | ONNX or PyTorch (auto-detected) | Per-face (`mode="per_face"`) |
+| **Gaze-LLE** | `Plugins/GazeTracking/Gazelle/` (plugin) | DINOv2 heatmap | Scene-level; blended into ray forming |
 
-All backends implement the `GazePlugin` interface, which requires at minimum an `estimate()` method and optionally a `run_pipeline()` override for scene-level models.
+MobileGaze is the default per-face backend and drives Path A. Gaze-LLE is a
+discovered plugin whose heatmaps are consumed as a blend signal in the primary
+ray-forming path (or, standalone, via Path B / Path C).

@@ -47,6 +47,7 @@ Data flows top-down at runtime:
 | `x1, y1, x2, y2` | `int` | required | Bounding box coordinates (top-left, bottom-right) |
 | `ghost` | `bool` | `False` | `True` when the detection is kept alive by `ObjectPersistenceCache` |
 | `_face_idx` | `int \| None` | `None` | Index linking to a face detection (used when faces are treated as objects) |
+| `depth_median` | `float \| None` | `None` | Median normalized depth over the bbox (set only when depth estimation is enabled) |
 
 ### Dict-Compatible Access
 
@@ -173,7 +174,7 @@ Returns an empty list if `results` is empty or the first result has no boxes.
 
 ```python
 run_detection_step(ctx, *, yolo, det_cfg: DetectionConfig,
-                   obj_cache=None, detection_plugins=None)
+                   obj_cache=None, detection_plugins=None, **kwargs)
 ```
 
 This is the per-frame entry point called from the main processing loop.
@@ -200,7 +201,12 @@ This is the per-frame entry point called from the main processing loop.
 1. **Scale** — if `det_cfg.detect_scale != 1.0`, the frame is resized before detection.
 2. **Detect** — YOLO runs on the (possibly downscaled) frame via `parse_dets`.
 3. **Rescale** — if downscaled, bounding box coordinates are multiplied by `inverse_scale` to map back to full resolution.
-4. **Plugin hook** — each detection plugin's `detect()` method is called with `(frame, detection_frame, all_dets, det_cfg)` and may return a modified detection list.
+4. **Plugin hook** — each detection plugin's `detect()` method is called with the
+   keyword-only arguments `detect(frame=..., detection_frame=..., all_dets=...,
+   det_cfg=..., prev_persons_gaze=..., prev_face_track_ids=...)` and may return a
+   modified detection list (a `None` return leaves `all_dets` unchanged). The two
+   `prev_*` keys carry the previous frame's gaze — useful for gaze-directed
+   boosting.
 5. **Split** — detections are partitioned into `persons` (class is `"person"`) and `objects` (everything else).
 6. **Persistence cache** — `ObjectPersistenceCache.update()` is applied to `objects` only, adding ghost detections for recently-disappeared items.
 
@@ -213,10 +219,17 @@ When `skip_frames > 1` is configured, the caller sets `ctx['cached_all_dets']` o
 To add custom post-processing to the detection pipeline, create an **ObjectDetectionPlugin** subclass:
 
 ```python
-class MyDetectionPlugin:
-    def detect(self, frame, detection_frame, all_dets, det_cfg):
+from Plugins import ObjectDetectionPlugin
+
+
+class MyDetectionPlugin(ObjectDetectionPlugin):
+    name = "my_detector"
+
+    def detect(self, *, frame, detection_frame, all_dets, det_cfg, **kwargs):
         """
-        Called after YOLO detection on each detection frame.
+        Called after YOLO detection on each detection frame. The signature is
+        keyword-only with a **kwargs catch-all — the pipeline also passes
+        prev_persons_gaze and prev_face_track_ids, which you pull only if needed.
 
         Parameters
         ----------
@@ -234,7 +247,8 @@ class MyDetectionPlugin:
         list[Detection] or None
             Modified detection list. Return None to keep all_dets unchanged.
         """
-        # Example: filter out low-confidence chairs
+        # Example: filter out low-confidence chairs. Detection supports both
+        # attribute access (d.class_name) and dict access (d['class_name']).
         return [d for d in all_dets
                 if not (d.class_name == 'chair' and d.conf < 0.6)]
 ```

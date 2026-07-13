@@ -28,9 +28,10 @@ The `mindsight/outputs/` module is responsible for all output generation in Mind
 
 This file coordinates all data collection during and after a run.
 
-### `collect_frame_data(ctx, log_csv, frame_no, hit_events, face_track_ids, persons_gaze)`
+### `collect_frame_data(ctx, *, log_csv, frame_no, hit_events, face_track_ids, persons_gaze, ...)`
 
-Called once per frame. Responsibilities:
+Called once per frame. Every argument after `ctx` is **keyword-only**.
+Responsibilities:
 
 - Accumulates the `look_counts` dictionary, mapping `(face_idx, obj_cls)` pairs to frame counts.
 - If a `log_csv` writer is provided, writes per-hit rows to the open event CSV. Each row carries a `t_seconds` column immediately after `frame`, computed as `frame_no / video_fps` (formatted to 3 decimal places; empty string when the source has no frame rate, e.g. a webcam).
@@ -128,6 +129,14 @@ built-in streams and their typed headers:
 Per-participant summary statistics of the stream plugins (eye-movement means,
 pupillometry baseline/mean ratios) fold into `{stem}_summary.csv` as scalar metrics.
 
+**Merged episode stream `{stem}_phenomena_events.csv`.** In addition to the
+per-tracker stream files above, `write_summary_tables` collects every tracker's
+`episode_rows()` (`csv_output.py:151-166`) and merges them into a single
+`{stem}_phenomena_events.csv` (columns `phenomenon,participant,partner,object,
+frame_start,frame_end`, with `video_name,conditions` prepended and rows sorted by
+`frame_start`). This is the tidy episode log for glances, aversion streaks,
+mutual-gaze pairs, and the like.
+
 **Legacy `csv_rows` passthrough.** A third-party plugin that overrides only the
 legacy `csv_rows` hook (and neither tidy hook) still produces output: the writer
 dumps its rows verbatim to `{stem}_plugin_{name}.csv`. See
@@ -150,6 +159,7 @@ and every stream -- is aggregated:
 |---|---|
 | `_summary.csv` | `Global_summary.csv` |
 | `_Events.csv` | `Global_Events.csv` |
+| `_phenomena_events.csv` | `Global_phenomena_events.csv` |
 | `_scanpath.csv` | `Global_scanpath.csv` |
 | `_novel_salience_events.csv` | `Global_novel_salience_events.csv` |
 | `_eye_movement_events.csv` | `Global_eye_movement_events.csv` |
@@ -276,12 +286,15 @@ Phenomena trackers and plugins extend data collection by implementing any combin
 |---|---|---|
 | `summary_metrics(total_frames, fps, pid_map)` | List of scalar-metric dicts | `csv_output.write_summary_tables()` (scalar file) |
 | `summary_tables(total_frames, fps, pid_map)` | Dict of `table_name -> (header, rows)` | `csv_output.write_summary_tables()` (stream files) |
+| `episode_rows(total_frames, fps, pid_map)` | List of episode dicts | `csv_output.write_summary_tables()` (merged `{stem}_phenomena_events.csv`) |
+| `finalize(frame_no)` | `None` | Pipeline run-end hook — closes in-flight episodes before summaries are written |
 | `csv_rows(total_frames, pid_map)` | List of rows | *Legacy passthrough* -> `{stem}_plugin_{name}.csv` |
 | `dashboard_data(pid_map)` | Dict with `title`, `colour`, `rows` | `dashboard_output.compose_dashboard()` |
 | `time_series_data()` | Dict of metric name to series data | `chart_output.generate_run_charts()` |
 | `console_summary(total_frames, pid_map)` | String | `data_pipeline.finalize_run()` |
 
-Each method is optional. Scalar metrics go through `summary_metrics`; per-event or
+Each method is optional. `finalize()` runs before the summary hooks so any
+open-ended episode is closed and appears in `episode_rows()`. Scalar metrics go through `summary_metrics`; per-event or
 per-frame streams go through `summary_tables`. `csv_rows` is retained only for
 backward compatibility with third-party plugins written against the old paper
 contract -- a plugin overriding only `csv_rows` gets its rows dumped verbatim to a
@@ -298,7 +311,11 @@ Every run that writes at least one file output also writes a per-run
 `manifest.json` capturing exactly what produced the data, so a stored CSV can
 always be traced back to its config and model weights.
 
-### `write_run_manifest(path, *, ns, config, source, output_paths, started, finished, status, error=None)`
+### `write_run_manifest(path, *, ns, config, source, output_paths, started, finished, status, error=None, meta=None)`
+
+The optional `meta` argument carries per-run staging provenance (from a project
+`run.yaml`), folded into the manifest when present.
+
 
 Builds and atomically writes the manifest (temp file + `os.replace`). Called by the
 orchestration layer, never by the pipeline generator. The manifest records:
@@ -341,6 +358,7 @@ under the project's `Outputs/`; in single-source mode they follow the `--save` /
 | Per-frame event log | `Outputs/CSV Files/{stem}_Events.csv` | `io/writers.py` (`t_seconds` via `collect_frame_data`) |
 | Scalar summary table | `Outputs/CSV Files/{stem}_summary.csv` | `csv_output.write_summary_tables()` |
 | Per-stream tables | `Outputs/CSV Files/{stem}_<stream>.csv` | `csv_output.write_summary_tables()` |
+| Merged episode log | `Outputs/CSV Files/{stem}_phenomena_events.csv` | `csv_output.write_summary_tables()` (each tracker's `episode_rows()`) |
 | Legacy plugin passthrough | `Outputs/CSV Files/{stem}_plugin_{name}.csv` | `csv_output` (only if a plugin overrides only `csv_rows`) |
 | Provenance manifest | `Outputs/CSV Files/{stem}_manifest.json` | `provenance.write_run_manifest()` |
 | Heatmaps | `Outputs/{stem}_Heatmap/` | `heatmap_output.py` |
