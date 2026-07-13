@@ -41,6 +41,7 @@ plugins:
 # so strict mode does not flag it as orphaned (not-in-nav) pages.
 exclude_docs: |
   superpowers/
+  assets/footage/SHOTLIST.md
 
 markdown_extensions:
   - admonition
@@ -69,6 +70,14 @@ nav:
       - Quickstart (GUI): getting-started/quickstart-gui.md
       - Your First Project: getting-started/first-project.md
       - Getting Started Overview: getting-started/index.md
+  - GUI Guides:
+      - Projects and Sessions: guides/projects-and-sessions.md
+      - Analyze Footage: guides/analyze-footage.md
+      - Visual Prompts: guides/visual-prompts.md
+      - Crop and Adjust: guides/crop-and-adjust.md
+      - Inference Settings and Tuning: guides/inference-settings-and-tuning.md
+      - About and Theming: guides/about-and-theming.md
+      - Where Things Live: guides/where-things-live.md
   - Concepts & Phenomena:
       - The Pipeline: concepts/pipeline.md
       - Understanding the Outputs: concepts/outputs.md

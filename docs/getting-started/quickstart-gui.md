@@ -1,181 +1,131 @@
-# Quickstart: GUI
+# GUI Tour
 
-This guide walks through MindSight's graphical interface, covering each tab and its key controls.
+This is a five-minute orientation to the MindSight desktop app: what the six
+tabs are for, what lives in the menu bar, and where to go next for each task.
+It is a map, not a manual -- every surface here links to the guide that covers
+it in full.
 
----
-
-## 1. Launching
-
-```bash
-python MindSight_GUI.py
-```
-
-Or use the console command: `mindsight-gui`
-
-Requires **PyQt6**. Install it with `pip install PyQt6` if not already present.
-
-The window has four tabs: **Analyze Footage** (the home screen for running
-studies), **VP Builder**, **Gaze Tuning**, and **Models**.
+If you just want to run a study end to end, the
+[Run a Study tutorial](../studies/run-a-study-tutorial.md) is the click-by-click
+walkthrough. Come back here when you want to know what the *rest* of the app
+does.
 
 ---
 
-## 2. Tab 1: Analyze Footage
+## 1. Launching MindSight
 
-The home screen for research assistants: open a project, check it is ready, and
-batch-process every run with resume support.
+MindSight ships as a double-click installer (see
+[Install](installation.md)), so after installing you launch it like any other
+app:
 
-### Workflow
+- **macOS** -- open the **MindSight** app in your Applications folder, or the
+  **MindSight** link on your Desktop.
+- **Windows** -- use the **MindSight** shortcut on your Desktop or Start Menu.
 
-1. **Open a project** -- type or paste the project folder path (press Enter or
-   click **Open**), click **Browse...**, or pick from the **Recent projects**
-   dropdown. Both project layouts are supported: flat `Inputs/Videos/` and
-   per-run `Inputs/Runs/<run_id>/` folders.
-2. **Read the preflight checklist** -- every time a project opens (or when you
-   click **Re-run preflight**), MindSight checks project structure, pipeline
-   config validity, model weights, the visual prompt file, discovered runs,
-   per-run metadata, participant/condition coverage, compute device, disk
-   space, and plugin load errors. Each line shows OK / WARN / FAIL with a fix
-   hint. If required weights are missing and downloadable, a one-click
-   **Download missing weights** button appears.
-3. **Review the runs table** -- one row per run showing its source,
-   participants, conditions, ledger status, and the resume **plan**
-   ("done → will skip", "will process", "changed → re-run + archive") before
-   anything runs.
-4. **Run** -- click **Run** in the status bar. Rows update live with progress
-   and per-run states (skipped / archived / done / error); the preview pane
-   shows annotated frames; **Stop** cancels after the current video finalizes
-   cleanly.
+From a terminal (e.g. on a shared lab machine set up by a developer) the console
+command `mindsight-gui` launches the same window.
 
-### Resume controls
+**First launch.** A fresh install seeds the shipped known-good preset,
+**KG_Standard** -- the detection, gaze, and Gaze-LLE Blend settings validated on
+classroom-style footage. That means the very first run you do already matches a
+real study run; you do not have to configure anything to get sensible numbers.
 
-Resume is always on -- finished runs with an unchanged configuration are
-skipped automatically. To reprocess:
+You land on the **Analyze Footage** tab.
 
-- **Re-run all** -- confirms, then reprocesses every run (ignores the ledger).
-- **Re-run this run** -- right-click a row to invalidate just that run.
-
-### Editing run metadata
-
-Right-click a run and choose **Edit run...** to set its participants
-(`0:S70, 1:S71`) and conditions before running. The edit is written where that
-project keeps its metadata: `run.yaml` for run-folder projects, `project.yaml`
-for flat projects.
-
-### Study setup
-
-The collapsible **Study setup** area holds the study-wide configuration:
-
-- **Pipeline** -- pick the project's `pipeline.yaml`, or click **Import from
-  Gaze Tuning** to write your current Gaze Tuning settings into it.
-- **Participants / Conditions tables** -- study-wide labels and tags, saved to
-  `project.yaml`.
-- **Anonymize Footage** -- tick to obscure faces (blur or black) in every
-  run's output video. Off by default; when unchecked, runs are exactly what
-  they always were.
-- **Output root** and **Save project.yaml**.
-
-### Adding a single run
-
-**Add single run...** stages one video manually: pick the file, enter
-participants/conditions (or import a `participant_ids.csv`), then either
-**Run now** (a one-off run to a directory of your choice, no ledger) or
-**Save to project...** (creates a new run folder; copies the video by default,
-or moves it if you tick *Move original*).
-
-### Output panel
-
-The bottom-right panel has three tabs:
-
-- **Log** -- status messages from the batch.
-- **Charts** -- in-GUI phenomena charts (object look-time, gaze-target
-  timeline) rendered from the CSVs each run has already written -- current and
-  previous runs both.
-- **Output CSVs** -- a read-only viewer over any run's Events / summary /
-  stream CSVs.
-
-<!-- screenshot: Analyze Footage tab -->
+!!! example "🎬 Demo coming soon -- SHOT:gui-tour"
+    A slow walkthrough of the whole window: the six tabs across the top, then a
+    pass through the menu bar.
 
 ---
 
-## 3. Tab 2: VP Builder
+## 2. The six tabs
 
-Create and test visual prompts for YOLOE open-vocabulary detection.
+Across the top of the window are six tabs. You will spend almost all your time
+on the first one; the rest are for occasional tasks.
 
-### Workflow
+**Analyze Footage** -- the home screen, and where studies actually run. A
+three-way mode switch (**Project | Video File | Camera**) changes the whole tab:
+open a study project and batch-process it, quick-analyze a single clip, or record
+and analyze live from a webcam. See
+[Analyze footage](../guides/analyze-footage.md).
 
-1. **Add reference images** -- load one or more images that contain the objects you want to detect.
-2. **Draw bounding boxes** -- click and drag on the canvas to mark object regions.
-3. **Assign classes** -- select a class from the class list for each bounding box.
-4. **Save** -- export the prompt as a `.vp.json` file.
-5. **Test inference** -- load a YOLOE model and run detection on a test image to verify the prompt works as expected.
+![The Analyze Footage home screen with no project open](../assets/tutorial/home-screen.png)
 
-Click **Use saved VP in Gaze Tuning** to hand the saved prompt straight to the
-Gaze Tuning tab's VP field.
+**Projects** -- your project library. Build a new study project with the wizard,
+reopen a recent one, or review a project's runs, notes, and outputs. This is
+also where you plan sessions, record live, and crop footage. See
+[Projects and sessions](../guides/projects-and-sessions.md).
 
-<!-- screenshot: VP Builder tab -->
+**VP Builder** -- build a *visual prompt*: a small `.vp.json` file that teaches
+the YOLOE detector your study's objects from example images instead of class
+names. See [Visual prompts](../guides/visual-prompts.md).
 
----
+**Inference Tuning** -- an interactive playground for experimenting with
+detection and gaze settings on a live preview. It is deliberately decoupled:
+**settings here do NOT affect your study runs.** When you find values worth
+keeping you import them across. See
+[Inference settings and tuning](../guides/inference-settings-and-tuning.md).
 
-## 4. Tab 3: Gaze Tuning
+**Models** -- check, verify, or re-download the model weights. The preflight
+checklist on Analyze Footage uses the same manifest, so this is where you go
+when preflight complains about a weight.
 
-The tuning surface for a single source -- configure the pipeline, watch the
-live preview and dashboard, then export the settings for project use.
-
-### Source, detection, and backend
-
-- **Source** -- webcam index, video file, or image.
-- **Detection mode** -- YOLO (text classes) or YOLOE visual prompt.
-- **Gaze backend** -- **MobileGaze** (default; auto-detects ONNX or PyTorch
-  from the model file extension) or **Gaze-LLE**.
-- **Device** -- auto, CPU, CUDA, or MPS.
-
-### Parameter panels
-
-The tuning parameters (ray geometry, Gaze-LLE Blend, adaptive snap, smoothing,
-fixation lock-on, hit detection, depth, performance, phenomena) are generated
-from the configuration schema, so every control maps 1:1 to a CLI flag and
-pipeline YAML key. The **Show advanced** toggle reveals the deep-tuning tier
-(snap weights, filter cutoffs, fixation thresholds, and similar).
-
-### Plugin panel and outputs
-
-- **Plugin panel** -- controls auto-generated from installed plugins'
-  `add_arguments`.
-- **Output settings** -- annotated video, CSV log, summary, heatmaps, charts,
-  anonymization.
-
-### Presets and pipeline files
-
-Save/load named **presets**, or use **Export Pipeline** / **Import Pipeline**
-(File menu and tab buttons) to round-trip the full configuration as a
-`pipeline.yaml`.
-
-### Running
-
-Click **Start** to begin processing and **Stop** to halt. The live preview
-shows annotated frames; the live dashboard shows real-time gaze statistics,
-hit counts, and phenomenon events; the log console reports status.
-
-<!-- screenshot: Gaze Tuning tab -->
+**About** -- program identity, links, and an in-app documentation reader (the
+guides are bundled offline in the app). See
+[About and theming](../guides/about-and-theming.md).
 
 ---
 
-## 5. Tab 4: Models
+## 3. The menu bar
 
-A manifest-driven manager for model weights. Every weight MindSight can use is
-listed with its backend, whether the *current* configuration needs it, its
-on-disk state, and size. From here you can **install** missing weights,
-**verify** files against the published checksums, or **re-download** a file
-that no longer matches. The preflight checklist on Analyze Footage uses the
-same manifest.
+The menu bar carries the actions that are not tied to one tab:
 
-<!-- screenshot: Models tab -->
+- **File** -- **Build New Project...** (launches the wizard), **New Project...**,
+  **Open Project...**, then **Load Preset...** / **Save Preset...** for named
+  setting bundles, **Import Pipeline YAML...** / **Export Pipeline YAML...** to
+  round-trip a full configuration as a `pipeline.yaml`, and **Quit**.
+- **View > Theme** -- **Auto**, **Light**, or **Dark**. Auto follows the OS. See
+  [About and theming](../guides/about-and-theming.md).
+- **Tools > Inference Settings...** -- opens the Inference Settings dialog, the
+  authority for how Analyze Footage runs are processed (see the callout below).
+- **Help** -- **Documentation** (opens the docs site) and **About MindSight**.
+
+!!! example "🎬 Demo coming soon -- SHOT:theme-toggle"
+    View > Theme switching auto -> light -> dark, recolouring the whole window
+    live.
 
 ---
 
-## 6. Loading and Saving Settings
+## 4. Where settings live
 
-GUI settings persist between sessions automatically. When you close and reopen
-the application, your last-used source, backend, tuning parameters, and output
-paths are restored, and recently opened projects appear in the Analyze Footage
-**Recent projects** dropdown.
+Two surfaces touch inference settings, and it is worth learning the difference
+early because it is a common source of confusion:
+
+!!! note "The dialog governs runs; the tuning tab is a sandbox"
+    - The **Inference Settings** dialog (button on every Analyze Footage mode,
+      also **Tools > Inference Settings...**) is the **authority** for how runs
+      launched from Analyze Footage are processed.
+    - The **Inference Tuning** tab is a **decoupled playground** -- nothing you
+      try there changes a study run. It is a one-way street: when an experiment
+      is worth keeping, pull it into the dialog with **Import from Inference
+      Tuning...**.
+
+Every field in the dialog is documented tab by tab on the
+[Inference Settings reference](../reference/inference-settings.md); the
+[Inference settings and tuning guide](../guides/inference-settings-and-tuning.md)
+explains the two surfaces and when to use each.
+
+---
+
+## 5. Where to go next
+
+| I want to... | Go to |
+|--------------|-------|
+| Run a study end to end | [Run a Study tutorial](../studies/run-a-study-tutorial.md) |
+| Build a project, plan and record sessions | [Projects and sessions](../guides/projects-and-sessions.md) |
+| Understand the three Analyze Footage modes | [Analyze footage](../guides/analyze-footage.md) |
+| Teach the detector my study's objects | [Visual prompts](../guides/visual-prompts.md) |
+| Crop or re-frame recordings | [Crop and adjust](../guides/crop-and-adjust.md) |
+| Change how runs are processed | [Inference settings and tuning](../guides/inference-settings-and-tuning.md) |
+| Read the docs offline, switch theme | [About and theming](../guides/about-and-theming.md) |
+| Find a file on disk | [Where things live](../guides/where-things-live.md) |

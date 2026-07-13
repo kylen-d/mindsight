@@ -507,6 +507,25 @@ come here to **Verify** or **Re-download** it.
 
 ![The Models manager](../assets/tutorial/models-manager.png)
 
+### See also
+
+For each surface above, the GUI Guides cover it in more depth:
+
+- [GUI Tour](../getting-started/quickstart-gui.md) -- a map of the whole window.
+- [Projects and sessions](../guides/projects-and-sessions.md) -- building
+  projects, planning and recording sessions, run management.
+- [Analyze footage](../guides/analyze-footage.md) -- the Project, Video File, and
+  Camera modes in depth.
+- [Visual prompts](../guides/visual-prompts.md) -- building, tuning, and sharing
+  `.vp.json` files.
+- [Crop and adjust](../guides/crop-and-adjust.md) -- re-framing recordings and
+  auto-crop.
+- [Inference settings and tuning](../guides/inference-settings-and-tuning.md) --
+  the dialog vs. the tuning tab.
+- [About and theming](../guides/about-and-theming.md) -- the in-app reader and
+  theme control.
+- [Where things live](../guides/where-things-live.md) -- every file on disk.
+
 ---
 
 ## 11. Troubleshooting: every preflight message
