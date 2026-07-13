@@ -1,4 +1,4 @@
-# MindSight — Unified Object Detection and Gaze Intersection Tracker for Cognitive Science Research 
+# MindSight — Multi-Person Gaze and Object-Intersection Tracking for Cognitive Science Research
 
 <p align="center">
   <img src="mindsightlogo.png" alt="MindSight logo">
@@ -10,675 +10,297 @@
 > **v1.0.0** -- first stable release. Bug reports and feedback are welcome via [GitHub Issues](https://github.com/kylen-d/mindsight/issues).
 
 [![License: AGPL v3](https://img.shields.io/badge/License-AGPLv3-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
+[![CI](https://github.com/kylen-d/mindsight/actions/workflows/ci.yml/badge.svg)](https://github.com/kylen-d/mindsight/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/badge/release-v1.0.0-success.svg)](https://github.com/kylen-d/mindsight/releases)
 
-Gaze estimation combined with YOLO object detection for the studying of various gaze and attention-based psychological phenomena. MindSight determines what participants are looking at in real time, and provides a framework to use this information to study a wide-range of gaze-based behaviour, such as Joint-Attention.
+MindSight combines multi-person gaze estimation with YOLO object detection to determine **what every participant in a scene is looking at**, frame by frame, and turns that signal into measurements of gaze- and attention-based psychological phenomena — joint attention, mutual gaze, social referencing, and more. It ships a double-click installer, a six-tab desktop app, a 150+ flag CLI, and a plugin system for extending every stage.
 
----
-
-## Documentation
-
-Full documentation is available at **[kylen-d.github.io/mindsight-docs](https://kylen-d.github.io/mindsight-docs/)**.
+Full documentation lives at **[kylen-d.github.io/mindsight-docs](https://kylen-d.github.io/mindsight-docs/)**.
 
 ---
 
-## Table of Contents
+## What it does
 
-- [Features](#features)
-- [Architecture](#architecture)
-- [Requirements](#requirements)
-- [Installation](#installation)
-- [Project Structure](#project-structure)
-- [MindSight.py — CLI Usage](#mindsightpy--cli-usage)
-- [MindSight_GUI.py — GUI Usage](#mindsight_guipy--gui-usage)
-- [Visual Prompt (VP) Files](#visual-prompt-vp-files)
-- [Output & Logging](#output--logging)
-- [Gaze Backends](#gaze-backends)
-- [Keyboard Shortcuts](#keyboard-shortcuts)
-- [License](#license)
-- [Contributing](#contributing)
+- **Multi-person gaze + object intersection** — independently tracks every detected face (colour-coded per person), estimates each one's gaze, and resolves which detected object each participant is looking at via ray–bounding-box intersection.
+- **Gaze-LLE Blend as the primary gaze mode** — a per-face pitch/yaw backend (MobileGaze) is periodically corrected against scene-level Gaze-LLE heatmaps, with One-Euro smoothing and fixation-aware anchoring. Plain per-face and plain scene-level modes are also available.
+- **Eight built-in phenomena** — joint attention, mutual gaze, social referencing, gaze following, gaze aversion, scanpath, gaze leadership, and attention span, each with its own tuning parameters.
+- **Projects, batch processing, and resume** — organize studies as project directories, batch every video, aggregate per condition, and resume interrupted runs from a ledger.
+- **Visual prompts + depth** — detect study-specific objects from example images with YOLOE visual prompts, and optionally add monocular depth estimation to inform ray length and object snapping.
+- **Extensible everywhere** — a plugin system for gaze backends, detection post-processing, phenomena, and data collection, plus a schema-driven CLI and YAML pipeline configs.
 
----
-
-## Features
-
-### Core Functionality
-
-- **Multi-participant gaze tracking** — independently tracks each detected face, colour-coded per person
-- **Built-in gaze post-processing** — gaze smoothing, extending rays to nearby objects, adaptive ray-object snapping, fixation lock-on, gaze cone mode, and forward gaze detection
-- **Gaze ray–bbox intersection** — determines which detected objects each participant is looking at
-- **Gaze convergence detection** — detects when multiple gaze ray tips cluster near the same point
-- **Visual Object Detection Prompting** — makes use of YOLOE to allow for visual object detection prompts
-- **Face anonymization** — blur or black-out faces in saved outputs (`--anonymize`)
-- **Live dashboard** — real-time matplotlib dashboard with FPS, hit counts, cosine similarity, and phenomena panels
-- **Performance modes** — `--fast`, `--lite-overlay`, and `--no-dashboard` flags for throughput tuning
-- **Device auto-detection** — automatically selects CUDA, MPS (Apple Silicon), or CPU (`--device`)
-- **PyQt6 GUI** — full graphical front-end with live preview, a drag-and-drop Visual Prompt Builder, and project management
-
-> See the [pipeline overview](https://kylen-d.github.io/mindsight-docs/concepts/pipeline/) for how the four-stage pipeline (Detection → Gaze → Phenomena → Data Collection) works end to end.
-
-### Built-in Tracking of Various Attention-based Phenomena
-
-- **Joint attention** — two or more people simultaneously fixating on the same object. A core marker in early cognitive development, ASD screening, and collaborative task research.
-- **Mutual gaze** — two people looking directly at each other (eye contact). Central to studies of social bonding, turn-taking, and shared intentionality.
-- **Social referencing** — a person looks at another's face and then redirects their gaze to an object, as if checking before engaging. Studied in infant uncertainty resolution and emotional cueing.
-- **Gaze following** — one person shifts their gaze to match where another is looking. A key indicator of theory of mind, social learning, and attention cueing.
-- **Gaze aversion** — sustained avoidance of a visible salient object. Relevant to social anxiety, ASD, and phobia research.
-- **Scanpath analysis** — the ordered sequence of fixation targets for each participant. Used in visual search strategy, expertise studies, and reading pattern analysis.
-- **Gaze leadership** — one participant's gaze consistently directs others' attention first. Studied in group dynamics, social hierarchy, and leadership research.
-- **Attention span** — the average duration of completed glances per participant and object. Used in sustained attention research, ADHD screening, and engagement measurement.
-
-Each phenomenon has its own tuning parameters — see the [phenomena guide](https://kylen-d.github.io/mindsight-docs/phenomena/) for details.
-
-### Highly Extensible
-
-- **Gaze Backend Plugins** — supports and includes MobileGaze out of the box, with ONNX, PyTorch, and Gaze-LLE backends, and allows custom gaze estimation backends through the plugin system
-- **Object Detection Plugins** — custom detection post-processing (e.g. the included GazeBoost plugin)
-- **Phenomena Plugins** — user-written plugins to detect custom phenomena alongside the default pack
-- **Data Collection Plugins** — user-written plugins for custom data output in addition to video, CSV, heatmaps, and charts
-
-> See the [plugin system guide](https://kylen-d.github.io/mindsight-docs/developer/plugin-system/) and [plugin tutorial](https://kylen-d.github.io/mindsight-docs/developer/plugin-tutorial/) for how to write your own.
-
-### Designed for Research
-
-- **Built-in CSV event logging** — per-frame hit events with participant labels, conditions, and a customizable post-run summary with joint attention %, cosine similarity averages, and object look-time statistics
-- **Live & post-run dashboard** — real-time phenomena overlays and post-run time-series charts (`--charts`)
-- **Heatmap generation** — per-participant gaze heatmap accumulation and export (`--heatmap`)
-- **Participant ID mapping** — map track IDs to meaningful labels via `--participant-ids` or `--participant-csv`
-- **Project-based workflow** — user-defined pipelines with batch processing, per-condition CSV aggregation, and organized data output
-
-> See the [data output guide](https://kylen-d.github.io/mindsight-docs/concepts/outputs/) for full details on all output types.
-
----
-
-## Architecture
-
-```
-Camera / Video / Image
-        │
-        ▼
-  YOLO / YOLOE ──► object bounding boxes
-        │
-        ▼
-  RetinaFace ──────► face bounding boxes
-        │
-        ▼
-  Gaze Estimator ──► pitch + yaw per face  (MobileGaze / Gaze-LLE)
-        │
-        ▼
-  Ray–BBox Intersection ──► hit list  (face_idx, object_idx)
-        │
-        ├──► Gaze Convergence
-        ├──► Gaze Lock-on / Smooth / Snap 
-        └──► Phenomena Pipeline (JA, Mutual Gaze, Social Ref, …)
-```
-
-> See the [architecture deep dive](https://kylen-d.github.io/mindsight-docs/developer/architecture/) for module dependency graphs and per-frame processing details.
-
----
-
-## Requirements
-
-| Requirement | Notes |
-|---|---|
-| Python | 3.10+ recommended (tested on 3.14) |
-| CUDA / CoreML | Optional — CPU works, GPU accelerates |
-| Webcam | Required for live mode |
-
-### Python packages
-
-All dependencies are declared in `pyproject.toml` (exact versions pinned in the committed `uv.lock`). Key packages:
-
-```
-torch / torchvision          # Deep learning
-onnxruntime                  # ONNX inference (or onnxruntime-gpu for CUDA)
-ultralytics                  # YOLO / YOLOE object detection
-clip                         # Ultralytics CLIP fork (visual prompts)
-uniface                      # RetinaFace face detector
-timm                         # PyTorch Image Models (MiDaS)
-opencv-python                # Computer vision
-matplotlib                   # Charts and dashboard rendering
-pandas                       # Data output
-PyQt6                        # GUI
-PyYAML                       # Pipeline configuration
-tqdm                         # Progress bars
-Pillow                       # Image handling
-```
-
-> See the [installation guide](https://kylen-d.github.io/mindsight-docs/getting-started/installation/) for troubleshooting and platform-specific instructions.
+> See the [pipeline overview](https://kylen-d.github.io/mindsight-docs/concepts/pipeline/) for how the stages fit together end to end.
 
 ---
 
 ## Installation
 
-The fastest way to get MindSight running -- no Python setup required -- is the double-click installer for your platform. If you want a development checkout (editable install, running the tests, contributing, or working on a platform without a prebuilt installer), skip to [Developer install](#developer-install).
+The fastest way to run MindSight — **no Python setup required** — is the double-click installer for your platform. If you want an editable source checkout (running the tests, contributing, or working on a platform without a prebuilt installer), skip to [Developer install](#developer-install).
 
 ### Quick install (recommended)
 
-The interim installer provisions a self-contained Python, installs MindSight with locked dependencies, downloads the required model weights, and creates a launcher (Desktop and Start-menu shortcuts on Windows, a MindSight.app in Applications plus a Desktop link on macOS). You do not need to install Python or anything else first.
+The installer provisions a self-contained Python, installs MindSight with locked dependencies, downloads the required model weights, and creates a launcher. You do not need Python or anything else installed first.
 
-1. **Download the release zip** for your platform — `MindSight-<version>-win.zip` or `MindSight-<version>-mac.zip` — from the project's [GitHub Releases](https://github.com/kylen-d/mindsight/releases) page. (Release downloads go live once the first tagged release is published; until then, use the developer install below or ask your study lead for a copy.)
-2. Extract the zip somewhere you can find again (Desktop or Downloads is fine).
-3. Run the installer:
-   - **Windows:** double-click `Install-MindSight.bat`. If the blue **"Windows protected your PC"** SmartScreen box appears, click **More info** → **Run anyway** (expected — the in-house tool is unsigned).
+1. **Download the release zip** for your platform — `MindSight-1.0.0-mac.zip` or `MindSight-1.0.0-win.zip` — from the [GitHub Releases](https://github.com/kylen-d/mindsight/releases) page.
+2. **Extract** it somewhere you can find again (Desktop or Downloads is fine).
+3. **Run the installer:**
+   - **Windows:** double-click `Install-MindSight.bat`. If the blue **"Windows protected your PC"** SmartScreen box appears, click **More info → Run anyway** (expected — the in-house tool is unsigned).
    - **macOS:** right-click (or Control-click) `Install-MindSight.command` and choose **Open**, then click **Open** in the Gatekeeper dialog. (A plain double-click only offers "Move to Trash"; right-click → Open is the way past this.)
-4. A console/Terminal window walks through the setup steps and finishes with `MindSight install: PASS`. It is safe to re-run — re-running updates an existing install and skips finished work.
+4. A console/Terminal window walks through setup and finishes with `MindSight install: PASS`. It creates **`/Applications/MindSight.app` plus a Desktop link** on macOS, and **Start Menu and Desktop shortcuts** on Windows. It is safe to re-run — re-running **updates** an existing install and skips finished work.
 
-Full step-by-step instructions (SmartScreen / Gatekeeper details, first-launch notes) are in [`installer/INSTALL-WINDOWS.md`](installer/INSTALL-WINDOWS.md) and [`installer/INSTALL-MACOS.md`](installer/INSTALL-MACOS.md).
+Platform-specific details (SmartScreen / Gatekeeper, first-launch notes) are in [`installer/INSTALL-WINDOWS.md`](installer/INSTALL-WINDOWS.md) and [`installer/INSTALL-MACOS.md`](installer/INSTALL-MACOS.md).
 
 ### Developer install
 
-For an editable source checkout — running the test suite, contributing, or working on any platform without a prebuilt installer:
+**Requirements:** Python 3.10+ (tested on 3.14) and [uv](https://docs.astral.sh/uv/) recommended. A GPU is optional — CPU works, while CUDA (NVIDIA) or MPS/CoreML (Apple Silicon) accelerate inference. All dependencies are declared in `pyproject.toml` and pinned in the committed `uv.lock` (torch/torchvision, onnxruntime, ultralytics, uniface/RetinaFace, timm, opencv, matplotlib, pandas, PyQt6, PyYAML).
 
-#### 1. Clone the repository
+For an editable source checkout:
 
 ```bash
 git clone https://github.com/kylen-d/mindsight.git
 cd mindsight
+
+uv sync                    # exact locked versions from uv.lock (recommended)
+# --- or ---
+python -m venv .venv && source .venv/bin/activate   # .venv\Scripts\activate on Windows
+pip install -e .           # resolves everything from pyproject.toml
 ```
 
-#### 2. Create and activate a virtual environment (recommended)
+This installs the `mindsight`, `mindsight-gui`, and `mindsight-weights` console commands. Download the required model weights and launch the app:
 
 ```bash
-python -m venv .venv
-source .venv/bin/activate        # macOS / Linux
-.venv\Scripts\activate           # Windows
+mindsight-weights --required     # the required weights for the default pipeline
+mindsight-gui                    # launch the desktop app
 ```
 
-#### 3. Install dependencies
+`mindsight-weights --all` fetches every weight in the checksummed manifest; `--verify-only` checks checksums without downloading. YOLO/YOLOE detector weights (e.g. `yolov8n.pt`) are fetched on first use.
 
-```bash
-pip install -e .                  # resolves everything from pyproject.toml
-```
-
-(or `uv sync` for the exact locked versions from `uv.lock`)
-
-> **Note:** the editable install makes the `mindsight` package importable and installs the `mindsight` and `mindsight-gui` console commands.
-
-**GPU acceleration (optional):** Install PyTorch with CUDA support *before* running the above — see [pytorch.org/get-started](https://pytorch.org/get-started/locally/). For Apple Silicon CoreML, replace `onnxruntime` with `onnxruntime-silicon`.
-
-#### 4. Download gaze model weights
-
-All model weights are centralized in `Weights/{backend}/` and tracked in a checksummed manifest (`weights_manifest.json`). Download and verify them with the `mindsight-weights` console command (installed by step 3):
-
-```bash
-mindsight-weights --required          # the four required weights (default backends)
-mindsight-weights --all               # every weight in the manifest
-mindsight-weights --backend MGaze     # a single backend
-mindsight-weights --verify-only       # check checksums without downloading
-```
-
-The Gaze-LLE (`gazelle_dinov2_vitb14.pt`) and MobileGaze default weights are part of the required set, so `--required` fetches everything the default pipeline needs. `python scripts/download_weights.py` remains available as an equivalent entry point for source checkouts.
-
-#### 5. YOLO weights
-
-YOLO model weights (e.g. `yolov8n.pt`) are downloaded automatically by Ultralytics on first use. YOLOE weights (e.g. `yoloe-26l-seg.pt`) are also auto-downloaded.
-
-> See the [full installation guide](https://kylen-d.github.io/mindsight-docs/getting-started/installation/) for download links, verification steps, and troubleshooting.
+> Full platform notes, GPU/CoreML setup, and troubleshooting: [installation guide](https://kylen-d.github.io/mindsight-docs/getting-started/installation/).
 
 ---
 
-## Project Structure
+## Feature tour — the desktop app
+
+`mindsight-gui` (or the installed **MindSight** launcher) opens a six-tab window: **Analyze Footage · Projects · VP Builder · Inference Tuning · Models · About**. A menu bar adds project management (File), a light/dark **View → Theme** toggle, the **Inference Settings** dialog (Tools), and in-app documentation (Help).
+
+> 🎬 **Demo coming soon** — SHOT:gui-tour — full-window walkthrough across all six tabs and the menu bar.
+
+### Analyze Footage
+
+The run surface, with three modes: **Project** (batch a whole study), **Video File** (drop a single clip for a quick analysis), and **Camera** (live capture, saved as an importable session sidecar). Runs show a live preview plus a tabbed panel — Log, Charts, Output CSVs, and a live dashboard — that renders each run's outputs as they are written.
+
+> 🎬 **Demo coming soon** — SHOT:quick-analysis — drag a clip into Video File mode; the output folder auto-fills and live charts fill the pane.
+
+Guide: [Analyze Footage](https://kylen-d.github.io/mindsight-docs/guides/analyze-footage/)
+
+### Projects
+
+Create and manage studies. The **Build New Project** wizard steps through Study → Videos → Tag → Pipeline → Review; you can **Plan a session** (a run awaiting footage), **Record a Live Session** (records from a camera, then auto-analyzes), and use **Crop & Adjust** to non-destructively crop/re-fps footage with an optional YOLOE-based auto-crop.
+
+> 🎬 **Demo coming soon** — SHOT:record-live-session — the Record Session dialog: pick a camera, choose a planned session, record, then auto-analysis begins.
+
+Guides: [Projects and Sessions](https://kylen-d.github.io/mindsight-docs/guides/projects-and-sessions/), [Crop and Adjust](https://kylen-d.github.io/mindsight-docs/guides/crop-and-adjust/)
+
+### VP Builder
+
+Build and test YOLOE **Visual Prompt** files: add reference images, draw and label bounding boxes, then run inference to preview detections. **Extract Frames…** pulls stills from a video to annotate, and **Export Portable…** writes a self-contained `.vp.zip` archive (image paths rewritten archive-relative) for sharing between machines.
+
+> 🎬 **Demo coming soon** — SHOT:vp-annotate — add a reference image, add a class, drag a box, assign it, save the VP file.
+
+Guide: [Visual Prompts](https://kylen-d.github.io/mindsight-docs/guides/visual-prompts/)
+
+### Inference Tuning
+
+A live **playground** for dialing in detection, gaze, and phenomena parameters against a clip or camera, with a real-time preview and dashboard, a plugin panel, and preset/YAML round-tripping. This tab is a decoupled scratchpad — the authority for what an actual study run uses is the **Inference Settings** dialog (Tools → Inference Settings).
+
+> 🎬 **Demo coming soon** — SHOT:tuning-live — load a clip, press Start, watch the overlay and dashboard update as a slider is dragged.
+
+Guide: [Inference Settings and Tuning](https://kylen-d.github.io/mindsight-docs/guides/inference-settings-and-tuning/)
+
+### Models
+
+A manifest-driven manager for model weights: per-weight backend, whether the current config needs it, on-disk state and size, with **Install**, **Verify** (checksums), and **Re-download** actions.
+
+Guide: [Quickstart (GUI)](https://kylen-d.github.io/mindsight-docs/getting-started/quickstart-gui/)
+
+### About
+
+An offline documentation reader that renders the bundled guides in-app, plus version and license info. Pairs with the **View → Theme** toggle (auto / light / dark).
+
+> 🎬 **Demo coming soon** — SHOT:about-reader — click a guide card, the doc opens in the in-app reader; SHOT:theme-toggle — View → Theme recolours the whole window live.
+
+Guides: [About and Theming](https://kylen-d.github.io/mindsight-docs/guides/about-and-theming/), [Where Things Live](https://kylen-d.github.io/mindsight-docs/guides/where-things-live/)
+
+---
+
+## CLI quickstart
+
+```bash
+mindsight                          # launches on the webcam (--source 0)
+python MindSight.py [OPTIONS]       # or run the CLI wrapper directly
+```
+
+```bash
+# Analyze one video with every phenomenon, saving an annotated video + summary CSV
+mindsight --source video.mp4 --all-phenomena --save --summary
+
+# Use the pre-tuned Gaze-LLE Blend config, with heatmaps
+mindsight --source video.mp4 --pipeline configs/pipeline_known_good.yaml --save --heatmap
+
+# Anonymize faces and label participants positionally (track 0 -> S70, track 1 -> S71)
+mindsight --source video.mp4 --save --anonymize blur --participant-ids S70,S71
+
+# Batch-process a whole study (resumes from the ledger by default)
+mindsight --project Projects/MyStudy/
+```
+
+The CLI exposes **over 150 flags** across detection, gaze, ray-forming (Gaze-LLE Blend), depth, phenomena, performance, and plugin families. Rather than reproduce them here, see the full **[CLI flags reference](https://kylen-d.github.io/mindsight-docs/reference/cli-flags/)**.
+
+### Pipeline configuration
+
+Instead of long flag lists, define a reusable YAML pipeline config and point `--pipeline` at it (CLI flags always override YAML values):
+
+```bash
+mindsight --pipeline my_pipeline.yaml --source video.mp4
+```
+
+A ready-to-use, pre-tuned config — Gaze-LLE Blend wiring plus detection and ray-geometry values validated on classroom-style footage — ships as [`configs/pipeline_known_good.yaml`](configs/pipeline_known_good.yaml). A lighter-weight variant is [`configs/pipeline_low_power.yaml`](configs/pipeline_low_power.yaml). See the [pipeline YAML schema](https://kylen-d.github.io/mindsight-docs/reference/pipeline-yaml-schema/) for the full structure, and the [first-project guide](https://kylen-d.github.io/mindsight-docs/getting-started/first-project/) for project.yaml, conditions, and participants.
+
+### Architecture
+
+```
+Camera / Video / Image
+        │
+        ▼
+  YOLO / YOLOE ─────────► object bounding boxes
+        │
+  RetinaFace ───────────► face bounding boxes
+        │
+  Depth Estimation ─────► per-scene depth map (optional; MiDaS)
+        │
+        ▼
+  Gaze Estimation ──────► pitch + yaw per face  (MobileGaze / Gaze-LLE)
+        │
+  Ray Forming ──────────► Gaze-LLE Blend, One-Euro smoothing, fixation anchoring
+        │
+        ▼
+  Ray–BBox Intersection ► hit list  (face_idx, object_idx)
+        │
+        ├──► Gaze convergence / snap / lock-on
+        ├──► Phenomena engine (JA, Mutual Gaze, Social Ref, …)
+        └──► Data collection (video, CSV, heatmaps, charts)
+```
+
+> Deeper dive: [architecture guide](https://kylen-d.github.io/mindsight-docs/developer/architecture/).
+
+### Gaze modes
+
+MindSight supports three gaze paths. Model weights live under `Weights/` (e.g. `Weights/MGaze/`) and are resolved from the checksummed manifest.
+
+| Mode | How to enable | Notes |
+|---|---|---|
+| **MobileGaze** (per-face) | `--mgaze-model` (`.onnx`, or `.pt` with `--mgaze-arch`) | Fast per-face pitch/yaw; ONNX uses CoreML/CUDA/CPU. Architectures: `resnet18/34/50`, `mobilenetv2`, `mobileone_s0`–`s4`. |
+| **Gaze-LLE** (scene-level) | `--gazelle-model <ckpt.pt>` (`--gazelle-name` variant) | Single DINOv2 forward pass over the whole scene; outputs a gaze heatmap. |
+| **Gaze-LLE Blend** (primary) | `--rf-gazelle-model` + a per-face backend | Periodically corrects per-face rays against Gaze-LLE heatmaps with One-Euro smoothing and fixation anchoring. Pre-wired in `configs/pipeline_known_good.yaml`. |
+
+Gaze-LLE `--gazelle-name` variants: `gazelle_dinov2_vitb14`, `gazelle_dinov2_vitl14`, and their `_inout` counterparts (which add an in/out-of-frame confidence score).
+
+---
+
+## Phenomena
+
+MindSight tracks eight attention-based phenomena out of the box (each with its own tuning parameters and CLI flag):
+
+| Phenomenon | Flag | What it measures |
+|---|---|---|
+| **Joint attention** | `--joint-attention` | Two or more people fixating the same object at once — a core marker in early development, ASD screening, and collaboration research. |
+| **Mutual gaze** | `--mutual-gaze` | Two people looking directly at each other (eye contact) — social bonding, turn-taking, shared intentionality. |
+| **Social referencing** | `--social-ref` | Looking at another's face, then redirecting to an object — infant uncertainty resolution and emotional cueing. |
+| **Gaze following** | `--gaze-follow` | Shifting gaze to match where another is looking — theory of mind, social learning, attention cueing. |
+| **Gaze aversion** | `--gaze-aversion` | Sustained avoidance of a visible salient object — social anxiety, ASD, phobia research. |
+| **Scanpath** | `--scanpath` | The ordered sequence of fixation targets per participant — visual search, expertise, reading patterns. |
+| **Gaze leadership** | `--gaze-leader` | One participant consistently directing others' attention first — group dynamics and leadership research. |
+| **Attention span** | `--attn-span` | Mean duration of completed glances per participant and object — sustained attention, ADHD screening, engagement. |
+
+Enable everything at once with `--all-phenomena`. Full definitions and parameters: [phenomena guide](https://kylen-d.github.io/mindsight-docs/phenomena/).
+
+---
+
+## Outputs
+
+A run can produce:
+
+- **Annotated video** (`--save`) — bounding boxes, gaze rays, and dashboard overlays.
+- **Summary CSV** (`--summary`) — one tidy long-format table (`video_name, conditions, phenomenon, participant, partner, object, metric, value`).
+- **Per-frame events CSV** (`--log`) — one row per gaze–object hit per frame.
+- **Phenomena episodes CSV** — merged start/end/duration episodes across trackers.
+- **Heatmaps** (`--heatmap`) — per-participant gaze accumulation images.
+- **Charts** (`--charts`) — post-run phenomena time-series.
+- **`Global_*` aggregates** — in project mode, per-study rollups across all videos and conditions.
+
+> Full directory layout and column definitions: [outputs guide](https://kylen-d.github.io/mindsight-docs/concepts/outputs/).
+
+---
+
+## Project structure
 
 ```
 MindSight/
-├── MindSight.py                  # CLI entry point (thin wrapper)
-├── MindSight_GUI.py              # GUI entry point (thin wrapper)
-├── pyproject.toml                # Package config, console_scripts, linter settings
-│
-├── mindsight/                    # Core package (pip install -e .)
-│   ├── cli.py                    # CLI orchestrator (main pipeline logic)
-│   ├── gui.py                    # GUI launcher
-│   ├── constants.py              # Shared constants (colours, thresholds)
-│   ├── pipeline_config.py        # Config dataclasses + FrameContext
-│   ├── config_compat.py          # YAML pipeline config loader
-│   ├── project/
-│   │   ├── runner.py             # Event-streaming project batch loop
-│   │   ├── events.py             # ProjectEvent stream types
-│   │   ├── staging.py            # RunSpec discovery + run metadata
-│   │   ├── preflight.py          # Project readiness checklist
-│   │   ├── ledger.py             # Resume ledger (skip/redo/archive)
-│   │   └── project.py            # Project facade (open/preflight/run/status)
-│   ├── participant_ids.py        # Participant label mapping
-│   ├── weights.py                # Centralized weight file resolution
-│   │
-│   ├── ObjectDetection/
-│   │   ├── detection_pipeline.py # YOLO detection step (ctx-based)
-│   │   ├── object_detection.py   # YOLO wrapper, ObjectPersistenceCache
-│   │   ├── detection.py          # Detection dataclass
-│   │   └── model_factory.py      # YOLO and RetinaFace factory
-│   │
-│   ├── GazeTracking/
-│   │   ├── gaze_pipeline.py      # Gaze step coordinator (ctx-based)
-│   │   ├── gaze_processing.py    # GazeSmootherReID, snap, lock-on
-│   │   ├── gaze_factory.py       # Gaze engine factory
-│   │   └── Backends/             # Built-in gaze backends (MGaze)
-│   │
-│   ├── Phenomena/
-│   │   ├── phenomena_pipeline.py # Phenomena step (ctx-based unified loop)
-│   │   ├── phenomena_config.py   # PhenomenaConfig dataclass
-│   │   ├── helpers.py            # joint_attention, gaze_convergence
-│   │   └── Default/              # Built-in phenomena pack
-│   │
-│   ├── outputs/
-│   │   ├── data_pipeline.py      # CSV logging, heatmap accumulation
-│   │   ├── dashboard_output.py   # Frame overlay + dashboard compositor
-│   │   ├── csv_output.py         # Summary CSV writer
-│   │   └── heatmap_output.py     # Per-participant heatmap generation
-│   │
-│   ├── GUI/
-│   │   ├── main_window.py        # PyQt6 main window (4-tab layout)
-│   │   ├── run_study_tab.py      # Analyze Footage tab (projects, preflight, runs)
-│   │   ├── gaze_tab/             # Gaze Tuning tab (decomposed sections)
-│   │   ├── ui_spec.py            # Schema ui-metadata -> widget spec (pure)
-│   │   ├── schema_panel.py       # Generated parameter panels
-│   │   ├── models_tab.py         # Models tab (weight manager)
-│   │   ├── run_outputs.py        # In-GUI charts/CSV readers (pure)
-│   │   └── widgets.py            # Reusable GUI components
-│   │
-│   └── utils/
-│       ├── geometry.py           # Ray geometry, pitch/yaw, bbox ops
-│       └── device.py             # Shared device detection for all backends
-│
-├── Plugins/
-│   ├── __init__.py               # Base classes + registries
-│   ├── GazeTracking/             # Gaze backend plugins (Gaze-LLE, IrisRefinedGaze)
-│   ├── ObjectDetection/          # Detection plugins (GazeBoost)
-│   ├── Phenomena/                # Community phenomena plugins (NovelSalience)
-│   ├── DataCollection/           # Custom data output plugins
-│   └── TEMPLATE/                 # Skeleton plugin for developers
-│
-├── Weights/                      # Model weights (git-ignored, download on demand)
-├── Projects/                     # User project directories
-├── scripts/                      # Utility scripts (download_weights, install_deps)
-├── tests/                        # pytest test suite (930 tests)
-├── docs/                         # MkDocs documentation
-└── Outputs/                      # Default output directory
+├── MindSight.py / MindSight_GUI.py   # CLI + GUI entry-point shims
+├── pyproject.toml                    # package config, console scripts, linter
+├── mindsight/                        # core package (pip install -e .)
+│   ├── ObjectDetection/              # YOLO / YOLOE detection
+│   ├── GazeTracking/                 # gaze backends + processing
+│   ├── PostProcessing/RayForming/    # Gaze-LLE Blend ray forming
+│   ├── DepthEstimation/              # monocular depth (MiDaS)
+│   ├── Phenomena/                    # built-in phenomena pack
+│   ├── outputs/                      # video, CSV, heatmaps, charts
+│   ├── project/                      # project batch runner + resume ledger
+│   ├── GUI/                          # PyQt6 six-tab desktop app
+│   ├── io/, utils/                   # sources/writers, geometry, device
+│   └── config*.py, cli*.py           # schema, YAML loader, CLI frontend
+├── Plugins/                          # gaze, detection, phenomena, data-collection plugins
+│   ├── GazeTracking/                 # Gazelle, IrisRefinedGaze
+│   ├── ObjectDetection/              # GazeBoost
+│   ├── Phenomena/                    # EyeMovement, Pupillometry, NovelSalience
+│   ├── DataCollection/               # custom data output
+│   └── TEMPLATE/                     # skeleton plugin for developers
+├── configs/                          # known-good + low-power pipeline YAMLs
+├── installer/                        # release-zip installers + build scripts
+├── Weights/                          # model weights (download on demand)
+├── tests/                            # pytest suite (930 tests)
+└── docs/                             # MkDocs documentation
 ```
 
 ---
 
-## MindSight.py — CLI Usage
+## Development
 
 ```bash
-mindsight                          # console command (after pip install -e .)
-python MindSight.py [OPTIONS]      # or run the CLI directly
+uv sync                              # dev environment
+uv run pytest                        # run the 930-test suite
+uv run pytest -m "not slow"          # skip the slow-marked tests for a fast loop
+uv run ruff check .                  # lint
 ```
 
-### Quick examples
+MindSight is built to be extended. Plugins register at four points — **gaze backends, object-detection post-processing, phenomena, and data collection** — and contribute their own CLI flags automatically. See the [plugin system](https://kylen-d.github.io/mindsight-docs/developer/plugin-system/) and the [plugin tutorial](https://kylen-d.github.io/mindsight-docs/developer/plugin-tutorial/) to write your own; `Plugins/TEMPLATE/` is a working skeleton.
 
-```bash
-# Webcam with default settings
-python MindSight.py --source 0
-
-# After `pip install -e .`, you can also use the `mindsight` command directly:
-mindsight --source video.mp4 --save
-
-# Video file, save output, log events to CSV
-python MindSight.py --source video.mp4 --save --log events.csv
-
-# Enable joint attention and mutual gaze tracking
-python MindSight.py --source video.mp4 --joint-attention --mutual-gaze
-
-# Enable all phenomena trackers at once
-python MindSight.py --source video.mp4 --all-phenomena --save --log events.csv --summary
-
-# Use gaze cone mode instead of a single ray
-python MindSight.py --source video.mp4 --gaze-cone 15
-
-# Save with face anonymization, heatmaps, and charts
-python MindSight.py --source video.mp4 --save --anonymize blur --heatmap --charts
-
-# Use YOLOE Visual Prompt instead of text-class YOLO
-python MindSight.py --source 0 --vp-file my_prompts.vp.json
-
-# Fast mode — bundled optimizations for throughput
-python MindSight.py --source video.mp4 --fast
-
-# Export post-run summary CSV with participant labels
-python MindSight.py --source video.mp4 --summary results.csv --participant-ids "Alice,Bob,Carol"
-```
-
-### Key arguments (by category)
-
-The table below covers the most commonly used flags. For the **complete reference** of all over 150 flags, see the [CLI flags reference](https://kylen-d.github.io/mindsight-docs/reference/cli-flags/).
-
-#### Orchestration
-
-| Argument | Default | Description |
-|---|---|---|
-| `--source` | `0` | Input: `0` = webcam, integer = camera index, path to video/image |
-| `--save` | off | Write annotated output video/image to disk |
-| `--log` | — | Path to per-frame event CSV |
-| `--summary` | — | Path to post-run summary CSV |
-| `--heatmap` | — | Generate per-participant gaze heatmaps |
-| `--charts` | — | Generate post-run time-series charts |
-| `--pipeline` | — | Load a YAML pipeline config file |
-| `--project` | — | Batch-process videos in a project directory |
-| `--device` | `auto` | Compute device: `auto`, `cpu`, `cuda`, `mps` |
-| `--anonymize` | off | Face anonymization mode: `blur` or `black` |
-
-#### Detection
-
-| Argument | Default | Description |
-|---|---|---|
-| `--model` | `yolov8n.pt` | YOLO model weights |
-| `--conf` | `0.35` | Detection confidence threshold |
-| `--classes` | — | Filter to specific class names, e.g. `--classes person knife` |
-| `--blacklist` | — | Suppress specific classes, e.g. `--blacklist chair` |
-| `--skip-frames` | `1` | Run detection every N frames (1 = every frame) |
-| `--detect-scale` | `1.0` | Scale factor for detection pass (< 1 = faster) |
-| `--vp-file` | — | Visual Prompt file (`.vp.json`); switches to YOLOE detector |
-| `--obj-persistence` | — | Keep ghost detections alive for N frames |
-
-#### Gaze
-
-| Argument | Default | Description |
-|---|---|---|
-| `--ray-length` | `1.0` | Gaze ray length multiplier |
-| `--adaptive-ray` | `off` | Ray mode: `off`, `extend`, or `snap` |
-| `--gaze-cone` | `0` | Vision cone angle in degrees (0 = single ray) |
-| `--gaze-lock` | off | Enable fixation lock-on |
-| `--dwell-frames` | `15` | Frames of sustained gaze before lock activates |
-| `--gaze-tips` | off | Enable gaze-tip convergence detection |
-| `--forward-gaze-threshold` | — | Threshold for "looking at camera" classification |
-
-#### Gaze Backends
-
-| Argument | Description |
-|---|---|
-| `--mgaze-model` | MobileGaze: ONNX or `.pt` gaze weights (default backend) |
-| `--gazelle-model` | Gaze-LLE: Path to checkpoint; switches to scene-level backend |
-
-#### Phenomena
-
-| Argument | Description |
-|---|---|
-| `--joint-attention` | Enable joint attention tracking |
-| `--mutual-gaze` | Enable mutual gaze detection |
-| `--social-ref` | Enable social referencing |
-| `--gaze-follow` | Enable gaze following detection |
-| `--gaze-aversion` | Enable gaze aversion detection |
-| `--scanpath` | Enable scanpath tracking |
-| `--gaze-leader` | Enable gaze leadership tracking |
-| `--attn-span` | Track per-participant attention span |
-| `--all-phenomena` | Enable all phenomena trackers at once |
-
-#### Performance
-
-| Argument | Description |
-|---|---|
-| `--fast` | Enable bundled optimizations |
-| `--skip-phenomena` | Run phenomena trackers every N frames |
-| `--lite-overlay` | Minimal overlay rendering |
-| `--no-dashboard` | Skip dashboard composition |
-| `--profile` | Print per-stage timing every 100 frames |
-
-### Pipeline configuration files
-
-Instead of passing many CLI flags, you can define a reusable YAML pipeline config:
-
-```yaml
-# my_pipeline.yaml
-detection:
-  model: "yoloe-26l-seg.pt"
-  conf: 0.4
-gaze:
-  ray_length: 1.5
-  adaptive_ray: snap
-phenomena:
-  - joint_attention: { ja_window: 10 }
-  - mutual_gaze: {}
-output:
-  save_video: true
-  summary_csv: true
-  heatmaps: true
-  anonymize: blur
-performance:
-  fast: true
-participants:
-  ids: ["Alice", "Bob"]
-```
-
-```bash
-python MindSight.py --pipeline my_pipeline.yaml --source video.mp4
-```
-
-CLI flags always override YAML values. For the full YAML schema including `aux_streams` and `plugins` sections, see the [pipeline YAML reference](https://kylen-d.github.io/mindsight-docs/reference/pipeline-yaml-schema/).
-
-A ready-to-use, pre-tuned config — Gaze-LLE Blend wiring plus detection and ray-geometry values validated on classroom-style footage — ships as [`configs/pipeline_known_good.yaml`](configs/pipeline_known_good.yaml). Point `--pipeline` at it, or copy it into a project's `Pipeline/pipeline.yaml` as a starting point.
-
-### Project mode
-
-A Project is a directory with a standard layout for batch-processing multiple videos:
-
-```
-MyProject/
-├── Inputs/
-│   ├── Videos/         # Drop video files here
-│   └── Prompts/        # VP files for this project
-├── Outputs/            # Auto-populated with per-video results
-│   ├── CSV Files/      # Per-video + Global + By Condition CSVs
-│   ├── Videos/
-│   └── heatmaps/
-├── Pipeline/
-│   └── pipeline.yaml   # Project-specific pipeline config
-└── project.yaml        # Optional: conditions, participants, output settings
-```
-
-```bash
-python MindSight.py --project Projects/MyProject/
-```
-
-This loads the project's `pipeline.yaml`, processes every video in `Inputs/Videos/`, and writes per-video outputs to `Outputs/`. The optional `project.yaml` allows you to define conditions (per-video tags), participant label mappings, and output directory customization.
-
-> See the [project mode guide](https://kylen-d.github.io/mindsight-docs/getting-started/first-project/) for full details on project.yaml, conditions, participants, and auxiliary streams.
-
-### Plugin development
-
-MindSight supports four plugin types: **Gaze**, **Object Detection**, **Phenomena**, and **Data Collection**.
-
-> See the [plugin tutorial](https://kylen-d.github.io/mindsight-docs/developer/plugin-tutorial/) for step-by-step guides for each plugin type.
+Contributions are welcome. Please open an issue (the repo provides issue templates) or a pull request on [GitHub](https://github.com/kylen-d/mindsight); use [GitHub Issues](https://github.com/kylen-d/mindsight/issues) for bugs and feature requests.
 
 ---
 
-## MindSight_GUI.py — GUI Usage
+## Documentation
 
-```bash
-mindsight-gui                # console command (after pip install -e .)
-python MindSight_GUI.py      # or run the wrapper script directly
-```
+The full docs site — [kylen-d.github.io/mindsight-docs](https://kylen-d.github.io/mindsight-docs/) — is the authority for everything summarized here:
 
-The GUI has four tabs:
-
-### Tab 1 — Analyze Footage
-
-The home screen for batch-processing studies.
-
-**Workflow:**
-
-1. **Open a project** — type/paste a path, *Browse...*, or pick a recent project. Flat `Inputs/Videos/` and per-run `Inputs/Runs/<run_id>/` layouts are both supported.
-2. **Preflight checklist** — structure, pipeline config, model weights, VP file, discovered runs, run metadata, participant/condition coverage, device, disk space, and plugin errors, each with a fix hint (plus one-click download of missing weights).
-3. **Runs table** — per-run participants, conditions, ledger status, and the resume plan ("done → will skip" / "will process" / "changed → re-run + archive"). Right-click a run to *Edit run...* (participants/conditions) or *Re-run this run*; *Re-run all* ignores the ledger.
-4. **Study setup** — pipeline picker (or *Import from Gaze Tuning*), participants/conditions tables, an *Anonymize Footage* toggle, output root, and *Save project.yaml*.
-5. **Run** — live per-run states, preview, and a tabbed output panel (Log | Charts | Output CSVs) that renders each run's already-written CSVs in-GUI.
-
-*Add single run...* stages one video manually (run now, or save into the project as a new run folder).
-
-### Tab 2 — VP Builder
-
-Drag-and-drop tool for creating and testing `.vp.json` Visual Prompt files.
-
-**Workflow:**
-
-1. **Add reference images** — click *Add Images* and select one or more images that contain the objects you want to detect.
-2. **Draw bounding boxes** — click and drag on the image canvas to draw boxes around objects.
-3. **Assign classes** — each box is assigned a class from the class list on the left. Add new classes with *Add Class*.
-4. **Save prompt** — click *Save VP File* to write the `.vp.json`.
-5. **Test inference** — select a YOLOE model and a folder of test images, then click *Run Inference* to preview detections with the saved prompt. *Use saved VP in Gaze Tuning* hands the file to the tuning tab.
-
-### Tab 3 — Gaze Tuning
-
-The single-source tuning surface for all `MindSight.py` functionality.
-
-**Sections:**
-
-- **Source** — camera index, video file, or image file
-- **Detection mode** — YOLO (text classes) or YOLOE Visual Prompt
-- **Gaze backend** — MobileGaze or Gaze-LLE
-- **Device selector** — auto, CPU, CUDA, or MPS
-- **Parameter panels** — generated from the config schema (ray geometry, Gaze-LLE Blend, adaptive snap, fixation lock-on, depth, performance, phenomena), with a *Show advanced* toggle for the deep-tuning tier
-- **Plugin panel** — activate and configure installed plugins
-- **Output settings** — video save, CSV log, summary, heatmaps, charts, anonymization
-- **Presets** — save and restore parameter presets; *Export/Import Pipeline* round-trips the full config as YAML
-- **Live preview** — annotated frames with real-time dashboard
-- **Log console** — status messages from the background worker thread
-
-**Controls:** click **Start** to begin tracking; **Stop** to halt.
-
-### Tab 4 — Models
-
-Manifest-driven manager for model weights: per-weight backend, whether the current config needs it, on-disk state and size, with *Install*, *Verify* (checksums), and *Re-download* actions.
-
-> See the [GUI guide](https://kylen-d.github.io/mindsight-docs/getting-started/quickstart-gui/) for detailed instructions including the pipeline dialog and settings persistence.
+- **Get started:** [Install](https://kylen-d.github.io/mindsight-docs/getting-started/installation/) · [Run a Study (tutorial)](https://kylen-d.github.io/mindsight-docs/studies/run-a-study-tutorial/) · [Quickstart CLI](https://kylen-d.github.io/mindsight-docs/getting-started/quickstart-cli/) · [Quickstart GUI](https://kylen-d.github.io/mindsight-docs/getting-started/quickstart-gui/)
+- **Concepts:** [The pipeline](https://kylen-d.github.io/mindsight-docs/concepts/pipeline/) · [Understanding outputs](https://kylen-d.github.io/mindsight-docs/concepts/outputs/) · [Phenomena](https://kylen-d.github.io/mindsight-docs/phenomena/)
+- **Reference:** [CLI flags](https://kylen-d.github.io/mindsight-docs/reference/cli-flags/) · [pipeline.yaml schema](https://kylen-d.github.io/mindsight-docs/reference/pipeline-yaml-schema/) · [Inference settings](https://kylen-d.github.io/mindsight-docs/reference/inference-settings/)
+- **Develop:** [Architecture](https://kylen-d.github.io/mindsight-docs/developer/architecture/) · [Plugin system](https://kylen-d.github.io/mindsight-docs/developer/plugin-system/) · [Testing](https://kylen-d.github.io/mindsight-docs/developer/testing/)
 
 ---
 
-## Visual Prompt (VP) Files
+## License & acknowledgments
 
-VP files encode reference images and bounding-box annotations used by YOLOE for image-based (visual) class prompting. They are JSON with the extension `.vp.json`.
+MindSight is licensed under the [GNU Affero General Public License v3.0](LICENSE) (AGPL-3.0). It uses [ultralytics](https://github.com/ultralytics/ultralytics) (AGPL-3.0) for YOLO-based detection — if you distribute or provide network access to this software, you must make the complete corresponding source available under the same license. See [THIRD_PARTY_LICENSES.md](THIRD_PARTY_LICENSES.md) for the full dependency list and licenses.
 
-**Format:**
-
-```json
-{
-  "version": 1,
-  "classes": [
-    {"id": 0, "name": "knife"},
-    {"id": 1, "name": "plate"}
-  ],
-  "references": [
-    {
-      "image": "/absolute/path/to/reference.jpg",
-      "annotations": [
-        {"cls_id": 0, "bbox": [x1, y1, x2, y2]},
-        {"cls_id": 1, "bbox": [x1, y1, x2, y2]}
-      ]
-    }
-  ]
-}
-```
-
-- `classes` — sequential IDs starting from `0`.
-- `references` — list of reference images with annotated boxes.
-- The **first** reference image is used to initialise YOLOE class embeddings. Additional reference images are currently reserved for future use.
-- Class IDs must be contiguous and start at `0`.
-
-> Tip: prompts detect best when reference boxes are drawn tightly around the object, from footage that matches your study's camera angle and lighting.
-
----
-
-## Output & Logging
-
-### Per-frame event CSV (`--log events.csv`)
-
-One row per gaze-object hit per frame:
-
-| Column | Description |
-|---|---|
-| `video_name` | Source video filename |
-| `conditions` | Experimental conditions (from project.yaml) |
-| `frame` | Frame number |
-| `face_idx` | Tracked face index |
-| `participant_label` | Participant label (if mapped) |
-| `object` | Detected object class name |
-| `object_conf` | Detection confidence |
-| `bbox_x1, bbox_y1, bbox_x2, bbox_y2` | Object bounding box |
-| `joint_attention` | Whether joint attention is active |
-
-### Post-run summary CSV (`--summary`)
-
-Three core sections written to the same file:
-
-| Section | Description |
-|---|---|
-| `joint_attention` | % of frames with shared gaze target |
-| `cosine_similarity` | Per-pair and overall mean cosine similarity of gaze directions |
-| `object_look_time` | Per-(participant, object-class) frame count and % |
-
-Additional sections are appended for each active phenomena tracker.
-
-### Heatmaps (`--heatmap`)
-
-Per-participant gaze heatmaps with Gaussian blur (sigma=40), saved as images to the output directory.
-
-### Time-series charts (`--charts`)
-
-Post-run matplotlib charts showing phenomena metrics over time.
-
-### Annotated video (`--save`)
-
-When `--save` is passed, an annotated `.mp4` is written with bounding boxes, gaze rays, and dashboard overlays. Auto-named as `[stem]_Video_Output.mp4` in the output directory.
-
-### Face anonymization (`--anonymize`)
-
-Blur or black-out all detected faces in saved video output. Use `--anonymize blur` or `--anonymize black`, with adjustable padding via `--anonymize-padding` (default: 0.3).
-
-### Participant ID mapping
-
-Map track IDs to meaningful labels:
-
-- **Inline:** `--participant-ids "Alice,Bob,Carol"`
-- **From file:** `--participant-csv participants.csv`
-
-Labels appear in CSV output and on-screen overlays.
-
-> See the [data output guide](https://kylen-d.github.io/mindsight-docs/concepts/outputs/) for full details on output directory structure, CSV column definitions, and project-mode aggregation.
-
----
-
-## Gaze Backends
-
-| Backend | Trigger | Accuracy | Notes |
-|---|---|---|---|
-| **MobileGaze ONNX** (default) | `--mgaze-model` with `.onnx` path | ~11 MAE | Fastest; uses CoreML on Apple Silicon, CUDA on NVIDIA, CPU otherwise |
-| **MobileGaze PyTorch** | `--mgaze-model` with `.pt` + `--mgaze-arch` | ~11 MAE | Requires `--mgaze-arch` to identify the architecture |
-| **Gaze-LLE** | `--gazelle-model <ckpt.pt>` | — | Scene-level DINOv2 model; processes all faces in a single forward pass; outputs a gaze heatmap |
-
-**MobileGaze architectures** (`--mgaze-arch`):
-`resnet18`, `resnet34`, `resnet50`, `mobilenetv2`, `mobileone_s0`–`s4`
-
-**Gaze-LLE model variants** (`--gazelle-name`):
-`gazelle_dinov2_vitb14`, `gazelle_dinov2_vitl14`, `gazelle_dinov2_vitb14_inout`, `gazelle_dinov2_vitl14_inout`
-
-The `_inout` variants add an in-frame / out-of-frame confidence score that modulates the gaze heatmap peak.
-
-> See the [gaze estimation guide](https://kylen-d.github.io/mindsight-docs/concepts/pipeline/) for detailed parameter tuning, adaptive ray modes, smoothing, re-ID, and intersection algorithms.
-
----
-
-## Keyboard Shortcuts
-
-| Key | Action |
-|---|---|
-| `Q` | Quit (CLI video/webcam mode) |
-| Any key | Close (CLI image mode) |
-
-### On-screen Overlay Legend
-
-> See the [keyboard shortcuts & overlay reference](https://kylen-d.github.io/mindsight-docs/reference/keyboard-shortcuts/) for the full legend.
-
----
-
-## License
-
-MindSight is licensed under the [GNU Affero General Public License v3.0](LICENSE) (AGPL-3.0).
-
-This project uses [ultralytics](https://github.com/ultralytics/ultralytics) (AGPL-3.0) for YOLO-based object detection. If you distribute or provide network access to this software, you must make the complete corresponding source code available under the same license. See [THIRD_PARTY_LICENSES.md](THIRD_PARTY_LICENSES.md) for a full list of third-party dependencies and their licenses.
-
----
-
-## Contributing
-
-Contributions are welcome! Please open an issue or submit a pull request on [GitHub](https://github.com/kylen-d/mindsight).
-
-For bug reports and feature requests, use [GitHub Issues](https://github.com/kylen-d/mindsight/issues).
+This project builds on the MobileGaze and Gaze-LLE gaze-estimation methods, the RetinaFace face detector, and Ultralytics YOLO/YOLOE. Deepest thanks to the [UBC Motivated Cognition Lab](https://mclab.psych.ubc.ca/) for supervising and supporting the work.
