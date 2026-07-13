@@ -40,14 +40,27 @@ INSTALLER_DIR = REPO_ROOT / "installer"
 # Unix mode bits for the executable launcher inside the mac zip.
 EXEC_EXTERNAL_ATTR = (0o100755 << 16)
 
+
+def _package_version() -> str:
+    """The version from mindsight/__init__.py (regex, no heavy import)."""
+    import re
+    text = (REPO_ROOT / "mindsight" / "__init__.py").read_text()
+    m = re.search(r'^__version__ = "([^"]+)"', text, re.M)
+    if not m:
+        raise SystemExit("cannot find __version__ in mindsight/__init__.py")
+    return m.group(1)
+
+
+VERSION = _package_version()
+
 PLATFORMS = {
     "win": {
-        "zip_name": "MindSight-1.0.0-indev-win.zip",
+        "zip_name": f"MindSight-{VERSION}-win.zip",
         "launcher": "Install-MindSight.bat",
         "guide": "INSTALL-WINDOWS.md",
     },
     "mac": {
-        "zip_name": "MindSight-1.0.0-indev-mac.zip",
+        "zip_name": f"MindSight-{VERSION}-mac.zip",
         "launcher": "Install-MindSight.command",
         "guide": "INSTALL-MACOS.md",
     },
