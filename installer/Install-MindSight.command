@@ -276,7 +276,7 @@ else
         fail "4 (install dependencies)" \
              "Release mode needs a wheel URL, but MINDSIGHT_RELEASE_WHEEL_URL is not set. This zip has no bundled app/ tree. Use a local-zip installer, or set MINDSIGHT_RELEASE_WHEEL_URL to the wheel asset on the GitHub Release."
     fi
-    if ! uv venv --python 3.12 "$VENV_DIR"; then
+    if ! uv venv --clear --python 3.12 "$VENV_DIR"; then
         fail "4 (install dependencies)" "Could not create the virtual environment at \"$VENV_DIR\"."
     fi
     if ! uv pip install --python "$VENV_DIR/bin/python" "$RELEASE_WHEEL_URL"; then

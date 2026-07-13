@@ -156,7 +156,7 @@ goto after_deps
 :deps_release
 if not defined RELEASE_WHEEL_URL goto deps_release_nourl
 if "%RELEASE_WHEEL_URL%"=="" goto deps_release_nourl
-uv venv --python 3.12 "%VENV_DIR%"
+uv venv --clear --python 3.12 "%VENV_DIR%"
 if not %ERRORLEVEL% EQU 0 (
     echo [4/7] Creating virtual environment ... FAILED
     goto fail
