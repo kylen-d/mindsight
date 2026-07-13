@@ -1,12 +1,21 @@
-# MindSight
+<div class="ms-hero" markdown>
 
-**Unified Object Detection and Gaze Intersection Tracker for Cognitive Sciences Research**
+![MindSight](assets/brand/mindsightlogo.png)
+
+# Gaze tracking for behavioral research
+
+<p class="ms-tagline">Multi-person gaze tracking and attention analysis for behavioral research</p>
+
+<p class="ms-version">v1.0.0 &mdash; first stable release. See the <a href="changelog.md">Changelog</a> for what shipped.</p>
+
+<div class="ms-actions" markdown>
+[Get started](getting-started/installation.md){ .ms-cta }
+[Run a study tutorial](studies/run-a-study-tutorial.md){ .ms-secondary }
+</div>
+
+</div>
 
 MindSight is an open-source toolkit that detects where people look in video, images, and live camera feeds, then maps those gaze vectors onto detected objects to identify social-cognitive phenomena such as joint attention, mutual gaze, and gaze following -- all from a single configurable pipeline.
-
-!!! note "v1.0.0 -- First stable release"
-
-    This is MindSight **v1.0.0**, the first stable release. See the [Changelog](changelog.md) for what shipped.
 
 ---
 
@@ -14,19 +23,25 @@ MindSight is an open-source toolkit that detects where people look in video, ima
 
 MindSight processes each frame through a four-stage pipeline:
 
-```mermaid
-flowchart LR
-    A["Input\nCamera / Video / Image"] --> B["Object Detection\n(YOLO / YOLOE)"]
-    A --> C["Face Detection\n(RetinaFace)"]
-    B --> D["Object\nBounding Boxes"]
-    C --> E["Face\nBounding Boxes"]
-    E --> F["Gaze Estimation\n(MobileGaze / Gaze-LLE)"]
-    F --> G["Pitch + Yaw\nper Face"]
-    D --> H["Ray-BBox\nIntersection"]
-    G --> H
-    H --> I["Hit List"]
-    I --> J["Phenomena Detection\n(JA, Mutual Gaze, etc.)"]
-    J --> K["Data Collection\n(CSV, Heatmaps, Dashboard)"]
+```text
+Input (camera / video / image)
+   |
+   +--> Object Detection (YOLO / YOLOE)      --> object bounding boxes --.
+   |                                                                     |
+   +--> Face Detection (RetinaFace) --> Gaze Estimation                  |
+                                        (MobileGaze / Gaze-LLE)          |
+                                        --> pitch + yaw per face --.     |
+                                                                   v     v
+                                                       Ray-BBox Intersection
+                                                                   |
+                                                                   v
+                                                              Hit list
+                                                                   |
+                                                                   v
+                                          Phenomena Detection (JA, mutual gaze, ...)
+                                                                   |
+                                                                   v
+                                     Data Collection (CSV, heatmaps, dashboard)
 ```
 
 1. **Object & Face Detection** -- locates people, faces, and objects of interest in every frame.
@@ -76,28 +91,20 @@ flowchart LR
 
 ## Where to Start
 
-<div class="grid cards" markdown>
+**For researchers**
 
--   **I'm a researcher**
+Get MindSight running, process your first video, and explore the phenomena it can detect.
 
-    ---
+- [Getting Started](getting-started/index.md) -- installation and first run
+- [Understand the Pipeline](concepts/pipeline.md) -- the four-stage pipeline and Gaze-LLE Blend
+- [Phenomena](phenomena/index.md) -- detailed descriptions of each tracked phenomenon
 
-    Get MindSight running, process your first video, and explore the phenomena it can detect.
+**For developers**
 
-    - [Getting Started](getting-started/index.md) -- installation and first run
-    - [Understand the Pipeline](concepts/pipeline.md) -- the four-stage pipeline and Gaze-LLE Blend
-    - [Phenomena](phenomena/index.md) -- detailed descriptions of each tracked phenomenon
+Understand the internals, write plugins, and extend the pipeline.
 
--   **I'm a developer**
-
-    ---
-
-    Understand the internals, write plugins, and extend the pipeline.
-
-    - [Architecture Deep Dive](developer/architecture.md) -- how the pipeline fits together
-    - [Plugin System](developer/plugin-system.md) -- extension points and base classes
-    - [Developer Guide](developer/index.md) -- module references and contribution guidelines
-
-</div>
+- [Architecture Deep Dive](developer/architecture.md) -- how the pipeline fits together
+- [Plugin System](developer/plugin-system.md) -- extension points and base classes
+- [Developer Guide](developer/index.md) -- module references and contribution guidelines
 
 <!-- screenshot: MindSight GUI main window -->

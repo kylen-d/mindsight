@@ -3,16 +3,21 @@ site_description: Eye-Gaze Intersection Tracker for Behavioral Neuroscience Rese
 
 theme:
   name: material
+  logo: assets/brand/mindsight_icon.png
+  favicon: assets/brand/mindsight_icon.png
+  font:
+    text: Inter
+    code: JetBrains Mono
   palette:
     - scheme: default
-      primary: indigo
-      accent: cyan
+      primary: custom
+      accent: custom
       toggle:
         icon: material/brightness-7
         name: Switch to dark mode
     - scheme: slate
-      primary: indigo
-      accent: cyan
+      primary: custom
+      accent: custom
       toggle:
         icon: material/brightness-4
         name: Switch to light mode
@@ -25,6 +30,9 @@ theme:
     - search.highlight
     - content.code.copy
     - content.tabs.link
+
+extra_css:
+  - stylesheets/mindsight.css
 
 plugins:
   - search
@@ -53,19 +61,15 @@ markdown_extensions:
       permalink: true
 
 nav:
-  - Home: index.md
-  - Run a study:
-      - getting-started/index.md
+  - Get Started:
+      - Home: index.md
       - Install: getting-started/installation.md
       - Run a Study (Tutorial): studies/run-a-study-tutorial.md
       - Quickstart (CLI): getting-started/quickstart-cli.md
       - Quickstart (GUI): getting-started/quickstart-gui.md
-  - Design a study:
       - Your First Project: getting-started/first-project.md
-      - Inference Settings: reference/inference-settings.md
-      - CLI Flags: reference/cli-flags.md
-      - pipeline.yaml Schema: reference/pipeline-yaml-schema.md
-  - Understand the pipeline:
+      - Getting Started Overview: getting-started/index.md
+  - Concepts & Phenomena:
       - The Pipeline: concepts/pipeline.md
       - Understanding the Outputs: concepts/outputs.md
       - Phenomena:
@@ -78,6 +82,16 @@ nav:
           - Scanpath Analysis: phenomena/scanpath.md
           - Gaze Leadership: phenomena/gaze-leadership.md
           - Attention Span: phenomena/attention-span.md
+  - Reference:
+      - reference/index.md
+      - Inference Settings: reference/inference-settings.md
+      - CLI Flags: reference/cli-flags.md
+      - pipeline.yaml Schema: reference/pipeline-yaml-schema.md
+      - Configuration Dataclasses: reference/config-dataclasses.md
+      - Keyboard Shortcuts: reference/keyboard-shortcuts.md
+      - FrameContext Keys: reference/frame-context-keys.md
+      - Detection Dataclass: reference/detection-dataclass.md
+      - Plugin Base Classes: reference/plugin-base-classes.md
   - Develop:
       - developer/index.md
       - Architecture Deep Dive: developer/architecture.md
@@ -95,11 +109,4 @@ nav:
       - "Data Collection Plugin Tutorial": developer/data-collection-plugin-tutorial.md
       - Pipeline Configuration (YAML): developer/pipeline-yaml.md
       - Testing: developer/testing.md
-      - Reference:
-          - reference/index.md
-          - FrameContext Keys: reference/frame-context-keys.md
-          - Configuration Dataclasses: reference/config-dataclasses.md
-          - Detection Dataclass: reference/detection-dataclass.md
-          - Plugin Base Classes: reference/plugin-base-classes.md
-          - Keyboard Shortcuts: reference/keyboard-shortcuts.md
   - Changelog: changelog.md
