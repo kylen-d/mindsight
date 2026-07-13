@@ -6,12 +6,12 @@ and tagline, plus "guide cards" that open rendered tutorials INSIDE the app.
 Two stacked pages: a hero landing and a full-width markdown reader with a back
 button.
 
-Docs come from the repo's ``docs/`` tree when running from a checkout.  An
-installed app (wheel) does not ship ``docs/`` yet -- SP6's packaging work will
-light that up -- so when the tree is absent the cards give way to a button that
-opens the hosted documentation site.  The reader understands enough of the
-mkdocs dialect (admonitions, content tabs) to render the committed pages
-faithfully through Qt's GitHub-flavored markdown support.
+Docs come from the repo's ``docs/`` tree when running from a checkout, or from
+the copy bundled into the wheel as package data (``mindsight/_bundled/docs``).
+When neither is present the cards give way to a button that opens the hosted
+documentation site.  The reader understands enough of the mkdocs dialect
+(admonitions, content tabs) to render the committed pages faithfully through
+Qt's GitHub-flavored markdown support.
 """
 
 from __future__ import annotations
@@ -58,9 +58,13 @@ def repo_root() -> Path:
 
 
 def docs_root() -> Path | None:
-    """The local docs tree, or None when not running from a checkout."""
+    """The local docs tree: checkout copy, else the wheel's bundled copy."""
     d = repo_root() / "docs"
-    return d if d.is_dir() else None
+    if d.is_dir():
+        return d
+    from mindsight.resources import bundled_path
+    b = bundled_path("docs")
+    return b if b is not None and b.is_dir() else None
 
 
 def render_mkdocs_markdown(text: str) -> str:
@@ -165,8 +169,8 @@ class AboutTab(QWidget):
                 cards.addWidget(btn)
                 self._card_count += 1
         if self._card_count == 0:
-            # Installed app without a local docs tree (pre-SP6 packaging):
-            # the hosted site is the reader.
+            # No checkout docs and no bundled copy (wheel built without the
+            # resource-staging step): the hosted site is the reader.
             site = QPushButton("Open the documentation site")
             site.setMinimumHeight(40)
             site.clicked.connect(

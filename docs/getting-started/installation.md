@@ -44,28 +44,27 @@ cd MindSight
 
 ## Install Dependencies
 
-Install all dependencies at once:
+All dependencies are declared in `pyproject.toml` (the single source of truth,
+with a committed `uv.lock` pinning exact versions). Install with either:
 
 ```bash
-pip install -r requirements.txt
-pip install -e .                  # install MindSight as an editable package
+uv sync                           # exact locked versions (recommended)
 ```
 
-!!! note "Editable install required"
-    The `pip install -e .` step is required -- it registers the `ms` package and installs the `mindsight` and `mindsight-gui` console commands.
-
-!!! note "PyTorch GPU support"
-    The `requirements.txt` installs CPU-only PyTorch by default. For GPU acceleration, install PyTorch **first** using the appropriate command from [pytorch.org/get-started](https://pytorch.org/get-started/locally/), then run `pip install -r requirements.txt`.
-
-!!! note "ONNX Runtime variants"
-    For NVIDIA GPU inference, replace `onnxruntime` with `onnxruntime-gpu`. For Apple Silicon CoreML, use `onnxruntime-silicon`.
-
-Alternatively, use the helper script for platform-aware installation:
+or plain pip:
 
 ```bash
-python scripts/install_dependencies.py          # auto-detects CUDA / Apple Silicon
-python scripts/install_dependencies.py --dry-run  # preview without installing
+pip install -e .                  # editable install; resolves from pyproject.toml
 ```
+
+!!! note "Editable install"
+    The editable install registers the `mindsight` package and installs the
+    `mindsight`, `mindsight-gui`, and `mindsight-weights` commands.
+
+!!! note "PyTorch acceleration"
+    The default PyPI wheels give you MPS on Apple Silicon and CUDA on Linux
+    out of the box; Windows installs run PyTorch on CPU. For NVIDIA ONNX
+    inference, replace `onnxruntime` with `onnxruntime-gpu`.
 
 ---
 

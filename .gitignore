@@ -63,3 +63,6 @@ localref/
 
 # Git worktrees (isolated branch workspaces)
 .worktrees/
+
+# Wheel-build resource staging (scripts/sync_bundled_resources.py)
+mindsight/_bundled/

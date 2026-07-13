@@ -114,7 +114,15 @@ def load_manifest(path=None) -> dict:
 
     Raises :class:`WeightsError` when the file is missing or malformed.
     """
-    path = Path(path) if path is not None else MANIFEST_PATH
+    if path is not None:
+        path = Path(path)
+    elif MANIFEST_PATH.exists():
+        path = MANIFEST_PATH
+    else:
+        # Wheel installs ship the manifest as package data; a PROJECT_ROOT
+        # copy (when present) stays authoritative so installs can override it.
+        from mindsight.resources import bundled_path
+        path = bundled_path("weights_manifest.json") or MANIFEST_PATH
     if not path.exists():
         raise WeightsError(
             f"weights manifest not found at {path} -- the install is incomplete")

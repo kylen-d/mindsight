@@ -67,7 +67,11 @@ def known_good_preset_path() -> Path | None:
     """
     from mindsight import constants
     preset = constants.PROJECT_ROOT / "configs" / "pipeline_known_good.yaml"
-    return preset if preset.exists() else None
+    if preset.exists():
+        return preset
+    # Wheel installs carry the preset as package data (a checkout copy wins).
+    from mindsight.resources import bundled_path
+    return bundled_path("configs/pipeline_known_good.yaml")
 
 
 # ══════════════════════════════════════════════════════════════════════════════

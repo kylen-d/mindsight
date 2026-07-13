@@ -53,8 +53,12 @@ Changelog = "https://github.com/kylen-d/mindsight/blob/main/CHANGELOG.md"
 
 [project.scripts]
 mindsight = "mindsight.cli:main"
-mindsight-gui = "mindsight.gui:main"
 mindsight-weights = "mindsight.weights:main"
+
+[project.gui-scripts]
+# gui-scripts so Windows generates a pythonw-based exe (no console window
+# behind the GUI); identical to a console script on macOS/Linux.
+mindsight-gui = "mindsight.gui:main"
 
 [build-system]
 requires = ["setuptools>=64", "wheel"]
@@ -62,6 +66,11 @@ build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
 include = ["mindsight", "mindsight.*", "Plugins", "Plugins.*"]
+
+[tool.setuptools.package-data]
+# Staged by scripts/sync_bundled_resources.py right before a release build;
+# gitignored, absent in checkouts (mindsight/resources.py falls back cleanly).
+mindsight = ["_bundled/**"]
 
 [tool.uv]
 # ultralytics and uniface pull opencv-python transitively; we pin

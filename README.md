@@ -126,7 +126,7 @@ Camera / Video / Image
 
 ### Python packages
 
-All dependencies are listed in `requirements.txt`. Key packages:
+All dependencies are declared in `pyproject.toml` (exact versions pinned in the committed `uv.lock`). Key packages:
 
 ```
 torch / torchvision          # Deep learning
@@ -187,11 +187,12 @@ source .venv/bin/activate        # macOS / Linux
 #### 3. Install dependencies
 
 ```bash
-pip install -r requirements.txt
-pip install -e .                  # install MindSight as an editable package
+pip install -e .                  # resolves everything from pyproject.toml
 ```
 
-> **Note:** `pip install -e .` is required -- it makes the `ms` package importable and installs the `mindsight` and `mindsight-gui` console commands.
+(or `uv sync` for the exact locked versions from `uv.lock`)
+
+> **Note:** the editable install makes the `mindsight` package importable and installs the `mindsight` and `mindsight-gui` console commands.
 
 **GPU acceleration (optional):** Install PyTorch with CUDA support *before* running the above — see [pytorch.org/get-started](https://pytorch.org/get-started/locally/). For Apple Silicon CoreML, replace `onnxruntime` with `onnxruntime-silicon`.
 
