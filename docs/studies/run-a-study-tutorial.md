@@ -28,7 +28,7 @@ You do not need to install anything else first -- no Python, no packages.
 
 === "macOS"
 
-    1. Download the release zip (for example `MindSight-SP4.0-mac.zip`) from the
+    1. Download the release zip (for example `MindSight-1.0.0-mac.zip`) from the
        lab's release location. *(Download links go live once the first tagged
        release is published; until then your study lead will hand you the zip.)*
     2. Double-click the zip in Finder to extract it, then move the extracted
@@ -59,7 +59,7 @@ You do not need to install anything else first -- no Python, no packages.
 
 === "Windows"
 
-    1. Download the release zip (for example `MindSight-SP4.0-win.zip`).
+    1. Download the release zip (for example `MindSight-1.0.0-win.zip`).
        *(Download links go live once the first tagged release is published.)*
     2. Right-click the zip, choose **Extract All...**, and extract it to a folder
        you can find again.

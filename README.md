@@ -71,7 +71,7 @@ Each phenomenon has its own tuning parameters — see the [phenomena guide](http
 
 ### Highly Extensible
 
-- **Gaze Backend Plugins** — supports and includes MGaze out of the box, with ONNX, PyTorch, and Gazelle backends, and allows custom gaze estimation backends through the plugin system
+- **Gaze Backend Plugins** — supports and includes MobileGaze out of the box, with ONNX, PyTorch, and Gaze-LLE backends, and allows custom gaze estimation backends through the plugin system
 - **Object Detection Plugins** — custom detection post-processing (e.g. the included GazeBoost plugin)
 - **Phenomena Plugins** — user-written plugins to detect custom phenomena alongside the default pack
 - **Data Collection Plugins** — user-written plugins for custom data output in addition to video, CSV, heatmaps, and charts
@@ -102,7 +102,7 @@ Camera / Video / Image
   RetinaFace ──────► face bounding boxes
         │
         ▼
-  Gaze Estimator ──► pitch + yaw per face  (MGaze / Gazelle)
+  Gaze Estimator ──► pitch + yaw per face  (MobileGaze / Gaze-LLE)
         │
         ▼
   Ray–BBox Intersection ──► hit list  (face_idx, object_idx)
@@ -196,12 +196,6 @@ pip install -e .                  # resolves everything from pyproject.toml
 
 **GPU acceleration (optional):** Install PyTorch with CUDA support *before* running the above — see [pytorch.org/get-started](https://pytorch.org/get-started/locally/). For Apple Silicon CoreML, replace `onnxruntime` with `onnxruntime-silicon`.
 
-Alternatively, use the platform-aware helper:
-
-```bash
-python scripts/install_dependencies.py        # auto-detects CUDA / Apple Silicon
-```
-
 #### 4. Download gaze model weights
 
 All model weights are centralized in `Weights/{backend}/` and tracked in a checksummed manifest (`weights_manifest.json`). Download and verify them with the `mindsight-weights` console command (installed by step 3):
@@ -287,7 +281,7 @@ MindSight/
 │
 ├── Plugins/
 │   ├── __init__.py               # Base classes + registries
-│   ├── GazeTracking/             # Gaze backend plugins (Gazelle, IrisRefinedGaze)
+│   ├── GazeTracking/             # Gaze backend plugins (Gaze-LLE, IrisRefinedGaze)
 │   ├── ObjectDetection/          # Detection plugins (GazeBoost)
 │   ├── Phenomena/                # Community phenomena plugins (NovelSalience)
 │   ├── DataCollection/           # Custom data output plugins
@@ -296,7 +290,7 @@ MindSight/
 ├── Weights/                      # Model weights (git-ignored, download on demand)
 ├── Projects/                     # User project directories
 ├── scripts/                      # Utility scripts (download_weights, install_deps)
-├── tests/                        # pytest test suite (696 tests)
+├── tests/                        # pytest test suite (930 tests)
 ├── docs/                         # MkDocs documentation
 └── Outputs/                      # Default output directory
 ```
@@ -346,7 +340,7 @@ python MindSight.py --source video.mp4 --summary results.csv --participant-ids "
 
 ### Key arguments (by category)
 
-The table below covers the most commonly used flags. For the **complete reference** of all ~70 flags, see the [CLI flags reference](https://kylen-d.github.io/mindsight-docs/reference/cli-flags/).
+The table below covers the most commonly used flags. For the **complete reference** of all over 150 flags, see the [CLI flags reference](https://kylen-d.github.io/mindsight-docs/reference/cli-flags/).
 
 #### Orchestration
 
@@ -392,8 +386,8 @@ The table below covers the most commonly used flags. For the **complete referenc
 
 | Argument | Description |
 |---|---|
-| `--mgaze-model` | MGaze: ONNX or `.pt` gaze weights (default backend) |
-| `--gazelle-model` | Gazelle: Path to checkpoint; switches to scene-level backend |
+| `--mgaze-model` | MobileGaze: ONNX or `.pt` gaze weights (default backend) |
+| `--gazelle-model` | Gaze-LLE: Path to checkpoint; switches to scene-level backend |
 
 #### Phenomena
 
@@ -646,14 +640,14 @@ Labels appear in CSV output and on-screen overlays.
 
 | Backend | Trigger | Accuracy | Notes |
 |---|---|---|---|
-| **MGaze ONNX** (default) | `--mgaze-model` with `.onnx` path | ~11 MAE | Fastest; uses CoreML on Apple Silicon, CUDA on NVIDIA, CPU otherwise |
-| **MGaze PyTorch** | `--mgaze-model` with `.pt` + `--mgaze-arch` | ~11 MAE | Requires `--mgaze-arch` to identify the architecture |
-| **Gazelle** | `--gazelle-model <ckpt.pt>` | — | Scene-level DINOv2 model; processes all faces in a single forward pass; outputs a gaze heatmap |
+| **MobileGaze ONNX** (default) | `--mgaze-model` with `.onnx` path | ~11 MAE | Fastest; uses CoreML on Apple Silicon, CUDA on NVIDIA, CPU otherwise |
+| **MobileGaze PyTorch** | `--mgaze-model` with `.pt` + `--mgaze-arch` | ~11 MAE | Requires `--mgaze-arch` to identify the architecture |
+| **Gaze-LLE** | `--gazelle-model <ckpt.pt>` | — | Scene-level DINOv2 model; processes all faces in a single forward pass; outputs a gaze heatmap |
 
-**MGaze architectures** (`--mgaze-arch`):
+**MobileGaze architectures** (`--mgaze-arch`):
 `resnet18`, `resnet34`, `resnet50`, `mobilenetv2`, `mobileone_s0`–`s4`
 
-**Gazelle model variants** (`--gazelle-name`):
+**Gaze-LLE model variants** (`--gazelle-name`):
 `gazelle_dinov2_vitb14`, `gazelle_dinov2_vitl14`, `gazelle_dinov2_vitb14_inout`, `gazelle_dinov2_vitl14_inout`
 
 The `_inout` variants add an in-frame / out-of-frame confidence score that modulates the gaze heatmap peak.

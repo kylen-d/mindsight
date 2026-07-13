@@ -96,7 +96,7 @@ python MindSight.py --source video.mp4 --heatmap
 Anonymize faces in the output video:
 
 ```bash
-python MindSight.py --source video.mp4 --save --anonymize
+python MindSight.py --source video.mp4 --save --anonymize blur
 ```
 
 Generate charts:

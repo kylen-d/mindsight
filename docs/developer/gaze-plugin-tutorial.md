@@ -4,8 +4,8 @@
 
 This tutorial covers all three gaze plugin patterns by walking through real backends that ship with MindSight:
 
-- **[Part A — Per-face mode:](#part-a-per-face-backend-mgaze)** The MGaze backend (`mindsight/GazeTracking/Backends/MGaze/MGaze_Tracking.py`), which crops each face and estimates pitch/yaw angles independently.
-- **[Part B — Scene-level mode:](#part-b-scene-level-backend-gazelle)** The Gazelle backend (`Plugins/GazeTracking/Gazelle/gazelle_backend.py`), which processes the full frame and all faces in a single DINOv2 forward pass.
+- **[Part A — Per-face mode:](#part-a-per-face-backend-mgaze)** The MobileGaze backend (`mindsight/GazeTracking/Backends/MGaze/MGaze_Tracking.py`), which crops each face and estimates pitch/yaw angles independently.
+- **[Part B — Scene-level mode:](#part-b-scene-level-backend-gazelle)** The Gaze-LLE backend (`Plugins/GazeTracking/Gazelle/gazelle_backend.py`), which processes the full frame and all faces in a single DINOv2 forward pass.
 - **[Part C — Composite / processing augmentation:](#part-c-composite-backend-temporarily-removed)** Previously demonstrated via the GazelleSnap plugin, which was removed in v0.8. A replacement composite-plugin example is TODO.
 
 ---

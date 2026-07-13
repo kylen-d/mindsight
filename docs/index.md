@@ -4,9 +4,9 @@
 
 MindSight is an open-source toolkit that detects where people look in video, images, and live camera feeds, then maps those gaze vectors onto detected objects to identify social-cognitive phenomena such as joint attention, mutual gaze, and gaze following -- all from a single configurable pipeline.
 
-!!! warning "Beta Notice"
+!!! note "v1.0.0 -- First stable release"
 
-    MindSight v0.4.0-beta is currently in **beta**. APIs, configuration formats, and output schemas may change between releases. Please pin your version and check the [Changelog](changelog.md) before upgrading.
+    This is MindSight **v1.0.0**, the first stable release. See the [Changelog](changelog.md) for what shipped.
 
 ---
 

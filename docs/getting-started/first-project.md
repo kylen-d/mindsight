@@ -22,23 +22,26 @@ detection:
   model: yolo11n.pt
 
 gaze:
-  ray_length: 300
+  ray_length: 1.3
 
 phenomena:
-  joint_attention: true
+  - joint_attention
 
 output:
-  csv: true
-  video: true
-  heatmap: true
+  save_video: true
+  log_csv: Outputs/events.csv
+  summary_csv: Outputs/summary.csv
+  heatmaps: true
 ```
 
 This configures MindSight to:
 
 - Use the YOLOv11 nano model for object detection.
-- Draw gaze rays with a length of 300 pixels.
-- Track Joint Attention events.
-- Generate CSV, annotated video, and heatmap outputs.
+- Draw gaze rays at 1.3x the default length.
+- Track Joint Attention events (phenomena are a list -- add more entries like
+  `- mutual_gaze` to enable them).
+- Save an annotated video, a per-frame event log (`log_csv`), a post-run
+  summary CSV (`summary_csv`), and gaze heatmaps.
 
 ## Step 3: Add Video Files
 

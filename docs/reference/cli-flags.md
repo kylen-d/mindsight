@@ -18,9 +18,9 @@ All flags accepted by `python MindSight.py`. Run `python MindSight.py --help` fo
 | `--project` | str | None | Path to a MindSight project directory |
 | `--no-resume` | flag | off | Reprocess every project video, ignoring the resume ledger (does not archive prior outputs) |
 | `--preflight` | flag | off | With `--project`: print the readiness checklist (structure, config, weights, runs, run metadata, coverage, device, disk, plugins) and exit -- 0 if no failures, 1 otherwise |
-| `--participant-ids` | str | None | Comma-separated participant ID assignments (e.g. `"1:Alice,2:Bob"`) |
+| `--participant-ids` | str | None | Comma-separated participant labels, assigned positionally: first label maps to track 0, second to track 1, etc. (e.g. `"S70,S71,S72"`) |
 | `--participant-csv` | str | None | CSV file mapping track IDs to participant labels |
-| `--aux-stream` | str (repeatable) | [] | Auxiliary stream in `PID:TYPE:SOURCE` format (may be specified multiple times) |
+| `--aux-stream` | str (repeatable) | [] | Auxiliary stream in `SOURCE:VIDEO_TYPE:LABEL:PIDS` format, where `VIDEO_TYPE` is one of `eye_only`/`face_closeup`/`wide_closeup`/`custom` and `PIDS` is a comma-separated list of participant labels (may be specified multiple times) |
 | `--device` | str | `"auto"` | Compute device for model inference (`"auto"`, `"cpu"`, `"cuda"`, `"mps"`) |
 | `--anonymize` | str | None | Face anonymization mode: `blur` or `black` |
 | `--anonymize-padding` | float | `0.3` | Fraction of bounding-box size added as margin around anonymized faces |
@@ -47,6 +47,7 @@ All flags accepted by `python MindSight.py`. Run `python MindSight.py --help` fo
 | `--detect-scale` | float | `1.0` | Scale factor applied to input before detection (< 1.0 for speed) |
 | `--vp-file` | str | None | Path to a Visual Prompt `.vp.json` file for YOLOE |
 | `--vp-model` | str | `"yoloe-26l-seg.pt"` | YOLOE model file used with `--vp-file` |
+| `--no-detector` | flag | off | Run without any object-detection model: faces, gaze rays, and gaze-tip phenomena only (no object hits or lock-on). Not compatible with `--vp-file`. |
 | `--obj-persistence` | int | `0` | Keep detections alive for N frames after a miss (0 = disabled) |
 
 ## Gaze
@@ -71,7 +72,8 @@ All flags accepted by `python MindSight.py`. Run `python MindSight.py --help` fo
 | `--dwell-frames` | int | `15` | Frames of sustained gaze required to trigger lock-on |
 | `--lock-dist` | int | `100` | Maximum pixel distance for lock-on to persist |
 | `--gaze-debug` | flag | off | Draw debug annotations for gaze processing |
-| `--snap-switch-frames` | int | `8` | Hysteresis frames before switching snap target |
+| `--snap-release-frames` | int | `5` | Frames of no-match before releasing the held snap target |
+| `--snap-engage-frames` | int | `0` | Frames of consistent match required before engaging snap for the first time (0 = instant engage) |
 | `--reid-grace-seconds` | float | `1.0` | Grace period (seconds) for face re-identification after a miss |
 | `--forward-gaze-threshold` | float | `5.0` | Yaw/pitch threshold (degrees) below which gaze is considered forward-facing |
 

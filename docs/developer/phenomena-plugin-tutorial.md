@@ -8,7 +8,7 @@ For tutorials on other plugin types, see: [Gaze Plugin Tutorial](gaze-plugin-tut
 
 ## Overview
 
-NovelSalience detects rapid gaze shifts (saccades) as a proxy for novel stimulus salience. When a participant's gaze endpoint moves faster than a configurable speed threshold, an event is fired. The plugin works with both per-face (pitch/yaw) and scene-level (Gazelle) gaze backends.
+NovelSalience detects rapid gaze shifts (saccades) as a proxy for novel stimulus salience. When a participant's gaze endpoint moves faster than a configurable speed threshold, an event is fired. The plugin works with both per-face (pitch/yaw) and scene-level (Gaze-LLE) gaze backends.
 
 Source: `Plugins/Phenomena/NovelSalience/novel_salience.py`
 
