@@ -154,7 +154,7 @@ The fastest way to get MindSight running -- no Python setup required -- is the d
 
 ### Quick install (recommended)
 
-The interim installer provisions a self-contained Python, installs MindSight with locked dependencies, downloads the required model weights, and creates a launcher (Desktop and Start-menu shortcuts on Windows, a Desktop launcher on macOS). You do not need to install Python or anything else first.
+The interim installer provisions a self-contained Python, installs MindSight with locked dependencies, downloads the required model weights, and creates a launcher (Desktop and Start-menu shortcuts on Windows, a MindSight.app in Applications plus a Desktop link on macOS). You do not need to install Python or anything else first.
 
 1. **Download the release zip** for your platform — `MindSight-<version>-win.zip` or `MindSight-<version>-mac.zip` — from the project's [GitHub Releases](https://github.com/kylen-d/mindsight/releases) page. (Release downloads go live once the first tagged release is published; until then, use the developer install below or ask your study lead for a copy.)
 2. Extract the zip somewhere you can find again (Desktop or Downloads is fine).

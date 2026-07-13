@@ -46,9 +46,10 @@ You do not need to install anything else first -- no Python, no packages.
        `MindSight install: PASS` or `MindSight install: FAILED at step N`.
     6. Press Return to close the window.
 
-    The installer puts a **MindSight** launcher on your Desktop
-    (`MindSight.command`). Double-click it to open the app. The first launch may
-    prompt Gatekeeper once more -- use **right-click > Open** that one time.
+    The installer creates a **MindSight** app in your Applications folder and a
+    matching **MindSight** link on your Desktop. Open either one to launch the
+    app. The first launch may prompt Gatekeeper once more -- use
+    **right-click > Open** that one time.
 
     Everything lives under `~/MindSight` (your home folder's `MindSight`
     directory). Your results are written inside `~/MindSight/app/Outputs/`.

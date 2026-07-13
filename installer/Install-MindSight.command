@@ -5,7 +5,7 @@
 #  Double-click this file to install MindSight into your home folder.
 #  It installs the uv package manager, a managed Python 3.12, the MindSight
 #  source tree, all locked dependencies, downloads the required model weights,
-#  and puts a MindSight launcher on your Desktop.
+#  and installs a MindSight.app into /Applications (with a Desktop link).
 #
 #  Re-running this file updates an existing install (it is safe to run again).
 #  ASCII output only. Explicit per-step error checks; no dev virtualenvs.
@@ -19,7 +19,12 @@ INSTALL_DIR="$HOME/MindSight"
 APP_DIR="$INSTALL_DIR/app"
 VENV_DIR="$INSTALL_DIR/venv"
 UV_BIN="$HOME/.local/bin"
-LAUNCHER="$HOME/Desktop/MindSight.command"
+# The installed app is a real .app bundle so the Dock shows the MindSight name
+# and icon (not a generic "Python"). Preferred in /Applications; falls back to
+# ~/Applications when /Applications is not writable without sudo.
+APP_BUNDLE_ID="io.github.kylen-d.mindsight"
+OLD_DESKTOP_LAUNCHER="$HOME/Desktop/MindSight.command"
+DESKTOP_LINK="$HOME/Desktop/MindSight.app"
 
 # ---- Install mode ---------------------------------------------------------
 # Local-zip mode (the default): the release zip bundles an app/ source tree
@@ -37,6 +42,7 @@ RELEASE_WHEEL_URL="${MINDSIGHT_RELEASE_WHEEL_URL:-$RELEASE_BASE_URL/mindsight-1.
 RELEASE_MANIFEST_URL="${MINDSIGHT_RELEASE_MANIFEST_URL:-$RELEASE_BASE_URL/weights_manifest.json}"
 RELEASE_PRESET_URL="${MINDSIGHT_RELEASE_PRESET_URL:-$RELEASE_BASE_URL/pipeline_known_good.yaml}"
 RELEASE_LOWPOWER_URL="${MINDSIGHT_RELEASE_LOWPOWER_URL:-$RELEASE_BASE_URL/pipeline_low_power.yaml}"
+RELEASE_ICON_URL="${MINDSIGHT_RELEASE_ICON_URL:-$RELEASE_BASE_URL/mindsight_icon.png}"
 if [ -d "$SRC_DIR/app" ]; then
     INSTALL_MODE="local"
 else
@@ -63,6 +69,123 @@ fail() {
     echo "============================================================"
     pause_and_exit 1
 }
+
+# --------------------------------------------------------------------------
+#  build_app_bundle <bundle-path>
+#
+#  Assemble a minimal MindSight.app at the given path. The MacOS/MindSight
+#  launcher keeps the same semantics as the former Desktop .command (release
+#  mode exports MINDSIGHT_HOME; cd "$APP_DIR"; exec the GUI). exec keeps the
+#  PID so the Dock adopts the bundle's name and icon. Icon assembly is
+#  fail-soft: a missing PNG (e.g. a skipped release download) just omits the
+#  icon and never fails the install. Uses globals INSTALL_MODE, APP_DIR,
+#  VENV_DIR, SRC_DIR, RELEASE_ICON_URL, APP_BUNDLE_ID.
+# --------------------------------------------------------------------------
+build_app_bundle() {
+    local bundle="$1"
+    local contents="$bundle/Contents"
+    local macos_dir="$contents/MacOS"
+    local resources="$contents/Resources"
+    mkdir -p "$macos_dir" "$resources" || return 1
+
+    # ---- Executable launcher (identical semantics to the old launcher) ----
+    local home_line
+    if [ "$INSTALL_MODE" = "release" ]; then
+        home_line="export MINDSIGHT_HOME=\"$APP_DIR\""
+    else
+        home_line="# local-zip install: MINDSIGHT_HOME unset (PROJECT_ROOT = app tree)"
+    fi
+    cat > "$macos_dir/MindSight" <<EOF
+#!/bin/bash
+# MindSight launcher -- opens the graphical user interface.
+$home_line
+cd "$APP_DIR"
+exec "$VENV_DIR/bin/mindsight-gui"
+EOF
+    chmod +x "$macos_dir/MindSight" || return 1
+
+    # ---- Version strings (fail-soft to 0) ----
+    local version
+    version="$("$VENV_DIR/bin/python" -c "import mindsight; print(mindsight.__version__)" 2>/dev/null)"
+    if [ -z "$version" ]; then
+        version="0"
+    fi
+
+    # ---- Icon: assemble MindSight.icns from the PNG master (fail-soft) ----
+    # Local mode reads the bundled app tree; release mode fetches the PNG from
+    # the release. sips + iconutil both ship with macOS.
+    local icon_png=""
+    local icon_tmp=""
+    if [ "$INSTALL_MODE" = "release" ]; then
+        icon_tmp="$(mktemp -t mindsight_icon).png"
+        if curl -LsSf "$RELEASE_ICON_URL" -o "$icon_tmp" 2>/dev/null && [ -s "$icon_tmp" ]; then
+            icon_png="$icon_tmp"
+        fi
+    else
+        if [ -f "$SRC_DIR/app/assets/mindsight_icon.png" ]; then
+            icon_png="$SRC_DIR/app/assets/mindsight_icon.png"
+        fi
+    fi
+    if [ -n "$icon_png" ]; then
+        local iconset
+        iconset="$(mktemp -d -t MindSight_iconset)/MindSight.iconset"
+        if mkdir -p "$iconset"; then
+            sips -z 16 16     "$icon_png" --out "$iconset/icon_16x16.png"      >/dev/null 2>&1
+            sips -z 32 32     "$icon_png" --out "$iconset/icon_16x16@2x.png"   >/dev/null 2>&1
+            sips -z 32 32     "$icon_png" --out "$iconset/icon_32x32.png"      >/dev/null 2>&1
+            sips -z 64 64     "$icon_png" --out "$iconset/icon_32x32@2x.png"   >/dev/null 2>&1
+            sips -z 128 128   "$icon_png" --out "$iconset/icon_128x128.png"    >/dev/null 2>&1
+            sips -z 256 256   "$icon_png" --out "$iconset/icon_128x128@2x.png" >/dev/null 2>&1
+            sips -z 256 256   "$icon_png" --out "$iconset/icon_256x256.png"    >/dev/null 2>&1
+            sips -z 512 512   "$icon_png" --out "$iconset/icon_256x256@2x.png" >/dev/null 2>&1
+            sips -z 512 512   "$icon_png" --out "$iconset/icon_512x512.png"    >/dev/null 2>&1
+            iconutil -c icns "$iconset" -o "$resources/MindSight.icns" >/dev/null 2>&1 || true
+        fi
+        rm -rf "$(dirname "$iconset")" 2>/dev/null || true
+    fi
+    [ -n "$icon_tmp" ] && rm -f "$icon_tmp" 2>/dev/null
+
+    # ---- Info.plist ----
+    # NSCameraUsageDescription is REQUIRED: the GUI records live study sessions
+    # from the camera, and without this key macOS denies camera access to the
+    # bundled app. CFBundleIconFile names the .icns above (extension implied).
+    cat > "$contents/Info.plist" <<EOF
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>CFBundlePackageType</key>
+    <string>APPL</string>
+    <key>CFBundleName</key>
+    <string>MindSight</string>
+    <key>CFBundleDisplayName</key>
+    <string>MindSight</string>
+    <key>CFBundleExecutable</key>
+    <string>MindSight</string>
+    <key>CFBundleIdentifier</key>
+    <string>$APP_BUNDLE_ID</string>
+    <key>CFBundleIconFile</key>
+    <string>MindSight</string>
+    <key>CFBundleShortVersionString</key>
+    <string>$version</string>
+    <key>CFBundleVersion</key>
+    <string>$version</string>
+    <key>NSHighResolutionCapable</key>
+    <true/>
+    <key>NSCameraUsageDescription</key>
+    <string>MindSight uses the camera to record live study sessions.</string>
+</dict>
+</plist>
+EOF
+    return 0
+}
+
+# Test hook: a harness may source this file with MINDSIGHT_INSTALLER_SOURCE_ONLY
+# set to exercise build_app_bundle() in isolation without running the install.
+# Never set in normal use (double-click / right-click > Open).
+if [ -n "${MINDSIGHT_INSTALLER_SOURCE_ONLY:-}" ]; then
+    return 0 2>/dev/null || exit 0
+fi
 
 echo
 echo "============================================================"
@@ -174,42 +297,67 @@ fi
 echo "[5/6] Required weights present and verified ... OK"
 
 # ==========================================================================
-#  [6/6] Create the MindSight launcher on the Desktop
+#  [6/6] Install the MindSight.app bundle (Dock name + icon)
 # ==========================================================================
-echo "[6/6] Creating the MindSight launcher on your Desktop ..."
-# In release mode the package lives under site-packages, so MINDSIGHT_HOME must
-# be exported for the launcher to keep data under "$APP_DIR". In local mode the
-# var stays unset and PROJECT_ROOT resolves to the source tree (unchanged).
-if [ "$INSTALL_MODE" = "release" ]; then
-    LAUNCHER_HOME_LINE="export MINDSIGHT_HOME=\"$APP_DIR\""
-else
-    LAUNCHER_HOME_LINE="# local-zip install: MINDSIGHT_HOME unset (PROJECT_ROOT = app tree)"
+echo "[6/6] Installing the MindSight app ..."
+# A real .app bundle makes the Dock show "MindSight" with the MindSight icon
+# instead of a generic "Python". Prefer /Applications; fall back to
+# ~/Applications when /Applications is not writable without sudo, or when a
+# foreign MindSight.app (different bundle identifier) already sits there.
+APP_TARGET=""
+for candidate in "/Applications/MindSight.app" "$HOME/Applications/MindSight.app"; do
+    parent="$(dirname "$candidate")"
+    if [ -d "$candidate" ]; then
+        # Re-run safety: only reclaim a bundle that is unmistakably ours.
+        existing_id="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' \
+            "$candidate/Contents/Info.plist" 2>/dev/null)"
+        if [ "$existing_id" = "$APP_BUNDLE_ID" ]; then
+            if rm -rf "$candidate" 2>/dev/null; then
+                APP_TARGET="$candidate"
+                break
+            fi
+        else
+            echo "      Note: \"$candidate\" exists with a different identifier;"
+            echo "      leaving it untouched and trying the next location."
+            continue
+        fi
+    fi
+    # No existing bundle here (or we just removed ours): can we create it?
+    if [ ! -d "$parent" ]; then
+        mkdir -p "$parent" 2>/dev/null || continue
+    fi
+    if [ -w "$parent" ]; then
+        APP_TARGET="$candidate"
+        break
+    fi
+done
+if [ -z "$APP_TARGET" ]; then
+    fail "6 (install app)" \
+         "Could not find a writable location for MindSight.app (tried /Applications and ~/Applications)."
 fi
-if ! cat > "$LAUNCHER" <<EOF
-#!/bin/bash
-# MindSight launcher -- opens the graphical user interface.
-$LAUNCHER_HOME_LINE
-cd "$APP_DIR"
-exec "$VENV_DIR/bin/mindsight-gui"
-EOF
-then
-    fail "6 (create launcher)" "Could not write the launcher to \"$LAUNCHER\"."
+if ! build_app_bundle "$APP_TARGET"; then
+    fail "6 (install app)" "Could not assemble the MindSight app bundle at \"$APP_TARGET\"."
 fi
-if ! chmod +x "$LAUNCHER"; then
-    fail "6 (create launcher)" "Could not make the launcher executable at \"$LAUNCHER\"."
+echo "[6/6] Installed \"$APP_TARGET\" ... OK"
+
+# Desktop: retire the old MindSight.command launcher and drop a link to the app.
+if [ -e "$OLD_DESKTOP_LAUNCHER" ]; then
+    rm -f "$OLD_DESKTOP_LAUNCHER" 2>/dev/null || true
 fi
-echo "[6/6] Launcher created ... OK"
+ln -sfn "$APP_TARGET" "$DESKTOP_LINK" 2>/dev/null || true
 
 echo
 echo "============================================================"
 echo "  MindSight install: PASS"
 echo
-echo "  Launch it by double-clicking the \"MindSight\" launcher on"
-echo "  your Desktop, or run directly:"
+echo "  Launch it from the \"MindSight\" app on your Desktop or in"
+echo "  Finder, or run directly:"
 echo "    \"$VENV_DIR/bin/mindsight-gui\""
 echo
 echo "  Installed in: \"$INSTALL_DIR\""
+echo "  App bundle:   \"$APP_TARGET\""
 echo "  Your projects, weights and outputs live under \"$APP_DIR\"."
-echo "  To uninstall: delete that folder and the Desktop launcher."
+echo "  To uninstall: delete that folder, the app bundle, and the"
+echo "  Desktop link."
 echo "============================================================"
 pause_and_exit 0

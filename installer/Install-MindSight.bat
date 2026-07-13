@@ -231,16 +231,33 @@ REM  Local mode points the shortcut straight at the GUI exe (unchanged). Release
 REM  mode points it at a tiny launcher that exports MINDSIGHT_HOME first, since a
 REM  .lnk cannot carry an environment variable and the wheel lives in
 REM  site-packages (PROJECT_ROOT would otherwise resolve there).
+REM  NOTE: a windowless launch (pythonw, no console flash) arrives separately via
+REM  a [project.gui-scripts] move in pyproject -- do NOT change the target here.
 set "SHORTCUT_TARGET=%GUI_EXE%"
-if not "%INSTALL_MODE%"=="release" goto make_shortcut
+if not "%INSTALL_MODE%"=="release" goto shortcut_icon
 set "LAUNCH_BAT=%APP_DIR%\MindSight-Launch.bat"
 > "%LAUNCH_BAT%" echo @echo off
 >> "%LAUNCH_BAT%" echo set "MINDSIGHT_HOME=%APP_DIR%"
 >> "%LAUNCH_BAT%" echo start "" "%GUI_EXE%"
 set "SHORTCUT_TARGET=%LAUNCH_BAT%"
 
+:shortcut_icon
+REM  Give the shortcut the MindSight icon (fail-soft: a missing icon just leaves
+REM  the default). Local mode uses the .ico already copied into the app tree;
+REM  release mode fetches it from the GitHub Release into "%APP_DIR%".
+set "ICON_PATH="
+if "%INSTALL_MODE%"=="release" goto icon_release
+if exist "%APP_DIR%\assets\mindsight_icon.ico" set "ICON_PATH=%APP_DIR%\assets\mindsight_icon.ico"
+goto make_shortcut
+:icon_release
+if not defined MINDSIGHT_RELEASE_ICON_URL set "MINDSIGHT_RELEASE_ICON_URL=%RELEASE_BASE_URL%/mindsight_icon.ico"
+curl -LsSf "%MINDSIGHT_RELEASE_ICON_URL%" -o "%APP_DIR%\mindsight_icon.ico"
+if exist "%APP_DIR%\mindsight_icon.ico" set "ICON_PATH=%APP_DIR%\mindsight_icon.ico"
+
 :make_shortcut
-powershell -NoProfile -ExecutionPolicy Bypass -Command "$s = New-Object -ComObject WScript.Shell; $desktop = $s.SpecialFolders('Desktop'); $programs = $s.SpecialFolders('Programs'); foreach ($dir in @($desktop, $programs)) { $lnk = $s.CreateShortcut((Join-Path $dir 'MindSight.lnk')); $lnk.TargetPath = '%SHORTCUT_TARGET%'; $lnk.WorkingDirectory = '%APP_DIR%'; $lnk.Description = 'MindSight eye-tracking analysis'; $lnk.Save() }"
+set "ICON_PS="
+if defined ICON_PATH set "ICON_PS=$lnk.IconLocation = '%ICON_PATH%,0';"
+powershell -NoProfile -ExecutionPolicy Bypass -Command "$s = New-Object -ComObject WScript.Shell; $desktop = $s.SpecialFolders('Desktop'); $programs = $s.SpecialFolders('Programs'); foreach ($dir in @($desktop, $programs)) { $lnk = $s.CreateShortcut((Join-Path $dir 'MindSight.lnk')); $lnk.TargetPath = '%SHORTCUT_TARGET%'; $lnk.WorkingDirectory = '%APP_DIR%'; $lnk.Description = 'MindSight eye-tracking analysis'; %ICON_PS% $lnk.Save() }"
 if not %ERRORLEVEL% EQU 0 (
     echo [7/7] Creating shortcuts ... FAILED
     echo       MindSight is installed; you can launch it with:

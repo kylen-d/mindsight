@@ -39,10 +39,13 @@ and skips work that is already complete.
 
 ## First launch
 
-The installer puts a **MindSight** launcher on your Desktop
-(`MindSight.command`). Double-click it to open MindSight. The first time you
-open the launcher, Gatekeeper may prompt again -- use **right-click > Open**
-once, and after that a plain double-click works.
+The installer creates a **MindSight** app in your Applications folder
+(`/Applications/MindSight.app`, or `~/Applications/MindSight.app` if
+`/Applications` needs an administrator) and puts a matching **MindSight** link
+on your Desktop. Open either one to launch MindSight -- it shows the MindSight
+name and icon in the Dock. The first time you open it, Gatekeeper may prompt
+again -- use **right-click > Open** once, and after that a plain double-click
+works.
 
 The four required model weights (about 115 MB total) are downloaded during the
 install step, not at launch, so by the time you open the app they are already
@@ -81,7 +84,8 @@ account). Inside it:
 To remove MindSight completely:
 
 1. Delete the folder `~/MindSight`.
-2. Delete the **MindSight.command** launcher from your Desktop.
+2. Delete **MindSight.app** from `/Applications` (or `~/Applications`).
+3. Delete the **MindSight** link from your Desktop.
 
 That's it. (Back up anything you want to keep from `app/Outputs/` or
 `app/Projects/` first.)
@@ -94,7 +98,7 @@ That's it. (Back up anything you want to keep from `app/Outputs/` or
 | `FAILED at step 1` (installing uv)                 | Check your internet connection and that your network allows downloads from `astral.sh`. Then run the installer again. |
 | `FAILED at step 4` (installing dependencies)       | Usually a dropped connection. Re-run the installer; it resumes where it left off. |
 | `FAILED at step 5` (downloading weights)           | A network hiccup during the model download. Re-run the installer, or later run `mindsight-weights --required` from `~/MindSight/venv/bin/`. |
-| The launcher will not open                         | Use **right-click > Open** on `MindSight.command` the first time. macOS remembers your choice after that. |
+| The app will not open                              | Use **right-click > Open** on **MindSight.app** the first time. macOS remembers your choice after that. |
 | I want to update to a newer MindSight              | Extract the new zip and run `Install-MindSight.command` again. It updates in place. |
 
 If a step fails, the installer leaves a partial folder at `~/MindSight`. You

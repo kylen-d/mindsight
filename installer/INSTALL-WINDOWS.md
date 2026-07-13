@@ -36,7 +36,7 @@ and skips work that is already complete.
 ## First launch
 
 Launch MindSight from the **MindSight** shortcut on your Desktop or in the
-Start Menu.
+Start Menu. Both shortcuts carry the MindSight icon.
 
 On the first run, MindSight downloads the four required model weights (about
 115 MB total). This happens during the install step, not at launch, so by the
