@@ -15,7 +15,8 @@ model output becomes "Person A is looking at Object B."
 ```mermaid
 flowchart TD
     A[Video / Camera / Image] --> B[1. Detection]
-    B --> C[2. Gaze Estimation]
+    B --> B2[1.5 Depth Estimation - optional]
+    B2 --> C[2. Gaze Estimation]
     C --> D[3. Ray Forming &amp; Intersection]
     D --> E[4. Phenomena &amp; Data Collection]
     E --> F[Annotated video, CSVs, heatmaps, charts]
@@ -37,6 +38,16 @@ classes visually rather than retraining a model: you show it a few reference
 images with boxes drawn around your objects (a `.vp.json` visual prompt file,
 built with the GUI's VP Builder tab), and it detects things that look like
 them.
+
+## Stage 1.5 -- Depth Estimation (optional)
+
+Between detection and gaze estimation, MindSight can run a monocular depth
+estimator over the frame when depth is enabled. It produces a per-pixel depth
+map that later stages consult: ray forming can use it to reason about how far an
+object is from a participant, sharpening the "how far" question that a flat
+pitch/yaw vector cannot answer on its own. Depth runs only when configured; with
+it disabled the pipeline goes straight from detection to gaze estimation, and
+the rest of the run is unchanged.
 
 ## Stage 2 -- Gaze Estimation
 
@@ -67,7 +78,10 @@ jittery and slow. **Gaze-LLE Blend** combines them and is the recommended,
 most accurate way to run MindSight. A MobileGaze backend runs every frame to
 supply smooth direction, and Gaze-LLE runs periodically (every *N* frames) to
 supply scene-aware corrections to both the direction and the *length* of each
-person's gaze ray.
+person's gaze ray. Blend is enabled by pointing `--rf-gazelle-model` at a
+Gaze-LLE checkpoint (with `--rf-gazelle-name` selecting the model variant)
+alongside a per-face pitch/yaw backend; the shipped known-good config wires both
+for you.
 
 A fixation-aware scheduler decides *when* those periodic corrections are
 applied: Gaze-LLE fires only while a participant is genuinely fixating, so a

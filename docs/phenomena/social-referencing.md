@@ -43,14 +43,26 @@ stateDiagram-v2
 
 ## Output
 
-**CSV** (`social_reference` section):
-- Per-participant event counts and details of each referencing episode
+**Summary CSV** (`{stem}_summary.csv`, `phenomenon = social_referencing`). One
+metric per participant -- how many referencing events they produced:
+
+```
+video_name,conditions,phenomenon,participant,partner,object,metric,value
+,,social_referencing,P0,,,event_count,4
+,,social_referencing,P2,,,event_count,1
+```
+
+**Episode stream** (`{stem}_phenomena_events.csv`): each referencing event is a
+point event (`frame_start == frame_end`) logged as one `social_referencing` row,
+with `object` set to the object(s) the participant redirected to.
 
 **Dashboard:**
-The last 3 social referencing events are displayed, formatted as "P0 [P1] -> knife" (participant 0 looked at participant 1, then at a knife).
+The last few social referencing events are displayed, formatted as
+"P0 [P1] -> knife" (participant 0 looked at participant 1, then at a knife).
 
 **Console:**
-Total event count per participant printed at the end of the session.
+One overall line with the total number of referencing events across all
+participants.
 
 ## Example
 

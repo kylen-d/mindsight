@@ -39,9 +39,23 @@ flowchart TD
 
 ## Output
 
-**CSV** (`gaze_following`): Each row contains `leader`, `follower`, `event_count`, and `avg_lag_frames`.
+**Summary CSV** (`{stem}_summary.csv`, `phenomenon = gaze_following`). Three
+metrics per leader-follower pair, with the leader in `participant` and the
+follower in `partner`:
 
-**Dashboard**: A "GAZE FOLLOWING" panel displays the last 3 detected events in the format `P1<-P0 lag=12f`.
+```
+video_name,conditions,phenomenon,participant,partner,object,metric,value
+,,gaze_following,P0,P1,,event_count,4
+,,gaze_following,P0,P1,,mean_lag_frames,12.5
+,,gaze_following,P0,P1,,mean_lag_seconds,0.417
+```
+
+**Episode stream** (`{stem}_phenomena_events.csv`): each following event is a
+point event logged as one `gaze_following` row (`participant` = follower,
+`partner` = leader).
+
+**Dashboard**: A "GAZE FOLLOWING" panel displays the last few detected events in
+the format `P1<-P0 lag=12f`.
 
 **Console**: Reports the total gaze following event count.
 

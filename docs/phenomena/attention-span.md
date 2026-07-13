@@ -33,13 +33,29 @@ stateDiagram-v2
 
 ## Output
 
-**Dashboard** -- Panel titled "ATTN SPAN (salient)" showing the most salient object per participant with average glance duration in frames, e.g., `P0: knife  23.5f`.
+**Summary CSV** (`{stem}_summary.csv`, `phenomenon = attention_span`). Three
+metrics per participant-object pair, computed from that pair's completed
+glances:
 
-**Console** -- Full breakdown per participant: most salient object highlighted, plus all per-object averages listed underneath.
+```
+video_name,conditions,phenomenon,participant,partner,object,metric,value
+,,attention_span,P0,,knife,glance_count,6
+,,attention_span,P0,,knife,mean_glance_seconds,0.783
+,,attention_span,P0,,knife,total_seconds,4.700
+```
 
-**Time-series** -- `attn_span_max_avg`: line chart of the maximum average glance duration across all participants over time.
+**Episode stream** (`{stem}_phenomena_events.csv`): each completed glance is
+logged as one `attention_span` row with its frame/second bounds and duration.
 
-**CSV** -- No dedicated CSV section. Data is available programmatically via `dashboard_data()`.
+**Dashboard** -- Panel titled "ATTN SPAN (salient)" showing the most salient
+object per participant with average glance duration in frames, e.g.,
+`P0: knife  23.5f`.
+
+**Console** -- Full breakdown per participant: most salient object highlighted,
+plus all per-object averages listed underneath.
+
+**Time-series** -- `attn_span_max_avg`: line chart of the maximum average glance
+duration across all participants over time.
 
 ## Example
 

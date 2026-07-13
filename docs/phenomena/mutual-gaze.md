@@ -39,14 +39,26 @@ flowchart TD
 
 ## Output
 
-**CSV** (`mutual_gaze` section):
-- Per-pair columns: `pair` (e.g., `P0_P1`), `frames` (number of mutual gaze frames), `pct` (percentage of total frames)
+**Summary CSV** (`{stem}_summary.csv`, `phenomenon = mutual_gaze`). One tidy row
+per metric per pair, with the pair carried in `participant` and `partner`:
+
+```
+video_name,conditions,phenomenon,participant,partner,object,metric,value
+,,mutual_gaze,P0,P1,,frames_active,315
+,,mutual_gaze,P0,P1,,seconds_active,10.500
+,,mutual_gaze,P0,P1,,pct_of_video,17.5000
+```
+
+**Episode stream** (`{stem}_phenomena_events.csv`): each contiguous mutual-gaze
+span for a pair is logged as one `mutual_gaze` row (`participant`/`partner` = the
+two members) with frame/second bounds and a duration.
 
 **Dashboard:**
-A "MUTUAL GAZE" panel displaying currently active pairs (e.g., "P0 <-> P1") highlighted in real time.
+A "MUTUAL GAZE" panel displaying currently active pairs (e.g., "P0 <-> P1") in
+real time.
 
 **Console:**
-Per-pair frame counts printed at the end of the session.
+Per-pair frame counts and percentages printed at the end of the session.
 
 ## Example
 

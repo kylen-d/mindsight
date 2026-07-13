@@ -40,11 +40,30 @@ stateDiagram-v2
 
 ## Output
 
-**CSV** (`gaze_aversion`): Each row contains `participant`, `object`, and `frames_active`.
+An *aversion episode* opens when the no-look counter first crosses
+`aversion_window` (anchored back to the frame the streak began) and closes when
+the participant next looks at that object or the run ends. The summary aggregates
+these completed episodes per `(participant, object)`.
 
-**Dashboard**: A "GAZE AVERSION" panel displays active aversions such as `P0 avoids knife`.
+**Summary CSV** (`{stem}_summary.csv`, `phenomenon = gaze_aversion`). Four
+metrics per participant-object pair:
 
-**Console**: Reports active aversion events inline.
+```
+video_name,conditions,phenomenon,participant,partner,object,metric,value
+,,gaze_aversion,P0,,knife,episode_count,3
+,,gaze_aversion,P0,,knife,frames_active,214
+,,gaze_aversion,P0,,knife,seconds_active,7.133
+,,gaze_aversion,P0,,knife,pct_of_video,11.8889
+```
+
+**Episode stream** (`{stem}_phenomena_events.csv`): each resolved aversion
+episode is logged as one `gaze_aversion` row with its frame/second bounds and
+duration.
+
+**Dashboard**: A "GAZE AVERSION" panel displays active aversions such as
+`P0 avoids knife`.
+
+**Console**: Nothing -- this tracker prints no post-run console summary.
 
 **Time-series**: Plots the count of currently active aversions over time.
 

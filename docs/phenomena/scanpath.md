@@ -38,11 +38,31 @@ flowchart TD
 
 ## Output
 
-**CSV** (`scanpath`): Each row contains `participant` and a semicolon-separated fixation sequence (e.g., `knife;cup;plate`).
+**Summary CSV** (`{stem}_summary.csv`, `phenomenon = scanpath`). A single scalar
+per participant -- the total number of confirmed fixations:
 
-**Dashboard**: A "SCANPATH" panel shows the last 3 fixations per participant in the format `P0: knife->cup->plate`.
+```
+video_name,conditions,phenomenon,participant,partner,object,metric,value
+,,scanpath,P0,,,fixation_count,3
+```
 
-**Console**: Reports fixation data via csv_rows.
+**Scanpath stream** (`{stem}_scanpath.csv`): the ordered fixation sequence, one
+row per fixation. `fixation_index` is that participant's 0-based fixation order:
+
+```
+video_name,conditions,participant,fixation_index,object
+,,P0,0,knife
+,,P0,1,cup
+,,P0,2,plate
+```
+
+In project mode these stack into `Global_scanpath.csv`. The scanpath tracker
+records no episodes, so it does not contribute to `{stem}_phenomena_events.csv`.
+
+**Dashboard**: A "SCANPATH" panel shows the last few fixations per participant in
+the format `P0: knife->cup->plate`.
+
+**Console**: Nothing -- this tracker prints no post-run console summary.
 
 **Time-series**: Plots total fixation count over time.
 

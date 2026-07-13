@@ -18,7 +18,9 @@ The detection algorithm has three stages:
 
 2. **Temporal filtering (optional).** When `--ja-window` is set to a value greater than 0, a sliding window of that many frames is maintained per object. An object's joint attention is confirmed only if it appeared in the raw JA set for at least `ja_window_thresh` fraction of the frames in the window. This smooths out momentary flickers.
 
-3. **Running percentage.** For each object, MindSight tracks `confirmed_frames / total_frames` as a running JA percentage over the entire session.
+3. **Running percentage.** MindSight tracks `confirmed_frames / total_frames` as a running JA percentage over the entire session -- an aggregate across the whole scene, not per object.
+
+4. **Union with gaze-tip convergence.** Joint attention is the **union** of object-based JA and gaze-tip convergence (the per-frame ruling in the pipeline). When `--gaze-tips` is enabled, MindSight also detects moments where two or more participants' gaze rays converge on the same point in space even if no detected object sits there. A frame counts as joint attention if it has object JA, tip convergence, or both -- the two modes are never double-counted within a frame. Tip convergence is *also* tallied on its own so the summary can report it as a visible breakdown (`phenomenon = tip_convergence`).
 
 ```mermaid
 stateDiagram-v2
@@ -44,16 +46,39 @@ stateDiagram-v2
 
 ## Output
 
-**CSV** (`joint_attention` section):
-- `confirmed_frames` -- number of frames where the object had confirmed JA
-- `total_frames` -- total frames processed
-- `pct` -- confirmed_frames / total_frames as a percentage
+**Summary CSV** (`{stem}_summary.csv`, `phenomenon = joint_attention`). The
+metric is aggregate, scoped to `participant = all`:
+
+- `frames_active` -- number of confirmed-JA frames
+- `seconds_active` -- the same converted to seconds
+- `pct_of_video` -- confirmed frames as a percentage of total frames
+
+When gaze-tip convergence occurred, a second block of rows is emitted under
+`phenomenon = tip_convergence` with the same three metrics. Example rows
+(single-video mode, leading `video_name,conditions` columns blank):
+
+```
+video_name,conditions,phenomenon,participant,partner,object,metric,value
+,,joint_attention,all,,,frames_active,842
+,,joint_attention,all,,,seconds_active,28.067
+,,joint_attention,all,,,pct_of_video,46.7813
+,,tip_convergence,all,,,frames_active,120
+,,tip_convergence,all,,,pct_of_video,6.6667
+```
+
+**Episode stream** (`{stem}_phenomena_events.csv`): each confirmed object-JA
+span is logged as one `joint_attention` row (`object` = the class, `participant`
+= `all`), and each tip-convergence span as one `tip_convergence` row
+(`participant` = the converging set, e.g. `P0+P1`), both with frame/second
+bounds and a duration.
 
 **Dashboard:**
-A "JOINT ATTENTION" panel listing each object currently under joint attention alongside its running JA percentage.
+A "JOINT ATTENTION" panel listing objects currently under joint attention
+alongside the running aggregate JA percentage.
 
 **Console:**
-Raw frame counts and confirmed frame counts per object printed at the end of the session.
+One aggregate line for raw JA (`joint_frames / total`), plus a confirmed line
+when a temporal window is active -- not a per-object breakdown.
 
 ## Example
 

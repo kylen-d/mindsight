@@ -46,9 +46,22 @@ flowchart TD
 
 ## Output
 
-**CSV** -- Section `gaze_leadership` with columns: `category`, `participant`, `object`, `frames_active` (credit count), `total_frames`, `value_pct`.
+**Summary CSV** (`{stem}_summary.csv`, `phenomenon = gaze_leadership`). A single
+metric per participant -- the number of leadership credits they earned:
 
-**Dashboard** -- Panel titled "GAZE LEADERSHIP" ranking participants by credit count (e.g., `P0: 5 events`).
+```
+video_name,conditions,phenomenon,participant,partner,object,metric,value
+,,gaze_leadership,P0,,,event_count,5
+,,gaze_leadership,P1,,,event_count,2
+```
+
+**Episode stream** (`{stem}_phenomena_events.csv`): each credit is a point event
+(`frame_start == frame_end`, zero duration) logged as one `gaze_leadership` row,
+carrying the object for object-based credits and empty for tip-convergence
+credits.
+
+**Dashboard** -- Panel titled "GAZE LEADERSHIP" ranking participants by credit
+count (e.g., `P0: 5 events`).
 
 **Console** -- Prints a dictionary of leadership counts per participant, e.g., `Gaze leadership counts: {'P0': 5, 'P1': 2}`.
 
