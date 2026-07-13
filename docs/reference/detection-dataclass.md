@@ -21,6 +21,7 @@ from mindsight.ObjectDetection.detection import Detection
 | `y2` | int | (required) | Bounding box bottom |
 | `ghost` | bool | `False` | Whether this is a persisted (ghost) detection from `ObjectPersistenceCache` |
 | `_face_idx` | int or None | `None` | Internal index used when faces are treated as objects (not shown in `repr`) |
+| `depth_median` | float or None | `None` | Median depth over the bbox, set by `run_depth_step` when depth estimation is enabled (not shown in `repr`) |
 
 ---
 
@@ -66,11 +67,12 @@ det.update(ghost=True, conf=0.5)
 
 ### `keys()`, `values()`, `items()`
 
-These allow iteration and unpacking, matching dict behaviour. `keys()` returns field names including `_face_idx` but excluding other private fields.
+These allow iteration and unpacking, matching dict behaviour. `keys()` returns field names including `_face_idx` and `depth_median` but excluding other private fields.
 
 ```python
-list(det.keys())    # ['class_name', 'cls_id', 'conf', 'x1', 'y1', 'x2', 'y2', 'ghost', '_face_idx']
-dict(det.items())   # full dict representation
+list(det.keys())    # ['class_name', 'cls_id', 'conf', 'x1', 'y1', 'x2', 'y2', 'ghost', '_face_idx', 'depth_median']
+dict(det.items())   # {'class_name': 'person', 'cls_id': 0, 'conf': 0.92, 'x1': 10, 'y1': 20,
+                    #  'x2': 100, 'y2': 200, 'ghost': False, '_face_idx': None, 'depth_median': None}
 ```
 
 ---

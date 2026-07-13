@@ -1,20 +1,47 @@
 # pipeline.yaml Schema
 
-MindSight can load a declarative YAML configuration file via `--pipeline path/to/pipeline.yaml`. The loader (`mindsight/config_compat.py`) reads the YAML, maps keys to argparse attributes, and populates the namespace. CLI flags always take precedence over YAML values.
+MindSight loads a declarative configuration file with `python MindSight.py --pipeline
+path/to/pipeline.yaml`. The loader (`mindsight.config_compat.load_pipeline`) reads the
+YAML, maps each recognised key onto an argparse destination, and merges it into the run
+namespace. The GUI's **Import Pipeline YAML** and **Load Preset** actions use the same
+loader. CLI flags always take precedence over YAML values.
+
+Every key on this page corresponds to a CLI flag documented in the
+[CLI Flags Reference](cli-flags.md); the YAML form is the declarative equivalent.
+
+!!! warning "Unknown keys are silently ignored"
+    The loader recognises a fixed set of key spellings (the tables below). Any key it does
+    not recognise is dropped with no error and no warning. In particular, a few natural
+    guesses do **not** work: `output.charts`, `output.conditions`, and `output.pid_map`
+    have no YAML home; `gaze.smooth_snap`, `gaze.smooth_snap_alpha`, and
+    `gaze.forward_gaze_threshold` are **not** gaze-section keys (set them through the
+    `plugins:` pass-through instead); and mapping-style `phenomena: {joint_attention:
+    true}` is ignored because the loader only reads the **list** form of `phenomena:`
+    (see below). When a value seems not to take effect, check its spelling against these
+    tables first.
+
+!!! note "Two loaders"
+    `--pipeline` and the GUI use `load_pipeline`, which merges into an argparse namespace
+    and passes the **entire** `plugins:` section through to flag destinations. A second,
+    schema-validated loader, `load_yaml` (returning a `PipelineConfig`), applies the same
+    scalar/section keys, the phenomena list, and `aux_streams`, but only routes the
+    ray-forming interval keys from `plugins:`. This page documents the runtime
+    (`load_pipeline`) behaviour; the annotated example at the end is verified against both.
 
 ---
 
-## YAML Key to Argparse Mapping
+## Top-level
 
-### Top-level
-
-| YAML Key Path | Argparse Attribute | Type | Default |
+| YAML Key | Argparse dest | Type | Default |
 |---|---|---|---|
 | `source` | `source` | str | `"0"` |
 
-### Detection Section
+`source` is normally omitted from a preset: it is a runtime input, and pinning it would
+override the video the user selected.
 
-| YAML Key Path | Argparse Attribute | Type | Default |
+## Detection Section
+
+| YAML Key | Argparse dest | Type | Default |
 |---|---|---|---|
 | `detection.model` | `model` | str | `"yolov8n.pt"` |
 | `detection.conf` | `conf` | float | `0.35` |
@@ -26,17 +53,28 @@ MindSight can load a declarative YAML configuration file via `--pipeline path/to
 | `detection.skip_frames` | `skip_frames` | int | `1` |
 | `detection.obj_persistence` | `obj_persistence` | int | `0` |
 
-### Gaze Section
+`detection.classes` / `detection.blacklist` are class **names** (e.g. `[person, chair]`),
+not COCO ids; they are resolved against the loaded model at build time. The
+`merge_overlaps` family has no dedicated detection key -- set it through `plugins:`.
 
-| YAML Key Path | Argparse Attribute | Type | Default |
+## Gaze Section
+
+| YAML Key | Argparse dest | Type | Default |
 |---|---|---|---|
 | `gaze.ray_length` | `ray_length` | float | `1.0` |
 | `gaze.adaptive_ray` | `adaptive_ray` | str | `"off"` |
 | `gaze.snap_dist` | `snap_dist` | float | `150.0` |
 | `gaze.snap_bbox_scale` | `snap_bbox_scale` | float | `0.0` |
 | `gaze.snap_w_dist` | `snap_w_dist` | float | `1.0` |
+| `gaze.snap_w_angle` | `snap_w_angle` | float | `0.8` |
 | `gaze.snap_w_size` | `snap_w_size` | float | `0.0` |
 | `gaze.snap_w_intersect` | `snap_w_intersect` | float | `0.5` |
+| `gaze.snap_w_temporal` | `snap_w_temporal` | float | `0.3` |
+| `gaze.snap_gate_angle` | `snap_gate_angle` | float | `60.0` |
+| `gaze.snap_head_blend` | `snap_head_blend` | float | `0.3` |
+| `gaze.snap_quality_thresh` | `snap_quality_thresh` | float | `0.8` |
+| `gaze.snap_tip_dist` | `snap_tip_dist` | float | `-1.0` |
+| `gaze.snap_tip_quality` | `snap_tip_quality` | float | `-1.0` |
 | `gaze.conf_ray` | `conf_ray` | bool | `false` |
 | `gaze.gaze_tips` | `gaze_tips` | bool | `false` |
 | `gaze.tip_radius` | `tip_radius` | int | `80` |
@@ -45,36 +83,53 @@ MindSight can load a declarative YAML configuration file via `--pipeline path/to
 | `gaze.dwell_frames` | `dwell_frames` | int | `15` |
 | `gaze.lock_dist` | `lock_dist` | int | `100` |
 | `gaze.gaze_debug` | `gaze_debug` | bool | `false` |
-| `gaze.snap_switch_frames` | `snap_switch_frames` | int | `8` |
+| `gaze.snap_release_frames` | `snap_release_frames` | int | `5` |
+| `gaze.snap_engage_frames` | `snap_engage_frames` | int | `0` |
 | `gaze.reid_grace_seconds` | `reid_grace_seconds` | float | `1.0` |
 | `gaze.hit_conf_gate` | `hit_conf_gate` | float | `0.0` |
 | `gaze.detect_extend` | `detect_extend` | float | `0.0` |
 | `gaze.detect_extend_scope` | `detect_extend_scope` | str | `"objects"` |
 
-### Output Section
+`gaze.adaptive_ray` is the `off` / `extend` / `snap` enum. (Legacy YAMLs that used a
+boolean `adaptive_ray:` plus an `adaptive_snap:` companion are still accepted and mapped
+onto the enum.) The old `gaze.snap_switch_frames` key no longer exists; the snap
+hysteresis is now split into `snap_release_frames` (default 5) and `snap_engage_frames`
+(default 0). `smooth_snap`, `smooth_snap_alpha`, and `forward_gaze_threshold` are set
+through `plugins:`, not here.
 
-| YAML Key Path | Argparse Attribute | Type | Default |
+## Output Section
+
+| YAML Key | Argparse dest | Type | Default |
 |---|---|---|---|
 | `output.save_video` | `save` | str/bool | None |
 | `output.log_csv` | `log` | str | None |
 | `output.summary_csv` | `summary` | str | None |
 | `output.heatmaps` | `heatmap` | str | None |
-| `output.charts` | `charts` | str/bool | None |
-| `output.anonymize` | `anonymize` | str | None |
+| `output.anonymize` | `anonymize` | str (`blur`/`black`) | None |
 | `output.anonymize_padding` | `anonymize_padding` | float | `0.3` |
-| `output.conditions` | `conditions` | str | None |
-| `output.pid_map` | `pid_map` | dict | None |
 
-### Participants Section
+These six are the **only** recognised `output` keys. There is no YAML key for charts,
+conditions, or the participant map: `--charts` is CLI-only, and conditions / participant
+labels come from project metadata (`project.yaml`) or `participants:` (below). A boolean
+`true` for `save_video` / `log_csv` / `summary_csv` / `heatmaps` selects the auto-named
+output path.
 
-| YAML Key Path | Argparse Attribute | Type | Default |
+## Participants Section
+
+| YAML Key | Argparse dest | Type | Default |
 |---|---|---|---|
 | `participants.csv` | `participant_csv` | str | None |
 | `participants.ids` | `participant_ids` | str | None |
 
-### Performance Section
+`participants.ids` is a **positional** comma-separated label list (`"S70,S71,S72"`): the
+first label maps to track 0, the second to track 1, and so on -- it is not a `id:name`
+mapping. `participants.csv` points at a `participant_ids.csv` mapping video filenames to
+labels. (These are runtime keys honoured by `load_pipeline`; the schema loader `load_yaml`
+leaves participant resolution to build time.)
 
-| YAML Key Path | Argparse Attribute | Type | Default |
+## Performance Section
+
+| YAML Key | Argparse dest | Type | Default |
 |---|---|---|---|
 | `performance.fast` | `fast` | bool | `false` |
 | `performance.skip_phenomena` | `skip_phenomena` | int | `0` |
@@ -82,41 +137,47 @@ MindSight can load a declarative YAML configuration file via `--pipeline path/to
 | `performance.no_dashboard` | `no_dashboard` | bool | `false` |
 | `performance.profile` | `profile` | bool | `false` |
 
-### Phenomena Top-level Keys
+## Depth Section
 
-| YAML Key Path | Argparse Attribute | Type | Default |
+| YAML Key | Argparse dest | Type | Default |
 |---|---|---|---|
-| `phenomena.ja_window` | `ja_window` | int | `0` |
-| `phenomena.ja_window_thresh` | `ja_window_thresh` | float | `0.70` |
-| `phenomena.ja_quorum` | `ja_quorum` | float | `1.0` |
+| `depth.enabled` | `depth` | bool | `false` |
+| `depth.backend` | `depth_backend` | str | `"midas_small"` |
+| `depth.input_size` | `depth_input_size` | int | `384` |
+| `depth.skip_frames` | `depth_skip_frames` | int | `1` |
+| `depth.depth_aware_scoring` | `depth_aware_scoring` | bool | `false` |
+| `depth.snap_w_depth` | `depth_w_depth` | float | `0.4` |
+| `depth.gaze_sample_radius` | `depth_sample_radius` | int | `2` |
 
----
+Monocular depth estimation. The ray-length-from-depth knobs (`--depth-ray-length`,
+`--depth-length-min/max`, `--depth-belief-boost`) belong to ray forming and are set
+through `plugins:`.
 
-## Phenomena List Format
+## Phenomena Section
 
-The `phenomena` key can also be a YAML list of tracker toggles. Each entry is either a plain string (to enable with defaults) or a single-key dict (to enable with custom parameters):
+`phenomena` is read as a **YAML list** of tracker toggles. Each entry is either a plain
+string (enable with defaults) or a single-key mapping (enable with parameters):
 
 ```yaml
 phenomena:
-  # Simple toggle — enables with default parameters
-  - mutual_gaze
+  - mutual_gaze                 # enable with defaults
   - scanpath
-
-  # Toggle with parameters
-  - joint_attention:
+  - joint_attention:           # enable with parameters
       ja_window: 30
       ja_quorum: 0.8
-
-  - gaze_following:
-      lag: 20
-
   - social_referencing:
       window: 90
+  - gaze_following:
+      lag: 20
 ```
 
-### Toggle Strings
+A `phenomena:` mapping (rather than a list) is ignored. Three joint-attention parameters
+may **also** appear as top-level `phenomena.*` keys, independent of the list:
+`phenomena.ja_window`, `phenomena.ja_window_thresh`, `phenomena.ja_quorum`.
 
-| YAML String | Argparse Attribute |
+### Toggle strings
+
+| YAML string | Enables (dest) |
 |---|---|
 | `joint_attention` | `joint_attention` |
 | `mutual_gaze` | `mutual_gaze` |
@@ -127,9 +188,9 @@ phenomena:
 | `gaze_leadership` | `gaze_leader` |
 | `attention_span` | `attn_span` |
 
-### Per-Tracker Parameter Keys
+### Per-tracker parameter keys
 
-| Param Key | Argparse Attribute |
+| Param key | Argparse dest |
 |---|---|
 | `ja_window` | `ja_window` |
 | `ja_quorum` | `ja_quorum` |
@@ -140,86 +201,123 @@ phenomena:
 | `aversion_conf` | `aversion_conf` |
 | `dwell` | `scanpath_dwell` |
 
----
+## Plugins Section (pass-through)
 
-## Plugins Section
-
-The `plugins` section is a pass-through: keys are mapped directly to argparse attributes with hyphens converted to underscores. This allows any plugin flag to be set without a hardcoded mapping.
+The `plugins:` section is a direct pass-through: every key is mapped to an argparse
+destination with hyphens rewritten as underscores, and set on the namespace as-is. It
+therefore accepts **any** flag's destination -- there is no per-key allow-list. This is how
+backend and plugin flags that have no dedicated section are configured, and it is how the
+shipped `configs/pipeline_known_good.yaml` preset sets roughly twenty core parameters,
+for example:
 
 ```yaml
 plugins:
-  gazelle-model: /path/to/gazelle.pt
-  gazelle-name: gazelle_dinov2_vitb14
-  iris-refine: true
+  all_phenomena: true               # -> --all-phenomena
+  mgaze_model: resnet50             # -> --mgaze-model (bare name resolves per install)
+  mgaze_dataset: gaze360
+  rf_gazelle_model: gazelle_dinov2_vitb14.pt   # -> --rf-gazelle-model (Gaze-LLE blend)
+  rf_gazelle_name: gazelle_dinov2_vitb14
+  min_call_gap: 25
+  forward_gaze_threshold: 13.0      # gaze knob with no gaze-section key
+  smooth_snap: all
+  smooth_snap_alpha: 0.9
+  merge_overlaps: true              # detection knob with no detection-section key
+  merge_overlap_strategy: dynamic
+  merge_overlap_threshold: 0.55
 ```
 
-The above sets `ns.gazelle_model`, `ns.gazelle_name`, and `ns.iris_refine`. Unknown `plugins:` keys are passed through as namespace attributes and silently ignored if no backend consumes them.
-
----
+Unknown `plugins:` keys become namespace attributes and are silently ignored if no backend
+consumes them.
 
 ## Auxiliary Streams Section
 
-The `aux_streams` section defines optional per-participant video feeds that are frame-synchronised with the main source. Each entry requires three keys:
+`aux_streams` is a list of optional per-participant video feeds, frame-synchronised with the
+main source and exposed to plugins in `FrameContext['aux_frames']`. Each entry requires
+`source`, `stream_label`, and a non-empty `participants` list; an entry missing any of the
+three is skipped.
 
 ```yaml
 aux_streams:
-  - pid: "S70"
-    stream_type: eye_camera
-    source: /data/s70_eye.mp4
-  - pid: "S71"
-    stream_type: first_person_view
-    source: /data/s71_fpv.mp4
+  - source: /data/s70_eye.mp4
+    video_type: eye_only          # wide_closeup | face_closeup | eye_only | custom
+    stream_label: left_eye_cam
+    participants: [S70]
+    auto_detect_faces: false      # default true; runs face detection on wide/face streams
 ```
 
-These are parsed into `AuxStreamConfig` dataclass instances and made available in `FrameContext['aux_frames']`.
+| Key | Type | Required | Default |
+|---|---|---|---|
+| `source` | str | yes | -- |
+| `video_type` | enum | no | `custom` |
+| `stream_label` | str | yes | -- |
+| `participants` | list[str] | yes | -- |
+| `auto_detect_faces` | bool | no | `true` |
+
+`video_type` must be one of `wide_closeup`, `face_closeup`, `eye_only`, or `custom`; an
+unrecognised value falls back to `custom` with a warning. Entries parse into
+`AuxStreamConfig` instances.
 
 ---
 
 ## Fully Annotated Example
 
-```yaml
-# pipeline.yaml — MindSight pipeline configuration
+This example is verified by loading it through `mindsight.config_compat.load_yaml` and
+`load_pipeline` (see the proof note below).
 
-source: /data/experiment_01.mp4
+```yaml
+# pipeline.yaml -- fully annotated MindSight pipeline configuration
+
+source: /data/experiment_01.mp4      # runtime input; a preset normally omits this
 
 detection:
-  model: yolov8s.pt           # Use the small YOLO model
-  conf: 0.40                   # Slightly higher confidence threshold
-  classes: [person, chair]     # Only detect people and chairs
-  skip_frames: 2               # Detect every 2nd frame for speed
-  obj_persistence: 3           # Keep detections alive for 3 frames
+  model: yolov8n.pt                  # YOLO weights (bare name resolves per install)
+  conf: 0.30                         # detection confidence threshold
+  classes: [person, chair]           # whitelist of class NAMES (not COCO ids)
+  detect_scale: 1.0
+  skip_frames: 2                     # detect every 2nd frame (-> tracker.skip_frames)
+  obj_persistence: 3                 # dead-reckon boxes for 3 frames after a miss
 
 gaze:
-  ray_length: 1.2
-  adaptive_ray: snap           # Enable snap mode
-  snap_dist: 200.0
-  snap_w_intersect: 0.8
-  gaze_lock: true
-  dwell_frames: 20
-  lock_dist: 120
-  detect_extend: 50.0
+  ray_length: 1.3
+  adaptive_ray: snap                 # off | extend | snap
+  snap_dist: 180.0
+  snap_w_intersect: 0.6
+  gaze_tips: true
+  tip_radius: 70
+  gaze_cone: 5.0                     # YAML key is gaze_cone (-> gaze.gaze_cone_angle)
+  gaze_lock: true                    # -> tracker.gaze_lock
+  dwell_frames: 20                   # -> tracker.dwell_frames
+  lock_dist: 120                     # -> tracker.lock_dist
+  snap_release_frames: 5             # -> tracker.snap_release_frames
+  snap_engage_frames: 0              # -> tracker.snap_engage_frames
+  reid_grace_seconds: 4.5            # -> tracker.reid_grace_seconds
+  detect_extend: 0.0
   detect_extend_scope: both
 
 output:
-  save_video: /results/annotated.mp4
-  log_csv: /results/frames.csv
-  summary_csv: /results/summary.csv
-  heatmaps: /results/heatmap.png
-  charts: /results/charts/
-  anonymize: blur
+  save_video: /results/annotated.mp4   # -> output.save
+  log_csv: /results/frames.csv          # -> output.log_path
+  summary_csv: /results/summary.csv     # -> output.summary_path
+  heatmaps: /results/heatmaps           # -> output.heatmap_path
+  anonymize: blur                       # blur | black
   anonymize_padding: 0.4
-  conditions: "Group A|Emotional"
-  pid_map:
-    1: "Alice"
-    2: "Bob"
 
 participants:
-  ids: "1:Alice,2:Bob"
+  ids: "S70,S71"                     # positional labels (first -> track 0)
 
 performance:
-  fast: true
-  skip_phenomena: 2
-  lite_overlay: true
+  fast: false
+  skip_phenomena: 0
+  no_dashboard: true
+
+depth:
+  enabled: true
+  backend: midas_small
+  input_size: 384
+  skip_frames: 1
+  depth_aware_scoring: true
+  snap_w_depth: 0.4
+  gaze_sample_radius: 2
 
 phenomena:
   - joint_attention:
@@ -231,26 +329,51 @@ phenomena:
       window: 90
   - gaze_following:
       lag: 20
+  - gaze_aversion:
+      aversion_window: 45
+      aversion_conf: 0.6
   - scanpath:
       dwell: 10
   - gaze_leadership
   - attention_span
-  - gaze_aversion:
-      aversion_window: 45
-      aversion_conf: 0.6
 
 plugins:
-  gazelle-model: /models/gazelle.pt
-  gazelle-name: gazelle_dinov2_vitb14
+  mgaze_model: resnet50
+  mgaze_dataset: gaze360
+  rf_gazelle_model: gazelle_dinov2_vitb14.pt
+  rf_gazelle_name: gazelle_dinov2_vitb14
+  min_call_gap: 25
+  forward_gaze_threshold: 13.0
+  smooth_snap: all
+  smooth_snap_alpha: 0.9
+  merge_overlaps: true
+  merge_overlap_strategy: dynamic
+  merge_overlap_threshold: 0.55
 
 aux_streams:
-  - pid: "S01"
-    stream_type: eye_camera
-    source: /data/s01_eye.mp4
+  - source: /data/s70_eye.mp4
+    video_type: eye_only
+    stream_label: left_eye_cam
+    participants: [S70]
+    auto_detect_faces: false
 ```
+
+Loaded through the schema loader, the section keys, phenomena list, and `aux_streams` all
+land as expected (e.g. `detection.conf` -> `0.30`, `detection.skip_frames` ->
+`tracker.skip_frames` = `2`, `gaze.adaptive_ray` -> `"snap"`, `gaze.gaze_cone` ->
+`gaze.gaze_cone_angle` = `5.0`, `output.save_video` -> `output.save`, `depth.enabled` ->
+`True`, `joint_attention` with `ja_window=30`, `social_referencing`'s `window` ->
+`social_ref_window=90`, `scanpath`'s `dwell` -> `scanpath_dwell=10`, and the `aux_streams`
+entry as `video_type=eye_only`, `auto_detect_faces=false`). The full `plugins:` block
+(`merge_overlaps`, `mgaze_model`, `forward_gaze_threshold`, `smooth_snap`, ...) is applied
+by the runtime `load_pipeline` path that `--pipeline` and the GUI use.
 
 ## Precedence Rules
 
-1. CLI flags always override YAML values.
-2. A YAML value is only applied if the corresponding namespace attribute is at its "default" (None, False, 0, empty string, or empty list).
-3. The `plugins` section and `aux_streams` section follow the same precedence rule.
+1. A CLI flag always overrides the corresponding YAML value.
+2. On the CLI, YAML is applied to every parameter the user did **not** type on the command
+   line (the parser records the exact flags typed). GUI / synthetic namespaces fall back to
+   a "default-like" heuristic: a YAML value overwrites only an attribute that is missing or
+   still at a default-like value (None, False, 0, empty string/list).
+3. The `phenomena` list, `plugins` pass-through, and `aux_streams` follow the same
+   precedence rule.
