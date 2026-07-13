@@ -15,9 +15,21 @@ these open even with no internet connection:
 - **Inference Settings** -- every setting in the dialog, tab by tab.
 - **What's New** -- the release changelog.
 
+=== "Light"
+    ![The About tab hero: logo, version, and the guide cards, light theme](../assets/gui/about-hero.png)
+
+=== "Dark"
+    ![The About tab hero: logo, version, and the guide cards, dark theme](../assets/gui/about-hero-dark.png)
+
 Clicking a card opens the document in an **in-app reader**. The reader behaves
 sensibly about links: **internal links** (to other bundled docs) stay inside the
 reader, while **external links** open in your web browser.
+
+=== "Light"
+    ![A guide open in the in-app documentation reader, light theme](../assets/gui/about-reader.png)
+
+=== "Dark"
+    ![A guide open in the in-app documentation reader, dark theme](../assets/gui/about-reader-dark.png)
 
 !!! example "🎬 Demo coming soon -- SHOT:about-reader"
     About: click a guide card, the doc opens in the in-app reader; an internal
@@ -43,7 +55,13 @@ reader, while **external links** open in your web browser.
 
 MindSight uses the **native Qt colour scheme**, so the whole window recolours at
 once. This requires **Qt 6.8 or newer**; on older Qt builds the control is a
-no-op and the app simply follows the OS.
+no-op and the app simply follows the OS. The same window, both ways:
+
+=== "Light"
+    ![The Analyze Footage window in the light theme](../assets/gui/main-window.png)
+
+=== "Dark"
+    ![The Analyze Footage window in the dark theme](../assets/gui/main-window-dark.png)
 
 !!! example "🎬 Demo coming soon -- SHOT:theme-toggle"
     View > Theme switched auto -> light -> dark, recolouring the whole window

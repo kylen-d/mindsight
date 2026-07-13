@@ -49,7 +49,11 @@ open a study project and batch-process it, quick-analyze a single clip, or recor
 and analyze live from a webcam. See
 [Analyze footage](../guides/analyze-footage.md).
 
-![The Analyze Footage home screen with no project open](../assets/tutorial/home-screen.png)
+=== "Light"
+    ![The Analyze Footage home screen with no project open, light theme](../assets/gui/main-window.png)
+
+=== "Dark"
+    ![The Analyze Footage home screen with no project open, dark theme](../assets/gui/main-window-dark.png)
 
 **Projects** -- your project library. Build a new study project with the wizard,
 reopen a recent one, or review a project's runs, notes, and outputs. This is

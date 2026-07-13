@@ -24,6 +24,12 @@ preview:
    videos.
 4. **Apply** the whole batch in one pass.
 
+=== "Light"
+    ![The Crop & Adjust Videos dialog with a crop rectangle drawn on a frame](../assets/gui/crop-dialog.png)
+
+=== "Dark"
+    ![The Crop & Adjust Videos dialog in the dark theme](../assets/gui/crop-dialog-dark.png)
+
 !!! example "🎬 Demo coming soon -- SHOT:crop-adjust"
     Crop & Adjust: step to a video, drag a crop rectangle, set a new fps, queue
     it, Apply to the batch.

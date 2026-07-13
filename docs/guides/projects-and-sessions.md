@@ -96,6 +96,12 @@ You create planned sessions two ways:
 - **On an existing project** -- **＋ Plan Session...** next to the runs table on
   the project's overview.
 
+=== "Light"
+    ![The Plan a session dialog: name, participants, conditions, and notes](../assets/gui/plan-session-dialog.png)
+
+=== "Dark"
+    ![The Plan a session dialog in the dark theme](../assets/gui/plan-session-dialog-dark.png)
+
 !!! example "🎬 Demo coming soon -- SHOT:plan-session"
     Plan Session: name the session, set participant and condition tags, and the
     new row appears as "awaiting recording".
@@ -109,6 +115,12 @@ time and frames. The raw capture is written to a temporary
 `Inputs/Runs/_recording_<run_id>.mp4` while recording; on **End Session** it is
 moved into `Inputs/Runs/<run_id>/` like any other video and analysis starts on
 it automatically.
+
+=== "Light"
+    ![The Record Live Session dialog: camera, target run, and session metadata](../assets/gui/record-session-dialog.png)
+
+=== "Dark"
+    ![The Record Live Session dialog in the dark theme](../assets/gui/record-session-dialog-dark.png)
 
 !!! example "🎬 Demo coming soon -- SHOT:record-live-session"
     Record Session: pick a camera, choose a planned session (tags prefill),
