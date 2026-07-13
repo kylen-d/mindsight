@@ -260,6 +260,11 @@ def parse_cli(argv=None):
     ``mindsight.cli._args``.  YAML precedence in the loader depends on this set."""
     parser = build_parser()
 
+    # The real parse runs FIRST so --help and usage errors exit here, with
+    # true defaults: rendering help during the suppressed parse below crashes
+    # argparse (%(default)s help strings hit its delete-SUPPRESS-params rule).
+    ns = parser.parse_args(argv)
+
     # argparse cannot tell a user-typed flag from a default; suppress every
     # action's default and re-parse so the resulting namespace contains ONLY
     # the dests the user actually supplied.
@@ -270,6 +275,5 @@ def parse_cli(argv=None):
     for _action, _default in _saved_defaults:
         _action.default = _default
 
-    ns = parser.parse_args(argv)
     ns._explicit_cli = frozenset(vars(_suppressed_ns))
     return ns

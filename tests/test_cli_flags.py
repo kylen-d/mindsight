@@ -141,3 +141,15 @@ def test_parse_cli_rejects_bad_values():
         parse_cli(["--anonymize", "rainbow"])
     with pytest.raises(SystemExit):
         parse_cli(["--totally-unknown-flag"])
+
+
+def test_parse_cli_help_exits_cleanly(capsys):
+    """--help exits 0 with true defaults rendered. It used to crash: help was
+    formatted during the SUPPRESS double-parse, and argparse's
+    delete-SUPPRESS-params rule turned %(default)s helps into KeyError."""
+    with pytest.raises(SystemExit) as exc:
+        parse_cli(["--help"])
+    assert exc.value.code == 0
+    out = capsys.readouterr().out
+    assert "--detect-extend" in out
+    assert "SUPPRESS" not in out
