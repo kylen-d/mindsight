@@ -1,4 +1,4 @@
-# MindSight — Multi-Person Gaze and Object-Intersection Tracking for Cognitive Science Research
+# MindSight — Multi-Person Attention Tracking for Cognitive Science Research
 
 <p align="center">
   <img src="mindsightlogo.png" alt="MindSight logo">
