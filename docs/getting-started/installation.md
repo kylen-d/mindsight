@@ -1,36 +1,99 @@
 # Installation
 
-This guide walks you through setting up MindSight on your local machine.
+There are two ways to install MindSight:
+
+- **[One-click install](#one-click-install-recommended)** -- the recommended
+  path for researchers and lab machines. A double-click installer sets up
+  everything: a self-contained Python, MindSight with locked dependencies, the
+  required model weights, and an app launcher. **You do not need Python -- or
+  anything else -- installed first.**
+- **[Developer install](#developer-install)** -- an editable source checkout
+  for contributing, running the tests, or platforms without a prebuilt
+  installer.
 
 ---
 
-## Prerequisites
+## One-click install (recommended)
+
+1. **Download the release zip** for your platform --
+   `MindSight-1.0.0-mac.zip` or `MindSight-1.0.0-win.zip` -- from the
+   [GitHub Releases page](https://github.com/kylen-d/mindsight/releases).
+2. **Extract** it somewhere you can find again (Desktop or Downloads is fine).
+3. **Run the installer:**
+
+    === "macOS"
+
+        Right-click (or Control-click) `Install-MindSight.command` and choose
+        **Open**, then click **Open** in the Gatekeeper dialog. A plain
+        double-click only offers "Move to Trash" -- right-click → Open is the
+        way past this for an unsigned in-house tool.
+
+    === "Windows"
+
+        Double-click `Install-MindSight.bat`. If the blue **"Windows protected
+        your PC"** SmartScreen box appears, click **More info → Run anyway**
+        (expected -- the in-house tool is unsigned).
+
+4. A console/Terminal window walks through setup and finishes with
+   `MindSight install: PASS`.
+
+When it finishes you get **`/Applications/MindSight.app` plus a Desktop link**
+on macOS, and **Start Menu and Desktop shortcuts** on Windows. Launch it like
+any other app and you land on the [GUI Tour](quickstart-gui.md).
+
+!!! tip "Re-running is safe -- and how you update"
+    Running the installer again **updates** an existing install and skips work
+    that is already done. When a new MindSight release ships, download the new
+    zip and re-run.
+
+Platform-specific detail (Gatekeeper/SmartScreen notes, first-launch camera
+permissions, install locations) lives in
+[`installer/INSTALL-MACOS.md`](https://github.com/kylen-d/mindsight/blob/main/installer/INSTALL-MACOS.md)
+and
+[`installer/INSTALL-WINDOWS.md`](https://github.com/kylen-d/mindsight/blob/main/installer/INSTALL-WINDOWS.md).
+Where the installed files end up is covered in
+[Where things live](../guides/where-things-live.md).
+
+---
+
+## Developer install
+
+### Prerequisites
 
 - **Python 3.10** or newer
-- **PyTorch** (CPU is sufficient; GPU accelerates inference)
-- *Optional:* CUDA toolkit (NVIDIA GPUs) or CoreML support (Apple Silicon)
+- A GPU is optional -- CPU works; CUDA (NVIDIA) or MPS/CoreML (Apple Silicon)
+  accelerate inference
 
 !!! note "Apple Silicon users"
-    MindSight supports CoreML acceleration via `onnxruntime-silicon`. No CUDA installation is needed on macOS with Apple Silicon.
+    The standard `onnxruntime` dependency includes the CoreML execution
+    provider on macOS -- ONNX inference is accelerated out of the box, and no
+    CUDA installation is needed.
 
----
-
-## Clone the Repository
+### Clone the repository
 
 ```bash
 git clone https://github.com/kylen-d/mindsight.git
-cd MindSight
+cd mindsight
 ```
 
----
+### Install dependencies
 
-## Create a Virtual Environment
+All dependencies are declared in `pyproject.toml` (the single source of truth,
+with a committed `uv.lock` pinning exact versions). With
+[uv](https://docs.astral.sh/uv/) (recommended):
+
+```bash
+uv sync                           # exact locked versions
+```
+
+or with plain pip in a virtual environment:
 
 === "macOS / Linux"
 
     ```bash
     python3 -m venv .venv
     source .venv/bin/activate
+    pip install -e .
     ```
 
 === "Windows"
@@ -38,24 +101,8 @@ cd MindSight
     ```powershell
     python -m venv .venv
     .venv\Scripts\activate
+    pip install -e .
     ```
-
----
-
-## Install Dependencies
-
-All dependencies are declared in `pyproject.toml` (the single source of truth,
-with a committed `uv.lock` pinning exact versions). Install with either:
-
-```bash
-uv sync                           # exact locked versions (recommended)
-```
-
-or plain pip:
-
-```bash
-pip install -e .                  # editable install; resolves from pyproject.toml
-```
 
 !!! note "Editable install"
     The editable install registers the `mindsight` package and installs the
@@ -66,39 +113,39 @@ pip install -e .                  # editable install; resolves from pyproject.to
     out of the box; Windows installs run PyTorch on CPU. For NVIDIA ONNX
     inference, replace `onnxruntime` with `onnxruntime-gpu`.
 
----
+### Download model weights
 
-## Download Model Weights
-
-All model weights are stored in `Weights/{backend}/`. Download them with:
-
-```bash
-python scripts/download_weights.py            # all backends
-python scripts/download_weights.py --backend MGaze   # specific backend
-python scripts/download_weights.py --dry-run         # preview only
-```
-
-### What gets downloaded
-
-| Backend | Method | Notes |
-|---------|--------|-------|
-| **MobileGaze** (default) | Download script | ONNX + PyTorch variants in `Weights/MGaze/` |
-| **Gaze-LLE** | Download script | Checkpoints in `Weights/Gazelle/` |
-| **YOLO** | Auto (Ultralytics) | Downloaded on first use, cached in `Weights/YOLO/` |
-
----
-
-## Verify Installation
-
-Run the following command to confirm MindSight is installed correctly:
+Weights live in `Weights/{backend}/` and are managed by a checksummed manifest
+(`weights_manifest.json`) -- the same one the GUI's Models tab uses:
 
 ```bash
-python MindSight.py --help
+mindsight-weights                     # the 4 required weights (default)
+mindsight-weights --all               # every downloadable weight
+mindsight-weights --backend MGaze     # one backend (repeatable)
+mindsight-weights --verify-only       # check checksums, download nothing
+mindsight-weights --dry-run           # show what would be downloaded
 ```
 
-Or use the console command: `mindsight --help`
+(`python scripts/download_weights.py` is an equivalent wrapper for a checkout
+where the console command is not on PATH.)
 
-You should see a list of available command-line arguments and their descriptions.
+#### What gets downloaded
+
+| Backend | Required set | Notes |
+|---------|--------------|-------|
+| **YOLO / YOLOE** | `yolov8n.pt` | Larger YOLOv8 and YOLOE variants are optional, fetched with `--all` or on demand |
+| **MobileGaze** | `resnet50_gaze.onnx`, `mobileone_s0_gaze.onnx` | PyTorch variants optional, in `Weights/MGaze/` |
+| **Gaze-LLE** | `gazelle_dinov2_vitb14.pt` | The larger `vitl14` checkpoint is optional, in `Weights/Gazelle/` |
+| **MobileClip** | -- | `mobileclip_blt.ts` is auto-fetched by Ultralytics on first visual-prompt use |
+
+### Verify the installation
+
+```bash
+mindsight --help          # or: python MindSight.py --help
+```
+
+You should see the full list of command-line flags. Then take the
+[CLI quickstart](quickstart-cli.md) for a first run.
 
 ---
 
@@ -120,8 +167,8 @@ RuntimeError: CUDA not available
 FileNotFoundError: .../mobileone_s0_gaze.onnx
 ```
 
-- Check that the `Weights/MGaze/` directory exists and contains the expected weight files.
-- Download weights using `python scripts/download_weights.py --backend MGaze`.
+- Run `mindsight-weights --verify-only` to see what is present, mismatched, or missing.
+- Download the missing backend with `mindsight-weights --backend MGaze` (or use the GUI's **Models** tab).
 
 ### Import errors
 
