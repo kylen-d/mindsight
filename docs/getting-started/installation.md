@@ -170,6 +170,18 @@ FileNotFoundError: .../mobileone_s0_gaze.onnx
 - Run `mindsight-weights --verify-only` to see what is present, mismatched, or missing.
 - Download the missing backend with `mindsight-weights --backend MGaze` (or use the GUI's **Models** tab).
 
+### Reinstall doesn't seem to pick up an update
+
+If you re-ran the installer but the app still looks out of date, a cached
+package may have been reused. Clear it and re-run the installer:
+
+```bash
+uv cache clean mindsight
+```
+
+(The installer's `uv` lives on your PATH after any install; on Windows run the
+same command in the installer's console.)
+
 ### Import errors
 
 ```
