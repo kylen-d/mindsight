@@ -5,6 +5,7 @@
 </p>
 MindSight combines multi-person gaze estimation with YOLO object detection to determine **what every participant in a scene is looking at**, frame by frame, and turns that signal into measurements of attention-based psychological phenomena — such as joint attention, mutual gaze, social referencing, and more.
 
+
 > **v1.0.0** -- first stable release. Bug reports and feedback are welcome via [GitHub Issues](https://github.com/kylen-d/mindsight/issues).
 
 **Featured at PURC 2026📚🎉** — This project has been featured at the **University of British Columbia's** 28th Annual *Psychology Undergraduate Research Conference!* Massive thanks to the folks at the [UBC Motivated Cognition Lab](https://mclab.psych.ubc.ca/) for this incredible opportunity, and for all their help in supervising and supporting this project!
