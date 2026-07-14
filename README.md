@@ -12,7 +12,7 @@
 [![CI](https://github.com/kylen-d/mindsight/actions/workflows/ci.yml/badge.svg)](https://github.com/kylen-d/mindsight/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/badge/release-v1.0.0-success.svg)](https://github.com/kylen-d/mindsight/releases)
 
-MindSight combines multi-person gaze estimation with YOLO object detection to determine **what every participant in a scene is looking at**, frame by frame, and turns that signal into measurements of attention-based psychological phenomena — joint attention, mutual gaze, social referencing, and more.
+MindSight combines multi-person gaze estimation with YOLO object detection to determine **what every participant in a scene is looking at**, frame by frame, and turns that signal into measurements of attention-based psychological phenomena — such as joint attention, mutual gaze, social referencing, and more.
 
 Full documentation lives at **[kylen-d.github.io/mindsight-docs](https://kylen-d.github.io/mindsight-docs/)**.
 
