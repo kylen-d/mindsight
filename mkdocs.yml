@@ -41,7 +41,6 @@ plugins:
 # so strict mode does not flag it as orphaned (not-in-nav) pages.
 exclude_docs: |
   superpowers/
-  assets/footage/SHOTLIST.md
 
 markdown_extensions:
   - admonition
