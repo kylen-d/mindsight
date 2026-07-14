@@ -198,8 +198,6 @@ under **File**) assembles the folder for you in five steps:
    from the file). Untagged videos are allowed -- you get a warning, and can
    fill metadata in later.
 
-    ![The wizard's tagging step: middle-frame preview left, fields right](../assets/tutorial/wizard-tag.png)
-
 4. **Pipeline** -- pick the preset the study runs with. **KG_Standard** (the
    shipped known-good preset) is the right choice unless your study lead says
    otherwise.
