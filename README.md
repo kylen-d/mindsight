@@ -26,7 +26,7 @@ Full documentation lives at **[kylen-d.github.io/mindsight-docs](https://kylen-d
 - **Gaze-LLE Blend as the primary gaze mode** — a per-face pitch/yaw backend (MobileGaze) is periodically corrected against scene-level Gaze-LLE heatmaps, with One-Euro smoothing and fixation-aware anchoring. Plain per-face and plain scene-level modes are also available.
 - **Eight built-in phenomena** — joint attention, mutual gaze, social referencing, gaze following, gaze aversion, scanpath, gaze leadership, and attention span, each with its own tuning parameters.
 - **Projects, batch processing, and resume** — organize studies as project directories, batch every video, aggregate per condition, and resume interrupted runs from a ledger.
-- **Visual prompts + depth** — detect study-specific objects from example images with YOLOE visual prompts, and optionally add monocular depth estimation to inform ray length and object snapping.
+- **YOLO visual prompts creator** — detect study-specific objects from example images with YOLOE visual prompts, easily defined via a simple in-app drag-to-select UI.
 - **Extensible everywhere** — a plugin system for gaze backends, detection post-processing, phenomena, and data collection, plus a schema-driven CLI and YAML pipeline configs.
 
 > See the [pipeline overview](https://kylen-d.github.io/mindsight-docs/concepts/pipeline/) for how the stages fit together end to end.
