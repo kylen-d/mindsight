@@ -3,16 +3,17 @@
 <p align="center">
   <img src="mindsightlogo.png" alt="MindSight logo">
 </p>
-
-**Featured at PURC 2026📚🎉** — This project has been featured at the **University of British Columbia's** 28th Annual *Psychology Undergraduate Research Conference!* Massive thanks to the folks at the [UBC Motivated Cognition Lab](https://mclab.psych.ubc.ca/) for this incredible opportunity, and for all their help in supervising and supporting this project!
+MindSight combines multi-person gaze estimation with YOLO object detection to determine **what every participant in a scene is looking at**, frame by frame, and turns that signal into measurements of attention-based psychological phenomena — such as joint attention, mutual gaze, social referencing, and more.
 
 > **v1.0.0** -- first stable release. Bug reports and feedback are welcome via [GitHub Issues](https://github.com/kylen-d/mindsight/issues).
+
+**Featured at PURC 2026📚🎉** — This project has been featured at the **University of British Columbia's** 28th Annual *Psychology Undergraduate Research Conference!* Massive thanks to the folks at the [UBC Motivated Cognition Lab](https://mclab.psych.ubc.ca/) for this incredible opportunity, and for all their help in supervising and supporting this project!
 
 [![License: AGPL v3](https://img.shields.io/badge/License-AGPLv3-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
 [![CI](https://github.com/kylen-d/mindsight/actions/workflows/ci.yml/badge.svg)](https://github.com/kylen-d/mindsight/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/badge/release-v1.0.0-success.svg)](https://github.com/kylen-d/mindsight/releases)
 
-MindSight combines multi-person gaze estimation with YOLO object detection to determine **what every participant in a scene is looking at**, frame by frame, and turns that signal into measurements of attention-based psychological phenomena — such as joint attention, mutual gaze, social referencing, and more.
+
 
 Full documentation lives at **[kylen-d.github.io/mindsight-docs](https://kylen-d.github.io/mindsight-docs/)**.
 
