@@ -18,6 +18,7 @@
   "rayforming.fixation_d_threshold",
   "rayforming.fixation_v_threshold",
   "rayforming.len_min_cutoff",
+  "rayforming.rf_inout_gate",
   "tracker.mgaze_reuse_eps",
   "tracker.reid_grace_seconds",
   "tracker.snap_engage_frames",

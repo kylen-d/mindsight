@@ -44,9 +44,12 @@ A few rules the format enforces:
   contiguous.
 - `references` is a list of reference images, each with a set of annotated boxes
   referencing those class IDs.
-- The **first** reference image initialises YOLOE's class embeddings. Additional
-  reference images are currently reserved for future use, so the first image is
-  the one that matters.
+- **Every annotated reference image is used** (v1.1): each one contributes to
+  the class embeddings, averaged per class across the references that annotate
+  it. Multiple references showing an object under different lighting, angles,
+  or distances make matching noticeably more robust -- the standard fix for the
+  resolution/contrast failure modes below. References without annotations are
+  skipped.
 
 You do not hand-edit this JSON -- the VP Builder writes it for you.
 

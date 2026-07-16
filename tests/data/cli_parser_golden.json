@@ -1297,6 +1297,22 @@
     },
     {
       "option_strings": [
+        "--rf-inout-gate"
+      ],
+      "dest": "rf_inout_gate",
+      "action": "_StoreAction",
+      "default": 0.0,
+      "type": "float",
+      "nargs": null,
+      "const": null,
+      "choices": null,
+      "required": false,
+      "metavar": "T",
+      "help": "Activate the Gaze-LLE checkpoint's in/out-of-frame head (when present) and gate the blend with it: heatmap accepts with an in-frame score below T are vetoed and blend trust is scaled by the score. 0 disables (default: 0.0).",
+      "group": "Ray Forming (Gazelle blend)"
+    },
+    {
+      "option_strings": [
         "--rf-gazelle-fp16"
       ],
       "dest": "rf_gazelle_fp16",

@@ -28,6 +28,42 @@ from mindsight.PostProcessing.RayForming.inference_scheduler import InferenceSch
 from mindsight.PostProcessing.RayForming.ray_config import resolve_min_call_gap
 
 
+def _resolve_gazelle_name(ns, ckpt_path: Path) -> str:
+    """Resolve the Gaze-LLE architecture variant to construct (v1.1 W3.1).
+
+    When in/out gating is requested (``rf_inout_gate > 0``), the user left
+    ``--rf-gazelle-name`` untyped, and the checkpoint actually carries the
+    in/out head parameters, upgrade to the ``_inout`` architecture -- same
+    weights, numerically identical heatmaps, plus the in/out output the
+    gate needs.  (The shipped default checkpoint IS upstream's ``_inout``
+    file; without the upgrade its head loads and is discarded.)  An
+    explicitly typed name always wins, and with the gate at 0 (default)
+    the 1.0.0 construction is reproduced exactly.
+    """
+    gz_name = getattr(ns, 'rf_gazelle_name', 'gazelle_dinov2_vitb14')
+    gate = getattr(ns, 'rf_inout_gate', 0.0) or 0.0
+    explicit = 'rf_gazelle_name' in getattr(ns, '_explicit_cli', frozenset())
+    if gate <= 0 or explicit or gz_name.endswith('_inout'):
+        return gz_name
+    try:
+        import torch
+        sd = torch.load(ckpt_path, map_location='cpu', weights_only=True)
+        if isinstance(sd, dict) and 'model_state_dict' in sd:
+            sd = sd['model_state_dict']
+        has_head = any(k.startswith('inout_head.') for k in sd.keys())
+    except Exception as exc:  # unreadable checkpoint: let the engine report it
+        print(f"Note: could not inspect checkpoint for in/out head ({exc})")
+        return gz_name
+    if has_head:
+        upgraded = gz_name + '_inout'
+        print(f"Gaze-LLE checkpoint carries an in/out head: constructing "
+              f"{upgraded} (in/out gate {gate:.2f})")
+        return upgraded
+    print("Note: --rf-inout-gate set but the checkpoint has no in/out head; "
+          "gating is inert (in/out score stays 1.0)")
+    return gz_name
+
+
 class GazelleProvider:
     """Manages a Gaze-LLE model + a fixation-aware inference scheduler."""
 
@@ -79,7 +115,7 @@ class GazelleProvider:
         if not ckpt_path.exists():
             raise FileNotFoundError(f"Gaze-LLE checkpoint not found: {ckpt_path}")
 
-        gz_name = getattr(ns, 'rf_gazelle_name', 'gazelle_dinov2_vitb14')
+        gz_name = _resolve_gazelle_name(ns, ckpt_path)
         engine = GazeEstimationGazelle(
             gz_name, ckpt_path,
             inout_threshold=0.5,       # engine-internal; scheduler gates separately

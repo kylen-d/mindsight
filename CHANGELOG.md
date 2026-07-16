@@ -35,6 +35,26 @@
   previously hidden inside `detect`).
 - The in-app About reader carries all ten guide pages and degrades
   unsupported syntax (collapsibles, diagrams, grid cards) gracefully.
+- **Every annotated visual-prompt reference image is now used**: per-class
+  embeddings are mean-pooled across references (1.0 silently used only the
+  first). Single-reference files behave exactly as before; the VP Builder's
+  Test runs the same pooled priming as real runs.
+- **`--rf-inout-gate T`** activates the Gaze-LLE checkpoint's
+  in/out-of-frame head on the blend path (auto-upgrading to the `_inout`
+  architecture when the checkpoint carries the head): heatmap accepts below
+  the gate are vetoed and blend trust scales with the in/out score.
+  Default 0.0 keeps 1.0.0 behavior exactly.
+- Performance opt-ins (all default-off): `--mgaze-reuse-eps` skips the
+  per-face gaze model on visually-unchanged face crops; `--rf-gazelle-fp16`
+  / `--rf-gazelle-compile` reach the blend path; `--face-conf` /
+  `--face-input-size` expose the face detector; weight hashes persist
+  across launches so preflight stops re-hashing unchanged weights
+  (`MINDSIGHT_NO_HASH_CACHE=1` opts out).
+- `yolo11n.pt` added to the weights manifest (candidate default pending
+  eval); `scripts/eval_annotate.py` + `scripts/eval_gaze.py` give accuracy
+  work ground-truth numbers.
+- Note: config hashes changed with the new schema fields, so pre-v1.1
+  resume ledgers report a config mismatch and reprocess once.
 
 ## [1.0.0] - 2026-07-12
 

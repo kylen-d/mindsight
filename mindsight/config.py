@@ -171,6 +171,7 @@ class RayFormingSection(BaseModel):
     # (CLI_ALIASES); both default to None in argparse so "unset" resolves to
     # this schema default of 30 via ray_config.resolve_min_call_gap.
     min_call_gap: int = Field(30, json_schema_extra={"cli": "--min-call-gap"})
+    rf_inout_gate: float = Field(0.0, json_schema_extra={"cli": "--rf-inout-gate"})
     dir_min_cutoff: float = Field(1.0, json_schema_extra={"cli": "--dir-min-cutoff"})
     dir_beta: float = Field(0.5, json_schema_extra={"cli": "--dir-beta"})
     len_min_cutoff: float = Field(1.0, json_schema_extra={"cli": "--len-min-cutoff"})
@@ -421,6 +422,7 @@ class PipelineConfig(BaseModel):
             fixation_v_threshold=g("fixation_v_threshold", 0.04),
             fixation_d_threshold=g("fixation_d_threshold", 0.15),
             min_call_gap=resolve_min_call_gap(ns),
+            rf_inout_gate=g("rf_inout_gate", 0.0),
             dir_min_cutoff=g("dir_min_cutoff", 1.0),
             dir_beta=g("dir_beta", 0.5),
             len_min_cutoff=g("len_min_cutoff", 1.0),
@@ -690,6 +692,10 @@ _UI: dict[str, dict | None] = {
     "rayforming.min_call_gap": {"group": "gazelle_blend",
                                 "label": "Min call gap (frames)",
                                 "min": 1, "max": 120},
+    "rayforming.rf_inout_gate": {"group": "gazelle_blend",
+                                 "label": "In/out gate",
+                                 "advanced": True, "min": 0.0, "max": 1.0,
+                                 "step": 0.05, "decimals": 2},
     "rayforming.dir_min_cutoff": {"group": "gazelle_blend",
                                   "label": "Direction min-cutoff (Hz)",
                                   "advanced": True, "min": 0.1, "max": 20.0,

@@ -167,6 +167,12 @@ _TAB_GAZE = SpecTab(
             SpecField("dir_min_cutoff", "Direction smoother floor (Hz)",
                       tier="A"),
             SpecField("len_min_cutoff", "Length smoother floor (Hz)", tier="A"),
+            SpecField("rf_inout_gate", "In/out-of-frame gate",
+                      "Use the Gaze-LLE in/out-of-frame estimate (when the "
+                      "checkpoint has the head): corrections with an "
+                      "in-frame score below this are rejected and blend "
+                      "trust scales with the score. 0 = off.",
+                      tier="A"),
             SpecField("rf_gazelle_fp16", "Half precision (fp16)",
                       "Run Gaze-LLE in half precision on CUDA/MPS. Faster per "
                       "correction; results differ slightly from full "

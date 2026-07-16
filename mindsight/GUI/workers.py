@@ -23,7 +23,7 @@ import threading
 from argparse import Namespace
 from pathlib import Path
 
-from .widgets import load_vp_file, vp_to_yoloe_args
+from .widgets import load_vp_file
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -425,21 +425,42 @@ class VPInferenceWorker(threading.Thread):
         # ── Determine mode ───────────────────────────────────────────────────
         if self.vp_file:
             from ultralytics.models.yolo.yoloe import YOLOEVPSegPredictor
+
+            from mindsight.ObjectDetection.object_detection import (
+                parse_vp_references,
+                prime_yoloe_multi_reference,
+            )
             vp_data = load_vp_file(self.vp_file)
-            refer_image, visual_prompts, class_names = vp_to_yoloe_args(vp_data)
-            self._log(f"VP classes: {class_names}  (ref: {Path(refer_image).name})")
+            references = parse_vp_references(vp_data)
+            vp_names = {c["id"]: c["name"]
+                        for c in vp_data.get("classes", [])}
+            class_names = list(vp_names.values())
+            n_total = len(vp_data.get("references", []))
+            self._log(f"VP classes: {class_names}  "
+                      f"({len(references)} of {n_total} reference image(s) "
+                      f"annotated and used)")
             classes_set = False
 
             def _predict(frame):
                 nonlocal classes_set
                 if not classes_set:
-                    r = model.predict(frame,
-                                      refer_image=refer_image,
-                                      visual_prompts=visual_prompts,
-                                      predictor=YOLOEVPSegPredictor,
-                                      conf=self.conf, verbose=False)
                     classes_set = True
-                    return r
+                    if len(references) > 1:
+                        # Same pooled priming the real pipeline uses (W3.7),
+                        # so Test behaves identically to a study run.
+                        prime_yoloe_multi_reference(
+                            model, references, YOLOEVPSegPredictor,
+                            class_names=vp_names, log=self._log)
+                        return model.predict(frame, conf=self.conf,
+                                             verbose=False)
+                    ref = references[0]
+                    return model.predict(
+                        frame,
+                        refer_image=ref["image"],
+                        visual_prompts={"bboxes": ref["bboxes"],
+                                        "cls": ref["cls"]},
+                        predictor=YOLOEVPSegPredictor,
+                        conf=self.conf, verbose=False)
                 return model.predict(frame, conf=self.conf, verbose=False)
 
         else:

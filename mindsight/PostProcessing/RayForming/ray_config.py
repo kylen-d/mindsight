@@ -56,6 +56,14 @@ class RayFormingConfig:
     # reach is the main pathology the blend fixes, so it persists on a
     # much longer timescale than the instantaneous fixation signal.
     len_hold_tau: float = 5.0                # seconds; length-hold time constant
+    # In/out-of-frame gating (v1.1 W3.1).  0.0 = fully inert (1.0.0 behavior:
+    # the non-inout architecture is constructed and inout never consulted).
+    # > 0 activates the checkpoint's in/out head when present: accepts are
+    # VETOED when the fresh inout score falls below the gate (protecting the
+    # belief map and length latch from off-screen garbage), and blend trust
+    # is attenuated by the cached inout score (PY fixation likelihood is
+    # blind to off-screen gaze; this is exactly the missing signal).
+    rf_inout_gate: float = 0.0
 
     # ── Object snap ─────────────────────────────────────────────────────────
     snap_mode: str = "off"              # "off" | "extend" | "snap"
@@ -151,6 +159,7 @@ class RayFormingConfig:
             len_min_cutoff=getattr(ns, 'len_min_cutoff', 1.0),
             len_beta=getattr(ns, 'len_beta', 0.3),
             len_hold_tau=getattr(ns, 'len_hold_tau', 5.0),
+            rf_inout_gate=getattr(ns, 'rf_inout_gate', 0.0),
             snap_mode=getattr(ns, 'adaptive_ray', 'off'),
             snap_dist=getattr(ns, 'snap_dist', 150.0),
             snap_bbox_scale=getattr(ns, 'snap_bbox_scale', 0.0),

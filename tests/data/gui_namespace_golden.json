@@ -114,6 +114,7 @@
   "reid_grace_seconds": 1.0,
   "rf_gazelle_model": null,
   "rf_gazelle_name": "gazelle_dinov2_vitb14",
+  "rf_inout_gate": 0.0,
   "save": null,
   "scanpath": false,
   "scanpath_dwell": 8,

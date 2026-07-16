@@ -426,9 +426,9 @@ def test_ui_metadata_does_not_move_canonical_hash():
     a config-hash mismatch and reprocess -- expected, noted in the changelog.
     """
     assert PipelineConfig().canonical_hash() == (
-        "9b3484de9155c6184048b13ba81d7e4107a57e625c09b7b6624084e04ba66838")
+        "d7c4597df793fa93bc1f5b1b31fdb0b6ad9f543b339b89499f1f0c8ab36d25cd")
     assert PipelineConfig(gaze={"ray_length": 1.5}).canonical_hash() == (
-        "226c9ace6f94cff595b694b087cf654ff28e569f227afcad9bebb9250eb0408e")
+        "f13736c82b6d3c3d6ef9caacbda7cb1b247eef6b8a9a680aca9663ba154570c6")
 
 
 def test_ui_mirror_rule_targets_are_hidden():

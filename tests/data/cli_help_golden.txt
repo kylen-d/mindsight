@@ -51,9 +51,10 @@ usage: MindSight -- Eye-Gaze Intersection Tracker [-h] [--source SOURCE] [--save
                                                   [--smooth-snap {off,objects,gaze_tips,all}]
                                                   [--smooth-snap-alpha F]
                                                   [--rf-gazelle-model PATH]
-                                                  [--rf-gazelle-name NAME] [--rf-gazelle-fp16]
-                                                  [--rf-gazelle-compile] [--rf-gazelle-interval N]
-                                                  [--min-call-gap N] [--fixation-v-threshold F]
+                                                  [--rf-gazelle-name NAME] [--rf-inout-gate T]
+                                                  [--rf-gazelle-fp16] [--rf-gazelle-compile]
+                                                  [--rf-gazelle-interval N] [--min-call-gap N]
+                                                  [--fixation-v-threshold F]
                                                   [--fixation-d-threshold F] [--dir-min-cutoff F]
                                                   [--dir-beta F] [--len-min-cutoff F]
                                                   [--len-beta F] [--len-hold-tau F]
@@ -298,6 +299,9 @@ Ray Forming (Gazelle blend):
                         with Gaze-LLE heatmaps.
   --rf-gazelle-name NAME
                         Gaze-LLE model variant for ray forming (default: gazelle_dinov2_vitb14).
+  --rf-inout-gate T     Activate the Gaze-LLE checkpoint's in/out-of-frame head (when present) and
+                        gate the blend with it: heatmap accepts with an in-frame score below T are
+                        vetoed and blend trust is scaled by the score. 0 disables (default: 0.0).
   --rf-gazelle-fp16     Run the blend-path Gaze-LLE model in half precision (CUDA/MPS only;
                         ignored on CPU). Faster per call; output is NOT byte-identical to fp32, so
                         keep it off for regression baselines.

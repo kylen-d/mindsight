@@ -145,6 +145,15 @@ def run_ray_forming(
             hm, age, inout, wanted = gazelle_provider.heatmap_cache.get(tid)
             trust = gazelle_provider.likelihood(tid)
             accept = bool(wanted and age == 0)
+            # In/out gating (v1.1 W3.1; inert at the 0.0 default).  Veto
+            # protects the belief map + length latch from off-screen
+            # garbage; trust attenuation fades direction blending, since
+            # PY fixation likelihood cannot see off-screen gaze.  The
+            # cached inout refreshes at every fire regardless of veto, so
+            # attenuation always tracks the newest estimate.
+            if cfg.rf_inout_gate > 0:
+                accept = accept and inout >= cfg.rf_inout_gate
+                trust = trust * inout
             endpoint = gazelle_blender.update(
                 track_id=tid,
                 pitch=pitch, yaw=yaw, gaze_conf=gc,

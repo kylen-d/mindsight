@@ -15,6 +15,18 @@
     },
     {
       "backend": "YOLO",
+      "filename": "yolo11n.pt",
+      "label": "YOLO detector (yolo11n)",
+      "url": "https://github.com/ultralytics/assets/releases/download/v8.3.0/yolo11n.pt",
+      "sha256": "0ebbc80d4a7680d14987a577cd21342b65ecfd94632bd9a8da63ae6417644ee1",
+      "size": 5613764,
+      "license": "AGPL-3.0",
+      "required": false,
+      "source": "github-release",
+      "note": "Newer-generation nano detector (COCO-80): higher accuracy than yolov8n at equal-or-better speed. Candidate v1.1 default pending eval."
+    },
+    {
+      "backend": "YOLO",
       "filename": "yolov8s.pt",
       "label": "YOLO detector (yolov8s)",
       "url": "https://github.com/ultralytics/assets/releases/download/v8.3.0/yolov8s.pt",
