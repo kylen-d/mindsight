@@ -65,6 +65,10 @@ def _run(video: Path, tag: str, passthrough: list[str]) -> None:
     env = dict(os.environ)
     env["HOME"] = tempfile.mkdtemp(prefix="mindsight-eval-home-")
     env["PYTHONPATH"] = str(REPO_ROOT)
+    # Fresh fake HOMEs keep app state isolated, but torch.hub would then
+    # re-download the DINOv2 backbone (~330MB+) EVERY run -- the Gaze-LLE
+    # checkpoints carry heads only.  Share one hub cache across eval runs.
+    env.setdefault("TORCH_HOME", str(EVAL_DIR / "torch_cache"))
     (run_dir / "command.txt").write_text(" ".join(cmd) + "\n")
     print("running:", " ".join(cmd))
     res = subprocess.run(cmd, cwd=REPO_ROOT, env=env)
