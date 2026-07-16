@@ -50,6 +50,28 @@ def test_empty_env_falls_back_to_default(monkeypatch):
     assert mod.PROJECT_ROOT == Path(mod.__file__).parent.parent
 
 
+def test_settings_dir_honors_relocation_seams(monkeypatch, tmp_path):
+    """v1.1 W0.7: the GUI settings dir follows MINDSIGHT_STATE_DIR, then
+    MINDSIGHT_HOME/.mindsight, then ~/.mindsight -- previously hard-keyed to
+    Path.home(), so relocated installs shared one ~/.mindsight."""
+    from mindsight.GUI.settings_manager import _settings_dir
+
+    monkeypatch.delenv("MINDSIGHT_STATE_DIR", raising=False)
+    monkeypatch.delenv("MINDSIGHT_HOME", raising=False)
+    assert _settings_dir() == Path.home() / ".mindsight"
+
+    monkeypatch.setenv("MINDSIGHT_HOME", str(tmp_path / "homeA"))
+    assert _settings_dir() == tmp_path / "homeA" / ".mindsight"
+
+    monkeypatch.setenv("MINDSIGHT_STATE_DIR", str(tmp_path / "state"))
+    assert _settings_dir() == tmp_path / "state"   # wins over MINDSIGHT_HOME
+
+    # Empty values are treated as unset.
+    monkeypatch.setenv("MINDSIGHT_STATE_DIR", "")
+    monkeypatch.setenv("MINDSIGHT_HOME", "")
+    assert _settings_dir() == Path.home() / ".mindsight"
+
+
 def teardown_module(module):
     """Restore the real (unset-env) module state for later tests in the run."""
     import os

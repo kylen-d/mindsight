@@ -39,7 +39,7 @@ from PyQt6.QtWidgets import (
 )
 
 from mindsight import weights
-from .workers import WeightsDownloadWorker
+from .workers import WeightsDownloadWorker, WeightsVerifyWorker
 
 # Row state -> (display text, colour).
 _STATE_STYLE = {
@@ -286,27 +286,20 @@ class ModelsTab(QWidget):
             self._status.setText("No present weights to verify.")
             return
         self._status.setText(f"Verifying {len(rows)} weight(s)...")
-        t = threading.Thread(target=self._verify_worker, args=(rows,), daemon=True)
-        self._threads.append(t)
-        t.start()
-        self._ensure_timer()
+        self._start_verify(rows)
 
     def _verify_row(self, row: int):
         info = self._row_info[row]
         if info["kind"] != "managed":
             return
         self._status.setText(f"Verifying {info['entry']['filename']}...")
-        t = threading.Thread(target=self._verify_worker, args=([row],), daemon=True)
-        self._threads.append(t)
-        t.start()
-        self._ensure_timer()
+        self._start_verify([row])
 
-    def _verify_worker(self, rows):
-        for row in rows:
-            info = self._row_info[row]
-            state = weights.verify(info["dest"], info["entry"])
-            self._q.put(("vstate", row, state))
-        self._q.put(("vdone", None, None))
+    def _start_verify(self, rows):
+        worker = WeightsVerifyWorker(rows, self._row_info, self._q)
+        self._threads.append(worker)
+        worker.start()
+        self._ensure_timer()
 
     # ── Download (async) ─────────────────────────────────────────────────────
 

@@ -2114,6 +2114,11 @@ class RunStudyTab(QWidget):
         self._update_go_buttons()
         self._log_box.clear()
         self._append_log("Starting run...")
+        planned = sorted(getattr(self, "_planned_ids", set()))
+        if planned:
+            self._append_log(
+                f"Note: {len(planned)} planned session(s) awaiting recording "
+                f"will be skipped: {', '.join(planned)}")
         self._poll_timer.start(100)
 
     def _stop(self):

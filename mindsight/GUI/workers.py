@@ -65,6 +65,32 @@ class WeightsDownloadWorker(threading.Thread):
                 self._q.put(("error", entry, str(exc)))
         self._q.put(("finished", None, None))
 
+
+class WeightsVerifyWorker(threading.Thread):
+    """Checksum-verify manifest weight rows off the GUI thread (Models tab).
+
+    Same worker pattern as :class:`WeightsDownloadWorker` (v1.1 W0.7 -- the
+    tab previously spun raw ``threading.Thread``s for this).  Messages match
+    the Models tab's queue pump:
+
+    * ``("vstate", row, state)`` -- one row verified.
+    * ``("vdone", None, None)``  -- the whole batch is done (always last).
+    """
+
+    def __init__(self, rows, row_info, out_q: queue.Queue):
+        super().__init__(daemon=True)
+        self._rows = list(rows)
+        self._row_info = row_info
+        self._q = out_q
+
+    def run(self):
+        from mindsight import weights
+        for row in self._rows:
+            info = self._row_info[row]
+            state = weights.verify(info["dest"], info["entry"])
+            self._q.put(("vstate", row, state))
+        self._q.put(("vdone", None, None))
+
 # ══════════════════════════════════════════════════════════════════════════════
 # Background worker: Gaze Tracker (namespace-driven, full CLI parity)
 # ══════════════════════════════════════════════════════════════════════════════

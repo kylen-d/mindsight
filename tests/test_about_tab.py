@@ -34,14 +34,52 @@ def test_render_mkdocs_markdown_admonitions_and_tabs():
     assert "plain line" in out                  # untouched content survives
 
 
+def test_render_mkdocs_markdown_hardened_constructs():
+    """v1.1 W0.6: collapsibles render like admonitions; mermaid fences and
+    grid-card div wrappers degrade instead of leaking raw syntax."""
+    from mindsight.GUI.about_tab import render_mkdocs_markdown
+    src = (
+        '??? tip "Fold me"\n'
+        "    hidden body\n"
+        "\n"
+        '```mermaid\n'
+        "graph TD; A-->B;\n"
+        "```\n"
+        '<div class="grid cards" markdown>\n'
+        "- a card entry\n"
+        "</div>\n"
+    )
+    out = render_mkdocs_markdown(src)
+    assert "> **Fold me**" in out
+    assert "> hidden body" in out
+    assert "mermaid" not in out and "A-->B" not in out
+    assert "documentation site" in out           # diagram pointer left behind
+    assert "<div" not in out and "</div>" not in out
+    assert "- a card entry" in out               # inner markdown survives
+
+
 def test_hero_lists_guide_cards_from_local_docs(qapp):
-    # Running from the checkout: docs/ exists, so the curated guides that are
-    # present must appear as cards (the tutorial at minimum).
-    from mindsight.GUI.about_tab import AboutTab, docs_root
+    # Running from the checkout: docs/ exists, so every curated guide must
+    # appear as a card (all GUIDES entries ship in the checkout).
+    from mindsight.GUI.about_tab import GUIDES, AboutTab, docs_root
     assert docs_root() is not None, "test must run from a checkout"
     tab = AboutTab()
-    assert tab._card_count >= 1
+    assert tab._card_count == len(GUIDES)
     assert tab._stack.currentIndex() == 0
+
+
+def test_all_guides_pages_exist_and_render_clean():
+    """Every GUIDES page exists in the checkout and down-converts without
+    leaking raw mkdocs syntax into the reader."""
+    from mindsight.GUI.about_tab import GUIDES, docs_root, render_mkdocs_markdown
+    root = docs_root()
+    assert root is not None
+    for _title, _sub, rel in GUIDES:
+        page = root / rel
+        assert page.is_file(), f"GUIDES names a missing page: {rel}"
+        out = render_mkdocs_markdown(page.read_text(encoding="utf-8"))
+        for token in ("\n!!!", "\n===", "\n???", "```mermaid", "<div"):
+            assert token not in out, f"raw mkdocs syntax leaks in {rel}: {token!r}"
 
 
 def test_open_doc_renders_and_switches_to_reader(qapp, tmp_path):

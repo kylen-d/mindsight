@@ -22,6 +22,7 @@ from pathlib import Path
 from PyQt6.QtCore import Qt, QUrl
 from PyQt6.QtGui import QDesktopServices, QFont, QPixmap, QTextDocument
 from PyQt6.QtWidgets import (
+    QGridLayout,
     QHBoxLayout,
     QLabel,
     QPushButton,
@@ -41,9 +42,30 @@ GUIDES = (
     ("Run a Study",
      "Start-to-finish walkthrough for research assistants",
      "studies/run-a-study-tutorial.md"),
+    ("Analyze Footage",
+     "Project, video-file, and camera runs",
+     "guides/analyze-footage.md"),
+    ("Projects & Sessions",
+     "Build projects; plan and record sessions",
+     "guides/projects-and-sessions.md"),
+    ("Visual Prompts",
+     "Teach the detector your study's objects",
+     "guides/visual-prompts.md"),
+    ("Crop & Adjust",
+     "Re-frame footage before analysis",
+     "guides/crop-and-adjust.md"),
+    ("Settings vs Tuning",
+     "The dialog governs runs; the tab is a sandbox",
+     "guides/inference-settings-and-tuning.md"),
     ("Inference Settings",
      "Every setting in the dialog, tab by tab",
      "reference/inference-settings.md"),
+    ("Where Things Live",
+     "Folders, outputs, and weights on disk",
+     "guides/where-things-live.md"),
+    ("About & Theming",
+     "This tab, the reader, and the theme control",
+     "guides/about-and-theming.md"),
     ("What's New",
      "Release changelog",
      "changelog.md"),
@@ -74,13 +96,18 @@ def render_mkdocs_markdown(text: str) -> str:
     mkdocs admonitions (``!!! note "Title"``) and content tabs
     (``=== "macOS"``).  Both become emphasized blocks their indented bodies
     dedent into, which reads correctly even if it loses the chrome.
+
+    Constructs Qt cannot render at all are degraded rather than shown raw:
+    ``???``/``???+`` collapsibles render like admonitions (always expanded),
+    ``mermaid`` fences become a pointer to the documentation site, and
+    grid-card ``<div>`` wrappers are stripped (their inner markdown stays).
     """
     out: list[str] = []
     lines = text.splitlines()
     i = 0
     while i < len(lines):
         line = lines[i]
-        adm = re.match(r'^!!!\s+\w+(?:\s+"([^"]*)")?\s*$', line)
+        adm = re.match(r'^(?:!!!|\?\?\?\+?)\s+\w+(?:\s+"([^"]*)")?\s*$', line)
         tab = re.match(r'^===\s+"([^"]*)"\s*$', line)
         if adm or tab:
             title = (adm or tab).group(1) or "Note"
@@ -96,6 +123,16 @@ def render_mkdocs_markdown(text: str) -> str:
                 else:
                     break
                 i += 1
+            continue
+        if re.match(r'^```\s*mermaid\s*$', line):
+            out.append("> **Diagram** -- rendered on the documentation site.")
+            i += 1
+            while i < len(lines) and not lines[i].startswith("```"):
+                i += 1
+            i += 1                      # skip the closing fence
+            continue
+        if re.match(r'^\s*</?div[^>]*>\s*$', line):
+            i += 1
             continue
         out.append(line)
         i += 1
@@ -151,6 +188,9 @@ class AboutTab(QWidget):
 
         cards = QHBoxLayout()
         cards.addStretch(1)
+        grid = QGridLayout()
+        grid.setHorizontalSpacing(10)
+        grid.setVerticalSpacing(10)
         root = docs_root()
         self._card_count = 0
         if root is not None:
@@ -166,8 +206,11 @@ class AboutTab(QWidget):
                 btn.setToolTip(f"Open '{title}' in the reader")
                 btn.clicked.connect(
                     lambda _c, p=path, t=title: self.open_doc(p, t))
-                cards.addWidget(btn)
+                row, col = divmod(self._card_count, 3)
+                grid.addWidget(btn, row, col)
                 self._card_count += 1
+        if self._card_count:
+            cards.addLayout(grid)
         if self._card_count == 0:
             # No checkout docs and no bundled copy (wheel built without the
             # resource-staging step): the hosted site is the reader.
@@ -246,13 +289,22 @@ class AboutTab(QWidget):
         if url.scheme() in ("http", "https", "mailto"):
             QDesktopServices.openUrl(url)
             return
+        # Same-page anchor (href="#section"): scroll, never leave the reader.
+        if not url.path() and url.hasFragment():
+            self._browser.scrollToAnchor(url.fragment())
+            return
         if url.isLocalFile():
             target = Path(url.toLocalFile())
             # Markdown links may carry an anchor; the path part decides.
             if target.suffix == ".md" and target.exists():
                 self.open_doc(target)
                 return
-            if target.exists():
+            # Anchor resolved against baseUrl lands on the doc's folder:
+            # still a same-page anchor, not something to hand to Finder.
+            if url.hasFragment() and target.is_dir():
+                self._browser.scrollToAnchor(url.fragment())
+                return
+            if target.is_file():
                 QDesktopServices.openUrl(url)
                 return
         # Unresolvable relative link (docs page not shipped locally).
