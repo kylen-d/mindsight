@@ -100,22 +100,28 @@ class GazeFollowingTracker(PhenomenaPlugin):
         }
 
     def summary_metrics(self, total_frames, fps, *, pid_map=None):
+        # Convention (v1.1 W1.2): participant = FOLLOWER, partner = LEADER --
+        # matching the episode rows (test-locked) and the house rule that
+        # "participant" is the actor exhibiting the phenomenon (the one doing
+        # the following).  Summary rows previously had the two swapped, so
+        # {stem}_summary.csv and {stem}_phenomena_events.csv disagreed on
+        # which column held the leader.
         pair_evts: dict = {}
         for ev in self.event_log:
-            k = (ev['leader'], ev['follower'])
+            k = (ev['follower'], ev['leader'])
             pair_evts.setdefault(k, []).append(ev['lag_frames'])
         rows = []
-        for (leader, follower), lags in sorted(pair_evts.items()):
-            lead = resolve_display_pid(leader, pid_map)
+        for (follower, leader), lags in sorted(pair_evts.items()):
             foll = resolve_display_pid(follower, pid_map)
+            lead = resolve_display_pid(leader, pid_map)
             mean_lag = float(np.mean(lags))
             sec = f"{mean_lag / fps:.3f}" if fps else ""
-            rows.append({"participant": lead, "partner": foll, "object": "",
+            rows.append({"participant": foll, "partner": lead, "object": "",
                          "metric": "event_count", "value": len(lags)})
-            rows.append({"participant": lead, "partner": foll, "object": "",
+            rows.append({"participant": foll, "partner": lead, "object": "",
                          "metric": "mean_lag_frames",
                          "value": f"{mean_lag:.1f}"})
-            rows.append({"participant": lead, "partner": foll, "object": "",
+            rows.append({"participant": foll, "partner": lead, "object": "",
                          "metric": "mean_lag_seconds", "value": sec})
         return rows
 

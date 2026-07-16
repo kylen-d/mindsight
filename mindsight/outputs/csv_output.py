@@ -69,9 +69,20 @@ def _stream_base(summary_path: Path) -> "tuple[Path, str]":
     return summary_path.parent, base
 
 
+GAZE_STREAM_HEADER = [
+    "frame", "t_seconds", "face_idx", "participant_label",
+    "gaze_conf", "gaze_pitch", "gaze_yaw",
+    "origin_x", "origin_y", "ray_end_x", "ray_end_y",
+    "ray_snapped", "ray_extended",
+    "trust", "accepted_inference", "inout_score",
+    "depth_at_end", "hit_objects",
+]
+
+
 def write_summary_tables(path, total_frames, fps, look_counts,
                          all_trackers=None, pid_map=None,
-                         video_name=None, conditions=''):
+                         video_name=None, conditions='',
+                         gaze_stream=None):
     """Write the tidy summary file set rooted at *path*.
 
     Parameters
@@ -84,6 +95,8 @@ def write_summary_tables(path, total_frames, fps, look_counts,
     all_trackers  : list of PhenomenaPlugin instances (built-in + external).
     video_name    : source video stem (str) or None for single-video mode.
     conditions    : pipe-delimited condition tags (str) or empty string.
+    gaze_stream   : optional list of per-frame-per-face gaze rows (v1.1 W1.4,
+                    GAZE_STREAM_HEADER shape) -> ``{base}_gaze.csv``.
     """
     vname = video_name if video_name is not None else ""
     conds = conditions or ""
@@ -129,6 +142,16 @@ def write_summary_tables(path, total_frames, fps, look_counts,
         for r in scalar_rows:
             writer.writerow(prefix + r)
     print(f"Summary → {summary_path}")
+
+    # ── Per-frame gaze stream (v1.1 W1.4) ────────────────────────────────────
+    if gaze_stream:
+        out_path = parent / f"{base}_gaze.csv"
+        with open(out_path, "w", newline="") as fh:
+            writer = csv.writer(fh)
+            writer.writerow(["video_name", "conditions"] + GAZE_STREAM_HEADER)
+            for r in gaze_stream:
+                writer.writerow(prefix + list(r))
+        print(f"  Stream → {out_path}")
 
     # ── Stream tables ─────────────────────────────────────────────────────────
     for tracker in (all_trackers or []):

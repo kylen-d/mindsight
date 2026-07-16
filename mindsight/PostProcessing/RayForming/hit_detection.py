@@ -13,7 +13,8 @@ from mindsight.utils.geometry import ray_hits_box, ray_hits_cone, sample_depth_p
 
 def compute_ray_intersections(persons_gaze, face_confs, face_track_ids,
                               face_objs, objects, gaze_cfg,
-                              depth_map=None, gaze_sample_radius=2):
+                              depth_map=None, gaze_sample_radius=2,
+                              ray_snapped=None, ray_extended=None):
     """Compute ray-bbox (or cone) intersections with confidence gating.
 
     Parameters
@@ -24,11 +25,17 @@ def compute_ray_intersections(persons_gaze, face_confs, face_track_ids,
     face_objs       : list[Detection] face-as-object targets
     objects         : non-person detection list
     gaze_cfg        : config with hit_conf_gate, detect_extend, gaze_cone_angle, etc.
+    ray_snapped     : optional list[bool] per face (object-snap applied)
+    ray_extended    : optional list[bool] per face (ray reach extended)
 
     Returns
     -------
     all_targets : list[dict]  objects + face_objs
-    hits        : set of (face_list_idx, target_idx) pairs
+    hits        : set of (face_track_id, target_idx) pairs.  Keyed by the
+                  stable track ID since v1.1 (W1.1) so every consumer shares
+                  one identity convention with ``hit_events`` -- previously
+                  list-position, which churned when face order changed and
+                  attached pid_map labels to the wrong people downstream.
     hit_events  : list[dict] per-hit records with face_idx = track ID
     """
     hit_conf_gate   = getattr(gaze_cfg, 'hit_conf_gate', 0.0)
@@ -74,12 +81,21 @@ def compute_ray_intersections(persons_gaze, face_confs, face_track_ids,
                 cy = np.clip(re_arr[1], obj['y1'], obj['y2'])
                 hit = (cx - re_arr[0])**2 + (cy - re_arr[1])**2 <= tip_radius**2
             if hit:
-                hits.add((fi, oi))
+                hits.add((face_track_ids[fi] if face_track_ids else fi, oi))
                 ev = dict(
                     face_idx=face_track_ids[fi] if face_track_ids else fi,
                     object=obj['class_name'],
                     object_conf=obj['conf'],
-                    bbox=(obj['x1'], obj['y1'], obj['x2'], obj['y2']))
+                    bbox=(obj['x1'], obj['y1'], obj['x2'], obj['y2']),
+                    gaze_conf=(face_confs[fi]
+                               if fi < len(face_confs) else None),
+                    gaze_pitch=angles[0] if angles else None,
+                    gaze_yaw=angles[1] if angles else None,
+                    ray_end=(float(re_arr[0]), float(re_arr[1])),
+                    ray_snapped=bool(ray_snapped[fi]) if (
+                        ray_snapped and fi < len(ray_snapped)) else False,
+                    ray_extended=bool(ray_extended[fi]) if (
+                        ray_extended and fi < len(ray_extended)) else False)
                 if depth_map is not None:
                     ev['depth_median'] = obj.get('depth_median', 0.5)
                     ev['depth_at_gaze'] = sample_depth_patch(

@@ -46,7 +46,9 @@ def extract_mid_frame(source) -> np.ndarray | None:
 
     Returns
     -------
-    H×W×3 BGR frame, or None if the video cannot be opened / seeked.
+    H×W×3 BGR frame, or None if the video cannot be opened at all.  When
+    the mid-frame seek fails (corrupt index, still-recording file), falls
+    back to the first readable frame so heatmaps still render (v1.1 W1.5).
     """
     cap = cv2.VideoCapture(source if isinstance(source, int) else str(source))
     if not cap.isOpened():
@@ -55,6 +57,11 @@ def extract_mid_frame(source) -> np.ndarray | None:
     if total > 0:
         cap.set(cv2.CAP_PROP_POS_FRAMES, max(0, total // 2))
     ret, frame = cap.read()
+    if not ret and total > 0:
+        print("Warning: mid-frame seek failed for the heatmap background; "
+              "falling back to the first readable frame.")
+        cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
+        ret, frame = cap.read()
     cap.release()
     return frame if ret else None
 

@@ -421,8 +421,9 @@ class PhenomenaPlugin(ABC):
         face_track_ids : list[int]  stable Re-ID track IDs (same order as
                          persons_gaze). Falls back to list-position indices when
                          the smoother is disabled.
-        hits           : set of (face_list_idx, obj_list_idx) pairs — pre-computed
-                         gaze-object intersections.
+        hits           : set of (face_track_id, obj_list_idx) pairs — pre-computed
+                         gaze-object intersections.  Face side is the stable
+                         track ID (same convention as hit_events) since v1.1.
         aux_frames     : dict[(pid, stream_label, video_type), ndarray | None]
                          — per-participant auxiliary video frames keyed by the
                          3-tuple (see mindsight/io/sources.py), e.g. eye-tracking

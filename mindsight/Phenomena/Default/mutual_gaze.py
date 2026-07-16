@@ -32,12 +32,17 @@ class MutualGazeTracker(PhenomenaPlugin):
     def update(self, **kwargs):
         persons_gaze = kwargs.get('persons_gaze', [])
         face_bboxes = kwargs.get('face_bboxes', [])
+        face_track_ids = kwargs.get('face_track_ids')
         detect_extend = kwargs.get('detect_extend', 0.0)
         scope = kwargs.get('detect_extend_scope', 'objects')
         use_extend = detect_extend > 0 and scope in ('phenomena', 'both')
 
         mutual = set()
         n = min(len(persons_gaze), len(face_bboxes))
+        # Pair identity uses stable track IDs (v1.1 W1.1); geometry below
+        # stays positional.  Fallback to positions when the smoother is off.
+        tids = (face_track_ids if face_track_ids is not None
+                else list(range(n)))
 
         # Pre-compute ray endpoints once per person (O(N) instead of O(N^2))
         endpoints = []
@@ -56,8 +61,11 @@ class MutualGazeTracker(PhenomenaPlugin):
                 x1j, y1j, x2j, y2j = face_bboxes[j]
                 if (ray_hits_box(origins[i], endpoints[i], x1j, y1j, x2j, y2j) and
                         ray_hits_box(origins[j], endpoints[j], x1i, y1i, x2i, y2i)):
-                    mutual.add((i, j))
-                    self.pair_counts[(i, j)] = self.pair_counts.get((i, j), 0) + 1
+                    ti = tids[i] if i < len(tids) else i
+                    tj = tids[j] if j < len(tids) else j
+                    pair = (ti, tj) if ti <= tj else (tj, ti)
+                    mutual.add(pair)
+                    self.pair_counts[pair] = self.pair_counts.get(pair, 0) + 1
 
         # Episode bookkeeping: open pairs that just became mutual, close pairs
         # that just stopped. pair_counts accumulation above is unchanged.

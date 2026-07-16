@@ -104,7 +104,12 @@ def open_event_log(output_cfg):
     header = ["frame","t_seconds","face_idx","object","object_conf",
               "bbox_x1","bbox_y1","bbox_x2","bbox_y2",
               "joint_attention","joint_attention_confirmed",
-              "participant_label"]
+              "participant_label",
+              # v1.1 W1.3 additive columns -- appended so positional
+              # consumers of the 1.0 columns keep working.
+              "gaze_conf","gaze_pitch","gaze_yaw",
+              "ray_end_x","ray_end_y","depth_at_hit",
+              "ray_snapped","ray_extended"]
     if output_cfg.video_name is not None:
         header = ["video_name", "conditions"] + header
     log_csv.writerow(header)

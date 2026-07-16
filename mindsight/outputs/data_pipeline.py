@@ -19,6 +19,10 @@ Usage
     finalize_run(ctx)
 """
 
+import math
+
+from mindsight.utils.geometry import sample_depth_patch
+
 from mindsight.outputs.chart_output import generate_run_charts, resolve_chart_path
 from mindsight.outputs.csv_output import resolve_summary_path, write_summary_tables
 from mindsight.outputs.dashboard_output import apply_face_anonymization
@@ -59,12 +63,26 @@ def collect_frame_data(ctx, *, log_csv, frame_no: int,
         t_seconds = f"{frame_no / fps:.3f}" if fps else ""
         for ev in hit_events:
             b = ev['bbox']
+            gaze_conf = ev.get('gaze_conf')
+            pitch = ev.get('gaze_pitch')
+            yaw = ev.get('gaze_yaw')
+            ray_end = ev.get('ray_end')
+            depth_at_hit = ev.get('depth_at_gaze')
             row = [frame_no, t_seconds, ev['face_idx'], ev['object'],
                    f"{ev['object_conf']:.3f}",
                    b[0], b[1], b[2], b[3],
                    1 if is_joint else 0,
                    1 if is_confirmed else 0,
-                   resolve_display_pid(ev['face_idx'], pid_map)]
+                   resolve_display_pid(ev['face_idx'], pid_map),
+                   # v1.1 W1.3 additive columns (angles in degrees).
+                   f"{gaze_conf:.3f}" if gaze_conf is not None else "",
+                   f"{math.degrees(pitch):.2f}" if pitch is not None else "",
+                   f"{math.degrees(yaw):.2f}" if yaw is not None else "",
+                   f"{ray_end[0]:.1f}" if ray_end is not None else "",
+                   f"{ray_end[1]:.1f}" if ray_end is not None else "",
+                   f"{depth_at_hit:.4f}" if depth_at_hit is not None else "",
+                   1 if ev.get('ray_snapped') else 0,
+                   1 if ev.get('ray_extended') else 0]
             if video_name is not None:
                 row = [video_name, conditions] + row
             log_csv.writerow(row)
@@ -73,6 +91,47 @@ def collect_frame_data(ctx, *, log_csv, frame_no: int,
         for tid, (_, ray_end, _) in zip(face_track_ids, persons_gaze):
             heatmap_gaze.setdefault(tid, []).append(
                 (float(ray_end[0]), float(ray_end[1])))
+
+    # Per-frame gaze stream (v1.1 W1.4): one row per face per frame, hits or
+    # not -- feeds {stem}_gaze.csv and the eval harness.  Accumulates into
+    # the run-level list seeded in run_ctx_base; written by finalize_run.
+    gaze_rows = ctx.get('gaze_stream_rows')
+    if gaze_rows is not None and persons_gaze:
+        pid_map = ctx.get('pid_map')
+        fps = ctx.get('video_fps') or 0.0
+        t_seconds = f"{frame_no / fps:.3f}" if fps else ""
+        face_confs = ctx.get('face_confs', [])
+        blend_info = ctx.get('blend_info', [])
+        ray_snapped = ctx.get('ray_snapped', [])
+        ray_extended = ctx.get('ray_extended', [])
+        depth_map = ctx.get('depth_map')
+        hit_names: dict = {}
+        for ev in hit_events:
+            hit_names.setdefault(ev['face_idx'], set()).add(ev['object'])
+        for pos, (origin, ray_end, angles) in enumerate(persons_gaze):
+            tid = (face_track_ids[pos]
+                   if pos < len(face_track_ids) else pos)
+            gc = face_confs[pos] if pos < len(face_confs) else None
+            blend = blend_info[pos] if pos < len(blend_info) else None
+            depth_at_end = (
+                sample_depth_patch(depth_map, ray_end[0], ray_end[1])
+                if depth_map is not None else None)
+            gaze_rows.append([
+                frame_no, t_seconds, tid,
+                resolve_display_pid(tid, pid_map),
+                f"{gc:.3f}" if gc is not None else "",
+                f"{math.degrees(angles[0]):.2f}" if angles else "",
+                f"{math.degrees(angles[1]):.2f}" if angles else "",
+                f"{float(origin[0]):.1f}", f"{float(origin[1]):.1f}",
+                f"{float(ray_end[0]):.1f}", f"{float(ray_end[1]):.1f}",
+                1 if (pos < len(ray_snapped) and ray_snapped[pos]) else 0,
+                1 if (pos < len(ray_extended) and ray_extended[pos]) else 0,
+                f"{blend['trust']:.3f}" if blend else "",
+                (1 if blend['accepted'] else 0) if blend else "",
+                f"{blend['inout']:.3f}" if blend else "",
+                f"{depth_at_end:.4f}" if depth_at_end is not None else "",
+                ";".join(sorted(hit_names.get(tid, ()))),
+            ])
 
     # DataCollection plugin per-frame hook (dead until v1.1: instances were
     # built and seeded into ctx but on_frame had no call site anywhere).
@@ -128,7 +187,8 @@ def finalize_run(ctx, **kwargs) -> None:
             resolved_summary, total_frames, fps, look_counts,
             all_trackers=all_trackers, pid_map=pid_map,
             video_name=ctx.get('video_name'),
-            conditions=ctx.get('conditions', ''))
+            conditions=ctx.get('conditions', ''),
+            gaze_stream=ctx.get('gaze_stream_rows'))
 
     resolved_heatmap = resolve_heatmap_path(heatmap_path, source)
     if resolved_heatmap and heatmap_gaze:

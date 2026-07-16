@@ -82,9 +82,20 @@ class GazeLeadershipTracker(PhenomenaPlugin):
             tip_radius = kwargs.get('tip_radius', 50)
             proximity_thr = tip_radius * 2.0
 
+            # Identity uses stable track IDs (v1.1 W1.1) so tip credits key
+            # lead_counts the same way the object-mode hit_events path does;
+            # persons_gaze / tip_convergences face sets remain positional.
+            face_track_ids = kwargs.get('face_track_ids')
+            tids = (face_track_ids if face_track_ids is not None
+                    else list(range(len(persons_gaze))))
+
+            def _tid(pos):
+                return tids[pos] if pos < len(tids) else pos
+
             # 1. Update tip position buffer for each face
             for fi, (_, ray_end, _) in enumerate(persons_gaze):
-                buf = self._tip_buffer.setdefault(fi, deque(maxlen=self._tip_lag))
+                buf = self._tip_buffer.setdefault(_tid(fi),
+                                                  deque(maxlen=self._tip_lag))
                 buf.append((frame_no, np.asarray(ray_end, float)))
 
             # 2. Detect NEW convergence clusters (not present last frame)
@@ -98,10 +109,10 @@ class GazeLeadershipTracker(PhenomenaPlugin):
                 # 3. Find who arrived near the centroid earliest
                 earliest_frame: dict = {}
                 for fi in faces:
-                    buf = self._tip_buffer.get(fi, deque())
+                    buf = self._tip_buffer.get(_tid(fi), deque())
                     for fn, tip_pos in buf:
                         if np.linalg.norm(tip_pos - centroid) < proximity_thr:
-                            earliest_frame[fi] = fn
+                            earliest_frame[_tid(fi)] = fn
                             break  # first (oldest) match in the buffer
 
                 if len(earliest_frame) >= 2:

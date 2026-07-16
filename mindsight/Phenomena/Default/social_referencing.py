@@ -36,6 +36,7 @@ class SocialReferenceTracker(PhenomenaPlugin):
         frame_no = kwargs['frame_no']
         persons_gaze = kwargs.get('persons_gaze', [])
         face_bboxes = kwargs.get('face_bboxes', [])
+        face_track_ids = kwargs.get('face_track_ids')
         dets = kwargs.get('dets', [])
         hits_set = kwargs.get('hits') or set()
 
@@ -44,6 +45,13 @@ class SocialReferenceTracker(PhenomenaPlugin):
         use_extend = detect_extend > 0 and scope in ('phenomena', 'both')
 
         n = min(len(persons_gaze), len(face_bboxes))
+        # Identity uses stable track IDs (v1.1 W1.1) -- the state machine
+        # survives face-order churn; geometry below stays positional.
+        tids = (face_track_ids if face_track_ids is not None
+                else list(range(len(persons_gaze))))
+
+        def _tid(pos):
+            return tids[pos] if pos < len(tids) else pos
 
         # Pre-compute ray endpoints once per person (O(N) instead of O(N^2))
         origins = []
@@ -56,19 +64,20 @@ class SocialReferenceTracker(PhenomenaPlugin):
             else:
                 endpoints.append(rei)
 
-        face_lookers: dict = {}   # viewer_fi -> set of looked-at face indices
+        face_lookers: dict = {}   # viewer tid -> set of looked-at face tids
         for i in range(n):
             for j in range(n):
                 if i == j:
                     continue
                 x1, y1, x2, y2 = face_bboxes[j]
                 if ray_hits_box(origins[i], endpoints[i], x1, y1, x2, y2):
-                    face_lookers.setdefault(i, set()).add(j)
+                    face_lookers.setdefault(_tid(i), set()).add(_tid(j))
 
-        obj_lookers = {fi for fi, _ in hits_set}
+        obj_lookers = {fi for fi, _ in hits_set}   # hits are tid-keyed (W1.1)
         events = []
 
-        for fi in range(len(persons_gaze)):
+        for pos in range(len(persons_gaze)):
+            fi = _tid(pos)
             looking_at_face = fi in face_lookers
             looking_at_obj  = fi in obj_lookers
             state = self._state.get(fi)

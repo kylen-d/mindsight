@@ -48,6 +48,9 @@ class RayFormingResult:
     face_objs: list            # [Detection, ...]
     ray_snapped: list          # [bool, ...]
     ray_extended: list         # [bool, ...]
+    blend_info: list = None    # per-face blend telemetry dicts or None
+                               # ({'trust','accepted','inout'}) -- v1.1 W1.4,
+                               # feeds the {stem}_gaze.csv stream
 
 
 def run_ray_forming(
@@ -94,6 +97,7 @@ def run_ray_forming(
     face_track_ids = []
     ray_snapped = []
     ray_extended = []
+    blend_info = []
 
     for rg in raw_gazes:
         c = np.asarray(rg.origin, float)
@@ -115,6 +119,7 @@ def run_ray_forming(
             face_track_ids.append(tid)
             ray_snapped.append(False)
             ray_extended.append(False)
+            blend_info.append(None)   # dead zone: blend never consulted
             # Update snap temporal state so it doesn't hold stale targets
             if object_snap is not None and object_snap.temporal is not None:
                 object_snap.temporal.update(tid, None, False, gaze_conf=gc)
@@ -133,6 +138,7 @@ def run_ray_forming(
         # endpoint.  observe_face() feeds THIS frame's PY signal into the
         # scheduler for the NEXT frame's fire decision (one-frame lag,
         # documented in gazelle_provider.py).
+        face_blend = None
         if gazelle_provider is not None and gazelle_blender is not None:
             gazelle_provider.observe_face(
                 track_id=tid, py_dir=d, py_conf=gc)
@@ -147,6 +153,7 @@ def run_ray_forming(
                 gazelle_hm=(hm if accept else None),
                 accept_heatmap=accept, trust=trust, dt=dt)
             fb = endpoint
+            face_blend = {'trust': trust, 'accepted': accept, 'inout': inout}
 
         # ── 4. Depth-adjusted ray length ──────────────────────────────────
         if cfg.depth_ray_length and depth_map is not None:
@@ -183,6 +190,7 @@ def run_ray_forming(
         face_track_ids.append(tid)
         ray_snapped.append(snap)
         ray_extended.append(extended)
+        blend_info.append(face_blend)
 
     return RayFormingResult(
         persons_gaze=persons_gaze,
@@ -192,4 +200,5 @@ def run_ray_forming(
         face_objs=face_objs,
         ray_snapped=ray_snapped,
         ray_extended=ray_extended,
+        blend_info=blend_info,
     )

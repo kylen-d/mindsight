@@ -473,6 +473,7 @@ def _run_video(source, *, yolo, face_det, gaze_eng,
     _prev_fps                        = 0.0
     look_counts: dict                = {}
     heatmap_gaze: dict               = {}
+    gaze_stream_rows: list           = []
 
     # Persistent run-level state carried across frames via FrameContext.
     # Each frame gets a fresh FrameContext seeded with these base values.
@@ -482,6 +483,7 @@ def _run_video(source, *, yolo, face_det, gaze_eng,
         smooth_snap_tracker=smooth_snap,
         all_trackers=all_trackers,
         look_counts=look_counts,
+        gaze_stream_rows=gaze_stream_rows,
         heatmap_path=output_cfg.heatmap_path,
         heatmap_gaze=heatmap_gaze,
         charts_path=output_cfg.charts_path,

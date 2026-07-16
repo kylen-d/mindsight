@@ -263,9 +263,11 @@ def run_gaze_step(ctx, *, face_det, gaze_eng, gaze_cfg: GazeConfig, **kwargs):
         face_objs = result.face_objs
         ray_snapped = result.ray_snapped
         ray_extended = result.ray_extended
+        blend_info = result.blend_info or []
 
     # ── Path B: Custom plugin pipeline ──────────────────────────────────────
     elif has_plugin_pipeline:
+        blend_info = []
         (persons_gaze, face_confs, face_bboxes, face_track_ids,
          face_objs, ray_snapped, ray_extended) = gaze_eng.run_pipeline(
             frame=frame, faces=faces, objects=objects, gaze_cfg=gaze_cfg,
@@ -276,6 +278,7 @@ def run_gaze_step(ctx, *, face_det, gaze_eng, gaze_cfg: GazeConfig, **kwargs):
 
     # ── Path C: Default scene-level pipeline (standalone Gazelle) ───────────
     else:
+        blend_info = []
         (persons_gaze, face_confs, face_bboxes, face_track_ids,
          face_objs, ray_snapped, ray_extended) = _default_scene_pipeline(
             frame, faces, gaze_eng,
@@ -296,7 +299,8 @@ def run_gaze_step(ctx, *, face_det, gaze_eng, gaze_cfg: GazeConfig, **kwargs):
     _hit_cfg = ray_cfg if ray_cfg is not None else gaze_cfg
     all_targets, hits, hit_events = compute_ray_intersections(
         persons_gaze, face_confs, face_track_ids, face_objs, objects, _hit_cfg,
-        depth_map=depth_map, gaze_sample_radius=_sample_r)
+        depth_map=depth_map, gaze_sample_radius=_sample_r,
+        ray_snapped=ray_snapped, ray_extended=ray_extended)
 
     ctx['persons_gaze'] = persons_gaze
     ctx['face_confs'] = face_confs
@@ -308,3 +312,4 @@ def run_gaze_step(ctx, *, face_det, gaze_eng, gaze_cfg: GazeConfig, **kwargs):
     ctx['lock_info'] = lock_info
     ctx['ray_snapped'] = ray_snapped
     ctx['ray_extended'] = ray_extended
+    ctx['blend_info'] = blend_info
