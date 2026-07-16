@@ -1,5 +1,41 @@
 # Changelog
 
+## [Unreleased]
+
+### Fixed
+- **Face identity is now the stable track ID in every output.** The internal
+  `hits` set and the mutual-gaze / social-referencing / gaze-leadership(tip)
+  trackers previously used list-position indices, so when face order changed
+  mid-video, "P0" could mean different people in different files and custom
+  participant labels could attach to the wrong faces. All outputs now share
+  the track-ID convention `{stem}_Events.csv` always used.
+- **`gaze_following` summary rows had the episode stream's columns
+  swapped.** Both now use participant = follower, partner = leader.
+- The Gaze-LLE in/out-of-frame head is now read on the blend path (it was
+  loaded but discarded); gating lands with the v1.1 accuracy work.
+- DataCollection plugins' `on_frame` / `on_run_complete` lifecycle hooks are
+  now actually invoked, and their CLI flags register with the parser.
+- Bare `--anonymize` now means `blur` instead of crashing; stale `--summary`
+  help text corrected; heatmap backgrounds fall back to the first readable
+  frame when the mid-frame seek fails; the GUI settings dir honors
+  `MINDSIGHT_STATE_DIR` / `MINDSIGHT_HOME` so relocated installs stop sharing
+  one `~/.mindsight`.
+
+### Added
+- **New per-frame gaze stream `{stem}_gaze.csv`** (and `Global_gaze.csv`):
+  one row per face per frame, hits or not -- gaze angles, ray origin and
+  endpoint, snap flags, blend telemetry (trust / accepted inference /
+  in-out score), depth at endpoint, and objects hit.
+- **8 additive `{stem}_Events.csv` columns** after `participant_label`:
+  `gaze_conf`, `gaze_pitch`, `gaze_yaw` (degrees), `ray_end_x`, `ray_end_y`,
+  `depth_at_hit`, `ray_snapped`, `ray_extended`. The original columns are
+  unchanged.
+- `--profile` now reports `detect` / `depth` / `gaze` / `gazelle` /
+  `phenomena` / `draw` / `dashboard` separately (gaze and Gaze-LLE were
+  previously hidden inside `detect`).
+- The in-app About reader carries all ten guide pages and degrades
+  unsupported syntax (collapsibles, diagrams, grid cards) gracefully.
+
 ## [1.0.0] - 2026-07-12
 
 First stable release. Everything between the v0.2.0 beta and here was a
