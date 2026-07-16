@@ -31,6 +31,23 @@ else:
 # Recognized still-image extensions — used to distinguish image vs video input.
 IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".bmp", ".tiff", ".tif", ".webp"}
 
+
+def state_dir() -> Path:
+    """Per-user state dir (settings, caches), resolved at call time.
+
+    ``$MINDSIGHT_STATE_DIR`` when set, else ``$MINDSIGHT_HOME/.mindsight``
+    for relocated installs, else ``~/.mindsight``.  Shared by the GUI
+    settings manager and the persistent weight-hash cache (v1.1 W0.7/W2.5)
+    so two installs with different homes never share state.
+    """
+    state = os.environ.get("MINDSIGHT_STATE_DIR")
+    if state:
+        return Path(state)
+    home = os.environ.get("MINDSIGHT_HOME")
+    if home:
+        return Path(home) / ".mindsight"
+    return Path.home() / ".mindsight"
+
 # Default root for all run-time outputs (video, CSV, heatmaps).
 OUTPUTS_ROOT = PROJECT_ROOT / "Outputs"
 

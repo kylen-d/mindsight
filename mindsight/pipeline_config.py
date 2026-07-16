@@ -197,6 +197,7 @@ class TrackerConfig:
     snap_engage_frames: int = 0
     reid_grace_seconds: float = 1.0
     reid_max_dist: int = 200
+    mgaze_reuse_eps: float = 0.0   # 0 = off; mean-abs thumb diff gate (W2.2)
 
     @classmethod
     def from_namespace(cls, ns) -> TrackerConfig:
@@ -211,6 +212,7 @@ class TrackerConfig:
             snap_engage_frames=getattr(ns, 'snap_engage_frames', 0),
             reid_grace_seconds=ns.reid_grace_seconds,
             reid_max_dist=getattr(ns, 'reid_max_dist', 200),
+            mgaze_reuse_eps=getattr(ns, 'mgaze_reuse_eps', 0.0),
         )
 
 

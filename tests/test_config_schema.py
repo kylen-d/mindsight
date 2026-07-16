@@ -418,12 +418,17 @@ def test_ui_metadata_completeness():
 
 def test_ui_metadata_does_not_move_canonical_hash():
     """Attaching ui metadata is inert to canonical_hash (hashes VALUES, not
-    json_schema_extra).  Pins the default + a perturbed config against hashes
-    captured on HEAD before the tagging pass landed."""
+    json_schema_extra).  Pins the default + a perturbed config.
+
+    Re-pinned 2026-07-16 (v1.1 W2.2): adding the tracker.mgaze_reuse_eps
+    schema FIELD legitimately moves the hash (it hashes values, and there is
+    one more value).  Consequence: resume ledgers written before v1.1 report
+    a config-hash mismatch and reprocess -- expected, noted in the changelog.
+    """
     assert PipelineConfig().canonical_hash() == (
-        "ca98e94aac8ecc787a862b4a4560618bb212f668081bb948b9399192ee4829d6")
+        "9b3484de9155c6184048b13ba81d7e4107a57e625c09b7b6624084e04ba66838")
     assert PipelineConfig(gaze={"ray_length": 1.5}).canonical_hash() == (
-        "4432ebb01e05167f1c402b075e251d7debc36d1b5715b3468b9fbf52a520d03f")
+        "226c9ace6f94cff595b694b087cf654ff28e569f227afcad9bebb9250eb0408e")
 
 
 def test_ui_mirror_rule_targets_are_hidden():

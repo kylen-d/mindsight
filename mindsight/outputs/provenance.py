@@ -98,15 +98,63 @@ _WEIGHT_TABLE = [
 _SHA_CACHE: dict = {}
 _sha_compute_count = 0  # test hook: number of actual (uncached) hashings
 
+# v1.1 W2.5: the in-process cache is also persisted to the per-user state dir
+# so the FIRST preflight of an app launch stops re-hashing hundreds of MB of
+# unchanged weights (the cold-start GUI freeze).  (path, size, mtime_ns) keys
+# make staleness a non-issue; the Models tab's explicit Verify always does a
+# full re-hash via weights.verify, independent of this cache.  Set
+# MINDSIGHT_NO_HASH_CACHE=1 to disable persistence.
+_SHA_CACHE_FILENAME = "weights_sha_cache.json"
+_sha_disk_loaded = False
+
+
+def _sha_cache_path() -> "Path | None":
+    if os.environ.get("MINDSIGHT_NO_HASH_CACHE"):
+        return None
+    from mindsight.constants import state_dir
+    return state_dir() / _SHA_CACHE_FILENAME
+
+
+def _load_sha_disk_cache() -> None:
+    global _sha_disk_loaded
+    if _sha_disk_loaded:
+        return
+    _sha_disk_loaded = True
+    path = _sha_cache_path()
+    if path is None or not path.is_file():
+        return
+    try:
+        for key, digest in json.loads(path.read_text()).items():
+            fpath, size, mtime = key.rsplit("|", 2)
+            _SHA_CACHE.setdefault((fpath, int(size), int(mtime)), digest)
+    except Exception:
+        pass    # corrupt/foreign cache: ignore, it will be rewritten
+
+
+def _save_sha_disk_cache() -> None:
+    path = _sha_cache_path()
+    if path is None:
+        return
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        data = {f"{k[0]}|{k[1]}|{k[2]}": v for k, v in _SHA_CACHE.items()}
+        tmp = path.with_suffix(".tmp")
+        tmp.write_text(json.dumps(data))
+        tmp.replace(path)
+    except Exception:
+        pass    # best-effort persistence; never fail a run over the cache
+
 
 def _sha256_file(path: Path) -> str:
     """sha256 of *path*, cached by (path, size, mtime_ns).
 
     The actual hashing loop lives once in :func:`mindsight.weights.sha256_file`;
-    this wrapper adds a (path, size, mtime) cache so a batch hashes each weight
-    only once.
+    this wrapper adds a (path, size, mtime) cache -- in-process for the batch,
+    persisted to the state dir across launches (W2.5) -- so unchanged weights
+    hash once, ever.
     """
     global _sha_compute_count
+    _load_sha_disk_cache()
     st = path.stat()
     key = (str(path), st.st_size, st.st_mtime_ns)
     cached = _SHA_CACHE.get(key)
@@ -115,6 +163,7 @@ def _sha256_file(path: Path) -> str:
     digest = sha256_file(path)
     _SHA_CACHE[key] = digest
     _sha_compute_count += 1
+    _save_sha_disk_cache()
     return digest
 
 

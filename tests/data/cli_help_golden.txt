@@ -10,11 +10,13 @@ usage: MindSight -- Eye-Gaze Intersection Tracker [-h] [--source SOURCE] [--save
                                                   [--anonymize [{blur,black}]]
                                                   [--anonymize-padding FRAC] [--fast]
                                                   [--skip-phenomena N] [--lite-overlay]
-                                                  [--no-dashboard] [--profile] [--depth]
-                                                  [--no-depth] [--depth-backend DEPTH_BACKEND]
+                                                  [--no-dashboard] [--profile]
+                                                  [--mgaze-reuse-eps EPS] [--depth] [--no-depth]
+                                                  [--depth-backend DEPTH_BACKEND]
                                                   [--depth-input-size PX] [--depth-skip-frames N]
                                                   [--depth-aware-scoring] [--depth-w-depth W]
                                                   [--depth-sample-radius PX] [--model MODEL]
+                                                  [--face-conf T] [--face-input-size PX]
                                                   [--conf CONF] [--classes CLASSES [CLASSES ...]]
                                                   [--blacklist BLACKLIST [BLACKLIST ...]]
                                                   [--skip-frames SKIP_FRAMES]
@@ -49,9 +51,9 @@ usage: MindSight -- Eye-Gaze Intersection Tracker [-h] [--source SOURCE] [--save
                                                   [--smooth-snap {off,objects,gaze_tips,all}]
                                                   [--smooth-snap-alpha F]
                                                   [--rf-gazelle-model PATH]
-                                                  [--rf-gazelle-name NAME]
-                                                  [--rf-gazelle-interval N] [--min-call-gap N]
-                                                  [--fixation-v-threshold F]
+                                                  [--rf-gazelle-name NAME] [--rf-gazelle-fp16]
+                                                  [--rf-gazelle-compile] [--rf-gazelle-interval N]
+                                                  [--min-call-gap N] [--fixation-v-threshold F]
                                                   [--fixation-d-threshold F] [--dir-min-cutoff F]
                                                   [--dir-beta F] [--len-min-cutoff F]
                                                   [--len-beta F] [--len-hold-tau F]
@@ -146,6 +148,10 @@ options:
                         Fraction of face bbox size added as padding for anonymization (default:
                         0.3).
   --model MODEL         Object Detection Model, defaults to yolov8n.pt
+  --face-conf T         RetinaFace face-detection confidence threshold (default: 0.5, the library
+                        default). Lower to catch small/distant faces.
+  --face-input-size PX  RetinaFace square input resolution in pixels (default: 640, the library
+                        default). Raise for small/distant faces at a speed cost.
   --conf CONF           Object detection confidence threshold, defaults to 0.35
   --classes CLASSES [CLASSES ...]
                         Specified YOLO Object Detection Classes Prompt
@@ -265,6 +271,10 @@ Performance:
   --no-dashboard        Skip dashboard composition for maximum throughput. Displays the raw
                         annotated frame only.
   --profile             Print per-stage timing breakdown every 100 frames.
+  --mgaze-reuse-eps EPS
+                        Reuse the previous gaze estimate when a face crop is visually unchanged
+                        (mean-abs 32x32 grayscale diff below EPS). 0 disables (default: 0.0).
+                        Saves per-face model calls on static footage.
 
 Depth Estimation:
   --depth               Enable monocular depth estimation.
@@ -288,6 +298,11 @@ Ray Forming (Gazelle blend):
                         with Gaze-LLE heatmaps.
   --rf-gazelle-name NAME
                         Gaze-LLE model variant for ray forming (default: gazelle_dinov2_vitb14).
+  --rf-gazelle-fp16     Run the blend-path Gaze-LLE model in half precision (CUDA/MPS only;
+                        ignored on CPU). Faster per call; output is NOT byte-identical to fp32, so
+                        keep it off for regression baselines.
+  --rf-gazelle-compile  torch.compile the blend-path Gaze-LLE model (PyTorch 2+, experimental --
+                        MPS support immature). First call pays a warmup cost.
   --rf-gazelle-interval N
                         (Legacy) alias for --min-call-gap. If both are given, --min-call-gap wins.
                         Kept so old scripts/YAMLs keep working (default: unset -> min_call_gap

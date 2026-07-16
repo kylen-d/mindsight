@@ -84,8 +84,11 @@ class GazelleProvider:
             gz_name, ckpt_path,
             inout_threshold=0.5,       # engine-internal; scheduler gates separately
             skip_frames=0,
-            use_fp16=False,
-            use_compile=False,
+            # v1.1 W2.3: plumbed through (previously hardcoded False, so the
+            # --gazelle-* flags only reached the standalone backend). Both
+            # default off -- fp16 is never byte-identical to fp32.
+            use_fp16=getattr(ns, 'rf_gazelle_fp16', False),
+            use_compile=getattr(ns, 'rf_gazelle_compile', False),
             device=device,
         )
 

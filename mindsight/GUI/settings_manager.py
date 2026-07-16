@@ -10,7 +10,6 @@ auto-restored on next launch.
 from __future__ import annotations
 
 import json
-import os
 from argparse import Namespace
 from pathlib import Path
 
@@ -20,15 +19,12 @@ def _settings_dir() -> Path:
 
     v1.1 W0.7: settings were previously hard-keyed to ``Path.home()``, so two
     installs with different ``MINDSIGHT_HOME``s shared (and clobbered) one
-    ``~/.mindsight`` -- the cross-install stale-weight-path crash.
+    ``~/.mindsight`` -- the cross-install stale-weight-path crash.  The
+    resolution itself lives in :func:`mindsight.constants.state_dir` (shared
+    with the persistent weight-hash cache).
     """
-    state = os.environ.get("MINDSIGHT_STATE_DIR")
-    if state:
-        return Path(state)
-    home = os.environ.get("MINDSIGHT_HOME")
-    if home:
-        return Path(home) / ".mindsight"
-    return Path.home() / ".mindsight"
+    from mindsight.constants import state_dir
+    return state_dir()
 
 
 def _is_aux_stream(x) -> bool:

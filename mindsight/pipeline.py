@@ -40,7 +40,7 @@ from mindsight.io.sources import (
 )
 from mindsight.io.writers import finalize_video, open_event_log, open_video_writer
 from mindsight.GazeTracking.gaze_pipeline import run_gaze_step
-from mindsight.GazeTracking.gaze_processing import GazeSmootherReID
+from mindsight.GazeTracking.gaze_processing import GazeSmootherReID, MGazeReuseCache
 from mindsight.PostProcessing.RayForming.fixation import GazeLockTracker
 from mindsight.PostProcessing.RayForming.object_snap import (
     SmoothSnapTracker,
@@ -435,6 +435,8 @@ def _run_video(source, *, yolo, face_det, gaze_eng,
 
     smoother  = GazeSmootherReID(grace_frames=grace_frames,
                                    max_dist=tracker_cfg.reid_max_dist)
+    mgaze_reuse = (MGazeReuseCache(tracker_cfg.mgaze_reuse_eps)
+                   if tracker_cfg.mgaze_reuse_eps > 0 else None)
     locker    = (GazeLockTracker(dwell_frames=tracker_cfg.dwell_frames,
                                  lock_dist=tracker_cfg.lock_dist)
                  if tracker_cfg.gaze_lock else None)
@@ -480,7 +482,7 @@ def _run_video(source, *, yolo, face_det, gaze_eng,
     run_ctx_base = dict(
         source=source,
         smoother=smoother, locker=locker, snap_temporal=snap_temporal,
-        smooth_snap_tracker=smooth_snap,
+        smooth_snap_tracker=smooth_snap, mgaze_reuse=mgaze_reuse,
         all_trackers=all_trackers,
         look_counts=look_counts,
         gaze_stream_rows=gaze_stream_rows,

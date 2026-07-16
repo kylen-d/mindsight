@@ -143,6 +143,7 @@ class TrackerSection(BaseModel):
     snap_engage_frames: int = Field(0, json_schema_extra={"cli": "--snap-engage-frames"})
     reid_grace_seconds: float = Field(1.0, json_schema_extra={"cli": "--reid-grace-seconds"})
     reid_max_dist: int = 200              # no CLI flag today (dead getattr fallback)
+    mgaze_reuse_eps: float = Field(0.0, json_schema_extra={"cli": "--mgaze-reuse-eps"})
 
 
 class RayFormingSection(BaseModel):
@@ -411,6 +412,7 @@ class PipelineConfig(BaseModel):
             snap_engage_frames=g("snap_engage_frames", 0),
             reid_grace_seconds=g("reid_grace_seconds", 1.0),
             reid_max_dist=g("reid_max_dist", 200),
+            mgaze_reuse_eps=g("mgaze_reuse_eps", 0.0),
         )
         rayforming = RayFormingSection(
             ray_length=g("ray_length", 1.0),
@@ -658,6 +660,9 @@ _UI: dict[str, dict | None] = {
                           "min": 20, "max": 400},
     "tracker.skip_frames": {"group": "performance", "label": "Skip frames",
                             "min": 1, "max": 10},
+    "tracker.mgaze_reuse_eps": {"group": "performance",
+                                "label": "Face reuse eps",
+                                "min": 0.0, "max": 20.0, "advanced": True},
     "tracker.obj_persistence": {"group": "performance", "label": "Obj persistence",
                                 "min": 0, "max": 60},
     "tracker.snap_release_frames": {"group": "adaptive_snap",

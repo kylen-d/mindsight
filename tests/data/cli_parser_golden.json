@@ -363,6 +363,22 @@
     },
     {
       "option_strings": [
+        "--mgaze-reuse-eps"
+      ],
+      "dest": "mgaze_reuse_eps",
+      "action": "_StoreAction",
+      "default": 0.0,
+      "type": "float",
+      "nargs": null,
+      "const": null,
+      "choices": null,
+      "required": false,
+      "metavar": "EPS",
+      "help": "Reuse the previous gaze estimate when a face crop is visually unchanged (mean-abs 32x32 grayscale diff below EPS). 0 disables (default: 0.0). Saves per-face model calls on static footage.",
+      "group": "Performance"
+    },
+    {
+      "option_strings": [
         "--depth"
       ],
       "dest": "depth",
@@ -503,6 +519,38 @@
       "required": false,
       "metavar": null,
       "help": "Object Detection Model, defaults to yolov8n.pt",
+      "group": "options"
+    },
+    {
+      "option_strings": [
+        "--face-conf"
+      ],
+      "dest": "face_conf",
+      "action": "_StoreAction",
+      "default": 0.5,
+      "type": "float",
+      "nargs": null,
+      "const": null,
+      "choices": null,
+      "required": false,
+      "metavar": "T",
+      "help": "RetinaFace face-detection confidence threshold (default: 0.5, the library default). Lower to catch small/distant faces.",
+      "group": "options"
+    },
+    {
+      "option_strings": [
+        "--face-input-size"
+      ],
+      "dest": "face_input_size",
+      "action": "_StoreAction",
+      "default": 640,
+      "type": "int",
+      "nargs": null,
+      "const": null,
+      "choices": null,
+      "required": false,
+      "metavar": "PX",
+      "help": "RetinaFace square input resolution in pixels (default: 640, the library default). Raise for small/distant faces at a speed cost.",
       "group": "options"
     },
     {
@@ -1245,6 +1293,38 @@
       "required": false,
       "metavar": "NAME",
       "help": "Gaze-LLE model variant for ray forming (default: gazelle_dinov2_vitb14).",
+      "group": "Ray Forming (Gazelle blend)"
+    },
+    {
+      "option_strings": [
+        "--rf-gazelle-fp16"
+      ],
+      "dest": "rf_gazelle_fp16",
+      "action": "_StoreTrueAction",
+      "default": false,
+      "type": null,
+      "nargs": 0,
+      "const": true,
+      "choices": null,
+      "required": false,
+      "metavar": null,
+      "help": "Run the blend-path Gaze-LLE model in half precision (CUDA/MPS only; ignored on CPU). Faster per call; output is NOT byte-identical to fp32, so keep it off for regression baselines.",
+      "group": "Ray Forming (Gazelle blend)"
+    },
+    {
+      "option_strings": [
+        "--rf-gazelle-compile"
+      ],
+      "dest": "rf_gazelle_compile",
+      "action": "_StoreTrueAction",
+      "default": false,
+      "type": null,
+      "nargs": 0,
+      "const": true,
+      "choices": null,
+      "required": false,
+      "metavar": null,
+      "help": "torch.compile the blend-path Gaze-LLE model (PyTorch 2+, experimental -- MPS support immature). First call pays a warmup cost.",
       "group": "Ray Forming (Gazelle blend)"
     },
     {

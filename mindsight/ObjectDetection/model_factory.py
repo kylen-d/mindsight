@@ -86,11 +86,19 @@ def create_yolo_detector(
     return yolo, class_ids, bl
 
 
-def create_face_detector():
-    """Create and return a RetinaFace instance."""
+def create_face_detector(conf_thresh: float = 0.5, input_size: int = 640):
+    """Create and return a RetinaFace instance.
+
+    v1.1 W2.4: the confidence threshold and (square) input size are
+    configurable via --face-conf / --face-input-size; the defaults are the
+    uniface library defaults, so an unconfigured build is byte-unchanged.
+    Faces feed BOTH the per-face gaze model and Gaze-LLE's head bboxes, so
+    these are the first knobs to reach for on distant/small-face footage.
+    """
     _GAZE_DIR = Path(__file__).parent.parent / "GazeTracking" / "Backends" / "MGaze" / "gaze-estimation"
     if str(_GAZE_DIR) not in sys.path:
         sys.path.insert(0, str(_GAZE_DIR))
     from uniface import RetinaFace
     print("Loading RetinaFace…")
-    return RetinaFace()
+    return RetinaFace(conf_thresh=float(conf_thresh),
+                      input_size=(int(input_size), int(input_size)))

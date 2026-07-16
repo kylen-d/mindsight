@@ -88,8 +88,12 @@ def _default_scene_pipeline(frame, faces, gaze_eng):
 # Core estimation: per-face pitch/yaw + temporal smoothing
 # ══════════════════════════════════════════════════════════════════════════════
 
-def _estimate_pitchyaw(frame, faces, gaze_eng, smoother):
+def _estimate_pitchyaw(frame, faces, gaze_eng, smoother, reuse_cache=None):
     """Run per-face pitch/yaw estimation and temporal smoothing.
+
+    When *reuse_cache* (an ``MGazeReuseCache``) is given, visually-unchanged
+    face crops reuse the previous frame's estimate instead of re-running the
+    model (v1.1 W2.2; off unless ``--mgaze-reuse-eps`` > 0).
 
     Returns (raw_faces, smoothed, face_widths, gaze_confs,
              raw_face_bboxes, face_track_ids, face_objs).
@@ -102,7 +106,11 @@ def _estimate_pitchyaw(frame, faces, gaze_eng, smoother):
         crop = frame[y1:y2, x1:x2]
         if crop.size == 0:
             continue
-        pitch, yaw, gc = gaze_eng.estimate(crop)
+        if reuse_cache is not None:
+            pitch, yaw, gc = reuse_cache.estimate(
+                (x1, y1, x2, y2), crop, gaze_eng.estimate)
+        else:
+            pitch, yaw, gc = gaze_eng.estimate(crop)
 
         face_score = f["bbox"][4] if len(f["bbox"]) > 4 else 1.0
         ec = (_get_eye_center(f, inv_scale=1.0)
@@ -213,9 +221,12 @@ def run_gaze_step(ctx, *, face_det, gaze_eng, gaze_cfg: GazeConfig, **kwargs):
 
     if use_core_ray_forming:
         # Per-face pitch/yaw estimation
+        reuse_cache = ctx.get('mgaze_reuse')
         (raw_faces, smoothed, face_widths, gaze_confs,
          raw_face_bboxes, face_track_ids, face_objs) = _estimate_pitchyaw(
-            frame, faces, gaze_eng, smoother)
+            frame, faces, gaze_eng, smoother, reuse_cache=reuse_cache)
+        if reuse_cache is not None:
+            reuse_cache.end_frame()
 
         # Gazelle heatmap inference (core, not plugin)
         if gazelle_provider is not None:

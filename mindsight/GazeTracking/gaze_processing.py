@@ -54,6 +54,80 @@ def _get_eye_center(face_dict, inv_scale=1.0):
 
 
 # ══════════════════════════════════════════════════════════════════════════════
+# Per-face estimate reuse (perceptual no-change gate)
+# ══════════════════════════════════════════════════════════════════════════════
+
+class MGazeReuseCache:
+    """Skip per-face gaze estimation on visually-unchanged crops (v1.1 W2.2).
+
+    The per-face model runs every frame for every face regardless of
+    ``skip_frames`` -- the dominant pipeline cost on multi-face footage.  A
+    naive every-Nth skip would poison the blend scheduler's fixation history
+    with artificial zero-velocity samples, so this cache only reuses when the
+    face crop is *visually unchanged* (mean absolute difference of 32x32
+    grayscale thumbnails at or below ``eps``): in that regime the model output
+    genuinely would not move, and a static crop reading as a fixation is
+    truthful.  Entries are matched frame-to-frame by bbox IoU, so face-order
+    churn simply misses the cache rather than mixing faces up.
+
+    ``eps <= 0`` disables reuse entirely (the default).
+    """
+
+    _THUMB_SIZE = (32, 32)
+    _MIN_IOU = 0.5
+
+    def __init__(self, eps: float):
+        self.eps = float(eps)
+        self.hits = 0
+        self.misses = 0
+        self._prev: list[dict] = []
+        self._next: list[dict] = []
+
+    @staticmethod
+    def _thumb(crop) -> np.ndarray:
+        gray = cv2.cvtColor(crop, cv2.COLOR_BGR2GRAY)
+        return cv2.resize(gray, MGazeReuseCache._THUMB_SIZE,
+                          interpolation=cv2.INTER_AREA).astype(np.float32)
+
+    @staticmethod
+    def _iou(a, b) -> float:
+        ix1, iy1 = max(a[0], b[0]), max(a[1], b[1])
+        ix2, iy2 = min(a[2], b[2]), min(a[3], b[3])
+        iw, ih = max(0, ix2 - ix1), max(0, iy2 - iy1)
+        inter = iw * ih
+        if inter == 0:
+            return 0.0
+        area_a = (a[2] - a[0]) * (a[3] - a[1])
+        area_b = (b[2] - b[0]) * (b[3] - b[1])
+        return inter / float(area_a + area_b - inter)
+
+    def estimate(self, bbox, crop, estimator):
+        """Return ``estimator(crop)``, reusing the previous frame's result
+        when the same face region is visually unchanged."""
+        if self.eps <= 0:
+            return estimator(crop)
+        thumb = self._thumb(crop)
+        result = None
+        for entry in self._prev:
+            if self._iou(bbox, entry['bbox']) < self._MIN_IOU:
+                continue
+            if float(np.mean(np.abs(thumb - entry['thumb']))) <= self.eps:
+                result = entry['result']
+                self.hits += 1
+                break
+        if result is None:
+            result = estimator(crop)
+            self.misses += 1
+        self._next.append({'bbox': bbox, 'thumb': thumb, 'result': result})
+        return result
+
+    def end_frame(self) -> None:
+        """Roll this frame's entries into the match set for the next frame."""
+        self._prev = self._next
+        self._next = []
+
+
+# ══════════════════════════════════════════════════════════════════════════════
 # Temporal smoothing & track re-identification
 # ══════════════════════════════════════════════════════════════════════════════
 

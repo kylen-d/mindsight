@@ -167,6 +167,15 @@ _TAB_GAZE = SpecTab(
             SpecField("dir_min_cutoff", "Direction smoother floor (Hz)",
                       tier="A"),
             SpecField("len_min_cutoff", "Length smoother floor (Hz)", tier="A"),
+            SpecField("rf_gazelle_fp16", "Half precision (fp16)",
+                      "Run Gaze-LLE in half precision on CUDA/MPS. Faster per "
+                      "correction; results differ slightly from full "
+                      "precision, so keep off for regression baselines.",
+                      tier="A"),
+            SpecField("rf_gazelle_compile", "torch.compile (experimental)",
+                      "Compile the Gaze-LLE model (PyTorch 2+). First "
+                      "correction pays a warmup cost; MPS support immature.",
+                      tier="A"),
         ), caption="Fixation sensitivity + smoother floor cutoffs (Hz) tune "
                    "when corrections fire and how the One-Euro smoother floors "
                    "direction/length."),
@@ -436,6 +445,11 @@ _TAB_PERFORMANCE = SpecTab(
                       "non-detection frames, throttle previews)."),
             SpecField("skip_phenomena", "Phenomena every Nth frame",
                       "Run phenomena trackers every N frames. 0 = every frame.",
+                      tier="A"),
+            SpecField("mgaze_reuse_eps", "Reuse unchanged faces",
+                      "Skip the per-face gaze model when a face crop is "
+                      "visually unchanged from the previous frame (mean "
+                      "pixel difference below this threshold). 0 = off.",
                       tier="A"),
         )),
     ),

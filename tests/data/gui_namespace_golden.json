@@ -81,6 +81,7 @@
   "mgaze_arch": null,
   "mgaze_dataset": "gaze360",
   "mgaze_model": "Weights/MGaze/mobileone_s0_gaze.onnx",
+  "mgaze_reuse_eps": 0.0,
   "min_call_gap": 30,
   "model": "yolov8n.pt",
   "mutual_gaze": false,
