@@ -69,10 +69,20 @@ class InferenceScheduler:
     """Per-face fixation gating + global rate limit for Gaze-LLE calls."""
 
     def __init__(self, *, v_threshold: float, d_threshold: float,
-                 min_call_gap: int):
+                 min_call_gap: int, onset_samples: int = 0,
+                 onset_gap: int = 0):
         self.v_threshold = float(v_threshold)
         self.d_threshold = float(d_threshold)
         self.min_call_gap = int(min_call_gap)
+        # v1.1 W3X onset knobs (both 0 = off = 1.0.0 behavior).
+        # onset_samples: compute fixation likelihood once a new track has
+        # this many samples instead of the half-buffer default (5) --
+        # bootstrap-only by construction, since buffers never shrink.
+        # onset_gap: when a never-latched track wants inference, relax the
+        # global call gap to min(min_call_gap, onset_gap) so a new face is
+        # not stuck behind another track's recent fire.
+        self.onset_samples = max(0, int(onset_samples))
+        self.onset_gap = max(0, int(onset_gap))
 
         self._buffers: dict[int, PYHistoryBuffer] = {}
         self._detectors: dict[int, FixationDetector] = {}
@@ -87,7 +97,10 @@ class InferenceScheduler:
                 py_conf: float) -> None:
         """Push one PY observation for a face this frame."""
         if track_id not in self._buffers:
-            self._buffers[track_id] = PYHistoryBuffer(size=PY_HISTORY_SIZE)
+            self._buffers[track_id] = PYHistoryBuffer(
+                size=PY_HISTORY_SIZE,
+                min_stable=(max(2, self.onset_samples)
+                            if self.onset_samples else None))
             # FixationDetector is currently stateless (recomputes from the
             # buffer); kept per-face so future per-face adaptive state has
             # a home without an API change.
@@ -119,8 +132,12 @@ class InferenceScheduler:
                     continue
             wanting.add(tid)
 
+        required_gap = self.min_call_gap
+        if self.onset_gap and any(not self._has_latched.get(tid, False)
+                                  for tid in wanting):
+            required_gap = min(self.min_call_gap, self.onset_gap)
         should_fire = bool(wanting) and (
-            self._frames_since_last_global_call >= self.min_call_gap)
+            self._frames_since_last_global_call >= required_gap)
         return should_fire, wanting if should_fire else set()
 
     def record_accepted(self, wanting: set[int]) -> None:

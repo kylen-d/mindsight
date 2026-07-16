@@ -173,6 +173,22 @@ _TAB_GAZE = SpecTab(
                       "in-frame score below this are rejected and blend "
                       "trust scales with the score. 0 = off.",
                       tier="A"),
+            SpecField("rf_reuse_eps", "Reuse unchanged scenes",
+                      "Skip a scheduled Gaze-LLE correction when the frame "
+                      "is visually unchanged since the last one (mean pixel "
+                      "difference below this threshold) and re-apply the "
+                      "cached result instead. 0 = off.",
+                      tier="A"),
+            SpecField("rf_onset_samples", "Onset warmup samples",
+                      "Let a newly appeared face qualify for its first "
+                      "correction after this many gaze samples instead of "
+                      "the default 5. 0 = default warmup.",
+                      tier="A"),
+            SpecField("rf_onset_gap", "Onset call gap (frames)",
+                      "Let a face that never had a correction fire after "
+                      "this many frames since the last call, instead of the "
+                      "full minimum call gap. 0 = off.",
+                      tier="A"),
             SpecField("rf_gazelle_fp16", "Half precision (fp16)",
                       "Run Gaze-LLE in half precision on CUDA/MPS. Faster per "
                       "correction; results differ slightly from full "

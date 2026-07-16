@@ -1313,6 +1313,54 @@
     },
     {
       "option_strings": [
+        "--rf-reuse-eps"
+      ],
+      "dest": "rf_reuse_eps",
+      "action": "_StoreAction",
+      "default": 0.0,
+      "type": "float",
+      "nargs": null,
+      "const": null,
+      "choices": null,
+      "required": false,
+      "metavar": "EPS",
+      "help": "Skip a scheduled Gaze-LLE call when the scene is visually unchanged since the last real call (mean-abs 64x64 grayscale frame diff below EPS and stable face boxes); the cached heatmaps are re-anchored instead. 0 disables (default: 0.0). Saves forward passes on static footage.",
+      "group": "Ray Forming (Gazelle blend)"
+    },
+    {
+      "option_strings": [
+        "--rf-onset-samples"
+      ],
+      "dest": "rf_onset_samples",
+      "action": "_StoreAction",
+      "default": 0,
+      "type": "int",
+      "nargs": null,
+      "const": null,
+      "choices": null,
+      "required": false,
+      "metavar": "N",
+      "help": "Let a NEW face reach fixation eligibility after N pitch/yaw samples instead of the default 5 (half the history buffer). Minimum effective value 2; 0 keeps the default warmup (default: 0). Cuts first-anchor latency for freshly appeared faces.",
+      "group": "Ray Forming (Gazelle blend)"
+    },
+    {
+      "option_strings": [
+        "--rf-onset-gap"
+      ],
+      "dest": "rf_onset_gap",
+      "action": "_StoreAction",
+      "default": 0,
+      "type": "int",
+      "nargs": null,
+      "const": null,
+      "choices": null,
+      "required": false,
+      "metavar": "N",
+      "help": "When a never-anchored face wants inference, relax the global call gap to min(--min-call-gap, N) so a new participant is not stuck behind another face's recent call. 0 disables (default: 0).",
+      "group": "Ray Forming (Gazelle blend)"
+    },
+    {
+      "option_strings": [
         "--rf-gazelle-fp16"
       ],
       "dest": "rf_gazelle_fp16",

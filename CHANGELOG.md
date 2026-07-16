@@ -2,6 +2,19 @@
 
 ## [Unreleased]
 
+### Added (W3X fire-decision knobs, all default-off)
+- `--rf-reuse-eps`: skip a scheduled Gaze-LLE call when the scene is
+  visually unchanged since the last real call (mean-abs 64x64 grayscale
+  frame diff below the threshold, stable face boxes) and re-anchor the
+  cached heatmaps instead -- saves full forward passes on static footage.
+- `--rf-onset-samples`: let a newly appeared face reach fixation
+  eligibility after N gaze samples instead of the default 5, cutting
+  first-correction latency for fresh faces.
+- `--rf-onset-gap`: when a face that never had a correction wants one,
+  relax the global call gap to min(`--min-call-gap`, N) so a new
+  participant is not stuck behind another face's recent call (up to a
+  second at defaults).
+
 ### Fixed
 - **Face identity is now the stable track ID in every output.** The internal
   `hits` set and the mutual-gaze / social-referencing / gaze-leadership(tip)

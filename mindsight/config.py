@@ -172,6 +172,9 @@ class RayFormingSection(BaseModel):
     # this schema default of 30 via ray_config.resolve_min_call_gap.
     min_call_gap: int = Field(30, json_schema_extra={"cli": "--min-call-gap"})
     rf_inout_gate: float = Field(0.0, json_schema_extra={"cli": "--rf-inout-gate"})
+    rf_reuse_eps: float = Field(0.0, json_schema_extra={"cli": "--rf-reuse-eps"})
+    rf_onset_samples: int = Field(0, json_schema_extra={"cli": "--rf-onset-samples"})
+    rf_onset_gap: int = Field(0, json_schema_extra={"cli": "--rf-onset-gap"})
     dir_min_cutoff: float = Field(1.0, json_schema_extra={"cli": "--dir-min-cutoff"})
     dir_beta: float = Field(0.5, json_schema_extra={"cli": "--dir-beta"})
     len_min_cutoff: float = Field(1.0, json_schema_extra={"cli": "--len-min-cutoff"})
@@ -423,6 +426,9 @@ class PipelineConfig(BaseModel):
             fixation_d_threshold=g("fixation_d_threshold", 0.15),
             min_call_gap=resolve_min_call_gap(ns),
             rf_inout_gate=g("rf_inout_gate", 0.0),
+            rf_reuse_eps=g("rf_reuse_eps", 0.0),
+            rf_onset_samples=g("rf_onset_samples", 0),
+            rf_onset_gap=g("rf_onset_gap", 0),
             dir_min_cutoff=g("dir_min_cutoff", 1.0),
             dir_beta=g("dir_beta", 0.5),
             len_min_cutoff=g("len_min_cutoff", 1.0),
@@ -696,6 +702,16 @@ _UI: dict[str, dict | None] = {
                                  "label": "In/out gate",
                                  "advanced": True, "min": 0.0, "max": 1.0,
                                  "step": 0.05, "decimals": 2},
+    "rayforming.rf_reuse_eps": {"group": "gazelle_blend",
+                                "label": "Scene reuse eps",
+                                "advanced": True, "min": 0.0, "max": 20.0,
+                                "step": 0.1, "decimals": 1},
+    "rayforming.rf_onset_samples": {"group": "gazelle_blend",
+                                    "label": "Onset samples",
+                                    "advanced": True, "min": 0, "max": 5},
+    "rayforming.rf_onset_gap": {"group": "gazelle_blend",
+                                "label": "Onset call gap (frames)",
+                                "advanced": True, "min": 0, "max": 120},
     "rayforming.dir_min_cutoff": {"group": "gazelle_blend",
                                   "label": "Direction min-cutoff (Hz)",
                                   "advanced": True, "min": 0.1, "max": 20.0,

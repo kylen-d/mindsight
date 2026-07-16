@@ -21,11 +21,100 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import cv2
 import numpy as np
 
 from mindsight.PostProcessing.RayForming.heatmap_cache import HeatmapCache
 from mindsight.PostProcessing.RayForming.inference_scheduler import InferenceScheduler
 from mindsight.PostProcessing.RayForming.ray_config import resolve_min_call_gap
+
+
+class GazelleReuseGate:
+    """Perceptual refire suppression for Gaze-LLE (v1.1 W3X; off unless
+    ``--rf-reuse-eps`` > 0).
+
+    At every REAL forward pass the gate stores a grayscale thumbnail of the
+    frame plus each track's bbox.  When the scheduler next asks to fire, the
+    call is skipped iff the frame thumbnail is visually unchanged (mean
+    absolute difference <= eps vs the LAST REAL call -- drift accumulates
+    into the diff, so skipping self-limits) AND every wanting track still
+    has a cached heatmap and a stable bbox (IoU >= 0.5 vs fire time).  The
+    cached heatmaps are then re-anchored (age reset, wanted re-flagged), so
+    to the blender a reused accept is indistinguishable from a fresh fire --
+    truthful for the same reason as the W2.2 MGazeReuseCache: on an
+    unchanged input the model output genuinely would not move.
+    """
+
+    _THUMB_SIZE = (64, 64)
+    _MIN_IOU = 0.5
+
+    def __init__(self, eps: float):
+        self.eps = float(eps)
+        self.hits = 0
+        self.misses = 0
+        self._thumb: np.ndarray | None = None
+        self._bboxes: dict[int, tuple] = {}
+
+    @staticmethod
+    def _make_thumb(frame: np.ndarray) -> np.ndarray:
+        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+        return cv2.resize(gray, GazelleReuseGate._THUMB_SIZE,
+                          interpolation=cv2.INTER_AREA).astype(np.float32)
+
+    @staticmethod
+    def _iou(a, b) -> float:
+        ix1, iy1 = max(a[0], b[0]), max(a[1], b[1])
+        ix2, iy2 = min(a[2], b[2]), min(a[3], b[3])
+        iw, ih = max(0, ix2 - ix1), max(0, iy2 - iy1)
+        inter = iw * ih
+        if inter == 0:
+            return 0.0
+        area_a = (a[2] - a[0]) * (a[3] - a[1])
+        area_b = (b[2] - b[0]) * (b[3] - b[1])
+        return inter / float(area_a + area_b - inter)
+
+    def try_reuse(self, frame: np.ndarray, wanting_tids: set[int],
+                  bbox_by_tid: dict[int, tuple],
+                  cache: HeatmapCache) -> bool:
+        """Re-anchor cached heatmaps instead of firing, when safe.
+
+        Returns True (and refreshes the cache entries for *wanting_tids*)
+        only when the scene and every wanting face are visually unchanged
+        since the last real call; the caller must still record_accepted().
+        """
+        if self._thumb is None:
+            self.misses += 1
+            return False
+        thumb = self._make_thumb(frame)
+        if float(np.mean(np.abs(thumb - self._thumb))) > self.eps:
+            self.misses += 1
+            return False
+        for tid in wanting_tids:
+            now = bbox_by_tid.get(tid)
+            then = self._bboxes.get(tid)
+            if now is None or then is None or self._iou(now, then) < self._MIN_IOU:
+                self.misses += 1
+                return False
+            if cache.get(tid)[0] is None:
+                self.misses += 1
+                return False
+        for tid in wanting_tids:
+            hm, _age, inout, _wanted = cache.get(tid)
+            cache.update(tid, hm, inout_score=inout, wanted=True)
+        self.hits += 1
+        return True
+
+    def record_fire(self, frame: np.ndarray,
+                    bbox_by_tid: dict[int, tuple]) -> None:
+        """Snapshot the scene state at a real forward pass."""
+        self._thumb = self._make_thumb(frame)
+        self._bboxes = dict(bbox_by_tid)
+
+    def prune(self, active_tids: set[int]) -> None:
+        """Drop stored bboxes for tracks that no longer exist."""
+        for tid in list(self._bboxes):
+            if tid not in active_tids:
+                self._bboxes.pop(tid, None)
 
 
 def _resolve_gazelle_name(ns, ckpt_path: Path) -> str:
@@ -68,18 +157,27 @@ class GazelleProvider:
     """Manages a Gaze-LLE model + a fixation-aware inference scheduler."""
 
     def __init__(self, gazelle_engine, *,
-                 v_threshold: float, d_threshold: float, min_call_gap: int):
+                 v_threshold: float, d_threshold: float, min_call_gap: int,
+                 onset_samples: int = 0, onset_gap: int = 0,
+                 reuse_eps: float = 0.0):
         self._engine = gazelle_engine
         # Retained so reset() can rebuild the scheduler/cache without the ns.
         self._v_threshold = float(v_threshold)
         self._d_threshold = float(d_threshold)
         self._min_call_gap = int(min_call_gap)
+        self._onset_samples = int(onset_samples)
+        self._onset_gap = int(onset_gap)
+        self._reuse_eps = float(reuse_eps)
         self.heatmap_cache = HeatmapCache()
         self._scheduler = InferenceScheduler(
             v_threshold=v_threshold,
             d_threshold=d_threshold,
             min_call_gap=min_call_gap,
+            onset_samples=onset_samples,
+            onset_gap=onset_gap,
         )
+        self.reuse_gate = (GazelleReuseGate(reuse_eps)
+                           if reuse_eps > 0 else None)
 
     def reset(self) -> None:
         """Drop all per-run scheduling + heatmap-cache state, keeping the
@@ -98,7 +196,11 @@ class GazelleProvider:
             v_threshold=self._v_threshold,
             d_threshold=self._d_threshold,
             min_call_gap=self._min_call_gap,
+            onset_samples=self._onset_samples,
+            onset_gap=self._onset_gap,
         )
+        self.reuse_gate = (GazelleReuseGate(self._reuse_eps)
+                           if self._reuse_eps > 0 else None)
 
     @classmethod
     def from_namespace(cls, ns, device: str = "auto") -> "GazelleProvider | None":
@@ -136,7 +238,11 @@ class GazelleProvider:
         return cls(engine,
                    v_threshold=v_thresh,
                    d_threshold=d_thresh,
-                   min_call_gap=gap)
+                   min_call_gap=gap,
+                   # v1.1 W3X fire-decision knobs; all inert at defaults.
+                   onset_samples=getattr(ns, 'rf_onset_samples', 0) or 0,
+                   onset_gap=getattr(ns, 'rf_onset_gap', 0) or 0,
+                   reuse_eps=getattr(ns, 'rf_reuse_eps', 0.0) or 0.0)
 
     def observe_face(self, *, track_id: int, py_dir: np.ndarray,
                      py_conf: float) -> None:
@@ -151,15 +257,23 @@ class GazelleProvider:
 
         should_fire, wanting_tids = self._scheduler.tick()
         if should_fire and face_bboxes:
-            heatmaps = self._engine.raw_heatmaps(frame, face_bboxes)
-            inout_arr = getattr(self._engine, '_last_inout', None)
-            for fi, tid in enumerate(face_track_ids):
-                if fi < heatmaps.shape[0]:
-                    inout = float(inout_arr[fi]) if (
-                        inout_arr is not None and fi < len(inout_arr)) else 1.0
-                    self.heatmap_cache.update(
-                        tid, heatmaps[fi], inout_score=inout,
-                        wanted=(tid in wanting_tids))
+            bbox_by_tid = dict(zip(face_track_ids, face_bboxes))
+            reused = (self.reuse_gate is not None
+                      and self.reuse_gate.try_reuse(
+                          frame, wanting_tids, bbox_by_tid,
+                          self.heatmap_cache))
+            if not reused:
+                heatmaps = self._engine.raw_heatmaps(frame, face_bboxes)
+                inout_arr = getattr(self._engine, '_last_inout', None)
+                for fi, tid in enumerate(face_track_ids):
+                    if fi < heatmaps.shape[0]:
+                        inout = float(inout_arr[fi]) if (
+                            inout_arr is not None and fi < len(inout_arr)) else 1.0
+                        self.heatmap_cache.update(
+                            tid, heatmaps[fi], inout_score=inout,
+                            wanted=(tid in wanting_tids))
+                if self.reuse_gate is not None:
+                    self.reuse_gate.record_fire(frame, bbox_by_tid)
             self._scheduler.record_accepted(wanting_tids)
 
         # Prune scheduler state for disappeared tracks, then advance the
@@ -167,6 +281,8 @@ class GazelleProvider:
         stale = self._scheduler.tracked_tids - active_tids
         if stale:
             self._scheduler.forget(stale)
+        if self.reuse_gate is not None:
+            self.reuse_gate.prune(active_tids)
         self._scheduler.advance_frame()
 
     def likelihood(self, track_id: int) -> float:

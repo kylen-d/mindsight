@@ -22,12 +22,21 @@ class PYHistoryBuffer:
     size : int
         Number of samples retained.  Old samples are overwritten when
         the buffer is full.  Typical default: 10 frames (~ 1/3 sec at 30 fps).
+    min_stable : int | None
+        Samples required before ``unstable`` clears.  None (the default)
+        keeps the half-buffer rule.  Values below 2 are rejected -- velocity
+        needs two samples (v1.1 W3X onset knob; wired from
+        ``--rf-onset-samples``).
     """
 
-    def __init__(self, size: int = 10):
+    def __init__(self, size: int = 10, min_stable: int | None = None):
         if size < 2:
             raise ValueError(f"PYHistoryBuffer size must be >= 2; got {size}")
+        if min_stable is not None and min_stable < 2:
+            raise ValueError(
+                f"PYHistoryBuffer min_stable must be >= 2; got {min_stable}")
         self._size = int(size)
+        self._min_stable = int(min_stable) if min_stable is not None else None
         self._buf: list[np.ndarray] = []
 
     def push(self, py_dir: np.ndarray) -> None:
@@ -46,8 +55,11 @@ class PYHistoryBuffer:
 
     @property
     def unstable(self) -> bool:
-        """True until at least half of the buffer is populated."""
-        return len(self._buf) < (self._size // 2)
+        """True until at least half of the buffer is populated (or
+        ``min_stable`` samples, when that override is set)."""
+        needed = (self._min_stable if self._min_stable is not None
+                  else self._size // 2)
+        return len(self._buf) < needed
 
     def reset(self) -> None:
         self._buf.clear()

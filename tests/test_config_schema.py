@@ -424,11 +424,14 @@ def test_ui_metadata_does_not_move_canonical_hash():
     schema FIELD legitimately moves the hash (it hashes values, and there is
     one more value).  Consequence: resume ledgers written before v1.1 report
     a config-hash mismatch and reprocess -- expected, noted in the changelog.
+    Re-pinned again 2026-07-16 (v1.1 W3X): rayforming.rf_reuse_eps /
+    rf_onset_samples / rf_onset_gap fields added (same one-time-reprocess
+    consequence, still pre-release on v1.1-dev).
     """
     assert PipelineConfig().canonical_hash() == (
-        "d7c4597df793fa93bc1f5b1b31fdb0b6ad9f543b339b89499f1f0c8ab36d25cd")
+        "3c3b9a2bc676572770c409453196d862beceb1b96b191271faccbf78042fc351")
     assert PipelineConfig(gaze={"ray_length": 1.5}).canonical_hash() == (
-        "f13736c82b6d3c3d6ef9caacbda7cb1b247eef6b8a9a680aca9663ba154570c6")
+        "10cc159eaf3fbeddd023c4464b370d15374bb74bb0d83471d69deb7951b417fb")
 
 
 def test_ui_mirror_rule_targets_are_hidden():
