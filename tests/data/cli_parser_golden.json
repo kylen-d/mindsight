@@ -62,7 +62,7 @@
       "choices": null,
       "required": false,
       "metavar": "PATH",
-      "help": "Save post-run summary CSV. Omit a value to use Outputs/CSV Files/[stem]_Summary_Output.csv, or supply a custom path.",
+      "help": "Save post-run summary CSV. Omit a value to use Outputs/CSV Files/[stem]_summary.csv, or supply a custom path.",
       "group": "options"
     },
     {
@@ -254,15 +254,15 @@
       "action": "_StoreAction",
       "default": null,
       "type": null,
-      "nargs": null,
-      "const": null,
+      "nargs": "?",
+      "const": "blur",
       "choices": [
         "blur",
         "black"
       ],
       "required": false,
       "metavar": null,
-      "help": "Anonymize faces in the output video: 'blur' applies heavy Gaussian blur, 'black' fills with a solid rectangle.",
+      "help": "Anonymize faces in the output video: 'blur' applies heavy Gaussian blur, 'black' fills with a solid rectangle. Bare --anonymize means 'blur'.",
       "group": "options"
     },
     {

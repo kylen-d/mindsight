@@ -7,7 +7,7 @@ usage: MindSight -- Eye-Gaze Intersection Tracker [-h] [--source SOURCE] [--save
                                                   [--aux-stream SOURCE:VIDEO_TYPE:LABEL:PIDS]
                                                   [--aux-auto-detect]
                                                   [--device {auto,cpu,cuda,mps}]
-                                                  [--anonymize {blur,black}]
+                                                  [--anonymize [{blur,black}]]
                                                   [--anonymize-padding FRAC] [--fast]
                                                   [--skip-phenomena N] [--lite-overlay]
                                                   [--no-dashboard] [--profile] [--depth]
@@ -104,7 +104,7 @@ options:
                         Outputs/Video/[stem]_Video_Output.mp4, or supply a custom path.
   --log LOG
   --summary [PATH]      Save post-run summary CSV. Omit a value to use Outputs/CSV
-                        Files/[stem]_Summary_Output.csv, or supply a custom path.
+                        Files/[stem]_summary.csv, or supply a custom path.
   --heatmap [PATH]      Save per-participant scene gaze heatmaps. Omit a value to use
                         Outputs/heatmaps/[stem]_Heatmap_Output (one PNG per participant), or
                         supply a custom directory/prefix path.
@@ -139,9 +139,9 @@ options:
   --device {auto,cpu,cuda,mps}
                         Compute device for all backends: auto, cpu, cuda, or mps. 'auto' selects
                         CUDA > MPS > CPU (default: auto).
-  --anonymize {blur,black}
+  --anonymize [{blur,black}]
                         Anonymize faces in the output video: 'blur' applies heavy Gaussian blur,
-                        'black' fills with a solid rectangle.
+                        'black' fills with a solid rectangle. Bare --anonymize means 'blur'.
   --anonymize-padding FRAC
                         Fraction of face bbox size added as padding for anonymization (default:
                         0.3).

@@ -40,10 +40,10 @@ P_ACCEPT: float = 0.6
 """fixation_likelihood threshold at which a face is deemed to want inference.
 
 Lowered from 0.7 after footage review (2026-07-05): 0.7 left the scheduler
-eligible on only ~38% of frames on KITCO-like footage, and inference gaps
-during softer fixations were visible as un-extended rays.  0.6 admits
-moderately stable gaze while the min-refresh and call-gap limits still
-bound the inference rate.
+eligible on only ~38% of frames on multi-participant lab footage, and
+inference gaps during softer fixations were visible as un-extended rays.
+0.6 admits moderately stable gaze while the min-refresh and call-gap
+limits still bound the inference rate.
 """
 
 MIN_FACE_REFRESH: int = 5

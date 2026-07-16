@@ -1,8 +1,9 @@
 """
 GUI/main_window.py — Main application window for MindSight.
 
-Hosts four tabs (Analyze Footage, VP Builder, Gaze Tuning, Models) and provides
-the menu bar for presets, pipeline import/export, and application settings.
+Hosts six tabs (Analyze Footage, Projects, VP Builder, Inference Tuning,
+Models, About) and provides the menu bar for presets, pipeline
+import/export, and application settings.
 """
 from __future__ import annotations
 
@@ -35,7 +36,8 @@ _TAB_ABOUT = 5
 
 
 class MainWindow(QMainWindow):
-    """Top-level window: Analyze Footage, VP Builder, Gaze Tuning, Models."""
+    """Top-level window: Analyze Footage, Projects, VP Builder,
+    Inference Tuning, Models, About."""
 
     def __init__(self):
         super().__init__()
@@ -319,66 +321,50 @@ class MainWindow(QMainWindow):
         self._gaze_tab.set_vp_file(path)
         self._tabs.setCurrentIndex(_TAB_TUNING)
 
-    # ── Preset / pipeline stubs ───────────────────────────────────────────────
+    # ── Preset / pipeline actions ─────────────────────────────────────────────
 
     def _load_preset(self):
-        """Load a saved preset (placeholder — wired in Phase 4)."""
-        try:
-            from PyQt6.QtWidgets import QInputDialog
+        """Load a saved preset into the Inference Tuning tab."""
+        from PyQt6.QtWidgets import QInputDialog
 
-            from .settings_manager import SettingsManager
-            mgr = SettingsManager()
-            presets = mgr.list_presets()
-            if not presets:
-                QMessageBox.information(self, "No Presets", "No saved presets found.")
-                return
-            name, ok = QInputDialog.getItem(
-                self, "Load Preset", "Select preset:", presets, 0, False)
-            if ok and name:
-                ns = mgr.load_preset(name)
-                self._gaze_tab.apply_namespace(ns)
-        except ImportError:
-            QMessageBox.information(self, "Not Available",
-                                   "Settings manager not yet implemented.")
+        from .settings_manager import SettingsManager
+        mgr = SettingsManager()
+        presets = mgr.list_presets()
+        if not presets:
+            QMessageBox.information(self, "No Presets", "No saved presets found.")
+            return
+        name, ok = QInputDialog.getItem(
+            self, "Load Preset", "Select preset:", presets, 0, False)
+        if ok and name:
+            ns = mgr.load_preset(name)
+            self._gaze_tab.apply_namespace(ns)
 
     def _save_preset(self):
-        """Save current settings as a preset (placeholder — wired in Phase 4)."""
-        try:
-            from PyQt6.QtWidgets import QInputDialog
+        """Save the Inference Tuning tab's current settings as a preset."""
+        from PyQt6.QtWidgets import QInputDialog
 
-            from .settings_manager import SettingsManager
-            mgr = SettingsManager()
-            name, ok = QInputDialog.getText(
-                self, "Save Preset", "Preset name:")
-            if ok and name.strip():
-                ns = self._gaze_tab._build_namespace()
-                mgr.save_preset(name.strip(), ns)
-                QMessageBox.information(
-                    self, "Saved", f"Preset '{name.strip()}' saved.")
-        except ImportError:
-            QMessageBox.information(self, "Not Available",
-                                   "Settings manager not yet implemented.")
+        from .settings_manager import SettingsManager
+        mgr = SettingsManager()
+        name, ok = QInputDialog.getText(
+            self, "Save Preset", "Preset name:")
+        if ok and name.strip():
+            ns = self._gaze_tab._build_namespace()
+            mgr.save_preset(name.strip(), ns)
+            QMessageBox.information(
+                self, "Saved", f"Preset '{name.strip()}' saved.")
 
     def _import_pipeline(self):
         """Import settings from a pipeline YAML file."""
-        try:
-            from .pipeline_dialog import import_pipeline
-            ns = import_pipeline(self)
-            if ns is not None:
-                self._gaze_tab.apply_namespace(ns)
-        except ImportError:
-            QMessageBox.information(self, "Not Available",
-                                   "Pipeline dialogue not yet implemented.")
+        from .pipeline_dialog import import_pipeline
+        ns = import_pipeline(self)
+        if ns is not None:
+            self._gaze_tab.apply_namespace(ns)
 
     def _export_pipeline(self):
         """Export current settings to a pipeline YAML file."""
-        try:
-            from .pipeline_dialog import export_pipeline
-            ns = self._gaze_tab._build_namespace()
-            export_pipeline(self, ns)
-        except ImportError:
-            QMessageBox.information(self, "Not Available",
-                                   "Pipeline dialogue not yet implemented.")
+        from .pipeline_dialog import export_pipeline
+        ns = self._gaze_tab._build_namespace()
+        export_pipeline(self, ns)
 
     # ── Close ─────────────────────────────────────────────────────────────────
 

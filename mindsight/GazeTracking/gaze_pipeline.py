@@ -19,6 +19,8 @@ Usage
     run_gaze_step(ctx, face_det=face_det, gaze_eng=gaze_eng, gaze_cfg=gaze_cfg)
 """
 
+import time
+
 import numpy as np
 
 from mindsight.constants import EYE_CONF_THRESH
@@ -217,7 +219,9 @@ def run_gaze_step(ctx, *, face_det, gaze_eng, gaze_cfg: GazeConfig, **kwargs):
 
         # Gazelle heatmap inference (core, not plugin)
         if gazelle_provider is not None:
+            _t_gz = time.perf_counter()
             gazelle_provider.step(frame, raw_face_bboxes, face_track_ids)
+            ctx['_prof_gazelle'] = time.perf_counter() - _t_gz
 
         # Build RawGaze list
         raw_gazes = []

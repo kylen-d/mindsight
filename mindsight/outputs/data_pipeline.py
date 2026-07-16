@@ -74,6 +74,17 @@ def collect_frame_data(ctx, *, log_csv, frame_no: int,
             heatmap_gaze.setdefault(tid, []).append(
                 (float(ray_end[0]), float(ray_end[1])))
 
+    # DataCollection plugin per-frame hook (dead until v1.1: instances were
+    # built and seeded into ctx but on_frame had no call site anywhere).
+    data_plugins = ctx.get('data_plugins', [])
+    if data_plugins:
+        payload = {**ctx.data, 'frame_no': frame_no,
+                   'hit_events': hit_events,
+                   'face_track_ids': face_track_ids,
+                   'persons_gaze': persons_gaze}
+        for plugin in data_plugins:
+            plugin.on_frame(**payload)
+
 
 def finalize_run(ctx, **kwargs) -> None:
     """
@@ -99,6 +110,16 @@ def finalize_run(ctx, **kwargs) -> None:
     pid_map = ctx.get('pid_map')
 
     print(f"\nDone \u2014 {frame_no} frames, {total_hits} hit events.")
+
+    # DataCollection plugin post-run hook (dead until v1.1, like on_frame).
+    for plugin in ctx.get('data_plugins', []):
+        plugin.on_run_complete(
+            total_frames=total_frames, total_hits=total_hits,
+            look_counts=look_counts, source=source,
+            all_trackers=all_trackers, pid_map=pid_map,
+            video_name=ctx.get('video_name'),
+            conditions=ctx.get('conditions', ''),
+            fps=ctx.get('video_fps') or 0.0)
 
     resolved_summary = resolve_summary_path(summary_path, source)
     if resolved_summary:

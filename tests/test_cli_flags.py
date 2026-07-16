@@ -143,6 +143,15 @@ def test_parse_cli_rejects_bad_values():
         parse_cli(["--totally-unknown-flag"])
 
 
+def test_parse_cli_bare_anonymize_means_blur():
+    """Bare --anonymize used to crash (required a value); it now means blur
+    (v1.1 W0.3).  Explicit values still parse, absence still means None."""
+    assert parse_cli([]).anonymize is None
+    assert parse_cli(["--anonymize"]).anonymize == "blur"
+    assert parse_cli(["--anonymize", "black"]).anonymize == "black"
+    assert parse_cli(["--anonymize", "blur"]).anonymize == "blur"
+
+
 def test_parse_cli_help_exits_cleanly(capsys):
     """--help exits 0 with true defaults rendered. It used to crash: help was
     formatted during the SUPPRESS double-parse, and argparse's

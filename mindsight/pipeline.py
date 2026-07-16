@@ -75,13 +75,20 @@ def process_frame(ctx, *, yolo, face_det, gaze_eng,
                   gaze_cfg: GazeConfig, det_cfg: DetectionConfig,
                   obj_cache=None, phenomena_cfg=None,
                   detection_plugins=None,
-                  depth_cfg=None, depth_backend=None):
+                  depth_cfg=None, depth_backend=None, prof=None):
     """
     Process one frame through detection, gaze, JA, and overlay stages.
 
     Reads from ctx: frame (required), plus optional cached_all_dets, cached_faces.
     Writes all stage outputs back to ctx.
+
+    When ``prof`` is given (a dict of per-stage accumulators), stage wall
+    times are added to its ``detect``/``depth``/``gaze``/``gazelle``/``draw``
+    keys.  Gaze-LLE time is measured inside the gaze step (via
+    ``ctx['_prof_gazelle']``) and reported separately from ``gaze``.
     """
+    _t = time.perf_counter() if prof is not None else 0.0
+
     # 1. Object detection
     run_detection_step(ctx, yolo=yolo, det_cfg=det_cfg, obj_cache=obj_cache,
                        detection_plugins=detection_plugins)
@@ -92,6 +99,9 @@ def process_frame(ctx, *, yolo, face_det, gaze_eng,
     for p in ctx['persons']:
         cv2.rectangle(ctx['frame'], (p['x1'], p['y1']), (p['x2'], p['y2']), (255, 120, 30), 1)
 
+    if prof is not None:
+        _now = time.perf_counter(); prof['detect'] += _now - _t; _t = _now
+
     # 1.5. Depth estimation (between detection and gaze)
     if depth_cfg and depth_cfg.enabled and depth_backend and 'depth_map' not in ctx:
         from mindsight.DepthEstimation.depth_pipeline import run_depth_step
@@ -99,8 +109,18 @@ def process_frame(ctx, *, yolo, face_det, gaze_eng,
     if depth_cfg and depth_cfg.enabled:
         ctx['depth_cfg'] = depth_cfg
 
+    if prof is not None:
+        _now = time.perf_counter(); prof['depth'] += _now - _t; _t = _now
+
     # 2. Gaze estimation + ray-bbox intersection
     run_gaze_step(ctx, face_det=face_det, gaze_eng=gaze_eng, gaze_cfg=gaze_cfg)
+
+    if prof is not None:
+        _now = time.perf_counter()
+        _gz = ctx.get('_prof_gazelle', 0.0)
+        prof['gaze'] += (_now - _t) - _gz
+        prof['gazelle'] += _gz
+        _t = _now
 
     # 3. Joint attention + gaze convergence
     ja_enabled = phenomena_cfg.joint_attention if phenomena_cfg is not None else True
@@ -124,6 +144,9 @@ def process_frame(ctx, *, yolo, face_det, gaze_eng,
 
     # 4. Annotate frame
     draw_overlay(ctx, gaze_cfg=gaze_cfg)
+
+    if prof is not None:
+        prof['draw'] += time.perf_counter() - _t
 
 
 # ==============================================================================
@@ -498,8 +521,8 @@ def _run_video(source, *, yolo, face_det, gaze_eng,
 
     # Profiling accumulators
     if profile:
-        _prof = {'detect': 0.0, 'gaze': 0.0, 'phenomena': 0.0,
-                 'draw': 0.0, 'dashboard': 0.0, 'n': 0}
+        _prof = {'detect': 0.0, 'depth': 0.0, 'gaze': 0.0, 'gazelle': 0.0,
+                 'phenomena': 0.0, 'draw': 0.0, 'dashboard': 0.0, 'n': 0}
 
     print("MindSight running -> press Q to quit.")
     cache: dict = {}
@@ -540,17 +563,12 @@ def _run_video(source, *, yolo, face_det, gaze_eng,
             ctx['prev_persons_gaze'] = cache.get('prev_persons_gaze', [])
             ctx['prev_face_track_ids'] = cache.get('prev_face_track_ids', [])
 
-            if profile: _t1 = time.perf_counter()
-
             process_frame(ctx, yolo=yolo, face_det=face_det, gaze_eng=gaze_eng,
                           gaze_cfg=gaze_cfg, det_cfg=det_cfg, obj_cache=obj_cache,
                           phenomena_cfg=phenomena_cfg,
                           detection_plugins=detection_plugins,
-                          depth_cfg=depth_cfg, depth_backend=depth_backend)
-
-            if profile:
-                _t2 = time.perf_counter()
-                _prof['detect'] += _t2 - _t1
+                          depth_cfg=depth_cfg, depth_backend=depth_backend,
+                          prof=_prof if profile else None)
 
             if do_det:
                 cache['all_dets'] = ctx['all_dets']
@@ -658,6 +676,9 @@ def _run_video(source, *, yolo, face_det, gaze_eng,
                     n = _prof['n']
                     print(f"[PROFILE] frame {n} avg: "
                           f"detect={_prof['detect']/n*1000:.1f}ms "
+                          f"depth={_prof['depth']/n*1000:.1f}ms "
+                          f"gaze={_prof['gaze']/n*1000:.1f}ms "
+                          f"gazelle={_prof['gazelle']/n*1000:.1f}ms "
                           f"phenomena={_prof['phenomena']/n*1000:.1f}ms "
                           f"draw={_prof['draw']/n*1000:.1f}ms "
                           f"dashboard={_prof['dashboard']/n*1000:.1f}ms "

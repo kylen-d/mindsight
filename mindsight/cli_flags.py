@@ -26,6 +26,9 @@ import argparse
 from dataclasses import dataclass
 
 from Plugins import (
+    data_collection_registry as _dc_registry,
+)
+from Plugins import (
     gaze_registry as _gaze_registry,
 )
 from Plugins import (
@@ -63,7 +66,7 @@ CORE_FLAGS: tuple[FlagSpec, ...] = (
     FlagSpec(flag='--source', dest='source', schema_path=None, default='0', help='Video input source, defaults to webcam'),
     FlagSpec(flag='--save', dest='save', schema_path='output.save', nargs='?', const=True, metavar='PATH', help='Save annotated video. Omit a value to use Outputs/Video/[stem]_Video_Output.mp4, or supply a custom path.'),
     FlagSpec(flag='--log', dest='log', schema_path='output.log_path'),
-    FlagSpec(flag='--summary', dest='summary', schema_path='output.summary_path', nargs='?', const=True, metavar='PATH', help='Save post-run summary CSV. Omit a value to use Outputs/CSV Files/[stem]_Summary_Output.csv, or supply a custom path.'),
+    FlagSpec(flag='--summary', dest='summary', schema_path='output.summary_path', nargs='?', const=True, metavar='PATH', help='Save post-run summary CSV. Omit a value to use Outputs/CSV Files/[stem]_summary.csv, or supply a custom path.'),
     FlagSpec(flag='--heatmap', dest='heatmap', schema_path='output.heatmap_path', nargs='?', const=True, metavar='PATH', help='Save per-participant scene gaze heatmaps. Omit a value to use Outputs/heatmaps/[stem]_Heatmap_Output (one PNG per participant), or supply a custom directory/prefix path.'),
     FlagSpec(flag='--charts', dest='charts', schema_path='output.charts_path', nargs='?', const=True, metavar='PATH', help='Generate post-run time-series charts for each phenomena tracker. Omit a value to use Outputs/Charts/[stem]_Charts.png, or supply a custom path.'),
     FlagSpec(flag='--pipeline', dest='pipeline', schema_path=None, default=None, metavar='YAML', help='Load pipeline configuration from a YAML file. CLI flags override YAML values.'),
@@ -75,7 +78,7 @@ CORE_FLAGS: tuple[FlagSpec, ...] = (
     FlagSpec(flag='--aux-stream', dest='aux_streams_raw', schema_path=None, default=None, kind='append', metavar='SOURCE:VIDEO_TYPE:LABEL:PIDS', help='Auxiliary video stream. Format: SOURCE:VIDEO_TYPE:LABEL:PID1,PID2 where SOURCE is the file path, VIDEO_TYPE is one of eye_only/face_closeup/wide_closeup/custom, LABEL is a user-defined stream label, and PIDS is a comma-separated list of participant labels. Repeatable for multiple streams.'),
     FlagSpec(flag='--aux-auto-detect', dest='aux_auto_detect', schema_path=None, default=True, kind='store_true', help='Enable automatic face detection on wide/face auxiliary streams (default: enabled).'),
     FlagSpec(flag='--device', dest='device', schema_path=None, default='auto', choices=('auto', 'cpu', 'cuda', 'mps'), help="Compute device for all backends: auto, cpu, cuda, or mps.  'auto' selects CUDA > MPS > CPU  (default: auto)."),
-    FlagSpec(flag='--anonymize', dest='anonymize', schema_path='output.anonymize', choices=('blur', 'black'), help="Anonymize faces in the output video: 'blur' applies heavy Gaussian blur, 'black' fills with a solid rectangle."),
+    FlagSpec(flag='--anonymize', dest='anonymize', schema_path='output.anonymize', nargs='?', const='blur', choices=('blur', 'black'), help="Anonymize faces in the output video: 'blur' applies heavy Gaussian blur, 'black' fills with a solid rectangle. Bare --anonymize means 'blur'."),
     FlagSpec(flag='--anonymize-padding', dest='anonymize_padding', schema_path='output.anonymize_padding', metavar='FRAC', help='Fraction of face bbox size added as padding for anonymization (default: 0.3).'),
     FlagSpec(flag='--fast', dest='fast', schema_path=None, default=False, kind='store_true', help='Enable bundled performance optimizations: skip phenomena on non-detection frames, throttle dashboard bridge, reduce GUI poll rate.', group='Performance'),
     FlagSpec(flag='--skip-phenomena', dest='skip_phenomena', schema_path=None, default=0, type='int', metavar='N', help='Run phenomena trackers only every N frames (0 = every frame). Independent of --skip-frames.  (default: 0)', group='Performance'),
@@ -250,6 +253,11 @@ def build_parser() -> argparse.ArgumentParser:
         _od_registry.get(_pname).add_arguments(parser)
     for _pname in _phenomena_registry.names():
         _phenomena_registry.get(_pname).add_arguments(parser)
+    # DataCollection plugins were discovered and built via from_args but their
+    # add_arguments was never wired until v1.1 -- a plugin's activation flags
+    # could not be typed.  Last in the order: new group, no legacy order to keep.
+    for _pname in _dc_registry.names():
+        _dc_registry.get(_pname).add_arguments(parser)
 
     return parser
 
