@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+### Fixed (W3X MPIIGaze substrate)
+- `--mgaze-dataset mpiigaze` now works with ONNX models: the ONNX decode
+  previously hardcoded gaze360 bin geometry (90 x 4° - 180°), so an
+  MPIIGaze-trained export (28 x 3° - 42°, trainable with the vendored
+  gaze-estimation library) mis-decoded. The default remains bit-identical.
+  Note: no MPIIGaze weights ship -- the public pretrained sets
+  (hysts/pytorch_mpiigaze etc.) are trained on CC-BY-NC-SA / research-only
+  data.
+
 ### Added (W3X face/tracking knobs, all default-off)
 - **RetinaFace landmarks and detection scores now reach the pipeline.**
   uniface 1.1.0 returns them under keys the pipeline never read, so the
