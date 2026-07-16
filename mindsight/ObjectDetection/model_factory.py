@@ -86,7 +86,19 @@ def create_yolo_detector(
     return yolo, class_ids, bl
 
 
-def create_face_detector(conf_thresh: float = 0.5, input_size: int = 640):
+# --face-model short names -> uniface RetinaFaceWeights enum values.
+_FACE_MODEL_NAMES = {
+    "mnet025": "retinaface_mnet025",
+    "mnet050": "retinaface_mnet050",
+    "mnet_v1": "retinaface_mnet_v1",
+    "mnet_v2": "retinaface_mnet_v2",
+    "r18":     "retinaface_r18",
+    "r34":     "retinaface_r34",
+}
+
+
+def create_face_detector(conf_thresh: float = 0.5, input_size: int = 640,
+                         model_name: str | None = None):
     """Create and return a RetinaFace instance.
 
     v1.1 W2.4: the confidence threshold and (square) input size are
@@ -94,11 +106,19 @@ def create_face_detector(conf_thresh: float = 0.5, input_size: int = 640):
     uniface library defaults, so an unconfigured build is byte-unchanged.
     Faces feed BOTH the per-face gaze model and Gaze-LLE's head bboxes, so
     these are the first knobs to reach for on distant/small-face footage.
+    v1.1 W3X adds --face-model to pick the backbone (r18/r34 for
+    small/distant faces); None keeps the library default (mnet_v2).
     """
     _GAZE_DIR = Path(__file__).parent.parent / "GazeTracking" / "Backends" / "MGaze" / "gaze-estimation"
     if str(_GAZE_DIR) not in sys.path:
         sys.path.insert(0, str(_GAZE_DIR))
     from uniface import RetinaFace
     print("Loading RetinaFace…")
+    kwargs = {}
+    if model_name:
+        from uniface.constants import RetinaFaceWeights
+        kwargs["model_name"] = RetinaFaceWeights(
+            _FACE_MODEL_NAMES.get(model_name, model_name))
     return RetinaFace(conf_thresh=float(conf_thresh),
-                      input_size=(int(input_size), int(input_size)))
+                      input_size=(int(input_size), int(input_size)),
+                      **kwargs)

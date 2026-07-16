@@ -139,6 +139,10 @@ _TAB_GAZE = SpecTab(
                       "0 = ray. Cones catch more objects, less precisely."),
             SpecField("conf_ray", "Confidence-scaled ray length",
                       "Shorten the ray when the gaze model is unsure.", tier="A"),
+            SpecField("face_eye_origin", "Eye-midpoint ray origin",
+                      "Anchor rays at the detected eye midpoint instead of "
+                      "the face-box centre. Changes ray origins vs. blessed "
+                      "baselines.", tier="A"),
         )),
         SpecGroup("gazelle_blend", "Gaze-LLE Blend",
                   toggle="rf_gazelle_model",
@@ -284,6 +288,11 @@ _TAB_DETECTION = SpecTab(
             SpecField("reid_grace_seconds", "Track re-ID grace (s)",
                       "How long a lost person track can reappear with the same "
                       "identity.", tier="A"),
+            SpecField("face_reid_sim", "Face re-ID similarity",
+                      "Verify track revivals with face embeddings: a lost "
+                      "track is re-identified anywhere in frame when "
+                      "similarity is at least this value. 0 = off.",
+                      tier="A"),
         )),
         SpecGroup("gaze_boost", "Gaze-guided detection boost",
                   toggle="gaze_boost",

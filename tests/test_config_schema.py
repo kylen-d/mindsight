@@ -425,13 +425,14 @@ def test_ui_metadata_does_not_move_canonical_hash():
     one more value).  Consequence: resume ledgers written before v1.1 report
     a config-hash mismatch and reprocess -- expected, noted in the changelog.
     Re-pinned again 2026-07-16 (v1.1 W3X): rayforming.rf_reuse_eps /
-    rf_onset_samples / rf_onset_gap fields added (same one-time-reprocess
+    rf_onset_samples / rf_onset_gap, then gaze.face_eye_origin +
+    tracker.face_reid_sim fields added (same one-time-reprocess
     consequence, still pre-release on v1.1-dev).
     """
     assert PipelineConfig().canonical_hash() == (
-        "3c3b9a2bc676572770c409453196d862beceb1b96b191271faccbf78042fc351")
+        "9d3c6c76b8c36c1055073e77adeb56bbebd89179bc01276003a46a018bb0cc52")
     assert PipelineConfig(gaze={"ray_length": 1.5}).canonical_hash() == (
-        "10cc159eaf3fbeddd023c4464b370d15374bb74bb0d83471d69deb7951b417fb")
+        "1b39fc1c3854010912c1ec5eab2f3a7f24911a6e9a8ec5deefb672f585965078")
 
 
 def test_ui_mirror_rule_targets_are_hidden():

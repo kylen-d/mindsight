@@ -33,6 +33,8 @@
   "em_source": "gaze",
   "em_velocity_window": 3,
   "eye_movement": false,
+  "face_eye_origin": false,
+  "face_reid_sim": 0.0,
   "fast": false,
   "fixation_d_threshold": 0.15,
   "fixation_v_threshold": 0.04,

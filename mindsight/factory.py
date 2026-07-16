@@ -121,7 +121,8 @@ def build_from_namespace(ns):
         )
     face_det = create_face_detector(
         conf_thresh=getattr(args, 'face_conf', 0.5),
-        input_size=getattr(args, 'face_input_size', 640))
+        input_size=getattr(args, 'face_input_size', 640),
+        model_name=getattr(args, 'face_model', None))
 
     # Plugin discovery summary
     for _reg_label, _reg in (("Gaze",             _gaze_registry),

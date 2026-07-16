@@ -53,6 +53,34 @@ def _get_eye_center(face_dict, inv_scale=1.0):
     return None
 
 
+def normalize_face_dicts(raw, inv_scale=1.0):
+    """Map RetinaFace detection dicts onto the internal face shape (W3X).
+
+    uniface 1.1.0 emits ``{'bbox': [x1,y1,x2,y2], 'confidence': float,
+    'landmarks': [[x,y]*5]}`` -- but the pipeline convention (and every
+    downstream reader) expects the detection score appended as a 5th bbox
+    element and the keypoints under ``'kps'``.  Before this adapter the
+    mismatch silently disabled the eye-centre origin and the
+    EYE_CONF_THRESH gate (kps was always None, score always 1.0).
+
+    Dicts already carrying ``'kps'`` or a scored bbox (tests, plugins,
+    non-uniface detectors) pass through with scaling only.
+    """
+    out = []
+    for f in raw:
+        bbox = [float(c) * inv_scale for c in f["bbox"][:4]]
+        score = f["bbox"][4] if len(f["bbox"]) > 4 else f.get("confidence")
+        kps = f.get("kps")
+        if kps is None:
+            kps = f.get("landmarks")
+        nf = dict(f)
+        nf["bbox"] = bbox + ([float(score)] if score is not None else [])
+        nf["kps"] = ([[float(k[0]) * inv_scale, float(k[1]) * inv_scale]
+                      for k in kps] if kps is not None else None)
+        out.append(nf)
+    return out
+
+
 # ══════════════════════════════════════════════════════════════════════════════
 # Per-face estimate reuse (perceptual no-change gate)
 # ══════════════════════════════════════════════════════════════════════════════
@@ -149,17 +177,35 @@ class GazeSmootherReID:
     If a new detection appears within max_dist of a dead track before the
     buffer expires, the original track ID is revived instead of minting a
     new one.  This keeps person IDs stable across brief face occlusions.
+
+    ``embed_fn`` + ``embed_sim > 0`` (v1.1 W3X, ``--face-reid-sim``) add
+    embedding-verified revival: dead tracks carry a face embedding
+    (computed at creation, EMA-refreshed periodically) and a new detection
+    is matched against them by cosine similarity FIRST -- anywhere in the
+    frame, not just within max_dist -- reviving only above ``embed_sim``.
+    When no dead track passes, the positional revival above still applies,
+    so the feature is strictly additive.  ``embed_fn(crop, kps_local)``
+    must return a unit-norm 1-D vector or None (kps are crop-relative
+    5-point landmarks; entries without landmarks skip embedding work).
     """
 
+    _EMBED_REFRESH = 30   # frames between per-track embedding refreshes
+
     def __init__(self, alpha=SMOOTH_ALPHA, max_dist=200, hist_weight=0.35,
-                 hist_bins=16, grace_frames=0):
+                 hist_bins=16, grace_frames=0, embed_fn=None, embed_sim=0.0):
         self.alpha, self.max_dist = alpha, max_dist
         self.hist_weight          = hist_weight
         self.hist_bins            = hist_bins
         self.grace_frames         = grace_frames
+        self.embed_fn             = embed_fn
+        self.embed_sim            = float(embed_sim)
         self._tracks, self._nid   = {}, 0
         self._dead: dict          = {}   # tid -> {c, p, y, h, _dropped}
         self._frame: int          = 0
+
+    @property
+    def _embed_active(self) -> bool:
+        return self.embed_fn is not None and self.embed_sim > 0.0
 
     # -- Histogram helpers ----------------------------------------------------
 
@@ -201,10 +247,59 @@ class GazeSmootherReID:
                        if old_h is not None and new_hist is not None else new_hist)
         return sp, sy
 
-    def _new_track(self, center, pitch, yaw, crop) -> dict:
+    def _new_track(self, center, pitch, yaw, crop, embed=None) -> dict:
         """Create the state dict for a brand-new track."""
         return dict(c=center, p=pitch, y=yaw,
-                    h=self._histogram(crop, self.hist_bins))
+                    h=self._histogram(crop, self.hist_bins),
+                    e=embed, ef=self._frame)
+
+    # -- Embedding helpers (W3X; inert unless embed_fn + embed_sim set) -------
+
+    def _embed(self, crop, kps):
+        """Compute a unit embedding for a detection, or None."""
+        if not self._embed_active or crop is None or kps is None:
+            return None
+        try:
+            e = self.embed_fn(crop, kps)
+        except Exception:
+            return None
+        if e is None:
+            return None
+        e = np.asarray(e, dtype=np.float32).reshape(-1)
+        n = float(np.linalg.norm(e))
+        return e / n if n > 0 else None
+
+    def _refresh_embedding(self, track, crop, kps):
+        """EMA-refresh a live track's embedding every _EMBED_REFRESH frames."""
+        if not self._embed_active:
+            return
+        if (track.get('e') is not None
+                and self._frame - track.get('ef', 0) < self._EMBED_REFRESH):
+            return
+        e_new = self._embed(crop, kps)
+        if e_new is None:
+            return
+        e_old = track.get('e')
+        if e_old is not None:
+            mixed = 0.7 * e_old + 0.3 * e_new
+            n = float(np.linalg.norm(mixed))
+            e_new = mixed / n if n > 0 else e_new
+        track['e'] = e_new
+        track['ef'] = self._frame
+
+    def _revive_by_embedding(self, det_embed):
+        """Best dead-track ID by cosine similarity >= embed_sim, else None."""
+        if det_embed is None:
+            return None
+        best_tid, best_sim = None, self.embed_sim
+        for tid, t in self._dead.items():
+            e = t.get('e')
+            if e is None:
+                continue
+            sim = float(np.dot(det_embed, e))
+            if sim >= best_sim:
+                best_sim, best_tid = sim, tid
+        return best_tid
 
     # -- Global-motion compensation -------------------------------------------
 
@@ -241,7 +336,8 @@ class GazeSmootherReID:
 
     def update(self, faces):
         """
-        faces: [(center, pitch, yaw, crop)]
+        faces: [(center, pitch, yaw, crop)] -- an optional 5th element
+        carries crop-relative 5-point landmarks for embedding ReID (W3X).
         Returns: [(smooth_pitch, smooth_yaw, track_id)]
         """
         self._frame += 1
@@ -261,6 +357,7 @@ class GazeSmootherReID:
         for entry in faces:
             center, pitch, yaw = entry[0], entry[1], entry[2]
             crop = entry[3] if len(entry) > 3 else None
+            kps = entry[4] if len(entry) > 4 else None
             c_raw = np.asarray(center, float)
             c_match = c_raw - shift  # shift-compensated for matching only
 
@@ -268,23 +365,34 @@ class GazeSmootherReID:
             bid = self._best_match(c_match, crop, self._tracks)
             if bid is not None:
                 sp, sy = self._update_track(self._tracks[bid], c_raw, pitch, yaw, crop)
+                self._refresh_embedding(self._tracks[bid], crop, kps)
                 unmatched.discard(bid)
                 result.append((sp, sy, bid))
                 continue
 
-            # 2. No live match — try to revive a dead track (grace period)
+            # 2. No live match — try to revive a dead track (grace period).
+            # Embedding identity wins over position when enabled (W3X):
+            # a person may re-enter anywhere in the frame.
             if self.grace_frames > 0 and self._dead:
-                did = self._best_match(c_match, crop, self._dead)
+                det_embed = (self._embed(crop, kps)
+                             if self._embed_active else None)
+                did = self._revive_by_embedding(det_embed)
+                if did is None:
+                    did = self._best_match(c_match, crop, self._dead)
                 if did is not None:
                     revived = self._dead.pop(did)
                     sp, sy = self._update_track(revived, c_raw, pitch, yaw, crop)
+                    if det_embed is not None:
+                        revived['e'] = det_embed
+                        revived['ef'] = self._frame
                     self._tracks[did] = revived
                     result.append((sp, sy, did))
                     continue
 
             # 3. Genuinely new face — allocate a fresh ID
             nid = self._nid; self._nid += 1
-            self._tracks[nid] = self._new_track(c_raw, pitch, yaw, crop)
+            self._tracks[nid] = self._new_track(
+                c_raw, pitch, yaw, crop, embed=self._embed(crop, kps))
             result.append((pitch, yaw, nid))
 
         # Move unmatched live tracks to the dead-track buffer (or drop immediately)
@@ -293,6 +401,31 @@ class GazeSmootherReID:
                 self._dead[tid] = {**self._tracks[tid], '_dropped': self._frame}
             del self._tracks[tid]
         return result
+
+
+def create_face_embedder():
+    """Build the ``embed_fn`` used by embedding-verified ReID (W3X).
+
+    Wraps uniface's ArcFace recognizer: the crop is aligned from its
+    crop-relative 5-point landmarks and embedded to a unit vector.  The
+    ONNX weights auto-download to ~/.uniface on first use (same mechanism
+    as the RetinaFace detector weights).  Note the upstream provenance:
+    the w600k ArcFace models come from the InsightFace model zoo, which
+    marks them for non-commercial research use -- see THIRD_PARTY_LICENSES.
+    """
+    from uniface import ArcFace
+    model = ArcFace()
+
+    def embed(crop, kps):
+        if crop is None or getattr(crop, 'size', 0) == 0 or kps is None:
+            return None
+        if len(kps) < 5:
+            return None
+        emb = model.get_normalized_embedding(
+            crop, np.asarray(kps, dtype=np.float32))
+        return np.asarray(emb, dtype=np.float32).reshape(-1)
+
+    return embed
 
 
 # ══════════════════════════════════════════════════════════════════════════════

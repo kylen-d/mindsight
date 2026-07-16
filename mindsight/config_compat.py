@@ -116,6 +116,7 @@ EXCLUDED_CLI_FLAGS: dict[str, str] = {
     "--rf-gazelle-compile": "model wiring: GazelleProvider torch.compile",
     "--face-conf":         "model wiring: RetinaFace confidence threshold",
     "--face-input-size":   "model wiring: RetinaFace input resolution",
+    "--face-model":        "model wiring: RetinaFace backbone variant",
     # Raw name lists resolved against the loaded model into
     # detection.class_ids / detection.blacklist by create_yolo_detector.
     "--classes":           "raw class names; resolved to detection.class_ids at build",

@@ -555,6 +555,29 @@
     },
     {
       "option_strings": [
+        "--face-model"
+      ],
+      "dest": "face_model",
+      "action": "_StoreAction",
+      "default": null,
+      "type": null,
+      "nargs": null,
+      "const": null,
+      "choices": [
+        "mnet025",
+        "mnet050",
+        "mnet_v1",
+        "mnet_v2",
+        "r18",
+        "r34"
+      ],
+      "required": false,
+      "metavar": "NAME",
+      "help": "RetinaFace backbone variant (default: mnet_v2, the library default). Larger backbones (r18/r34) detect small/distant faces better at a speed cost; weights auto-download on first use.",
+      "group": "options"
+    },
+    {
+      "option_strings": [
         "--conf"
       ],
       "dest": "conf",
@@ -1203,6 +1226,38 @@
       "required": false,
       "metavar": "S",
       "help": "Seconds a lost face track stays in the re-ID buffer (default 1.0).",
+      "group": "options"
+    },
+    {
+      "option_strings": [
+        "--face-reid-sim"
+      ],
+      "dest": "face_reid_sim",
+      "action": "_StoreAction",
+      "default": 0.0,
+      "type": "float",
+      "nargs": null,
+      "const": null,
+      "choices": null,
+      "required": false,
+      "metavar": "SIM",
+      "help": "Verify lost-track revivals with ArcFace embeddings: a dead track is re-identified by cosine similarity >= SIM (anywhere in frame, not just near its last position), falling back to positional matching. 0 disables (default: 0.0). Try 0.35-0.45. Embedding weights auto-download on first use (InsightFace research-provenance -- see THIRD_PARTY_LICENSES).",
+      "group": "options"
+    },
+    {
+      "option_strings": [
+        "--face-eye-origin"
+      ],
+      "dest": "face_eye_origin",
+      "action": "_StoreTrueAction",
+      "default": false,
+      "type": null,
+      "nargs": 0,
+      "const": true,
+      "choices": null,
+      "required": false,
+      "metavar": null,
+      "help": "Anchor gaze rays at the detected eye midpoint (RetinaFace landmarks) instead of the face-bbox centre. Changes ray origins, so hit counts move vs. blessed baselines (default: off).",
       "group": "options"
     },
     {

@@ -126,7 +126,8 @@ class _GroupSpec:
 
 _GROUP_TREE: list[_GroupSpec] = [
     _GroupSpec("ray_geometry", "Gaze Ray Geometry",
-               ["ray_length", "conf_ray", "gaze_cone", "forward_gaze_threshold"],
+               ["ray_length", "conf_ray", "gaze_cone", "forward_gaze_threshold",
+                "face_eye_origin"],
                sub=[_GroupSpec("gaze_tips", "Gaze tips (virtual objects)",
                                ["tip_radius"], toggle="gaze_tips")]),
     _GroupSpec("gazelle_blend", "Gaze-LLE Blend (Ray Forming)",
@@ -155,7 +156,8 @@ _GROUP_TREE: list[_GroupSpec] = [
                toggle="depth"),
     _GroupSpec("performance", "Performance && Tracking",
                ["skip_frames", "detect_scale", "mgaze_reuse_eps",
-                "reid_grace_seconds", "obj_persistence", "gaze_debug",
+                "reid_grace_seconds", "face_reid_sim", "obj_persistence",
+                "gaze_debug",
                 "fast", "skip_phenomena", "lite_overlay", "no_dashboard",
                 "profile"]),
     _GroupSpec("phenomena", "Phenomena Tracking",

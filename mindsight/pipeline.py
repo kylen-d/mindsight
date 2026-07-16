@@ -433,8 +433,14 @@ def _run_video(source, *, yolo, face_det, gaze_eng,
     aux_captures, _aux_ended = open_aux_streams(output_cfg, _fps)
     grace_frames = max(0, int(round(tracker_cfg.reid_grace_seconds * _fps)))
 
+    _embed_fn = None
+    if tracker_cfg.face_reid_sim > 0:
+        from mindsight.GazeTracking.gaze_processing import create_face_embedder
+        _embed_fn = create_face_embedder()
     smoother  = GazeSmootherReID(grace_frames=grace_frames,
-                                   max_dist=tracker_cfg.reid_max_dist)
+                                   max_dist=tracker_cfg.reid_max_dist,
+                                   embed_fn=_embed_fn,
+                                   embed_sim=tracker_cfg.face_reid_sim)
     mgaze_reuse = (MGazeReuseCache(tracker_cfg.mgaze_reuse_eps)
                    if tracker_cfg.mgaze_reuse_eps > 0 else None)
     locker    = (GazeLockTracker(dwell_frames=tracker_cfg.dwell_frames,

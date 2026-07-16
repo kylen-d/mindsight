@@ -2,6 +2,21 @@
 
 ## [Unreleased]
 
+### Added (W3X face/tracking knobs, all default-off)
+- **RetinaFace landmarks and detection scores now reach the pipeline.**
+  uniface 1.1.0 returns them under keys the pipeline never read, so the
+  documented eye-midpoint ray origin was silently dead (origins always the
+  face-box centre -- the behavior all baselines were blessed against). A
+  boundary adapter normalizes the dicts; `--face-eye-origin` (default off)
+  opts rays into the true eye-midpoint origin.
+- `--face-reid-sim`: embedding-verified track revival ("redetection") --
+  a lost face can be re-identified anywhere in the frame by ArcFace cosine
+  similarity, with positional revival as the fallback. Weights
+  auto-download on first use; see THIRD_PARTY_LICENSES for the InsightFace
+  research-use provenance note.
+- `--face-model`: RetinaFace backbone selector (mnet025 ... r34); larger
+  backbones detect small/distant faces better at a speed cost.
+
 ### Added (W3X fire-decision knobs, all default-off)
 - `--rf-reuse-eps`: skip a scheduled Gaze-LLE call when the scene is
   visually unchanged since the last real call (mean-abs 64x64 grayscale

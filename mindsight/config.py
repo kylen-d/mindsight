@@ -127,6 +127,7 @@ class GazeSection(BaseModel):
         5.0, json_schema_extra={"cli": "--forward-gaze-threshold"})
     smooth_snap: str = Field("off", json_schema_extra={"cli": "--smooth-snap"})
     smooth_snap_alpha: float = Field(0.20, json_schema_extra={"cli": "--smooth-snap-alpha"})
+    face_eye_origin: bool = Field(False, json_schema_extra={"cli": "--face-eye-origin"})
 
 
 class TrackerSection(BaseModel):
@@ -144,6 +145,7 @@ class TrackerSection(BaseModel):
     reid_grace_seconds: float = Field(1.0, json_schema_extra={"cli": "--reid-grace-seconds"})
     reid_max_dist: int = 200              # no CLI flag today (dead getattr fallback)
     mgaze_reuse_eps: float = Field(0.0, json_schema_extra={"cli": "--mgaze-reuse-eps"})
+    face_reid_sim: float = Field(0.0, json_schema_extra={"cli": "--face-reid-sim"})
 
 
 class RayFormingSection(BaseModel):
@@ -405,6 +407,7 @@ class PipelineConfig(BaseModel):
             forward_gaze_threshold=g("forward_gaze_threshold", 5.0),
             smooth_snap=g("smooth_snap", "off"),
             smooth_snap_alpha=g("smooth_snap_alpha", 0.20),
+            face_eye_origin=g("face_eye_origin", False),
         )
         tracker = TrackerSection(
             gaze_lock=g("gaze_lock", False),
@@ -417,6 +420,7 @@ class PipelineConfig(BaseModel):
             reid_grace_seconds=g("reid_grace_seconds", 1.0),
             reid_max_dist=g("reid_max_dist", 200),
             mgaze_reuse_eps=g("mgaze_reuse_eps", 0.0),
+            face_reid_sim=g("face_reid_sim", 0.0),
         )
         rayforming = RayFormingSection(
             ray_length=g("ray_length", 1.0),
@@ -658,6 +662,9 @@ _UI: dict[str, dict | None] = {
     "gaze.ja_quorum": None,          # mirror of phenomena.ja_quorum (canonical)
     "gaze.gaze_debug": {"group": "performance",
                         "label": "Show pitch/yaw debug overlay"},
+    "gaze.face_eye_origin": {"group": "ray_geometry",
+                             "label": "Eye-midpoint ray origin",
+                             "advanced": True},
 
     # -- Tracker ------------------------------------------------------------
     "tracker.gaze_lock": {"group": "fixation", "label": "Fixation Lock-On",
@@ -682,6 +689,10 @@ _UI: dict[str, dict | None] = {
     "tracker.reid_grace_seconds": {"group": "performance", "label": "ReID grace (s)",
                                    "advanced": True, "min": 0.0, "max": 10.0,
                                    "step": 0.5, "decimals": 1},
+    "tracker.face_reid_sim": {"group": "performance",
+                              "label": "ReID embed similarity",
+                              "advanced": True, "min": 0.0, "max": 1.0,
+                              "step": 0.05, "decimals": 2},
     "tracker.reid_max_dist": None,   # no CLI flag / no widget (dead fallback)
 
     # -- Ray forming (Gaze-LLE blend scheduler/smoother) -------------------

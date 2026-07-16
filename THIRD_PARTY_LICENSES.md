@@ -52,6 +52,8 @@ This file documents their licenses for compliance purposes.
 |-------|---------|--------|
 | DINOv2 | Apache-2.0 | Meta AI, loaded via `torch.hub` by the Gazelle backend |
 | YOLO / YOLOE weights | AGPL-3.0 | Ultralytics, auto-downloaded on first use |
+| RetinaFace weights | MIT (uniface release) | yakhyo/uniface, auto-downloaded to `~/.uniface` on first use; trained on WIDER FACE |
+| ArcFace embeddings (`--face-reid-sim`) | MIT (uniface release) | yakhyo/uniface, auto-downloaded on first use. Upstream provenance: InsightFace model zoo, which marks its models for **non-commercial research use**; the training set (WebFace600K) is research-only. Off by default; enable only if that provenance is acceptable for your use. |
 
 ## AGPL-3.0 Notice
 

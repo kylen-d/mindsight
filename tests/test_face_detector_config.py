@@ -46,3 +46,20 @@ def test_flag_defaults():
     ns = parse_cli([])
     assert ns.face_conf == 0.5
     assert ns.face_input_size == 640
+    assert ns.face_model is None
+
+
+def test_face_model_selects_backbone(monkeypatch):
+    _with_fake_uniface(monkeypatch)
+    constants = types.ModuleType("uniface.constants")
+    constants.RetinaFaceWeights = lambda v: f"enum:{v}"
+    monkeypatch.setitem(sys.modules, "uniface.constants", constants)
+    create_face_detector(model_name="r34")
+    kwargs = _RecorderRetinaFace.instances[-1].kwargs
+    assert kwargs["model_name"] == "enum:retinaface_r34"
+
+
+def test_face_model_none_keeps_library_default(monkeypatch):
+    _with_fake_uniface(monkeypatch)
+    create_face_detector(model_name=None)
+    assert "model_name" not in _RecorderRetinaFace.instances[-1].kwargs

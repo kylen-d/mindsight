@@ -67,10 +67,16 @@ def run_pitchyaw_pipeline(*, frame, faces, gaze_eng, objects, gaze_cfg,
         pitch, yaw, gc = gaze_eng.estimate(crop)
 
         face_score = f["bbox"][4] if len(f["bbox"]) > 4 else 1.0
-        ec = _get_eye_center(f, inv_scale=1.0) if face_score >= EYE_CONF_THRESH else None
+        # Eye-midpoint origins are opt-in (W3X --face-eye-origin).
+        _eye_origin = bool(getattr(gaze_cfg, 'face_eye_origin', False))
+        ec = (_get_eye_center(f, inv_scale=1.0)
+              if _eye_origin and face_score >= EYE_CONF_THRESH else None)
         center = ec if ec is not None else np.array([(x1+x2)/2, (y1+y2)/2], float)
 
-        raw_faces.append((center, pitch, yaw, crop))
+        kps = f.get("kps")
+        kps_local = ([[float(k[0]) - x1, float(k[1]) - y1] for k in kps]
+                     if kps is not None else None)
+        raw_faces.append((center, pitch, yaw, crop, kps_local))
         face_widths.append(x2 - x1)
         gaze_confs.append(gc)
         raw_face_bboxes.append((x1, y1, x2, y2))
