@@ -240,8 +240,8 @@ class GazelleProvider:
                    d_threshold=d_thresh,
                    min_call_gap=gap,
                    # v1.1 W3X fire-decision knobs; all inert at defaults.
-                   onset_samples=getattr(ns, 'rf_onset_samples', 0) or 0,
-                   onset_gap=getattr(ns, 'rf_onset_gap', 0) or 0,
+                   onset_samples=getattr(ns, 'rf_onset_samples', 3) or 0,
+                   onset_gap=getattr(ns, 'rf_onset_gap', 5) or 0,
                    reuse_eps=getattr(ns, 'rf_reuse_eps', 0.0) or 0.0)
 
     def observe_face(self, *, track_id: int, py_dir: np.ndarray,

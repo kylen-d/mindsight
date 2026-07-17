@@ -11,13 +11,29 @@
   (hysts/pytorch_mpiigaze etc.) are trained on CC-BY-NC-SA / research-only
   data.
 
+### Changed (v1.1 default flips -- eval-validated on 87 hand-labeled frames)
+- **New defaults**: `yolo11n.pt` detector, RetinaFace `r34` face backbone,
+  eye-midpoint ray origins (`--no-face-eye-origin` restores bbox centres),
+  and earlier Gaze-LLE corrections for new faces (`rf_onset_samples 3`,
+  `rf_onset_gap 5`). Together: mean gaze-endpoint error 74.5 -> 71.3 px,
+  median 63.6 -> 58.7 px, hit rate 62% -> 64%, first corrections at frame 3
+  (was 5/15), and ~42% faster per frame (the r34 face backbone runs on the
+  CoreML path; the old mobile backbone silently ran on CPU).
+- Regression baselines re-blessed accordingly (smoke hit counts 2/1025/711;
+  new frozen blend SSIM reference). Concurrent first-launch face-weight
+  downloads are now serialized (flock), fixing a race two simultaneous
+  first runs could hit.
+- The weights manifest now also carries `yolo11n.onnx` (official ONNX
+  export, faster on CPU-bound installs) and the YOLOE-11 visual-prompt
+  family (`yoloe-11s/m/l-seg`).
+
 ### Added (W3X face/tracking knobs, all default-off)
 - **RetinaFace landmarks and detection scores now reach the pipeline.**
   uniface 1.1.0 returns them under keys the pipeline never read, so the
   documented eye-midpoint ray origin was silently dead (origins always the
   face-box centre -- the behavior all baselines were blessed against). A
-  boundary adapter normalizes the dicts; `--face-eye-origin` (default off)
-  opts rays into the true eye-midpoint origin.
+  boundary adapter normalizes the dicts; `--face-eye-origin` opts rays
+  into the true eye-midpoint origin (now the default, see the flips above).
 - `--face-reid-sim`: embedding-verified track revival ("redetection") --
   a lost face can be re-identified anywhere in the frame by ArcFace cosine
   similarity, with positional revival as the fallback. Weights
@@ -87,8 +103,8 @@
   `--face-input-size` expose the face detector; weight hashes persist
   across launches so preflight stops re-hashing unchanged weights
   (`MINDSIGHT_NO_HASH_CACHE=1` opts out).
-- `yolo11n.pt` added to the weights manifest (candidate default pending
-  eval); `scripts/eval_annotate.py` + `scripts/eval_gaze.py` give accuracy
+- `yolo11n.pt` added to the weights manifest (now the default, see the
+  flips above); `scripts/eval_annotate.py` + `scripts/eval_gaze.py` give accuracy
   work ground-truth numbers.
 - Note: config hashes changed with the new schema fields, so pre-v1.1
   resume ledgers report a config mismatch and reprocess once.

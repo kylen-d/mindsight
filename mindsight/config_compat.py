@@ -115,6 +115,7 @@ EXCLUDED_CLI_FLAGS: dict[str, str] = {
     "--rf-gazelle-fp16":   "model wiring: GazelleProvider half precision",
     "--rf-gazelle-compile": "model wiring: GazelleProvider torch.compile",
     "--face-conf":         "model wiring: RetinaFace confidence threshold",
+    "--no-face-eye-origin": "run-loop: override switch for the schema face_eye_origin default",
     "--face-input-size":   "model wiring: RetinaFace input resolution",
     "--face-model":        "model wiring: RetinaFace backbone variant",
     # Raw name lists resolved against the loaded model into

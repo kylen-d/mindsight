@@ -175,9 +175,9 @@ def test_flags_reach_runtime_configs():
     from mindsight.pipeline_config import GazeConfig, TrackerConfig
 
     ns = parse_cli([])
-    assert GazeConfig.from_namespace(ns).face_eye_origin is False
+    assert GazeConfig.from_namespace(ns).face_eye_origin is True   # 3.8 default
     assert TrackerConfig.from_namespace(ns).face_reid_sim == 0.0
-    assert ns.face_model is None
+    assert ns.face_model == 'r34'   # v1.1 3.8 default
 
     ns = parse_cli(["--face-eye-origin", "--face-reid-sim", "0.4",
                     "--face-model", "r34"])

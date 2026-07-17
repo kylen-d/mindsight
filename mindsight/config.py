@@ -127,7 +127,8 @@ class GazeSection(BaseModel):
         5.0, json_schema_extra={"cli": "--forward-gaze-threshold"})
     smooth_snap: str = Field("off", json_schema_extra={"cli": "--smooth-snap"})
     smooth_snap_alpha: float = Field(0.20, json_schema_extra={"cli": "--smooth-snap-alpha"})
-    face_eye_origin: bool = Field(False, json_schema_extra={"cli": "--face-eye-origin"})
+    # v1.1 3.8 flip: eye-midpoint origins by default (eval-validated).
+    face_eye_origin: bool = Field(True, json_schema_extra={"cli": "--face-eye-origin"})
 
 
 class TrackerSection(BaseModel):
@@ -175,8 +176,9 @@ class RayFormingSection(BaseModel):
     min_call_gap: int = Field(30, json_schema_extra={"cli": "--min-call-gap"})
     rf_inout_gate: float = Field(0.0, json_schema_extra={"cli": "--rf-inout-gate"})
     rf_reuse_eps: float = Field(0.0, json_schema_extra={"cli": "--rf-reuse-eps"})
-    rf_onset_samples: int = Field(0, json_schema_extra={"cli": "--rf-onset-samples"})
-    rf_onset_gap: int = Field(0, json_schema_extra={"cli": "--rf-onset-gap"})
+    # v1.1 3.8 flips: eval-validated onset defaults (corrections from frame ~3).
+    rf_onset_samples: int = Field(3, json_schema_extra={"cli": "--rf-onset-samples"})
+    rf_onset_gap: int = Field(5, json_schema_extra={"cli": "--rf-onset-gap"})
     dir_min_cutoff: float = Field(1.0, json_schema_extra={"cli": "--dir-min-cutoff"})
     dir_beta: float = Field(0.5, json_schema_extra={"cli": "--dir-beta"})
     len_min_cutoff: float = Field(1.0, json_schema_extra={"cli": "--len-min-cutoff"})
@@ -407,7 +409,7 @@ class PipelineConfig(BaseModel):
             forward_gaze_threshold=g("forward_gaze_threshold", 5.0),
             smooth_snap=g("smooth_snap", "off"),
             smooth_snap_alpha=g("smooth_snap_alpha", 0.20),
-            face_eye_origin=g("face_eye_origin", False),
+            face_eye_origin=g("face_eye_origin", True),
         )
         tracker = TrackerSection(
             gaze_lock=g("gaze_lock", False),
@@ -431,8 +433,8 @@ class PipelineConfig(BaseModel):
             min_call_gap=resolve_min_call_gap(ns),
             rf_inout_gate=g("rf_inout_gate", 0.0),
             rf_reuse_eps=g("rf_reuse_eps", 0.0),
-            rf_onset_samples=g("rf_onset_samples", 0),
-            rf_onset_gap=g("rf_onset_gap", 0),
+            rf_onset_samples=g("rf_onset_samples", 3),
+            rf_onset_gap=g("rf_onset_gap", 5),
             dir_min_cutoff=g("dir_min_cutoff", 1.0),
             dir_beta=g("dir_beta", 0.5),
             len_min_cutoff=g("len_min_cutoff", 1.0),

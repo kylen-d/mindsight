@@ -69,8 +69,8 @@ class RayFormingConfig:
     # from_namespace there); mirrored here so the schema section stays a
     # faithful transcript of the runtime config surface.
     rf_reuse_eps: float = 0.0        # perceptual refire suppression (frame MAD)
-    rf_onset_samples: int = 0        # bootstrap fixation warmup override
-    rf_onset_gap: int = 0            # relaxed global gap for new faces
+    rf_onset_samples: int = 3        # bootstrap fixation warmup override (3.8 default)
+    rf_onset_gap: int = 5            # relaxed global gap for new faces (3.8 default)
 
     # ── Object snap ─────────────────────────────────────────────────────────
     snap_mode: str = "off"              # "off" | "extend" | "snap"
@@ -168,8 +168,8 @@ class RayFormingConfig:
             len_hold_tau=getattr(ns, 'len_hold_tau', 5.0),
             rf_inout_gate=getattr(ns, 'rf_inout_gate', 0.0),
             rf_reuse_eps=getattr(ns, 'rf_reuse_eps', 0.0) or 0.0,
-            rf_onset_samples=getattr(ns, 'rf_onset_samples', 0) or 0,
-            rf_onset_gap=getattr(ns, 'rf_onset_gap', 0) or 0,
+            rf_onset_samples=getattr(ns, 'rf_onset_samples', 3) or 0,
+            rf_onset_gap=getattr(ns, 'rf_onset_gap', 5) or 0,
             snap_mode=getattr(ns, 'adaptive_ray', 'off'),
             snap_dist=getattr(ns, 'snap_dist', 150.0),
             snap_bbox_scale=getattr(ns, 'snap_bbox_scale', 0.0),

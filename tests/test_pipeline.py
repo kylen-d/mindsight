@@ -21,7 +21,8 @@ import pytest
 REPO_ROOT = Path(__file__).resolve().parents[1]
 VIDEO = REPO_ROOT / "test_data" / "trimmed.mp4"
 EXPECTED_FRAMES = 869
-EXPECTED_HITS = 0  # default config on trimmed.mp4 (golden_events.csv: header only)
+EXPECTED_HITS = 2  # default config on trimmed.mp4 (v1.1 3.8 defaults: yolo11n
+                   # + r34 faces + eye-midpoint origins + onset knobs)
 
 pytestmark = [
     pytest.mark.slow,

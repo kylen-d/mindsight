@@ -4,6 +4,7 @@ ObjectDetection/model_factory.py — Shared model loading for YOLO and RetinaFac
 Both the CLI (MindSight.py) and GUI (MindSight_GUI.py) use these helpers
 so that detector initialization logic is defined in one place.
 """
+import contextlib
 import sys
 from pathlib import Path
 
@@ -86,6 +87,34 @@ def create_yolo_detector(
     return yolo, class_ids, bl
 
 
+@contextlib.contextmanager
+def _uniface_download_lock():
+    """Serialize concurrent first-use RetinaFace weight downloads.
+
+    uniface's model store is not concurrency-safe: two processes fetching
+    the same backbone into ``~/.uniface`` race, and one crashes mid-verify
+    on the other's partial file (hit by three concurrent gate smokes on a
+    fresh HOME once r34 became the default).  An exclusive flock on a
+    sidecar lock file makes the first construction finish its download
+    before the others start; best-effort no-op where flock is unavailable
+    (Windows), where GUI launches are single-process anyway.
+    """
+    try:
+        import fcntl
+        lock_dir = Path.home() / ".uniface"
+        lock_dir.mkdir(parents=True, exist_ok=True)
+        fh = open(lock_dir / ".mindsight-download.lock", "w")
+    except Exception:
+        yield
+        return
+    try:
+        fcntl.flock(fh, fcntl.LOCK_EX)
+        yield
+    finally:
+        fcntl.flock(fh, fcntl.LOCK_UN)
+        fh.close()
+
+
 # --face-model short names -> uniface RetinaFaceWeights enum values.
 _FACE_MODEL_NAMES = {
     "mnet025": "retinaface_mnet025",
@@ -119,6 +148,7 @@ def create_face_detector(conf_thresh: float = 0.5, input_size: int = 640,
         from uniface.constants import RetinaFaceWeights
         kwargs["model_name"] = RetinaFaceWeights(
             _FACE_MODEL_NAMES.get(model_name, model_name))
-    return RetinaFace(conf_thresh=float(conf_thresh),
-                      input_size=(int(input_size), int(input_size)),
-                      **kwargs)
+    with _uniface_download_lock():
+        return RetinaFace(conf_thresh=float(conf_thresh),
+                          input_size=(int(input_size), int(input_size)),
+                          **kwargs)

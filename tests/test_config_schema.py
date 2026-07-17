@@ -430,9 +430,9 @@ def test_ui_metadata_does_not_move_canonical_hash():
     consequence, still pre-release on v1.1-dev).
     """
     assert PipelineConfig().canonical_hash() == (
-        "9d3c6c76b8c36c1055073e77adeb56bbebd89179bc01276003a46a018bb0cc52")
+        "78eace7f023e5aab8eedec4bbcb2addc82535f94b0084369365f7c11ac37c3b5")
     assert PipelineConfig(gaze={"ray_length": 1.5}).canonical_hash() == (
-        "1b39fc1c3854010912c1ec5eab2f3a7f24911a6e9a8ec5deefb672f585965078")
+        "277264867d47bd41fe11e4bae9cf4986b77a2932c72ed9f322cba4e67d47df8d")
 
 
 def test_ui_mirror_rule_targets_are_hidden():

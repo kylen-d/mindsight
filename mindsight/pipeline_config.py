@@ -116,7 +116,7 @@ class GazeConfig:
     forward_gaze_threshold: float = 5.0
     smooth_snap: str = "off"              # "off", "objects", "gaze_tips", or "all"
     smooth_snap_alpha: float = 0.20
-    face_eye_origin: bool = False   # rays anchor at eye midpoint (W3X; off = bbox centre)
+    face_eye_origin: bool = True    # rays anchor at eye midpoint (W3X; 3.8 default ON)
 
     @classmethod
     def from_namespace(cls, ns) -> GazeConfig:
@@ -148,7 +148,8 @@ class GazeConfig:
             forward_gaze_threshold=ns.forward_gaze_threshold,
             smooth_snap=getattr(ns, 'smooth_snap', 'off'),
             smooth_snap_alpha=getattr(ns, 'smooth_snap_alpha', 0.20),
-            face_eye_origin=getattr(ns, 'face_eye_origin', False),
+            face_eye_origin=(getattr(ns, 'face_eye_origin', True)
+                             and not getattr(ns, 'no_face_eye_origin', False)),
         )
 
 

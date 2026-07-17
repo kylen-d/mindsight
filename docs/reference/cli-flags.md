@@ -75,7 +75,9 @@ be supplied multiple times.
 
 | Flag | Type / choices | Default | Description |
 |------|----------------|---------|-------------|
-| `--model` | str | `"yolov8n.pt"` | Object Detection Model, defaults to yolov8n.pt |
+| `--model` | str | `"yolo11n.pt"` | Object Detection Model (default: yolo11n.pt since v1.1; yolo11n.onnx in the Models tab is a faster option for CPU-bound installs) |
+| `--face-model` | str | `"r34"` | RetinaFace backbone variant (default: r34 -- the v1.1 eval pick: best accuracy AND ~40% faster than mnet_v2 on the CoreML path; weights auto-download on first use) |
+| `--no-face-eye-origin` | flag | off | Anchor gaze rays at the face-bbox centre (the pre-v1.1 behavior), overriding the eye-midpoint default |
 | `--conf` | float | `0.35` | Object detection confidence threshold, defaults to 0.35 |
 | `--classes` | str[] | `[]` | Specified YOLO Object Detection Classes Prompt |
 | `--blacklist` | str[] | `[]` | Specified YOLO Object Detection Classes Blacklist |

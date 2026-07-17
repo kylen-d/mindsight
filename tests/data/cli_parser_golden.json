@@ -511,14 +511,14 @@
       ],
       "dest": "model",
       "action": "_StoreAction",
-      "default": "yolov8n.pt",
+      "default": "yolo11n.pt",
       "type": null,
       "nargs": null,
       "const": null,
       "choices": null,
       "required": false,
       "metavar": null,
-      "help": "Object Detection Model, defaults to yolov8n.pt",
+      "help": "Object Detection Model (default: yolo11n.pt since v1.1; yolo11n.onnx in the Models tab is a faster option for CPU-bound installs)",
       "group": "options"
     },
     {
@@ -559,7 +559,7 @@
       ],
       "dest": "face_model",
       "action": "_StoreAction",
-      "default": null,
+      "default": "r34",
       "type": null,
       "nargs": null,
       "const": null,
@@ -573,7 +573,7 @@
       ],
       "required": false,
       "metavar": "NAME",
-      "help": "RetinaFace backbone variant (default: mnet_v2, the library default). Larger backbones (r18/r34) detect small/distant faces better at a speed cost; weights auto-download on first use.",
+      "help": "RetinaFace backbone variant (default: r34 -- the v1.1 eval pick: best accuracy AND ~40%% faster than mnet_v2 on the CoreML path; weights auto-download on first use).",
       "group": "options"
     },
     {
@@ -1250,6 +1250,22 @@
       ],
       "dest": "face_eye_origin",
       "action": "_StoreTrueAction",
+      "default": true,
+      "type": null,
+      "nargs": 0,
+      "const": true,
+      "choices": null,
+      "required": false,
+      "metavar": null,
+      "help": "Anchor gaze rays at the detected eye midpoint (RetinaFace landmarks) instead of the face-bbox centre (default: ON since v1.1; disable with --no-face-eye-origin).",
+      "group": "options"
+    },
+    {
+      "option_strings": [
+        "--no-face-eye-origin"
+      ],
+      "dest": "no_face_eye_origin",
+      "action": "_StoreTrueAction",
       "default": false,
       "type": null,
       "nargs": 0,
@@ -1257,7 +1273,7 @@
       "choices": null,
       "required": false,
       "metavar": null,
-      "help": "Anchor gaze rays at the detected eye midpoint (RetinaFace landmarks) instead of the face-bbox centre. Changes ray origins, so hit counts move vs. blessed baselines (default: off).",
+      "help": "Anchor gaze rays at the face-bbox centre (the pre-v1.1 behavior), overriding the eye-midpoint default.",
       "group": "options"
     },
     {
@@ -1388,14 +1404,14 @@
       ],
       "dest": "rf_onset_samples",
       "action": "_StoreAction",
-      "default": 0,
+      "default": 3,
       "type": "int",
       "nargs": null,
       "const": null,
       "choices": null,
       "required": false,
       "metavar": "N",
-      "help": "Let a NEW face reach fixation eligibility after N pitch/yaw samples instead of the default 5 (half the history buffer). Minimum effective value 2; 0 keeps the default warmup (default: 0). Cuts first-anchor latency for freshly appeared faces.",
+      "help": "Let a NEW face reach fixation eligibility after N pitch/yaw samples instead of the full warmup of 5 (half the history buffer). Minimum effective value 2; 0 keeps the full warmup (default: 3). Cuts first-anchor latency for freshly appeared faces.",
       "group": "Ray Forming (Gazelle blend)"
     },
     {
@@ -1404,14 +1420,14 @@
       ],
       "dest": "rf_onset_gap",
       "action": "_StoreAction",
-      "default": 0,
+      "default": 5,
       "type": "int",
       "nargs": null,
       "const": null,
       "choices": null,
       "required": false,
       "metavar": "N",
-      "help": "When a never-anchored face wants inference, relax the global call gap to min(--min-call-gap, N) so a new participant is not stuck behind another face's recent call. 0 disables (default: 0).",
+      "help": "When a never-anchored face wants inference, relax the global call gap to min(--min-call-gap, N) so a new participant is not stuck behind another face's recent call. 0 disables (default: 5).",
       "group": "Ray Forming (Gazelle blend)"
     },
     {

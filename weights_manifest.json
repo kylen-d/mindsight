@@ -21,9 +21,57 @@
       "sha256": "0ebbc80d4a7680d14987a577cd21342b65ecfd94632bd9a8da63ae6417644ee1",
       "size": 5613764,
       "license": "AGPL-3.0",
+      "required": true,
+      "source": "github-release",
+      "note": "Newer-generation nano detector (COCO-80): the v1.1 default (eval-validated: better gaze accuracy than yolov8n at equal-or-better speed)."
+    },
+    {
+      "backend": "YOLO",
+      "filename": "yolo11n.onnx",
+      "label": "YOLO detector (yolo11n, ONNX)",
+      "url": "https://github.com/ultralytics/assets/releases/download/v8.3.0/yolo11n.onnx",
+      "sha256": "634279b40c07c6391472c51ad45b81ebc48706a9a1fe72dd3396322acd0c053b",
+      "size": 10930182,
+      "license": "AGPL-3.0",
       "required": false,
       "source": "github-release",
-      "note": "Newer-generation nano detector (COCO-80): higher accuracy than yolov8n at equal-or-better speed. Candidate v1.1 default pending eval."
+      "note": "Official ONNX export of yolo11n -- onnxruntime path for CPU-bound installs. The only yolo11 variant ultralytics publishes as ONNX."
+    },
+    {
+      "backend": "YOLO",
+      "filename": "yoloe-11s-seg.pt",
+      "label": "YOLOE-11 segment detector (yoloe-11s-seg, VP/text-prompt)",
+      "url": "https://github.com/ultralytics/assets/releases/download/v8.3.0/yoloe-11s-seg.pt",
+      "sha256": "8e439445c87338b79d9ce21dec109f4621e26df67e94d26ea1a98c1e64dce3e3",
+      "size": 27803986,
+      "license": "AGPL-3.0",
+      "required": false,
+      "source": "github-release",
+      "note": "Open-vocabulary YOLOE on the yolo11 backbone (small). Lighter visual-prompt alternative to yoloe-26l-seg."
+    },
+    {
+      "backend": "YOLO",
+      "filename": "yoloe-11m-seg.pt",
+      "label": "YOLOE-11 segment detector (yoloe-11m-seg, VP/text-prompt)",
+      "url": "https://github.com/ultralytics/assets/releases/download/v8.3.0/yoloe-11m-seg.pt",
+      "sha256": "785199b7cc75a5f4041dec15782a4b8a4105e5a34d7ffb287a0a10781724c5bd",
+      "size": 60276714,
+      "license": "AGPL-3.0",
+      "required": false,
+      "source": "github-release",
+      "note": "Open-vocabulary YOLOE on the yolo11 backbone (medium)."
+    },
+    {
+      "backend": "YOLO",
+      "filename": "yoloe-11l-seg.pt",
+      "label": "YOLOE-11 segment detector (yoloe-11l-seg, VP/text-prompt)",
+      "url": "https://github.com/ultralytics/assets/releases/download/v8.3.0/yoloe-11l-seg.pt",
+      "sha256": "a993fb0fc7c8830939ae14e6434a925dd1179428158c2761482eb8a8d8a3699f",
+      "size": 70982416,
+      "license": "AGPL-3.0",
+      "required": false,
+      "source": "github-release",
+      "note": "Open-vocabulary YOLOE on the yolo11 backbone (large)."
     },
     {
       "backend": "YOLO",

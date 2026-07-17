@@ -238,8 +238,8 @@ def test_flags_reach_schema_and_provider_defaults():
     ns = parse_cli([])
     cfg = PipelineConfig.from_namespace(ns)
     assert cfg.rayforming.rf_reuse_eps == 0.0
-    assert cfg.rayforming.rf_onset_samples == 0
-    assert cfg.rayforming.rf_onset_gap == 0
+    assert cfg.rayforming.rf_onset_samples == 3   # v1.1 3.8 default
+    assert cfg.rayforming.rf_onset_gap == 5   # v1.1 3.8 default
 
     ns = parse_cli(["--rf-reuse-eps", "1.5",
                     "--rf-onset-samples", "3",

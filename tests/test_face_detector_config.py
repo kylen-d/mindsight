@@ -46,7 +46,7 @@ def test_flag_defaults():
     ns = parse_cli([])
     assert ns.face_conf == 0.5
     assert ns.face_input_size == 640
-    assert ns.face_model is None
+    assert ns.face_model == 'r34'   # v1.1 3.8 default (eval + speed win)
 
 
 def test_face_model_selects_backbone(monkeypatch):

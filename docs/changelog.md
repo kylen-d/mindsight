@@ -2,6 +2,59 @@
 
 ## [Unreleased]
 
+### Fixed (W3X MPIIGaze substrate)
+- `--mgaze-dataset mpiigaze` now works with ONNX models: the ONNX decode
+  previously hardcoded gaze360 bin geometry (90 x 4° - 180°), so an
+  MPIIGaze-trained export (28 x 3° - 42°, trainable with the vendored
+  gaze-estimation library) mis-decoded. The default remains bit-identical.
+  Note: no MPIIGaze weights ship -- the public pretrained sets
+  (hysts/pytorch_mpiigaze etc.) are trained on CC-BY-NC-SA / research-only
+  data.
+
+### Changed (v1.1 default flips -- eval-validated on 87 hand-labeled frames)
+- **New defaults**: `yolo11n.pt` detector, RetinaFace `r34` face backbone,
+  eye-midpoint ray origins (`--no-face-eye-origin` restores bbox centres),
+  and earlier Gaze-LLE corrections for new faces (`rf_onset_samples 3`,
+  `rf_onset_gap 5`). Together: mean gaze-endpoint error 74.5 -> 71.3 px,
+  median 63.6 -> 58.7 px, hit rate 62% -> 64%, first corrections at frame 3
+  (was 5/15), and ~42% faster per frame (the r34 face backbone runs on the
+  CoreML path; the old mobile backbone silently ran on CPU).
+- Regression baselines re-blessed accordingly (smoke hit counts 2/1025/711;
+  new frozen blend SSIM reference). Concurrent first-launch face-weight
+  downloads are now serialized (flock), fixing a race two simultaneous
+  first runs could hit.
+- The weights manifest now also carries `yolo11n.onnx` (official ONNX
+  export, faster on CPU-bound installs) and the YOLOE-11 visual-prompt
+  family (`yoloe-11s/m/l-seg`).
+
+### Added (W3X face/tracking knobs, all default-off)
+- **RetinaFace landmarks and detection scores now reach the pipeline.**
+  uniface 1.1.0 returns them under keys the pipeline never read, so the
+  documented eye-midpoint ray origin was silently dead (origins always the
+  face-box centre -- the behavior all baselines were blessed against). A
+  boundary adapter normalizes the dicts; `--face-eye-origin` opts rays
+  into the true eye-midpoint origin (now the default, see the flips above).
+- `--face-reid-sim`: embedding-verified track revival ("redetection") --
+  a lost face can be re-identified anywhere in the frame by ArcFace cosine
+  similarity, with positional revival as the fallback. Weights
+  auto-download on first use; see THIRD_PARTY_LICENSES for the InsightFace
+  research-use provenance note.
+- `--face-model`: RetinaFace backbone selector (mnet025 ... r34); larger
+  backbones detect small/distant faces better at a speed cost.
+
+### Added (W3X fire-decision knobs, all default-off)
+- `--rf-reuse-eps`: skip a scheduled Gaze-LLE call when the scene is
+  visually unchanged since the last real call (mean-abs 64x64 grayscale
+  frame diff below the threshold, stable face boxes) and re-anchor the
+  cached heatmaps instead -- saves full forward passes on static footage.
+- `--rf-onset-samples`: let a newly appeared face reach fixation
+  eligibility after N gaze samples instead of the default 5, cutting
+  first-correction latency for fresh faces.
+- `--rf-onset-gap`: when a face that never had a correction wants one,
+  relax the global call gap to min(`--min-call-gap`, N) so a new
+  participant is not stuck behind another face's recent call (up to a
+  second at defaults).
+
 ### Fixed
 - **Face identity is now the stable track ID in every output.** The internal
   `hits` set and the mutual-gaze / social-referencing / gaze-leadership(tip)
@@ -50,8 +103,8 @@
   `--face-input-size` expose the face detector; weight hashes persist
   across launches so preflight stops re-hashing unchanged weights
   (`MINDSIGHT_NO_HASH_CACHE=1` opts out).
-- `yolo11n.pt` added to the weights manifest (candidate default pending
-  eval); `scripts/eval_annotate.py` + `scripts/eval_gaze.py` give accuracy
+- `yolo11n.pt` added to the weights manifest (now the default, see the
+  flips above); `scripts/eval_annotate.py` + `scripts/eval_gaze.py` give accuracy
   work ground-truth numbers.
 - Note: config hashes changed with the new schema fields, so pre-v1.1
   resume ledgers report a config mismatch and reprocess once.
