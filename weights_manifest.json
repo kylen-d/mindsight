@@ -350,6 +350,18 @@
       "required": false,
       "source": "ultralytics-auto",
       "note": "Fetched automatically by Ultralytics on first YOLOE text/visual-prompt use (currently mobileclip_blt.ts from the ultralytics/assets release). Only needed for YOLOE visual prompts."
+    },
+    {
+      "backend": "SAM",
+      "filename": "FastSAM-s.pt",
+      "label": "FastSAM segmenter (VP Builder Suggest mode)",
+      "url": "https://github.com/ultralytics/assets/releases/download/v8.4.0/FastSAM-s.pt",
+      "sha256": "c9f78716a81c7aff0d608ccc73e1b82ab3aaad86005049f6a92106a0be6d0844",
+      "size": 23851578,
+      "license": "AGPL-3.0",
+      "required": false,
+      "source": "github-release",
+      "note": "Powers the VP Builder's Suggest mode: click an object in a reference photo and accept a proposed box instead of drawing it by hand. FastSAM (CASIA-IVA-Lab) via the Ultralytics wrapper; same AGPL-3.0 license class as the Ultralytics package itself."
     }
   ]
 }

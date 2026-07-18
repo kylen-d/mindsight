@@ -2,6 +2,19 @@
 
 ## [Unreleased]
 
+### Added (W3Z VP Builder Suggest mode)
+- **Click, don't draw: the VP Builder can now propose object boxes.** A
+  new "Suggest mode" toggle under the canvas segments the region under
+  your click (FastSAM point-prompt) and shows up to four dashed box
+  proposals, most specific first -- click one to accept it into the
+  selected class, exactly as if hand-drawn. The `.vp.json` format is
+  unchanged, so nothing downstream moves. Needs the new FastSAM-s
+  weight (24 MB, AGPL-3.0 -- the same license class as the Ultralytics
+  package), added to the weights manifest as an optional entry with a
+  Models-tab row; the toggle explains in plain English when the weight
+  is not yet downloaded. Suggestion inference runs off the GUI thread
+  (~0.4 s per click on Apple silicon).
+
 ### Fixed (W3Z installers)
 - **The one-click installers no longer need git.** The `clip` dependency
   was pinned as a `git+` URL, which made `uv sync` shell out to a git

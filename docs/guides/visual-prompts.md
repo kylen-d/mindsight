@@ -72,6 +72,16 @@ The **VP Builder** tab produces valid `.vp.json` files by pointing and clicking:
    preview the detections before committing to a full run (this runs
    asynchronously, so the UI stays responsive).
 
+!!! tip "Suggest mode: click instead of drawing"
+    Turn on **Suggest mode** under the canvas and simply *click* an object:
+    MindSight segments the region under your cursor (FastSAM) and shows up to
+    four dashed box proposals, most specific first. Click a proposal to accept
+    it into the selected class -- exactly as if you had drawn it -- or click
+    elsewhere to get new proposals. It needs the small **FastSAM-s** weight
+    (24 MB, AGPL-3.0): download it once from the **Models** tab (SAM row).
+    Suggestions are a drawing aid only; the saved `.vp.json` is identical to
+    a hand-drawn one.
+
 ![The VP Builder with classes and drawn boxes](../assets/tutorial/vp-builder-annotated.png)
 
 !!! example "🎬 Demo coming soon -- SHOT:vp-annotate"

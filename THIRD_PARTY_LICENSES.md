@@ -54,6 +54,7 @@ This file documents their licenses for compliance purposes.
 | MobileGaze weights (`*_gaze.onnx` / `*.pt`) | MIT (yakhyo/gaze-estimation release) | Trained on **Gaze360**, a non-commercial research dataset -- treat the weights as research use only. The manifest carries this as `license_note` and the Models tab surfaces it. |
 | Gaze-LLE checkpoints | MIT (fkryan/gazelle release) | Trained on GazeFollow / VideoAttentionTarget (research datasets); DINOv2 backbone Apache-2.0. |
 | YOLO / YOLOE weights | AGPL-3.0 | Ultralytics, auto-downloaded on first use |
+| FastSAM-s (`Weights/SAM/`) | AGPL-3.0 | CASIA-IVA-Lab FastSAM via the Ultralytics wrapper and asset release; powers the VP Builder's Suggest mode. Same license class as the ultralytics package itself. |
 | RetinaFace weights | MIT (uniface release) | yakhyo/uniface, auto-downloaded to `~/.uniface` on first use; trained on WIDER FACE |
 | ArcFace embeddings (`--face-reid-sim`) | MIT (uniface release) | yakhyo/uniface, auto-downloaded on first use. Upstream provenance: InsightFace model zoo, which marks its models for **non-commercial research use**; the training set (WebFace600K) is research-only. Off by default; enable only if that provenance is acceptable for your use. |
 
