@@ -349,39 +349,28 @@ def test_edit_run_flow_writes_project_yaml(qapp, tmp_path, monkeypatch):
     assert "collab" in tab._runs_table.item(row, 3).text()
 
 
-# ── Anonymize Footage toggle (G-DEFER-3) ─────────────────────────────────────
+# ── Anonymize authority (W3Y item 8: dialog/store everywhere) ────────────────
 
-def test_anonymize_toggle_sets_ns(qapp):
-    from argparse import Namespace
-    from mindsight.GUI.run_study_tab import RunStudyTab
-    tab = RunStudyTab()
-    # default OFF -> ns.anonymize forced None (byte-neutral)
-    ns = Namespace(anonymize="black")
-    tab._apply_anonymize(ns)
-    assert ns.anonymize is None
-    # checked -> the selected mode reaches the ns
-    tab._anonymize_cb.setChecked(True)
-    tab._anonymize_mode.setCurrentText("black")
-    ns2 = Namespace()
-    tab._apply_anonymize(ns2)
-    assert ns2.anonymize == "black"
-
-
-def test_anonymize_toggle_reaches_project_worker(qapp, tmp_path, monkeypatch):
+def test_project_batch_reads_store_anonymize(qapp, tmp_path, monkeypatch):
+    """The Inference Settings store is the single anonymize authority for
+    project batch launches too -- the study-setup checkbox override is gone
+    with the pane (W3Y item 8)."""
     from mindsight.GUI import workers as workers_mod
     from mindsight.GUI.run_study_tab import RunStudyTab
 
     proj = _make_project(tmp_path)
     tab = RunStudyTab()
     tab._open_project(str(proj))
-    tab._anonymize_cb.setChecked(True)
-    tab._anonymize_mode.setCurrentText("blur")
+    ns_store = tab._settings.working_copy()
+    ns_store.anonymize = "blur"
+    tab._settings.commit(ns_store)
 
     captured = {}
 
     class FakeWorker:
         def __init__(self, path, ns, *a, **k):
             captured["ns"] = ns
+            captured["project_cfg"] = k.get("project_cfg", "MISSING")
         def start(self):
             pass
         def is_alive(self):
@@ -389,6 +378,9 @@ def test_anonymize_toggle_reaches_project_worker(qapp, tmp_path, monkeypatch):
     monkeypatch.setattr(workers_mod, "ProjectWorker", FakeWorker)
     tab._start()
     assert captured["ns"].anonymize == "blur"
+    # Runs read the SAVED project.yaml: the facade's loaded config stays
+    # authoritative (no in-memory widget config anymore).
+    assert captured["project_cfg"] is None
 
 
 # ── Run-folder project opens without a flat Inputs/Videos/ dir (Batch H fix) ─
@@ -459,7 +451,8 @@ def test_opening_project_commits_to_project_mode(qapp, tmp_path):
     assert tab._mode == "project"
     assert not tab._pf_grp.isHidden()
     assert not tab._runs_grp.isHidden()
-    assert not tab._study_setup_grp.isHidden()
+    # W3Y item 8: the Study setup pane is gone (it lives on the Projects tab).
+    assert not hasattr(tab, "_study_setup_grp")
 
 
 def test_last_mode_is_remembered_across_instances(qapp):

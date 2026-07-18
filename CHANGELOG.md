@@ -34,6 +34,20 @@
   MINDSIGHT_NO_UPDATE_CHECK=1 for frozen lab environments. A release you
   have opened is not announced again.
 
+### Changed (W3Y study-setup redesign)
+- **The Analyze Footage "Study setup" pane is gone.** Project-level setup
+  (pipeline in use, project-wide participants, per-video conditions,
+  output root, Save project.yaml) moved to the **Projects tab** overview,
+  edited before running; saving there resyncs an open Analyze Footage
+  view. Per-run metadata is edited from the runs table ("Edit run...", as
+  before). Project batch runs now read the SAVED `project.yaml` -- what
+  you saved is what runs.
+- **The Inference Settings dialog is the single processing authority for
+  every launch.** The pane's "Anonymize Footage" checkbox (which silently
+  overrode the dialog, and forced anonymize OFF for project runs) is
+  gone; anonymize comes from Inference Settings in all modes, like every
+  other processing option.
+
 ### Changed (W3Y GUI)
 - **File pickers now start where their files live and offer the known
   candidates.** Model pickers (YOLO / YOLOE / MobileGaze / Gaze-LLE, in

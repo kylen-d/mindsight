@@ -68,8 +68,6 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
-from .conditions_section import ConditionsSection
-from .participants_section import ParticipantsSection
 from .widgets import CollapsibleGroupBox, _bgr_to_pixmap
 
 # Severity presentation for the preflight checklist.
@@ -225,7 +223,6 @@ class ManualRunDialog(QDialog):
 
         lay.addLayout(form)
 
-        from PyQt6.QtWidgets import QCheckBox
         self._move = QCheckBox("Move original into the project (default: copy)")
         lay.addWidget(self._move)
 
@@ -432,7 +429,6 @@ class RunStudyTab(QWidget):
         self._project = None
         self._project_path: Path | None = None
         self._resume = True                 # Q6: resume ON by default
-        self._dirty = False
         self._run_rows: dict[str, int] = {}  # run_id -> table row
 
         self._worker = None
@@ -537,9 +533,16 @@ class RunStudyTab(QWidget):
         runs_lay.addLayout(ctl_row)
         left_lay.addWidget(runs_grp)
 
-        # Study setup (collapsible) -- relocated from the retired Project Mode tab.
-        self._study_setup_grp = self._build_study_setup()
-        left_lay.addWidget(self._study_setup_grp)
+        # W3Y item 8: study setup (pipeline / participants / conditions /
+        # output root) moved to the Projects tab -- edited BEFORE running;
+        # project runs read the SAVED project.yaml. Per-run metadata stays
+        # on the runs table ("Edit run...").
+        setup_hint = QLabel(
+            "Study setup (pipeline, participants, conditions) lives on the "
+            "Projects tab. Right-click a run to edit its metadata.")
+        setup_hint.setStyleSheet("color: #888; font-style: italic;")
+        setup_hint.setWordWrap(True)
+        left_lay.addWidget(setup_hint)
         left_lay.addStretch(1)
 
         left_scroll = QScrollArea()
@@ -1074,92 +1077,6 @@ class RunStudyTab(QWidget):
             meta["notes"] = self._cam_notes.text().strip()
         return meta
 
-    def _build_study_setup(self):
-        grp = CollapsibleGroupBox("Study setup")
-        inner = QWidget()
-        lay = QVBoxLayout(inner)
-        lay.setContentsMargins(0, 0, 0, 0)
-
-        # Pipeline picker (D12)
-        pipe_row = QHBoxLayout()
-        pipe_row.addWidget(QLabel("Pipeline:"))
-        self._pipeline_path = QLineEdit()
-        self._pipeline_path.setPlaceholderText("Pipeline/pipeline.yaml")
-        pipe_browse = QPushButton("Browse...")
-        pipe_browse.clicked.connect(self._browse_pipeline)
-        pipe_row.addWidget(self._pipeline_path, 1)
-        pipe_row.addWidget(pipe_browse)
-        lay.addLayout(pipe_row)
-
-        import_gaze = QPushButton("Import from Inference Tuning")
-        import_gaze.setToolTip(
-            "Write the current Inference Tuning settings as this project's "
-            "pipeline.yaml")
-        import_gaze.clicked.connect(self._import_from_gaze)
-        lay.addWidget(import_gaze)
-
-        # Sources table used by the conditions section
-        self._source_table = QTableWidget(0, 2)
-        self._source_table.setHorizontalHeaderLabels(["Filename", "Conditions"])
-        self._source_table.horizontalHeader().setSectionResizeMode(
-            QHeaderView.ResizeMode.Stretch)
-        self._source_table.setEditTriggers(
-            QAbstractItemView.EditTrigger.NoEditTriggers)
-        self._source_table.setSelectionBehavior(
-            QAbstractItemView.SelectionBehavior.SelectRows)
-        self._source_table.setSelectionMode(
-            QAbstractItemView.SelectionMode.ExtendedSelection)
-
-        part_grp = CollapsibleGroupBox("Participants")
-        self._participants = ParticipantsSection()
-        self._participants.set_dirty_callback(self._mark_dirty)
-        part_grp.set_content(self._participants)
-        lay.addWidget(part_grp)
-
-        cond_grp = CollapsibleGroupBox("Conditions")
-        self._conditions = ConditionsSection(source_table=self._source_table)
-        self._conditions.set_dirty_callback(self._mark_dirty)
-        cond_grp.set_content(self._conditions)
-        lay.addWidget(cond_grp)
-
-        # Anonymize Footage toggle (G-DEFER-3): maps to the existing anonymize
-        # namespace field; default OFF (byte-neutral -- project runs identical to
-        # today when unchecked).  A small mode picker mirrors the Gaze Tuning
-        # output section (blur / black).
-        anon_row = QHBoxLayout()
-        self._anonymize_cb = QCheckBox("Anonymize Footage")
-        self._anonymize_cb.setToolTip(
-            "Obscure faces in the output video for every run in this study.")
-        self._anonymize_mode = QComboBox()
-        self._anonymize_mode.addItems(["blur", "black"])
-        self._anonymize_mode.setEnabled(False)
-        self._anonymize_cb.toggled.connect(self._anonymize_mode.setEnabled)
-        anon_row.addWidget(self._anonymize_cb)
-        anon_row.addWidget(self._anonymize_mode)
-        anon_row.addStretch(1)
-        lay.addLayout(anon_row)
-
-        out_row = QHBoxLayout()
-        out_row.addWidget(QLabel("Output root:"))
-        self._output_dir = QLineEdit()
-        self._output_dir.setPlaceholderText("Default: project/Outputs")
-        self._output_dir.textChanged.connect(self._mark_dirty)
-        out_browse = QPushButton("Browse...")
-        out_browse.clicked.connect(self._browse_output_dir)
-        out_row.addWidget(self._output_dir, 1)
-        out_row.addWidget(out_browse)
-        lay.addLayout(out_row)
-
-        self._save_btn = QPushButton("Save project.yaml")
-        self._save_btn.setEnabled(False)
-        self._save_btn.clicked.connect(self._save_project_yaml)
-        lay.addWidget(self._save_btn)
-
-        # The whole left column scrolls (eyes-on A1), so the content goes in
-        # directly -- a nested scroll area here would trap the wheel.
-        grp.set_content(inner)
-        return grp
-
     # ── Output panel: Log | Charts | Output CSVs (G-ENH-4) ──────────────────
 
     def _build_output_tabs(self) -> QTabWidget:
@@ -1437,8 +1354,6 @@ class RunStudyTab(QWidget):
         self._project = project
         self._project_path = project.path
         self._project_dir.setText(str(project.path))
-        self._dirty = False
-        self._save_btn.setEnabled(True)
 
         try:
             from .settings_manager import SettingsManager
@@ -1451,7 +1366,6 @@ class RunStudyTab(QWidget):
         # project numbers.  Decoupling (UP2): Gaze Tuning is NOT updated on
         # project open anymore -- the store is the run-config source.
         self._load_project_pipeline_into_settings()
-        self._populate_study_setup()
         self._run_preflight()
         self._refresh_runs_table()
         self._refresh_output_panels()
@@ -1494,30 +1408,6 @@ class RunStudyTab(QWidget):
             self._settings.apply_yaml(str(pipe), source_label="project pipeline")
         except Exception as exc:  # pragma: no cover - GUI error path
             self._append_log(f"[WARN] could not load pipeline: {exc}")
-
-    def _populate_study_setup(self):
-        if not self._project:
-            return
-        cfg = self._project.config
-        from mindsight.project.runner import discover_sources
-        sources = discover_sources(self._project_path)
-        self._source_table.setRowCount(len(sources))
-        for i, src in enumerate(sources):
-            self._source_table.setItem(i, 0, QTableWidgetItem(src.name))
-            tags = ""
-            if cfg and src.name in (cfg.conditions or {}):
-                tags = " | ".join(cfg.conditions[src.name])
-            self._source_table.setItem(i, 1, QTableWidgetItem(tags))
-        if cfg and cfg.pipeline_path:
-            self._pipeline_path.setText(cfg.pipeline_path)
-        elif (self._project_path / "Pipeline" / "pipeline.yaml").exists():
-            self._pipeline_path.setText("Pipeline/pipeline.yaml")
-        self._participants.set_sources(sources)
-        self._participants.populate(cfg, sources, project_path=self._project_path)
-        self._conditions.populate(cfg, sources)
-        if cfg and cfg.output and cfg.output.directory:
-            self._output_dir.setText(cfg.output.directory)
-        self._dirty = False
 
     # ── Preflight / runs table ───────────────────────────────────────────────
 
@@ -1751,94 +1641,6 @@ class RunStudyTab(QWidget):
         # Reopen so the facade reloads project.yaml / run.yaml, then refresh.
         self._open_project(str(self._project_path))
 
-    # ── Study setup helpers ──────────────────────────────────────────────────
-
-    def _browse_pipeline(self):
-        start = str(self._project_path / "Pipeline") if self._project_path else ""
-        path, _ = QFileDialog.getOpenFileName(
-            self, "Select Pipeline config", start,
-            "Pipeline config (*.yaml *.yml *.json)")
-        if not path:
-            return
-        if self._project_path:
-            try:
-                path = str(Path(path).relative_to(self._project_path))
-            except ValueError:
-                pass
-        self._pipeline_path.setText(path)
-        self._mark_dirty()
-
-    def _browse_output_dir(self):
-        path = QFileDialog.getExistingDirectory(self, "Select output directory")
-        if path:
-            self._output_dir.setText(path)
-
-    def _import_from_gaze(self):
-        if not self._gaze_tab or not self._project_path:
-            QMessageBox.warning(self, "Import", "Open a project first.")
-            return
-        ns = self._gaze_tab._build_namespace()
-        from .pipeline_dialog import _namespace_to_yaml_dict
-        yaml_dict = _namespace_to_yaml_dict(ns)
-        pipe_text = self._pipeline_path.text().strip() or "Pipeline/pipeline.yaml"
-        target = Path(pipe_text)
-        if not target.is_absolute():
-            target = self._project_path / target
-        if target.exists():
-            reply = QMessageBox.question(
-                self, "Overwrite pipeline?",
-                f"{target.name} exists. Overwrite with Inference Tuning "
-                "settings?",
-                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
-            if reply != QMessageBox.StandardButton.Yes:
-                return
-        target.parent.mkdir(parents=True, exist_ok=True)
-        target.write_text(yaml.dump(yaml_dict, default_flow_style=False,
-                                    sort_keys=False))
-        self._pipeline_path.setText(pipe_text)
-        self._append_log(f"Wrote {target.name}")
-        # Decoupling: the store drives runs, so re-apply the freshly written
-        # project pipeline into it -- the two stay coherent after an import.
-        self._load_project_pipeline_into_settings()
-
-    def _build_project_config(self):
-        from mindsight.pipeline_config import ProjectConfig, ProjectOutputConfig
-        return ProjectConfig(
-            pipeline_path=self._pipeline_path.text().strip() or None,
-            conditions=self._conditions.get_conditions(),
-            participants=self._participants.get_participants(),
-            output=ProjectOutputConfig(
-                directory=self._output_dir.text().strip() or None),
-        )
-
-    def _save_project_yaml(self):
-        if not self._project_path:
-            return
-        from mindsight.project.runner import save_project_config
-        cfg = self._build_project_config()
-        save_project_config(self._project_path, cfg)
-        self._dirty = False
-        self._save_btn.setText("Save project.yaml")
-        self._append_log("Saved project.yaml")
-        # Reopen so the facade + runs table pick up the edits.
-        self._open_project(str(self._project_path))
-
-    def _apply_anonymize(self, ns):
-        """Set ``ns.anonymize`` from the study-setup toggle (G-DEFER-3).
-
-        The study-setup checkbox is the single control for project-run
-        anonymization: checked -> the selected mode; unchecked -> ``None`` (today's
-        behavior -- project runs never anonymized), so an unchecked box keeps runs
-        byte-identical regardless of any stray Gaze Tuning value.
-        """
-        ns.anonymize = (self._anonymize_mode.currentText()
-                        if self._anonymize_cb.isChecked() else None)
-
-    def _mark_dirty(self, *_):
-        if not self._dirty:
-            self._dirty = True
-            self._save_btn.setText("Save project.yaml *")
-
     # ── Manual single run (Q7) ───────────────────────────────────────────────
 
     def _add_single_run(self):
@@ -1890,12 +1692,9 @@ class RunStudyTab(QWidget):
         # One-off run through the single-source worker: project-shaped output
         # paths from the RunSpec, no ledger (Q7).
         ns = self._current_ns()
-        # Study-setup values govern PROJECT-context launches only (the pane
-        # they live on).  Quick video/camera runs read the Inference
-        # Settings store untouched -- the study checkbox used to silently
-        # override the dialog's anonymize here (W3Y item-3 bug).
-        if self._mode == "project":
-            self._apply_anonymize(ns)
+        # W3Y item 8: the Inference Settings store is the single processing
+        # authority for every launch (anonymize included) -- the study-setup
+        # override that lived here is gone with the pane.
         ns.source = str(spec.source)
         # Save-on-run checkpoint (warn-not-raise): persist the launched config.
         from .settings_manager import checkpoint
@@ -2082,21 +1881,14 @@ class RunStudyTab(QWidget):
         if not self._project_path:
             QMessageBox.critical(self, "Run", "Open a project first.")
             return
-        if self._dirty:
-            reply = QMessageBox.question(
-                self, "Unsaved changes", "Save project.yaml before running?",
-                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
-                | QMessageBox.StandardButton.Cancel)
-            if reply == QMessageBox.StandardButton.Cancel:
-                return
-            if reply == QMessageBox.StandardButton.Yes:
-                self._save_project_yaml()
-
         ns = self._current_ns()
         ns.project = str(self._project_path)
         ns.no_resume = not self._resume
-        self._apply_anonymize(ns)
-        project_cfg = self._build_project_config()
+        # W3Y item 8: batch runs read the SAVED project.yaml (the Projects
+        # tab edits + saves it); project_cfg=None keeps the facade's loaded
+        # config authoritative. Anonymize comes from the Inference Settings
+        # store like every other processing option.
+        project_cfg = None
 
         # Save-on-run checkpoint (warn-not-raise): persist the launched config so
         # a crash mid-batch does not lose the session.

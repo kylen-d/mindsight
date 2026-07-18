@@ -173,12 +173,13 @@ formatting lives project-side with a fast test.
   - **Analyze Footage** (`run_study_tab.py`) -- the analysis home: a three-mode
     switch (Project / Video File / Camera), preflight checklist with fix hints, a
     runs table with ledger status and resume-plan preview, per-run re-run and
-    edit-metadata actions, a collapsible Study setup area (pipeline, participants,
-    conditions, anonymize toggle, output root, `project.yaml` save), and a tabbed
+    edit-metadata actions, and a tabbed
     output panel (log, in-GUI charts, CSV viewer, and a live dashboard --
     rendered via `run_outputs.py`).
   - **Projects** (`projects_tab.py`) -- project lifecycle: the Build New Project
-    wizard, session planning, Record Live Session, and Crop & Adjust.
+    wizard, session planning, Record Live Session, Crop & Adjust, and the
+    project-level Study setup panel (`project_setup_panel.py`: pipeline,
+    participants, conditions, output root, `project.yaml` save).
   - **VP Builder** (`vp_builder_tab.py`) -- visual prompt builder for creating,
     testing, and exporting `.vp.json` / `.vp.zip` files.
   - **Inference Tuning** (`gaze_tab/`; class `GazeTab`, so the module name lags the

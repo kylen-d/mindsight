@@ -62,9 +62,13 @@ class MainWindow(QMainWindow):
                                           settings=self._settings)
         self._models_tab = ModelsTab(gaze_tab=self._gaze_tab)
         # UP3: project creation/browsing home; opening jumps to Analyze Footage.
+        # W3Y item 8: it also hosts the project-level Study setup panel (which
+        # needs the gaze tab for "Import from Inference Tuning").
         from .projects_tab import ProjectsTab
-        self._projects_tab = ProjectsTab(settings=self._settings)
+        self._projects_tab = ProjectsTab(settings=self._settings,
+                                         gaze_tab=self._gaze_tab)
         self._projects_tab.open_in_analyze.connect(self._open_project_from_tab)
+        self._projects_tab.setup_saved.connect(self._on_project_setup_saved)
 
         # About: program identity + in-app doc reader (eyes-on 2026-07-11).
         from .about_tab import AboutTab
@@ -207,6 +211,17 @@ class MainWindow(QMainWindow):
         """Projects tab 'Open in Analyze Footage': switch + open (UP3)."""
         self._tabs.setCurrentIndex(_TAB_ANALYZE)
         self._run_study_tab.open_project_path(path)
+
+    def _on_project_setup_saved(self, path: str):
+        """Study setup saved on the Projects tab (W3Y item 8): if the same
+        project is open in Analyze Footage, reopen it so the preflight,
+        runs table, and pipeline-into-store load see the new project.yaml."""
+        try:
+            open_path = self._run_study_tab._project_path
+            if open_path and str(open_path) == str(path):
+                self._run_study_tab.open_project_path(path)
+        except Exception as exc:  # pragma: no cover - GUI resilience
+            print(f"[WARN] could not resync Analyze Footage: {exc}")
 
     def _menu_new_project(self):
         """Switch to Analyze Footage and start the new-project flow there."""
