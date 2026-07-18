@@ -56,9 +56,9 @@ usage: MindSight -- Eye-Gaze Intersection Tracker [-h] [--source SOURCE] [--save
                                                   [--rf-gazelle-name NAME] [--rf-inout-gate T]
                                                   [--rf-reuse-eps EPS] [--rf-onset-samples N]
                                                   [--rf-onset-gap N] [--rf-len-refresh-gap N]
-                                                  [--rf-gazelle-fp16] [--rf-gazelle-compile]
-                                                  [--rf-gazelle-interval N] [--min-call-gap N]
-                                                  [--fixation-v-threshold F]
+                                                  [--rf-len-slew N] [--rf-gazelle-fp16]
+                                                  [--rf-gazelle-compile] [--rf-gazelle-interval N]
+                                                  [--min-call-gap N] [--fixation-v-threshold F]
                                                   [--fixation-d-threshold F] [--dir-min-cutoff F]
                                                   [--dir-beta F] [--len-min-cutoff F]
                                                   [--len-beta F] [--len-hold-tau F]
@@ -336,6 +336,9 @@ Ray Forming (Gazelle blend):
                         ray LENGTH only -- direction stays with the full-precision fixation-gated
                         corrections. Keeps ray reach fresh between corrections at a fraction of
                         the cost. 0 disables (default: 10).
+  --rf-len-slew N       When a length refresh re-latches ray length, slew toward the new value
+                        over N frames instead of snapping instantly. Suggested: half the length
+                        refresh gap. 0 = instant snap (default: 0).
   --rf-gazelle-fp16     Run the blend-path Gaze-LLE model in half precision (CUDA/MPS only;
                         ignored on CPU). Faster per call; output is NOT byte-identical to fp32, so
                         keep it off for regression baselines.

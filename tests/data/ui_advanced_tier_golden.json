@@ -21,6 +21,7 @@
   "rayforming.len_min_cutoff",
   "rayforming.rf_inout_gate",
   "rayforming.rf_len_refresh_gap",
+  "rayforming.rf_len_slew",
   "rayforming.rf_onset_gap",
   "rayforming.rf_onset_samples",
   "rayforming.rf_reuse_eps",

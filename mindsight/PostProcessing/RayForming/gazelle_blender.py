@@ -113,6 +113,9 @@ class GazeLLEBlender:
         last accepted inference
       - ``_latch_age_s[tid]``: seconds since that latch; drives the slow
         exp(-age/len_hold_tau) decay of length back toward the PY baseline
+      - ``_len_slew[tid]``: (start, target, steps_done) while a re-latch
+        is slewing old -> new over cfg.rf_len_slew frames (W3Z; empty
+        when rf_len_slew is 0 -- re-latches snap instantly)
       - ``_dir_x_filter / _dir_y_filter / _len_filter``: One Euro filters
         for the output channels
     """
@@ -123,6 +126,7 @@ class GazeLLEBlender:
         self._prev_grid: dict[int, tuple[float, float]] = {}
         self._latched_lle_length: dict[int, float] = {}
         self._latch_age_s: dict[int, float] = {}
+        self._len_slew: dict[int, tuple[float, float, int]] = {}
         # OneEuroFilter is 1D; direction needs two (x, y).
         self._dir_x_filter: dict[int, OneEuroFilter] = {}
         self._dir_y_filter: dict[int, OneEuroFilter] = {}
@@ -166,8 +170,12 @@ class GazeLLEBlender:
             lle_vec = lle_pixel - origin
             lle_norm = float(np.linalg.norm(lle_vec))
             if lle_norm > 1e-6:
-                self._latched_lle_length[track_id] = lle_norm
-                self._latch_age_s[track_id] = 0.0
+                self._set_latch(track_id, lle_norm)
+
+        # Advance any in-flight length slew by one step per update, after
+        # this frame's re-latch decision so a fresh accept slews from the
+        # value the ray actually showed last frame.
+        self._advance_len_slew(track_id)
 
         self._beliefs[track_id] = belief
         self._prev_grid[track_id] = (gx, gy)
@@ -249,6 +257,41 @@ class GazeLLEBlender:
 
         return origin + smoothed_dir * smoothed_length
 
+    def _set_latch(self, track_id: int, new_value: float) -> None:
+        """Latch a new LLE length; slew old -> new when configured (W3Z).
+
+        With cfg.rf_len_slew = K > 0 and an existing latch, the latch does
+        not snap: a per-track slew interpolates it linearly over the next K
+        ``update()`` calls (a refresh arriving mid-slew restarts from the
+        current interpolated value, so the ray never jumps).  The age clock
+        resets at slew START -- the hold decay must not double-count the
+        transition.  First-ever latches always snap (nothing to slew from).
+        """
+        k = int(self._cfg.rf_len_slew or 0)
+        cur = self._latched_lle_length.get(track_id)
+        if k > 0 and cur is not None and cur != new_value:
+            self._len_slew[track_id] = (float(cur), float(new_value), 0)
+        else:
+            self._latched_lle_length[track_id] = float(new_value)
+            self._len_slew.pop(track_id, None)
+        self._latch_age_s[track_id] = 0.0
+
+    def _advance_len_slew(self, track_id: int) -> None:
+        """Move an in-flight slew one step; lands exactly on the target."""
+        slew = self._len_slew.get(track_id)
+        if slew is None:
+            return
+        start, target, done = slew
+        done += 1
+        k = max(int(self._cfg.rf_len_slew or 0), 1)
+        if done >= k:
+            self._latched_lle_length[track_id] = target
+            self._len_slew.pop(track_id, None)
+        else:
+            self._latched_lle_length[track_id] = (
+                start + (target - start) * (done / k))
+            self._len_slew[track_id] = (start, target, done)
+
     def refresh_length(self, *, track_id: int, gazelle_hm: np.ndarray,
                        origin: np.ndarray,
                        frame_h: int, frame_w: int) -> bool:
@@ -269,8 +312,7 @@ class GazeLLEBlender:
         lle_norm = float(np.linalg.norm(lle_pixel - np.asarray(origin, float)))
         if lle_norm <= 1e-6:
             return False
-        self._latched_lle_length[track_id] = lle_norm
-        self._latch_age_s[track_id] = 0.0
+        self._set_latch(track_id, lle_norm)
         return True
 
     def prune(self, active_tids: set[int]) -> None:
@@ -281,6 +323,7 @@ class GazeLLEBlender:
                 self._prev_grid.pop(tid, None)
                 self._latched_lle_length.pop(tid, None)
                 self._latch_age_s.pop(tid, None)
+                self._len_slew.pop(tid, None)
                 self._dir_x_filter.pop(tid, None)
                 self._dir_y_filter.pop(tid, None)
                 self._len_filter.pop(tid, None)

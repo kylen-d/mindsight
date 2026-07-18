@@ -1448,6 +1448,22 @@
     },
     {
       "option_strings": [
+        "--rf-len-slew"
+      ],
+      "dest": "rf_len_slew",
+      "action": "_StoreAction",
+      "default": 0,
+      "type": "int",
+      "nargs": null,
+      "const": null,
+      "choices": null,
+      "required": false,
+      "metavar": "N",
+      "help": "When a length refresh re-latches ray length, slew toward the new value over N frames instead of snapping instantly. Suggested: half the length refresh gap. 0 = instant snap (default: 0).",
+      "group": "Ray Forming (Gazelle blend)"
+    },
+    {
+      "option_strings": [
         "--rf-gazelle-fp16"
       ],
       "dest": "rf_gazelle_fp16",

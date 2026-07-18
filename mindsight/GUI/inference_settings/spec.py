@@ -198,6 +198,12 @@ _TAB_GAZE = SpecTab(
                       "pass that refreshes ray length only; direction stays "
                       "with the full-precision corrections. 0 = off.",
                       tier="A"),
+            SpecField("rf_len_slew", "Length slew (frames)",
+                      "When a refresh re-latches ray length, transition to "
+                      "the new value over this many frames instead of "
+                      "snapping instantly. Suggested: half the length "
+                      "refresh gap. 0 = instant snap.",
+                      tier="A"),
             SpecField("rf_gazelle_fp16", "Half precision (fp16)",
                       "Run Gaze-LLE in half precision on CUDA/MPS. Faster per "
                       "correction; results differ slightly from full "

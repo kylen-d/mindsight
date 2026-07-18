@@ -118,6 +118,7 @@
   "rf_gazelle_name": "gazelle_dinov2_vitb14",
   "rf_inout_gate": 0.0,
   "rf_len_refresh_gap": 10,
+  "rf_len_slew": 0,
   "rf_onset_gap": 5,
   "rf_onset_samples": 3,
   "rf_reuse_eps": 0.0,

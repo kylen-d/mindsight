@@ -2,6 +2,21 @@
 
 ## [Unreleased]
 
+### Added (W3Z)
+- `--rf-len-slew N`: smooth ray-length transitions between length
+  refreshes. When a Gaze-LLE pass re-latches an already-latched ray
+  length, the latch now slews linearly toward the new value over N
+  frames instead of snapping instantly (a refresh arriving mid-slew
+  restarts from the current interpolated value, so the ray never
+  jumps). First-ever latches still snap, and the length-hold decay
+  clock resets at slew start. **Default 0 (instant snap -- previous
+  behavior)**; suggested value is half the length refresh gap (5 at
+  the default `--rf-len-refresh-gap 10`). Also available as "Length
+  slew (frames)" in Inference Settings. Note: adds the
+  `rayforming.rf_len_slew` schema field, so pre-existing resume
+  ledgers report a config-hash change and reprocess once (pre-release;
+  same caveat as earlier v1.1 schema adds).
+
 ### Added (W3Y)
 - `--rf-len-refresh-gap N`: a cheap Gaze-LLE length-refresh channel for
   the blend path. Every N frames one extra Gaze-LLE pass refreshes ray
