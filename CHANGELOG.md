@@ -2,7 +2,7 @@
 
 ## [Unreleased]
 
-### Added (W3Y, default-off)
+### Added (W3Y)
 - `--rf-len-refresh-gap N`: a cheap Gaze-LLE length-refresh channel for
   the blend path. Every N frames one extra Gaze-LLE pass refreshes ray
   LENGTH only. On CUDA the pass runs on a persistent half-precision copy
@@ -14,9 +14,14 @@
   map, and a track that has never received a full-precision correction
   is never touched. Keeps ray reach fresh between corrections without
   extra fixation-gated fires; honors the `--rf-inout-gate` veto.
-  0 (default) is byte-identical to previous behavior. Note: adds the `rayforming.rf_len_refresh_gap` schema field,
-  so pre-existing resume ledgers report a config-hash change and
-  reprocess once (pre-release; same caveat as earlier v1.1 schema adds).
+  **Default ON at N=10** (eval-validated on the 87 hand-labeled frames:
+  mean gaze-endpoint error 71.3 -> 70.3 px, median 58.7 -> 57.9 px, hit
+  rate 64% -> 66%, for ~+0.6 ms/frame in the Gaze-LLE bucket);
+  `--rf-len-refresh-gap 0` restores the previous behavior. Blend
+  regression goldens re-blessed accordingly. Note: adds the
+  `rayforming.rf_len_refresh_gap` schema field, so pre-existing resume
+  ledgers report a config-hash change and reprocess once (pre-release;
+  same caveat as earlier v1.1 schema adds).
 
 ### Changed (W3Y GUI)
 - **File pickers now start where their files live and offer the known

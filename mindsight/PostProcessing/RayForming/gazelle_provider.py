@@ -256,7 +256,7 @@ class GazelleProvider:
         # engine is shared: same per-call cost, zero extra memory, exact
         # output.  The channel's value there is pure scheduling (periodic
         # length refreshes between fixation-gated corrections).
-        len_gap = getattr(ns, 'rf_len_refresh_gap', 0) or 0
+        len_gap = getattr(ns, 'rf_len_refresh_gap', 10) or 0
         length_engine = None
         if len_gap > 0:
             main_is_fp16 = getattr(engine, '_use_fp16', False)

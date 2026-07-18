@@ -217,15 +217,15 @@ def test_pipeline_inout_veto_blocks_length_refresh():
 
 # ── Flag plumbing ────────────────────────────────────────────────────────────
 
-def test_flag_reaches_schema_and_defaults_off():
+def test_flag_reaches_schema_with_flipped_default():
     from mindsight.cli_flags import parse_cli
     from mindsight.config import PipelineConfig
 
     ns = parse_cli([])
     cfg = PipelineConfig.from_namespace(ns)
-    assert cfg.rayforming.rf_len_refresh_gap == 0
+    assert cfg.rayforming.rf_len_refresh_gap == 10   # W3Y flip default
 
-    ns = parse_cli(["--rf-len-refresh-gap", "10"])
+    ns = parse_cli(["--rf-len-refresh-gap", "0"])    # escape hatch
     cfg = PipelineConfig.from_namespace(ns)
-    assert cfg.rayforming.rf_len_refresh_gap == 10
-    assert RayFormingConfig.from_namespace(ns).rf_len_refresh_gap == 10
+    assert cfg.rayforming.rf_len_refresh_gap == 0
+    assert RayFormingConfig.from_namespace(ns).rf_len_refresh_gap == 0

@@ -335,7 +335,7 @@ Ray Forming (Gazelle blend):
                         Every N frames, run a cheap half-precision Gaze-LLE pass that refreshes
                         ray LENGTH only -- direction stays with the full-precision fixation-gated
                         corrections. Keeps ray reach fresh between corrections at a fraction of
-                        the cost. 0 disables (default: 0).
+                        the cost. 0 disables (default: 10).
   --rf-gazelle-fp16     Run the blend-path Gaze-LLE model in half precision (CUDA/MPS only;
                         ignored on CPU). Faster per call; output is NOT byte-identical to fp32, so
                         keep it off for regression baselines.

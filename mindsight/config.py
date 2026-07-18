@@ -179,7 +179,9 @@ class RayFormingSection(BaseModel):
     # v1.1 3.8 flips: eval-validated onset defaults (corrections from frame ~3).
     rf_onset_samples: int = Field(3, json_schema_extra={"cli": "--rf-onset-samples"})
     rf_onset_gap: int = Field(5, json_schema_extra={"cli": "--rf-onset-gap"})
-    rf_len_refresh_gap: int = Field(0, json_schema_extra={"cli": "--rf-len-refresh-gap"})
+    # v1.1 W3Y flip: eval-validated default (70.3px mean / 66% hit rate vs
+    # 71.3/64% off, ~+0.6ms/frame). 0 disables.
+    rf_len_refresh_gap: int = Field(10, json_schema_extra={"cli": "--rf-len-refresh-gap"})
     dir_min_cutoff: float = Field(1.0, json_schema_extra={"cli": "--dir-min-cutoff"})
     dir_beta: float = Field(0.5, json_schema_extra={"cli": "--dir-beta"})
     len_min_cutoff: float = Field(1.0, json_schema_extra={"cli": "--len-min-cutoff"})
@@ -436,7 +438,7 @@ class PipelineConfig(BaseModel):
             rf_reuse_eps=g("rf_reuse_eps", 0.0),
             rf_onset_samples=g("rf_onset_samples", 3),
             rf_onset_gap=g("rf_onset_gap", 5),
-            rf_len_refresh_gap=g("rf_len_refresh_gap", 0),
+            rf_len_refresh_gap=g("rf_len_refresh_gap", 10),
             dir_min_cutoff=g("dir_min_cutoff", 1.0),
             dir_beta=g("dir_beta", 0.5),
             len_min_cutoff=g("len_min_cutoff", 1.0),
