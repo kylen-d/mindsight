@@ -11,6 +11,7 @@ import sys
 from argparse import Namespace
 from pathlib import Path
 
+from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QIcon
 from PyQt6.QtWidgets import (
     QApplication,
@@ -95,6 +96,55 @@ class MainWindow(QMainWindow):
         # every dest it carries.
         self._seed_from_preset()
         self._try_restore_last_session()
+
+        # ── Update notification (W3Y item 7): silent, non-blocking ────────────
+        self._build_update_chip()
+
+    # ── Update notification ───────────────────────────────────────────────────
+
+    def _build_update_chip(self):
+        """A hidden status-bar chip + launch-time checker (W3Y item 7).
+
+        The checker runs on a daemon thread and is a silent no-op on any
+        network failure or when checks are disabled (gui_state toggle /
+        MINDSIGHT_NO_UPDATE_CHECK).  The chip stays visible on every tab
+        (it is not part of the per-tab button sets).
+        """
+        self._update_chip = QPushButton("")
+        self._update_chip.setVisible(False)
+        self._update_chip.setFlat(True)
+        self._update_chip.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._update_chip.setStyleSheet(
+            "QPushButton{color:#3b82c4;font-weight:bold;padding:6px 10px;}")
+        self.statusBar().addPermanentWidget(self._update_chip)
+        from .update_check import UpdateChecker
+        self._update_checker = UpdateChecker(parent=self)
+        self._update_checker.update_available.connect(self._on_update_available)
+        self._update_checker.start()
+
+    def _on_update_available(self, tag: str, url: str):
+        self._update_chip.setText(f"⬆ {tag} available")
+        self._update_chip.setToolTip(
+            "A newer MindSight release is available -- open the release page")
+        try:
+            self._update_chip.clicked.disconnect()
+        except TypeError:
+            pass
+        self._update_chip.clicked.connect(
+            lambda _c=False, t=tag, u=url: self._open_release(t, u))
+        self._update_chip.setVisible(True)
+        if hasattr(self._about_tab, "show_update"):
+            self._about_tab.show_update(tag, url)
+
+    def _open_release(self, tag: str, url: str):
+        """Open the release page in the browser; never re-announce this tag."""
+        from PyQt6.QtCore import QUrl
+        from PyQt6.QtGui import QDesktopServices
+
+        from .update_check import dismiss
+        QDesktopServices.openUrl(QUrl(url))
+        dismiss(tag)
+        self._update_chip.setVisible(False)
 
     def _build_menu_bar(self):
         """Build the application menu bar."""

@@ -180,6 +180,35 @@ class AboutTab(QWidget):
         version.setStyleSheet("color: #888;")
         lay.addWidget(version)
 
+        # Update affordance (W3Y item 7): hidden until the launch-time
+        # checker reports a newer release; click opens the release page.
+        self._update_note = QLabel("")
+        self._update_note.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self._update_note.setVisible(False)
+        self._update_note.linkActivated.connect(self._open_update_link)
+        lay.addWidget(self._update_note)
+        self._update_url = ""
+        self._update_tag = ""
+
+        from PyQt6.QtWidgets import QCheckBox
+
+        from mindsight.GUI.update_check import set_check_enabled
+        from mindsight.GUI.settings_manager import SettingsManager
+        try:
+            checked = bool(SettingsManager().load_gui_state()
+                           .get("check_updates", True))
+        except Exception:
+            checked = True
+        self._update_toggle = QCheckBox("Check for updates on launch")
+        self._update_toggle.setChecked(checked)
+        self._update_toggle.setStyleSheet("color: #888;")
+        self._update_toggle.toggled.connect(set_check_enabled)
+        toggle_row = QHBoxLayout()
+        toggle_row.addStretch(1)
+        toggle_row.addWidget(self._update_toggle)
+        toggle_row.addStretch(1)
+        lay.addLayout(toggle_row)
+
         tagline = QLabel(_TAGLINE)
         tagline.setAlignment(Qt.AlignmentFlag.AlignCenter)
         tagline.setStyleSheet("color: #aaa; font-style: italic;")
@@ -231,6 +260,23 @@ class AboutTab(QWidget):
         lay.addWidget(links)
         lay.addStretch(3)
         return page
+
+    def show_update(self, tag: str, url: str) -> None:
+        """Surface a newer release in the hero (W3Y item 7)."""
+        self._update_tag = tag
+        self._update_url = url
+        self._update_note.setText(
+            f'<a href="{url}">{tag} available -- release notes</a>')
+        self._update_note.setVisible(True)
+
+    def _open_update_link(self, url: str) -> None:
+        from PyQt6.QtCore import QUrl
+        from PyQt6.QtGui import QDesktopServices
+
+        from mindsight.GUI.update_check import dismiss
+        QDesktopServices.openUrl(QUrl(url))
+        if self._update_tag:
+            dismiss(self._update_tag)
 
     def _logo_pixmap(self) -> QPixmap | None:
         # The app ICON above the "MindSight" name (W3Y item 6) -- the

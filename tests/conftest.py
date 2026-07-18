@@ -28,3 +28,12 @@ def _isolate_mindsight_settings(monkeypatch, tmp_path_factory):
                         settings_dir / "presets")
     monkeypatch.setattr(SettingsManager, "RECENT_PROJECTS",
                         settings_dir / "recent_projects.json")
+
+
+@pytest.fixture(autouse=True)
+def _no_update_checks(monkeypatch):
+    """Tests never phone the GitHub Releases API (W3Y item 7 kill switch).
+
+    MainWindow starts a silent update-check thread at construction; the
+    env kill switch turns it into a no-op so GUI tests stay offline."""
+    monkeypatch.setenv("MINDSIGHT_NO_UPDATE_CHECK", "1")

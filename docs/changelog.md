@@ -23,6 +23,17 @@
   ledgers report a config-hash change and reprocess once (pre-release;
   same caveat as earlier v1.1 schema adds).
 
+### Added (W3Y update notifications)
+- **MindSight now notices new releases.** On launch a silent, non-blocking
+  check against GitHub Releases compares the latest tag with the running
+  version; when newer, a subtle status-bar chip and an About-hero line
+  appear ("vX.Y available -- release notes") and a click opens the release
+  page in the browser. Nothing is ever downloaded or executed
+  automatically; any network failure is a silent no-op. Opt out with the
+  "Check for updates on launch" toggle in About, or set
+  MINDSIGHT_NO_UPDATE_CHECK=1 for frozen lab environments. A release you
+  have opened is not announced again.
+
 ### Changed (W3Y GUI)
 - **File pickers now start where their files live and offer the known
   candidates.** Model pickers (YOLO / YOLOE / MobileGaze / Gaze-LLE, in
