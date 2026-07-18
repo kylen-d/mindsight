@@ -249,6 +249,30 @@ class GazeLLEBlender:
 
         return origin + smoothed_dir * smoothed_length
 
+    def refresh_length(self, *, track_id: int, gazelle_hm: np.ndarray,
+                       origin: np.ndarray,
+                       frame_h: int, frame_w: int) -> bool:
+        """Re-latch the length channel from a cheap (fp16) heatmap.
+
+        v1.1 W3Y: the length-refresh channel fires on a bare frame counter,
+        bypassing the fixation gating that protects direction -- so it may
+        only REFRESH an existing latch, never create one (an unlatched
+        track's length authority stays with the fixation-gated fp32
+        channel).  The belief map and direction are never touched.
+
+        Returns True iff the latch was refreshed.
+        """
+        if track_id not in self._latched_lle_length:
+            return False
+        lle_pixel = _heatmap_centroid_pixel(
+            gazelle_hm.astype(np.float32), frame_h, frame_w)
+        lle_norm = float(np.linalg.norm(lle_pixel - np.asarray(origin, float)))
+        if lle_norm <= 1e-6:
+            return False
+        self._latched_lle_length[track_id] = lle_norm
+        self._latch_age_s[track_id] = 0.0
+        return True
+
     def prune(self, active_tids: set[int]) -> None:
         """Remove state for tracks no longer present."""
         for tid in list(self._beliefs):

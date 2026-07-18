@@ -6,7 +6,7 @@ test exercises the generated parser through ``ms.cli._args`` and proves it
 reproduces every flag, default, type, nargs/const, choice, group, and help line.
 
 The census is also pinned here so drift in the schema/alias/exclusion tables --
-which drive generation -- is caught: 164 actions = 121 core (78 schema-cli + 12
+which drive generation -- is caught: 165 actions = 122 core (79 schema-cli + 12
 CLI_ALIASES + 31 excluded) + 43 plugin.
 """
 
@@ -65,8 +65,8 @@ def test_parser_prog_and_action_count():
     spec = _live_spec()
     golden = _load_golden()
     assert spec["prog"] == golden["prog"]
-    assert len(spec["actions"]) == 164
-    assert len(golden["actions"]) == 164
+    assert len(spec["actions"]) == 165
+    assert len(golden["actions"]) == 165
 
 
 def test_parser_spec_matches_golden():
@@ -97,7 +97,7 @@ def test_census_partition_welds_to_tables():
     spec = _live_spec()
     core = [a for a in spec["actions"] if a["group"] in CORE_GROUPS]
     plugin = [a for a in spec["actions"] if a["group"] not in CORE_GROUPS]
-    assert len(core) == 121
+    assert len(core) == 122
     assert len(plugin) == 43
 
     schema_cli: set[str] = set()
@@ -113,12 +113,12 @@ def test_census_partition_welds_to_tables():
 
     walk(PipelineConfig)
 
-    assert len(schema_cli) == 78
+    assert len(schema_cli) == 79
     assert len(CLI_ALIASES) == 12
     assert len(EXCLUDED_CLI_FLAGS) == 31
 
     core_flags = {a["option_strings"][0] for a in core}
     union = schema_cli | set(CLI_ALIASES) | set(EXCLUDED_CLI_FLAGS)
     # disjoint and exactly covering the core flag set
-    assert len(union) == 121
+    assert len(union) == 122
     assert core_flags == union

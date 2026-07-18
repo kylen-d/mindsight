@@ -47,6 +47,9 @@ class _StubProvider:
     def likelihood(self, tid):
         return self._trust
 
+    def pop_length_refresh(self, tid):
+        return None                        # W3Y channel: nothing pending
+
 
 class _RecordingBlender:
     def __init__(self):

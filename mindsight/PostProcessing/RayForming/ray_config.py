@@ -71,6 +71,10 @@ class RayFormingConfig:
     rf_reuse_eps: float = 0.0        # perceptual refire suppression (frame MAD)
     rf_onset_samples: int = 3        # bootstrap fixation warmup override (3.8 default)
     rf_onset_gap: int = 5            # relaxed global gap for new faces (3.8 default)
+    # W3Y cheap length channel (0 = off): every N frames a half-precision
+    # Gaze-LLE pass refreshes ray LENGTH only; direction stays with the
+    # fixation-gated fp32 channel.  Consumed by GazelleProvider.
+    rf_len_refresh_gap: int = 0
 
     # ── Object snap ─────────────────────────────────────────────────────────
     snap_mode: str = "off"              # "off" | "extend" | "snap"
@@ -170,6 +174,7 @@ class RayFormingConfig:
             rf_reuse_eps=getattr(ns, 'rf_reuse_eps', 0.0) or 0.0,
             rf_onset_samples=getattr(ns, 'rf_onset_samples', 3) or 0,
             rf_onset_gap=getattr(ns, 'rf_onset_gap', 5) or 0,
+            rf_len_refresh_gap=getattr(ns, 'rf_len_refresh_gap', 0) or 0,
             snap_mode=getattr(ns, 'adaptive_ray', 'off'),
             snap_dist=getattr(ns, 'snap_dist', 150.0),
             snap_bbox_scale=getattr(ns, 'snap_bbox_scale', 0.0),

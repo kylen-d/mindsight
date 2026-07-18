@@ -428,11 +428,13 @@ def test_ui_metadata_does_not_move_canonical_hash():
     rf_onset_samples / rf_onset_gap, then gaze.face_eye_origin +
     tracker.face_reid_sim fields added (same one-time-reprocess
     consequence, still pre-release on v1.1-dev).
+    Re-pinned 2026-07-17 (v1.1 W3Y): rayforming.rf_len_refresh_gap field
+    added (same one-time-reprocess consequence, still pre-release).
     """
     assert PipelineConfig().canonical_hash() == (
-        "78eace7f023e5aab8eedec4bbcb2addc82535f94b0084369365f7c11ac37c3b5")
+        "2847a279d580d9dd7819530587457db62b8437707bc5c63bf56dcabeb0b8dcfc")
     assert PipelineConfig(gaze={"ray_length": 1.5}).canonical_hash() == (
-        "277264867d47bd41fe11e4bae9cf4986b77a2932c72ed9f322cba4e67d47df8d")
+        "546a153078b1b369250c75f474561201f4207eaf6e8a26440cccba286b46a3cc")
 
 
 def test_ui_mirror_rule_targets_are_hidden():

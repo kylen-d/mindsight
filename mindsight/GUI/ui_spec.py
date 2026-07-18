@@ -133,6 +133,7 @@ _GROUP_TREE: list[_GroupSpec] = [
     _GroupSpec("gazelle_blend", "Gaze-LLE Blend (Ray Forming)",
                ["rf_gazelle_name", "min_call_gap", "rf_inout_gate",
                 "rf_reuse_eps", "rf_onset_samples", "rf_onset_gap",
+                "rf_len_refresh_gap",
                 "dir_beta", "len_beta", "len_hold_tau",
                 "fixation_v_threshold", "fixation_d_threshold",
                 "dir_min_cutoff", "len_min_cutoff"],

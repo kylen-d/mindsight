@@ -154,6 +154,19 @@ def run_ray_forming(
             if cfg.rf_inout_gate > 0:
                 accept = accept and inout >= cfg.rf_inout_gate
                 trust = trust * inout
+            # Cheap length-refresh channel (v1.1 W3Y): consume a pending
+            # fp16 heatmap and re-latch the length target only.  A full
+            # accept this frame supersedes it (fp32 is the authority and
+            # update() re-latches anyway); the in/out veto protects the
+            # latch from off-screen garbage exactly as for accepts.
+            len_pending = gazelle_provider.pop_length_refresh(tid)
+            if len_pending is not None and not accept:
+                len_hm, len_inout = len_pending
+                if not (cfg.rf_inout_gate > 0
+                        and len_inout < cfg.rf_inout_gate):
+                    gazelle_blender.refresh_length(
+                        track_id=tid, gazelle_hm=len_hm, origin=c,
+                        frame_h=frame_h, frame_w=frame_w)
             endpoint = gazelle_blender.update(
                 track_id=tid,
                 pitch=pitch, yaw=yaw, gaze_conf=gc,

@@ -193,6 +193,11 @@ _TAB_GAZE = SpecTab(
                       "this many frames since the last call, instead of the "
                       "full minimum call gap. 0 = off.",
                       tier="A"),
+            SpecField("rf_len_refresh_gap", "Length refresh gap (frames)",
+                      "Every N frames, run a cheap half-precision Gaze-LLE "
+                      "pass that refreshes ray length only; direction stays "
+                      "with the full-precision corrections. 0 = off.",
+                      tier="A"),
             SpecField("rf_gazelle_fp16", "Half precision (fp16)",
                       "Run Gaze-LLE in half precision on CUDA/MPS. Faster per "
                       "correction; results differ slightly from full "

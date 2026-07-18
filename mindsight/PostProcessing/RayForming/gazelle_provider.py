@@ -159,8 +159,18 @@ class GazelleProvider:
     def __init__(self, gazelle_engine, *,
                  v_threshold: float, d_threshold: float, min_call_gap: int,
                  onset_samples: int = 0, onset_gap: int = 0,
-                 reuse_eps: float = 0.0):
+                 reuse_eps: float = 0.0,
+                 length_engine=None, length_refresh_gap: int = 0):
         self._engine = gazelle_engine
+        # v1.1 W3Y cheap length channel (inert while gap is 0): a second,
+        # normally half-precision engine whose heatmaps refresh ray LENGTH
+        # only.  May be the main engine itself (shared) when a separate
+        # fp16 copy buys nothing (CPU device, or main engine already fp16).
+        self._length_engine = length_engine if length_refresh_gap > 0 else None
+        self._length_refresh_gap = int(length_refresh_gap)
+        # tid -> (heatmap, inout_score) from the latest length-only pass;
+        # consumed (popped) by ray_pipeline on the following blend update.
+        self._length_refresh: dict[int, tuple[np.ndarray, float]] = {}
         # Retained so reset() can rebuild the scheduler/cache without the ns.
         self._v_threshold = float(v_threshold)
         self._d_threshold = float(d_threshold)
@@ -175,6 +185,7 @@ class GazelleProvider:
             min_call_gap=min_call_gap,
             onset_samples=onset_samples,
             onset_gap=onset_gap,
+            length_refresh_gap=length_refresh_gap,
         )
         self.reuse_gate = (GazelleReuseGate(reuse_eps)
                            if reuse_eps > 0 else None)
@@ -192,12 +203,14 @@ class GazelleProvider:
         rebuilt from the thresholds captured at construction.
         """
         self.heatmap_cache = HeatmapCache()
+        self._length_refresh = {}
         self._scheduler = InferenceScheduler(
             v_threshold=self._v_threshold,
             d_threshold=self._d_threshold,
             min_call_gap=self._min_call_gap,
             onset_samples=self._onset_samples,
             onset_gap=self._onset_gap,
+            length_refresh_gap=self._length_refresh_gap,
         )
         self.reuse_gate = (GazelleReuseGate(self._reuse_eps)
                            if self._reuse_eps > 0 else None)
@@ -234,6 +247,38 @@ class GazelleProvider:
         d_thresh = getattr(ns, 'fixation_d_threshold', 0.15)
         gap = resolve_min_call_gap(ns)
 
+        # v1.1 W3Y cheap length channel.  A separate persistent fp16 sibling
+        # engine (same checkpoint; casting per call would cost more than it
+        # saves) is built ONLY on CUDA, where half precision genuinely runs
+        # faster (tensor cores) for its ~179MB (vitb14).  Measured on MPS,
+        # fp16 is NOT faster per call (87.1 vs 87.7 ms solo, 2026-07-17), so
+        # on MPS/CPU -- or when the main engine is already fp16 -- the main
+        # engine is shared: same per-call cost, zero extra memory, exact
+        # output.  The channel's value there is pure scheduling (periodic
+        # length refreshes between fixation-gated corrections).
+        len_gap = getattr(ns, 'rf_len_refresh_gap', 0) or 0
+        length_engine = None
+        if len_gap > 0:
+            main_is_fp16 = getattr(engine, '_use_fp16', False)
+            is_cuda = getattr(engine, 'device', None) is not None and \
+                engine.device.type == "cuda"
+            if main_is_fp16 or not is_cuda:
+                length_engine = engine
+                print(f"Gaze-LLE length-refresh channel: every {len_gap} "
+                      f"frames, length-only (sharing the main engine -- no "
+                      f"separate fp16 copy pays off on this device)")
+            else:
+                length_engine = GazeEstimationGazelle(
+                    gz_name, ckpt_path,
+                    inout_threshold=0.5,
+                    skip_frames=0,
+                    use_fp16=True,
+                    use_compile=False,
+                    device=device,
+                )
+                print(f"Gaze-LLE length-refresh channel: fp16 engine loaded "
+                      f"(every {len_gap} frames, length-only)")
+
         print(f"Gaze-LLE model loaded: {gz_name}")
         return cls(engine,
                    v_threshold=v_thresh,
@@ -242,7 +287,9 @@ class GazelleProvider:
                    # v1.1 W3X fire-decision knobs; all inert at defaults.
                    onset_samples=getattr(ns, 'rf_onset_samples', 3) or 0,
                    onset_gap=getattr(ns, 'rf_onset_gap', 5) or 0,
-                   reuse_eps=getattr(ns, 'rf_reuse_eps', 0.0) or 0.0)
+                   reuse_eps=getattr(ns, 'rf_reuse_eps', 0.0) or 0.0,
+                   length_engine=length_engine,
+                   length_refresh_gap=len_gap)
 
     def observe_face(self, *, track_id: int, py_dir: np.ndarray,
                      py_conf: float) -> None:
@@ -256,6 +303,7 @@ class GazelleProvider:
         self.heatmap_cache.age_all(active_tids)
 
         should_fire, wanting_tids = self._scheduler.tick()
+        fired = False
         if should_fire and face_bboxes:
             bbox_by_tid = dict(zip(face_track_ids, face_bboxes))
             reused = (self.reuse_gate is not None
@@ -275,12 +323,32 @@ class GazelleProvider:
                 if self.reuse_gate is not None:
                     self.reuse_gate.record_fire(frame, bbox_by_tid)
             self._scheduler.record_accepted(wanting_tids)
+            fired = True
+
+        # Cheap length-only channel (v1.1 W3Y): when the full-precision
+        # channel stayed quiet this frame, a counter-gated fp16 pass may
+        # refresh ray length for every current face.  Results go to the
+        # side dict, NOT the heatmap cache -- they must never become
+        # belief-map accepts.
+        if (not fired and self._length_engine is not None and face_bboxes
+                and self._scheduler.tick_length_refresh()):
+            heatmaps = self._length_engine.raw_heatmaps(frame, face_bboxes)
+            inout_arr = getattr(self._length_engine, '_last_inout', None)
+            for fi, tid in enumerate(face_track_ids):
+                if fi < heatmaps.shape[0]:
+                    inout = float(inout_arr[fi]) if (
+                        inout_arr is not None and fi < len(inout_arr)) else 1.0
+                    self._length_refresh[tid] = (heatmaps[fi], inout)
+            self._scheduler.record_length_refresh()
 
         # Prune scheduler state for disappeared tracks, then advance the
         # frame counters (also clears the observed-this-frame set).
         stale = self._scheduler.tracked_tids - active_tids
         if stale:
             self._scheduler.forget(stale)
+        for tid in list(self._length_refresh):
+            if tid not in active_tids:
+                self._length_refresh.pop(tid, None)
         if self.reuse_gate is not None:
             self.reuse_gate.prune(active_tids)
         self._scheduler.advance_frame()
@@ -288,6 +356,15 @@ class GazelleProvider:
     def likelihood(self, track_id: int) -> float:
         """Fixation_likelihood for a track, for the blender's trust input."""
         return self._scheduler.likelihood(track_id)
+
+    def pop_length_refresh(self, track_id: int):
+        """Consume a pending length-only heatmap for a track.
+
+        Returns ``(heatmap, inout_score)`` or ``None``.  Popped exactly
+        once -- ray_pipeline calls this every blend update, so a result is
+        applied on the first frame the track is seen after the pass.
+        """
+        return self._length_refresh.pop(track_id, None)
 
     @property
     def engine(self):

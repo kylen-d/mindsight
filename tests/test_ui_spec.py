@@ -43,7 +43,7 @@ def test_surface_dest_census():
     """The surface writes exactly the ray + performance + phenomena hand-section
     dests -- no more, no less (the Batch F equivalence contract, at spec level)."""
     groups = build_ui_spec()
-    assert len(all_dests(groups)) == 81
+    assert len(all_dests(groups)) == 82
 
 
 def test_every_field_fully_specified():

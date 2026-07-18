@@ -2,6 +2,22 @@
 
 ## [Unreleased]
 
+### Added (W3Y, default-off)
+- `--rf-len-refresh-gap N`: a cheap Gaze-LLE length-refresh channel for
+  the blend path. Every N frames one extra Gaze-LLE pass refreshes ray
+  LENGTH only. On CUDA the pass runs on a persistent half-precision copy
+  of the model (same checkpoint, ~179 MB extra for vitb14, genuinely
+  faster there); on Apple/CPU the main engine is shared, since measured
+  on MPS fp16 is no faster per call (87.1 vs 87.7 ms) -- the channel's
+  value is the scheduling itself. The full-precision, fixation-gated
+  corrections remain the sole authority over direction and the belief
+  map, and a track that has never received a full-precision correction
+  is never touched. Keeps ray reach fresh between corrections without
+  extra fixation-gated fires; honors the `--rf-inout-gate` veto.
+  0 (default) is byte-identical to previous behavior. Note: adds the `rayforming.rf_len_refresh_gap` schema field,
+  so pre-existing resume ledgers report a config-hash change and
+  reprocess once (pre-release; same caveat as earlier v1.1 schema adds).
+
 ### Fixed (W3X MPIIGaze substrate)
 - `--mgaze-dataset mpiigaze` now works with ONNX models: the ONNX decode
   previously hardcoded gaze360 bin geometry (90 x 4° - 180°), so an

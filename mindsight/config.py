@@ -179,6 +179,7 @@ class RayFormingSection(BaseModel):
     # v1.1 3.8 flips: eval-validated onset defaults (corrections from frame ~3).
     rf_onset_samples: int = Field(3, json_schema_extra={"cli": "--rf-onset-samples"})
     rf_onset_gap: int = Field(5, json_schema_extra={"cli": "--rf-onset-gap"})
+    rf_len_refresh_gap: int = Field(0, json_schema_extra={"cli": "--rf-len-refresh-gap"})
     dir_min_cutoff: float = Field(1.0, json_schema_extra={"cli": "--dir-min-cutoff"})
     dir_beta: float = Field(0.5, json_schema_extra={"cli": "--dir-beta"})
     len_min_cutoff: float = Field(1.0, json_schema_extra={"cli": "--len-min-cutoff"})
@@ -435,6 +436,7 @@ class PipelineConfig(BaseModel):
             rf_reuse_eps=g("rf_reuse_eps", 0.0),
             rf_onset_samples=g("rf_onset_samples", 3),
             rf_onset_gap=g("rf_onset_gap", 5),
+            rf_len_refresh_gap=g("rf_len_refresh_gap", 0),
             dir_min_cutoff=g("dir_min_cutoff", 1.0),
             dir_beta=g("dir_beta", 0.5),
             len_min_cutoff=g("len_min_cutoff", 1.0),
@@ -725,6 +727,9 @@ _UI: dict[str, dict | None] = {
     "rayforming.rf_onset_gap": {"group": "gazelle_blend",
                                 "label": "Onset call gap (frames)",
                                 "advanced": True, "min": 0, "max": 120},
+    "rayforming.rf_len_refresh_gap": {"group": "gazelle_blend",
+                                      "label": "Length refresh gap (frames)",
+                                      "advanced": True, "min": 0, "max": 300},
     "rayforming.dir_min_cutoff": {"group": "gazelle_blend",
                                   "label": "Direction min-cutoff (Hz)",
                                   "advanced": True, "min": 0.1, "max": 20.0,
