@@ -142,6 +142,17 @@ REM ==========================================================================
 REM  [4/7] Create the virtual environment and install locked dependencies
 REM ==========================================================================
 set "FAILSTEP=4 (install dependencies)"
+REM Belt-and-braces: no locked dependency needs a git executable (VCS deps
+REM are pinned as commit tarballs in pyproject.toml), but if one ever sneaks
+REM back in, uv would shell out to git and fail cryptically. Explain up front.
+where git >nul 2>&1
+if not %ERRORLEVEL% EQU 0 (
+    echo       Note: git is not installed on this PC. MindSight's locked
+    echo       dependencies do not need it, so the install will proceed.
+    echo       If the dependency step below fails with a message that
+    echo       mentions "git", install Git for Windows first from
+    echo       https://git-scm.com/download/win and re-run this installer.
+)
 echo [4/7] Installing dependencies from the locked manifest (this can take a while) ...
 set "UV_PROJECT_ENVIRONMENT=%VENV_DIR%"
 if "%INSTALL_MODE%"=="release" goto deps_release

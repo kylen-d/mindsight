@@ -2,6 +2,17 @@
 
 ## [Unreleased]
 
+### Fixed (W3Z installers)
+- **The one-click installers no longer need git.** The `clip` dependency
+  was pinned as a `git+` URL, which made `uv sync` shell out to a git
+  executable during install and fail cryptically on machines without git
+  (fresh Windows lab PCs; Macs without the Xcode Command Line Tools). It
+  is now pinned as the same commit's HTTPS tarball -- byte-identical
+  package, no git involved, and the lockfile now carries a sha256 hash
+  for it. Both installers also gained a plain-English preflight note: if
+  git is missing they say so up front and name the platform remedy, in
+  case a future dependency ever reintroduces the requirement.
+
 ### Added (W3Z)
 - `--rf-len-slew N`: smooth ray-length transitions between length
   refreshes. When a Gaze-LLE pass re-latches an already-latched ray

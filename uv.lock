@@ -274,7 +274,7 @@ wheels = [
 [[package]]
 name = "clip"
 version = "1.0"
-source = { git = "https://github.com/ultralytics/CLIP.git?rev=88ade288431a46233f1556d1e141901b3ef0a36b#88ade288431a46233f1556d1e141901b3ef0a36b" }
+source = { url = "https://github.com/ultralytics/CLIP/archive/88ade288431a46233f1556d1e141901b3ef0a36b.tar.gz" }
 dependencies = [
     { name = "ftfy" },
     { name = "regex" },
@@ -282,6 +282,18 @@ dependencies = [
     { name = "torchvision" },
     { name = "tqdm" },
 ]
+sdist = { hash = "sha256:c607a26a7f15e78dcd6679a9995ac794294a83b0d9bf9242d6c39ae33737417b" }
+
+[package.metadata]
+requires-dist = [
+    { name = "ftfy" },
+    { name = "pytest", marker = "extra == 'dev'" },
+    { name = "regex" },
+    { name = "torch" },
+    { name = "torchvision" },
+    { name = "tqdm" },
+]
+provides-extras = ["dev"]
 
 [[package]]
 name = "colorama"
@@ -1181,7 +1193,7 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
-    { name = "clip", git = "https://github.com/ultralytics/CLIP.git?rev=88ade288431a46233f1556d1e141901b3ef0a36b" },
+    { name = "clip", url = "https://github.com/ultralytics/CLIP/archive/88ade288431a46233f1556d1e141901b3ef0a36b.tar.gz" },
     { name = "imageio-ffmpeg", specifier = ">=0.5" },
     { name = "matplotlib", specifier = ">=3.7" },
     { name = "mediapipe", specifier = "==0.10.32" },

@@ -261,6 +261,16 @@ fi
 # ==========================================================================
 #  [4/6] Create the virtual environment and install locked dependencies
 # ==========================================================================
+# Belt-and-braces: no locked dependency needs a git executable (VCS deps are
+# pinned as commit tarballs in pyproject.toml), but if one ever sneaks back
+# in, uv would shell out to git and fail cryptically. Explain up front.
+if ! command -v git >/dev/null 2>&1; then
+    echo "      Note: git is not installed on this Mac. MindSight's locked"
+    echo "      dependencies do not need it, so the install will proceed."
+    echo "      If the dependency step below fails with a message that"
+    echo "      mentions 'git', install the Xcode Command Line Tools first"
+    echo "      (run: xcode-select --install) and re-run this installer."
+fi
 echo "[4/6] Installing dependencies from the locked manifest (this can take a while) ..."
 export UV_PROJECT_ENVIRONMENT="$VENV_DIR"
 # Default torch on macOS is the CPU/MPS build from the committed lock -- no
