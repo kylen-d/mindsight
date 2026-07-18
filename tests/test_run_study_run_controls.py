@@ -238,3 +238,51 @@ def test_start_refuses_while_one_off_worker_alive(tab):
     assert "still finishing" in tab._log_box.toPlainText()
     assert len(FakeProjectWorker.instances) == 0
     tab._one_off_worker = None
+
+
+# ── W3Y item 3: study-setup values must not govern quick modes ────────────────
+
+
+def _quick_spec(tab, tmp_path):
+    from mindsight.project.staging import single_run_spec
+    video = Path(tab._project_path) / "Inputs" / "Videos" / "a.mp4"
+    return single_run_spec(str(video), meta=None,
+                          output_dir=str(tmp_path / "quick_out"))
+
+
+def test_quick_run_reads_inference_settings_not_study_checkbox(
+        tab, tmp_path, monkeypatch):
+    """Video/camera quick runs launch from the Inference Settings store
+    untouched -- the study-setup anonymize checkbox (project pane) used to
+    silently override it."""
+    import mindsight.GUI.workers as workers_mod
+    monkeypatch.setattr(workers_mod, "GazeWorker", FakeGazeWorker)
+    FakeGazeWorker.instances = []
+    ns = tab._settings.working_copy()
+    ns.anonymize = "black"                  # the dialog's per-run authority
+    tab._settings.commit(ns)
+    tab._set_mode("video", persist=False)
+    tab._anonymize_cb.setChecked(True)      # study checkbox says blur
+    tab._launch_one_off(_quick_spec(tab, tmp_path))
+    assert len(FakeGazeWorker.instances) == 1
+    assert FakeGazeWorker.instances[0].ns.anonymize == "black"
+    tab._poll_timer.stop()
+
+
+def test_project_one_off_still_governed_by_study_checkbox(
+        tab, tmp_path, monkeypatch):
+    """In project mode the study-setup checkbox remains the single
+    anonymize control for launches (G-DEFER-3): unchecked forces None even
+    when the store carries a stray value."""
+    import mindsight.GUI.workers as workers_mod
+    monkeypatch.setattr(workers_mod, "GazeWorker", FakeGazeWorker)
+    FakeGazeWorker.instances = []
+    ns = tab._settings.working_copy()
+    ns.anonymize = "black"
+    tab._settings.commit(ns)
+    tab._set_mode("project", persist=False)
+    tab._anonymize_cb.setChecked(False)
+    tab._launch_one_off(_quick_spec(tab, tmp_path))
+    assert len(FakeGazeWorker.instances) == 1
+    assert FakeGazeWorker.instances[0].ns.anonymize is None
+    tab._poll_timer.stop()

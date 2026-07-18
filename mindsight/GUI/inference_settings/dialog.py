@@ -218,10 +218,11 @@ class InferenceSettingsDialog(QDialog):
             self._toggles[owner] = {"box": box, "mode": "combo",
                                     "inner": inner, "off": meta.off_value}
         elif meta.widget == "path":
-            inner = QLineEdit()
+            from mindsight.GUI.path_picker import KnownPathCombo, known_candidates
+            inner = KnownPathCombo(known_candidates(owner))
             browse = _browse_btn()
             browse.clicked.connect(
-                lambda _c, le=inner: self._browse_into(le, "*.pt"))
+                lambda _c, le=inner, d=owner: self._browse_into(le, "*.pt", d))
             row = QWidget()
             rl = QHBoxLayout(row)
             rl.setContentsMargins(0, 0, 0, 0)
@@ -254,7 +255,8 @@ class InferenceSettingsDialog(QDialog):
                 browse = _browse_btn()
                 filt = "*.vp.json" if f.dest == "vp_file" else "*"
                 browse.clicked.connect(
-                    lambda _c, le=widget, ft=filt: self._browse_into(le, ft))
+                    lambda _c, le=widget, ft=filt, d=f.dest:
+                    self._browse_into(le, ft, d))
                 rl.addWidget(browse)
         tip = f.description or meta.tooltip
         if tip:
@@ -277,7 +279,10 @@ class InferenceSettingsDialog(QDialog):
             combo = QComboBox()
             self._fill_combo(combo, meta, f.choice_labels)
             return combo
-        # line / path
+        if meta.widget == "path":
+            from mindsight.GUI.path_picker import KnownPathCombo, known_candidates
+            return KnownPathCombo(known_candidates(f.dest))
+        # line
         return QLineEdit()
 
     @staticmethod
@@ -295,11 +300,15 @@ class InferenceSettingsDialog(QDialog):
         rl.addWidget(control, 1)
         return row
 
-    def _browse_into(self, line_edit: QLineEdit, filt: str):
+    def _browse_into(self, line_edit, filt: str, dest: str = ""):
+        from mindsight.GUI.path_picker import default_browse_dir, remember_vp_dir
         path, _ = QFileDialog.getOpenFileName(
-            self, "Select file", "", f"Files ({filt});;All (*)")
+            self, "Select file", default_browse_dir(dest),
+            f"Files ({filt});;All (*)")
         if path:
             line_edit.setText(path)
+            if dest == "vp_file":
+                remember_vp_dir(path)
 
     # ── namespace <-> widgets ────────────────────────────────────────────────
 

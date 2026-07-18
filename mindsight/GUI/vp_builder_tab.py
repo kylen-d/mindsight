@@ -347,11 +347,13 @@ class VisualPromptBuilderTab(QWidget):
         if not refs:
             QMessageBox.warning(self, "Empty", "Draw at least one annotation.")
             return
+        from mindsight.GUI.path_picker import remember_vp_dir, vp_default_dir
         path, _ = QFileDialog.getSaveFileName(
-            self, "Export portable VP archive", "",
+            self, "Export portable VP archive", vp_default_dir(),
             f"Portable Visual Prompt (*{VP_ARCHIVE_EXT})")
         if not path:
             return
+        remember_vp_dir(path)
         if not path.endswith(VP_ARCHIVE_EXT):
             path += VP_ARCHIVE_EXT
         try:
@@ -574,13 +576,15 @@ class VisualPromptBuilderTab(QWidget):
         if not has_anns:
             QMessageBox.warning(self, "Empty", "Draw at least one annotation."); return
 
+        from mindsight.GUI.path_picker import remember_vp_dir, vp_default_dir
         path, _ = QFileDialog.getSaveFileName(
-            self, "Save VP file", "",
+            self, "Save VP file", vp_default_dir(),
             f"Visual Prompt (*{VP_EXT});;JSON (*.json)")
         if not path:
             return
         if not path.endswith(VP_EXT) and not path.endswith(".json"):
             path += VP_EXT
+        remember_vp_dir(path)
 
         refs = [
             {"image": str(Path(img_path).resolve()),

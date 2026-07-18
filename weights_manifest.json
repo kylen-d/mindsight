@@ -191,7 +191,8 @@
       "license": "MIT",
       "required": true,
       "source": "github-release",
-      "note": "Published upstream as gazelle_dinov2_vitb14_inout.pt; MindSight stores it as gazelle_dinov2_vitb14.pt. Byte-identical (sha256 verified against a fresh upstream download)."
+      "note": "Published upstream as gazelle_dinov2_vitb14_inout.pt; MindSight stores it as gazelle_dinov2_vitb14.pt. Byte-identical (sha256 verified against a fresh upstream download).",
+      "license_note": "MIT code/checkpoint; DINOv2 backbone Apache-2.0; trained on GazeFollow/VideoAttentionTarget (research datasets)"
     },
     {
       "backend": "Gazelle",
@@ -203,7 +204,8 @@
       "license": "MIT",
       "required": false,
       "source": "github-release",
-      "note": "Larger ViT-L/14 Gaze-LLE backbone. sha256 recorded from a fresh upstream download; a local copy predating the manifest may verify as mismatch -- re-download from the Models tab to align it."
+      "note": "Larger ViT-L/14 Gaze-LLE backbone. sha256 recorded from a fresh upstream download; a local copy predating the manifest may verify as mismatch -- re-download from the Models tab to align it.",
+      "license_note": "MIT code/checkpoint; DINOv2 backbone Apache-2.0; trained on GazeFollow/VideoAttentionTarget (research datasets)"
     },
     {
       "backend": "MGaze",
@@ -219,7 +221,8 @@
       "optimal": [
         "mps",
         "cpu"
-      ]
+      ],
+      "license_note": "weights: research use only - trained on Gaze360 (non-commercial research dataset)"
     },
     {
       "backend": "MGaze",
@@ -235,7 +238,8 @@
       "optimal": [
         "mps",
         "cpu"
-      ]
+      ],
+      "license_note": "weights: research use only - trained on Gaze360 (non-commercial research dataset)"
     },
     {
       "backend": "MGaze",
@@ -250,7 +254,8 @@
       "note": null,
       "optimal": [
         "cuda"
-      ]
+      ],
+      "license_note": "weights: research use only - trained on Gaze360 (non-commercial research dataset)"
     },
     {
       "backend": "MGaze",
@@ -265,7 +270,8 @@
       "note": "sha256 recorded from a fresh upstream download; a local copy predating the manifest may verify as mismatch -- re-download from the Models tab to align it.",
       "optimal": [
         "cuda"
-      ]
+      ],
+      "license_note": "weights: research use only - trained on Gaze360 (non-commercial research dataset)"
     },
     {
       "backend": "MGaze",
@@ -281,7 +287,8 @@
       "optimal": [
         "mps",
         "cpu"
-      ]
+      ],
+      "license_note": "weights: research use only - trained on Gaze360 (non-commercial research dataset)"
     },
     {
       "backend": "MGaze",
@@ -296,7 +303,8 @@
       "note": "sha256 recorded from a fresh upstream download; a local copy predating the manifest may verify as mismatch -- re-download from the Models tab to align it.",
       "optimal": [
         "cuda"
-      ]
+      ],
+      "license_note": "weights: research use only - trained on Gaze360 (non-commercial research dataset)"
     },
     {
       "backend": "MGaze",
@@ -312,7 +320,8 @@
       "optimal": [
         "mps",
         "cpu"
-      ]
+      ],
+      "license_note": "weights: research use only - trained on Gaze360 (non-commercial research dataset)"
     },
     {
       "backend": "MGaze",
@@ -327,7 +336,8 @@
       "note": "sha256 recorded from a fresh upstream download; a local copy predating the manifest may verify as mismatch -- re-download from the Models tab to align it.",
       "optimal": [
         "cuda"
-      ]
+      ],
+      "license_note": "weights: research use only - trained on Gaze360 (non-commercial research dataset)"
     },
     {
       "backend": "MobileClip",

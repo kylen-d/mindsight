@@ -68,6 +68,28 @@ def test_hero_lists_guide_cards_from_local_docs(qapp):
     assert tab._stack.currentIndex() == 0
 
 
+def test_hero_logo_prefers_app_icon(qapp):
+    """W3Y item 6: the hero centres the app ICON (assets/mindsight_icon.png)
+    above the "MindSight" name; the wordmark (which repeats the name) is
+    only the fallback.  Checkout ships the icon, so it must win here."""
+    from pathlib import Path
+
+    from PyQt6.QtGui import QPixmap
+
+    from mindsight.GUI.about_tab import AboutTab, repo_root
+    icon = repo_root() / "assets" / "mindsight_icon.png"
+    assert icon.is_file(), "checkout must ship the app icon"
+    tab = AboutTab()
+    pm = tab._logo_pixmap()
+    assert pm is not None and not pm.isNull()
+    expected = QPixmap(str(Path(icon)))
+    # scaledToHeight(160) preserves aspect: the rendered pixmap's aspect
+    # ratio identifies WHICH asset was chosen without pixel comparison.
+    assert pm.height() == min(160, expected.height()) or pm.height() == 160
+    assert abs(pm.width() / pm.height()
+               - expected.width() / expected.height()) < 0.05
+
+
 def test_all_guides_pages_exist_and_render_clean():
     """Every GUIDES page exists in the checkout and down-converts without
     leaking raw mkdocs syntax into the reader."""

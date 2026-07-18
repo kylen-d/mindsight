@@ -1370,15 +1370,18 @@ class RunStudyTab(QWidget):
         self._new_project_dialog()
 
     def _open_project_dialog(self):
+        from mindsight.GUI.path_picker import projects_default_dir
         path = QFileDialog.getExistingDirectory(
-            self, "Open MindSight project folder")
+            self, "Open MindSight project folder", projects_default_dir())
         if path:
             self._open_project(path)
 
     def _new_project_dialog(self):
         """Prompt for a parent folder + name, scaffold a blank project, open it."""
+        from mindsight.GUI.path_picker import projects_default_dir
         parent = QFileDialog.getExistingDirectory(
-            self, "Choose where to create the new project")
+            self, "Choose where to create the new project",
+            projects_default_dir())
         if not parent:
             return
         name, ok = QInputDialog.getText(
@@ -1887,7 +1890,12 @@ class RunStudyTab(QWidget):
         # One-off run through the single-source worker: project-shaped output
         # paths from the RunSpec, no ledger (Q7).
         ns = self._current_ns()
-        self._apply_anonymize(ns)
+        # Study-setup values govern PROJECT-context launches only (the pane
+        # they live on).  Quick video/camera runs read the Inference
+        # Settings store untouched -- the study checkbox used to silently
+        # override the dialog's anonymize here (W3Y item-3 bug).
+        if self._mode == "project":
+            self._apply_anonymize(ns)
         ns.source = str(spec.source)
         # Save-on-run checkpoint (warn-not-raise): persist the launched config.
         from .settings_manager import checkpoint

@@ -165,14 +165,18 @@ class ProjectsTab(QWidget):
         self.show_overview(path)
 
     def _browse_open(self):
-        path = QFileDialog.getExistingDirectory(self, "Open a project folder")
+        from mindsight.GUI.path_picker import projects_default_dir
+        path = QFileDialog.getExistingDirectory(
+            self, "Open a project folder", projects_default_dir())
         if path:
             self.show_overview(Path(path))
 
     def _create_blank(self):
         from mindsight.project.runner import create_project
+        from mindsight.GUI.path_picker import projects_default_dir
         parent_dir = QFileDialog.getExistingDirectory(
-            self, "Folder to create the project inside")
+            self, "Folder to create the project inside",
+            projects_default_dir())
         if not parent_dir:
             return
         name, ok = QInputDialog.getText(self, "Create Blank Project",

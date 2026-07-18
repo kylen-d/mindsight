@@ -51,7 +51,8 @@ _STATE_STYLE = {
     "unmanaged": ("unmanaged (custom weight)", "#888"),
 }
 
-_COLS = ["Model", "Backend", "Required", "Needed now", "State", "On disk", "Actions"]
+_COLS = ["Model", "Backend", "License", "Required", "Needed now", "State",
+         "On disk", "Actions"]
 
 
 class ModelsTab(QWidget):
@@ -84,6 +85,24 @@ class ModelsTab(QWidget):
         note.setWordWrap(True)
         note.setStyleSheet("color: #888;")
         lay.addWidget(note)
+
+        # W3Y item 4: NVIDIA GPU present but CPU-only torch wheel installed
+        # -- without this, the tab quietly marks the ONNX/CPU weights
+        # "optimal" on a CUDA lab machine and nobody knows why.
+        self._cuda_note = QLabel("")
+        self._cuda_note.setWordWrap(True)
+        self._cuda_note.setStyleSheet(
+            "color: #b58900; font-weight: bold;")
+        self._cuda_note.setVisible(False)
+        try:
+            from mindsight.utils.device import cuda_support_note
+            cuda_note = cuda_support_note()
+        except Exception:
+            cuda_note = None
+        if cuda_note:
+            self._cuda_note.setText(cuda_note)
+            self._cuda_note.setVisible(True)
+        lay.addWidget(self._cuda_note)
 
         self._table = QTableWidget(0, len(_COLS))
         self._table.setHorizontalHeaderLabels(_COLS)
@@ -180,25 +199,37 @@ class ModelsTab(QWidget):
             self._set(row, 0, name)
             self._set(row, 1, "custom")
             self._set(row, 2, "")
-            self._set(row, 3, "yes")
+            self._set(row, 3, "")
+            self._set(row, 4, "yes")
             self._set_state(row, "unmanaged")
-            self._set(row, 5, "")
-            self._table.removeCellWidget(row, 6)
+            self._set(row, 6, "")
+            self._table.removeCellWidget(row, 7)
             return
 
         entry = info["entry"]
         self._entry_row[(entry["backend"], entry["filename"])] = row
         self._set(row, 0, entry.get("label", entry["filename"]))
         self._set(row, 1, entry["backend"])
+        # License column (W3Y item 9): the SPDX id, plus the manifest's
+        # license_note when a bare id would mislead (e.g. MIT code around
+        # research-only trained weights).  Full text also in the tooltip
+        # since the column elides.
+        lic = entry.get("license") or ""
+        note = entry.get("license_note")
+        self._set(row, 2, f"{lic} - {note}" if note else lic)
+        if note:
+            item = self._table.item(row, 2)
+            if item is not None:
+                item.setToolTip(f"{lic}\n{note}")
         tags = []
         if entry.get("required"):
             tags.append("required")
         if self._device_class() in (entry.get("optimal") or ()):
             tags.append("optimal for this device")
-        self._set(row, 2, ", ".join(tags))
-        self._set(row, 3, "yes" if entry["filename"] in needed else "")
+        self._set(row, 3, ", ".join(tags))
+        self._set(row, 4, "yes" if entry["filename"] in needed else "")
         self._set_state(row, info["state"])
-        self._set(row, 5, self._disk_text(info["dest"]))
+        self._set(row, 6, self._disk_text(info["dest"]))
         self._set_actions(row, info)
 
     @staticmethod
@@ -245,7 +276,7 @@ class ModelsTab(QWidget):
                 rbtn.clicked.connect(lambda _=False, r=row: self._start_download(r))
                 hb.addWidget(rbtn)
         hb.addStretch(1)
-        self._table.setCellWidget(row, 6, holder)
+        self._table.setCellWidget(row, 7, holder)
 
     def _update_disk(self):
         root = self._weights_root or weights.WEIGHTS_ROOT
@@ -269,7 +300,7 @@ class ModelsTab(QWidget):
 
     def _set_state(self, row, state):
         text, colour = _STATE_STYLE.get(state, (state, "#888"))
-        self._set(row, 4, text, colour)
+        self._set(row, 5, text, colour)
         if row < len(self._row_info):
             self._row_info[row]["state"] = state
 
@@ -353,7 +384,7 @@ class ModelsTab(QWidget):
         info = self._row_info[row]
         state = weights.verify(info["dest"], entry)   # small: just-fetched file
         self._set_state(row, state)
-        self._set(row, 5, self._disk_text(info["dest"]))
+        self._set(row, 6, self._disk_text(info["dest"]))
         self._set_actions(row, info)
         self._status.setText(f"{entry['filename']}: downloaded and {state}.")
         self._update_disk()

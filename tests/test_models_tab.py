@@ -55,7 +55,7 @@ def _join_and_drain(tab):
 
 
 def _state_text(tab, row):
-    return tab._table.item(row, 4).text()
+    return tab._table.item(row, 5).text()
 
 
 # ── Rendering ────────────────────────────────────────────────────────────────
@@ -188,9 +188,29 @@ def test_optimal_for_device_tag(qapp, tmp_path):
     ModelsTab._device_class_cache = "cpu"
     try:
         tab = ModelsTab(manifest_path=manifest, weights_root=wroot)
-        tags = {tab._table.item(r, 0).text(): tab._table.item(r, 2).text()
+        tags = {tab._table.item(r, 0).text(): tab._table.item(r, 3).text()
                 for r in range(tab._table.rowCount())}
         assert tags["MGaze match_gaze.onnx"] == "required, optimal for this device"
         assert tags["MGaze other.pt"] == ""
     finally:
         ModelsTab._device_class_cache = None
+
+
+def test_license_column_shows_id_and_note(qapp, tmp_path):
+    """W3Y item 9: the License column renders the manifest license id, and
+    appends license_note (with a full-text tooltip) where a bare SPDX id
+    would mislead -- e.g. MIT code around research-only trained weights."""
+    from mindsight.GUI.models_tab import ModelsTab
+    plain = _entry("MGaze", "plain.onnx", b"a")
+    noted = _entry("MGaze", "noted.onnx", b"b")
+    noted["license_note"] = "weights: research use only"
+    manifest = _write_manifest(tmp_path, [plain, noted])
+    wroot = tmp_path / "Weights"
+    (wroot / "MGaze").mkdir(parents=True)
+
+    tab = ModelsTab(manifest_path=manifest, weights_root=wroot)
+    lic = {tab._table.item(r, 0).text(): tab._table.item(r, 2)
+           for r in range(tab._table.rowCount())}
+    assert lic["MGaze plain.onnx"].text() == "MIT"
+    assert lic["MGaze noted.onnx"].text() == "MIT - weights: research use only"
+    assert "research use only" in lic["MGaze noted.onnx"].toolTip()

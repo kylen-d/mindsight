@@ -18,6 +18,39 @@
   so pre-existing resume ledgers report a config-hash change and
   reprocess once (pre-release; same caveat as earlier v1.1 schema adds).
 
+### Changed (W3Y GUI)
+- **File pickers now start where their files live and offer the known
+  candidates.** Model pickers (YOLO / YOLOE / MobileGaze / Gaze-LLE, in
+  the Gaze Tuning tab and the Inference Settings dialog) are editable
+  dropdowns listing the weights already in `Weights/<backend>/`, with
+  Browse... opening there; VP-file dialogs remember the last visual-prompt
+  folder (VP Builder saves record it); project-folder dialogs open beside
+  the most recent project.
+- The Models tab has a **License** column: the license id from the weights
+  manifest, plus an honest usage note where the id alone would mislead --
+  MobileGaze weights are Gaze360-trained (research use only) and Gaze-LLE
+  checkpoints carry their training-set provenance. THIRD_PARTY_LICENSES
+  documents the same.
+- The About tab hero now centres the MindSight app icon above the program
+  name (the wordmark, which repeats the name, is only a fallback), and
+  installed builds render it too.
+
+### Fixed (W3Y)
+- **"Optimal for this device" no longer lies silently on NVIDIA machines
+  with a CPU-only torch install.** PyPI's Windows torch wheels carry no
+  CUDA support, so a CUDA lab machine reported `cuda.is_available() ==
+  False` and the Models tab marked the ONNX weights optimal. The device
+  decision was correct given that torch; the install problem is now
+  detected (CPU-only build + `nvidia-smi` reporting a GPU) and surfaced
+  loudly in the Models tab and project preflight, with the CUDA-index
+  reinstall command as the remedy.
+- **Study-setup values no longer override the Inference Settings dialog in
+  Video File / Camera mode.** The Analyze Footage study-setup anonymize
+  checkbox (a project-pane control) silently overrode the dialog's
+  per-run settings for quick runs; quick modes now launch from the
+  Inference Settings store untouched. Project-mode launches keep the
+  checkbox as their single anonymize control.
+
 ### Fixed (W3X MPIIGaze substrate)
 - `--mgaze-dataset mpiigaze` now works with ONNX models: the ONNX decode
   previously hardcoded gaze360 bin geometry (90 x 4° - 180°), so an

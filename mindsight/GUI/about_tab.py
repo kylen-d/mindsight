@@ -233,9 +233,14 @@ class AboutTab(QWidget):
         return page
 
     def _logo_pixmap(self) -> QPixmap | None:
-        for cand in (repo_root() / "mindsightlogo.png",
-                     repo_root() / "assets" / "mindsight_icon.png"):
-            if cand.exists():
+        # The app ICON above the "MindSight" name (W3Y item 6) -- the
+        # wordmark logo repeats the name the hero already prints, so it is
+        # only the fallback.  resource_path also reaches the wheel's bundled
+        # copy, so installed builds render the icon too.
+        from mindsight.resources import resource_path
+        for cand in (resource_path("assets/mindsight_icon.png"),
+                     repo_root() / "mindsightlogo.png"):
+            if cand is not None and Path(cand).exists():
                 pm = QPixmap(str(cand))
                 if not pm.isNull():
                     return pm.scaledToHeight(

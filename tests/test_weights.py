@@ -53,6 +53,22 @@ def test_committed_manifest_entry_shape():
             assert e["url"].startswith("https://")
             assert isinstance(e["sha256"], str) and len(e["sha256"]) == 64
             assert isinstance(e["size"], int) and e["size"] > 0
+        if "license_note" in e:      # W3Y item 9: optional usage string
+            assert isinstance(e["license_note"], str) and e["license_note"]
+
+
+def test_research_only_provenance_is_declared():
+    """W3Y item 9: weights whose SPDX id alone would mislead carry an honest
+    license_note -- every MobileGaze weight is Gaze360-trained (research
+    only) and every Gaze-LLE checkpoint carries its training-set provenance.
+    This is the pin that paves MPIIGaze support (licensing honesty first)."""
+    for e in weights.manifest_entries():
+        if e["backend"] == "MGaze":
+            assert "research use only" in e.get("license_note", ""), \
+                f"{e['filename']}: MobileGaze weights must declare Gaze360 provenance"
+        if e["backend"] == "Gazelle":
+            assert "research" in e.get("license_note", ""), \
+                f"{e['filename']}: Gaze-LLE checkpoints must declare training provenance"
 
 
 def test_committed_manifest_labels_use_paper_terms():
