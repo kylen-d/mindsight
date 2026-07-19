@@ -20,7 +20,8 @@ REQUIRED_FILENAMES = {
     "resnet50_gaze.onnx",
     "mobileone_s0_gaze.onnx",
 }
-_ALLOWED_SOURCES = {weights.SOURCE_GITHUB, weights.SOURCE_ULTRALYTICS_AUTO}
+_ALLOWED_SOURCES = {weights.SOURCE_GITHUB, weights.SOURCE_VENDOR_CDN,
+                    weights.SOURCE_ULTRALYTICS_AUTO}
 
 
 # ══════════════════════════════════════════════════════════════════════════════

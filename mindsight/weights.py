@@ -32,9 +32,12 @@ from mindsight.constants import PROJECT_ROOT
 WEIGHTS_ROOT = PROJECT_ROOT / "Weights"
 MANIFEST_PATH = PROJECT_ROOT / "weights_manifest.json"
 
-# Manifest sources: a real GitHub-release asset (url + sha256), or an asset
-# Ultralytics auto-fetches on first use (url/sha256 null + an explanatory note).
+# Manifest sources: a real GitHub-release asset (url + sha256), a versioned
+# vendor CDN/storage asset (url + sha256, e.g. Google's MediaPipe model
+# storage), or an asset Ultralytics auto-fetches on first use (url/sha256
+# null + an explanatory note).
 SOURCE_GITHUB = "github-release"
+SOURCE_VENDOR_CDN = "vendor-cdn"
 SOURCE_ULTRALYTICS_AUTO = "ultralytics-auto"
 
 #: The default blend-path gaze-target model (v1.1 W4A flip, user-approved):
