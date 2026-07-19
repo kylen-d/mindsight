@@ -2,6 +2,28 @@
 
 ## [Unreleased]
 
+### Added (W4A DINOv3-generation gaze-target weights in the manifest)
+- **Five PINTO0309/gazelle-dinov3 ONNX exports are now managed weights**
+  (checksummed manifest entries; rows appear in the GUI Models tab with
+  license provenance, installable with `mindsight-weights` or one click):
+  the 16 MB HGNetV2-pico model (640 px, in/out head, dynamic face count
+  -- v1.1 eval 63.9 px mean / 71% hit rate vs 70.3 / 66% for the torch
+  DINOv2 ViT-B/14 engine, on CPU at the same amortized cost), and two
+  opt-in quality tiers: ViT tiny-plus (52 MB, 59.8 px / 78%) and
+  ViT-S/16 (100 MB, 57.3 px / 80% -- the measured ceiling). The ViT
+  tiers ship in both dynamic-face and single-face static exports; the
+  static siblings are the shape Apple-GPU CoreML accepts, so
+  `--device mps` accelerates them 2-3x over CPU. Use any of them via
+  `--rf-gazelle-model <filename>.onnx`. Licensing: pico and tiny-plus
+  are MIT releases over Apache-2.0 backbones distilled from DINOv3
+  outputs (no Meta weights embedded); ViT-S/16 embeds the Meta DINOv3
+  backbone and so additionally carries the DINOv3 License (commercial
+  use permitted; passthrough on redistribution -- see
+  THIRD_PARTY_LICENSES.md). All variants are trained on GazeFollow /
+  VideoAttentionTarget, the same research-dataset provenance as the
+  existing Gaze-LLE and MobileGaze weights, and carry it as a manifest
+  `license_note`. Defaults unchanged in this step.
+
 ### Added (W3Z ONNX gaze-target engine)
 - **`--rf-gazelle-model` now accepts `.onnx` checkpoints** and runs them
   on onnxruntime (CPU) as the blend-path gaze-target engine -- built for

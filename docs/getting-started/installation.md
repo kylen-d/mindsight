@@ -135,7 +135,7 @@ where the console command is not on PATH.)
 |---------|--------------|-------|
 | **YOLO / YOLOE** | `yolov8n.pt` | Larger YOLOv8 and YOLOE variants are optional, fetched with `--all` or on demand |
 | **MobileGaze** | `resnet50_gaze.onnx`, `mobileone_s0_gaze.onnx` | PyTorch variants optional, in `Weights/MGaze/` |
-| **Gaze-LLE** | `gazelle_dinov2_vitb14.pt` | The larger `vitl14` checkpoint is optional, in `Weights/Gazelle/` |
+| **Gaze-LLE** | `gazelle_dinov2_vitb14.pt` | The larger `vitl14` checkpoint and the DINOv3-generation ONNX gaze-target models (`gazelle_hgnetv2_pico_*` and the ViT tiny-plus / ViT-S/16 quality tiers, incl. single-face exports for Apple-GPU CoreML) are optional, in `Weights/Gazelle/` |
 | **MobileClip** | -- | `mobileclip_blt.ts` is auto-fetched by Ultralytics on first visual-prompt use |
 
 ### Verify the installation
