@@ -66,6 +66,8 @@ This file documents their licenses for compliance purposes.
 | YOLO / YOLOE weights | AGPL-3.0 | Ultralytics, auto-downloaded on first use |
 | FastSAM-s (`Weights/SAM/`) | AGPL-3.0 | CASIA-IVA-Lab FastSAM via the Ultralytics wrapper and asset release; powers the VP Builder's Suggest mode. Same license class as the ultralytics package itself. |
 | RetinaFace weights | MIT (uniface release) | yakhyo/uniface, auto-downloaded to `~/.uniface` on first use; trained on WIDER FACE |
+| MPIIFaceGaze checkpoint (`mpiifacegaze_resnet_simple.pth`) | MIT (hysts/pytorch_mpiigaze_demo release) | Trained on **MPIIFaceGaze** (CC BY-NC-SA, non-commercial research dataset) -- treat the weights as research use only. The manifest carries this as `license_note` and the Models tab surfaces it. Powers the opt-in `--mpiifacegaze-model` backend. |
+| MediaPipe Face Landmarker (`face_landmarker.task`) | Apache-2.0 | Google MediaPipe model storage (versioned path); 468-point landmarker feeding the head-pose-normalized gaze backends. |
 | ArcFace embeddings (`--face-reid-sim`) | MIT (uniface release) | yakhyo/uniface, auto-downloaded on first use. Upstream provenance: InsightFace model zoo, which marks its models for **non-commercial research use**; the training set (WebFace600K) is research-only. Off by default; enable only if that provenance is acceptable for your use. |
 
 ## AGPL-3.0 Notice

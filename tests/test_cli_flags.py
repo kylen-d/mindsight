@@ -54,7 +54,7 @@ def test_generated_parser_spec_matches_golden():
     spec = parser_spec(build_parser())
     golden = _golden()
     assert spec["prog"] == golden["prog"]
-    assert len(spec["actions"]) == len(golden["actions"]) == 169
+    assert len(spec["actions"]) == len(golden["actions"]) == 170
     got = [_norm_action(a) for a in spec["actions"]]
     want = [_norm_action(a) for a in golden["actions"]]
     assert [a["dest"] for a in got] == [a["dest"] for a in want]

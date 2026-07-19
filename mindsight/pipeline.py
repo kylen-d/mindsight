@@ -96,6 +96,13 @@ def process_frame(ctx, *, yolo, face_det, gaze_eng,
     if ctx.get('do_cache'):
         ctx['cached_all_dets_out'] = ctx['all_dets']
 
+    # Frame-context gaze backends (estimate_in_frame) must see the frame
+    # BEFORE annotation: the person boxes drawn below land inside face
+    # crops and break the MediaPipe landmarker.  Copy only when such a
+    # backend is active — the default (MGaze) path stays byte-identical.
+    if hasattr(gaze_eng, 'estimate_in_frame'):
+        ctx['clean_frame'] = ctx['frame'].copy()
+
     for p in ctx['persons']:
         cv2.rectangle(ctx['frame'], (p['x1'], p['y1']), (p['x2'], p['y2']), (255, 120, 30), 1)
 

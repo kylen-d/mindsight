@@ -86,6 +86,7 @@
   "mgaze_reuse_eps": 0.0,
   "min_call_gap": 30,
   "model": "yolov8n.pt",
+  "mpiifacegaze_model": "",
   "mutual_gaze": false,
   "no_dashboard": true,
   "novel_salience": false,

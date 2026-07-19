@@ -2232,6 +2232,22 @@
     },
     {
       "option_strings": [
+        "--mpiifacegaze-model"
+      ],
+      "dest": "mpiifacegaze_model",
+      "action": "_StoreAction",
+      "default": null,
+      "type": null,
+      "nargs": null,
+      "const": null,
+      "choices": null,
+      "required": false,
+      "metavar": "PATH",
+      "help": "Path to the hysts MPIIFaceGaze resnet_simple checkpoint (.pth).  Activates the head-pose-normalized MPIIFaceGaze backend (requires the MediaPipe face_landmarker.task asset).  Weights are research-provenance -- trained on MPIIFaceGaze (CC BY-NC-SA); see THIRD_PARTY_LICENSES.",
+      "group": "MPIIFaceGaze backend"
+    },
+    {
+      "option_strings": [
         "--mgaze-model"
       ],
       "dest": "mgaze_model",
