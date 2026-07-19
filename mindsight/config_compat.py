@@ -128,6 +128,7 @@ EXCLUDED_CLI_FLAGS: dict[str, str] = {
     "--fast":              "run-loop performance toggle; passed directly to run()",
     "--skip-phenomena":    "run-loop performance knob; passed directly to run()",
     "--lite-overlay":      "run-loop performance toggle; passed directly to run()",
+    "--overlay-theme":     "run-loop cosmetic overlay styling; passed directly to run()",
     "--no-dashboard":      "run-loop performance toggle; passed directly to run()",
     "--profile":           "run-loop diagnostics toggle; passed directly to run()",
     # Config-loading meta flags.

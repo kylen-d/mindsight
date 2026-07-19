@@ -44,11 +44,11 @@ def test_spec_shape_is_stable():
     counts = {t.key: len(tab_field_dests(t)) for t in SETTINGS_SPEC}
     assert counts == {
         "models": 10, "gaze": 44, "detection": 15, "phenomena": 42,
-        "output": 7, "performance": 5, "experimental": 22,
+        "output": 8, "performance": 5, "experimental": 22,
     }
     # rf_gazelle_model is the one dest carried on two tabs (Models value +
     # Gaze blend enable), so unique dests = sum(counts) - 1.
-    assert len(all_dests()) == sum(counts.values()) - 1 == 144
+    assert len(all_dests()) == sum(counts.values()) - 1 == 145
 
 
 def test_every_field_has_label_and_description_or_tooltip():

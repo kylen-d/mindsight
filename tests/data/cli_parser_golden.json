@@ -267,6 +267,25 @@
     },
     {
       "option_strings": [
+        "--overlay-theme"
+      ],
+      "dest": "overlay_theme",
+      "action": "_StoreAction",
+      "default": "classic",
+      "type": null,
+      "nargs": null,
+      "const": null,
+      "choices": [
+        "classic",
+        "mindsight"
+      ],
+      "required": false,
+      "metavar": null,
+      "help": "Annotated-frame overlay styling: 'classic' is the historical high-saturation look, 'mindsight' uses the brand palette (indigo ink label tabs, logo magenta/jade accents). Cosmetic only -- analysis outputs are unaffected (default: classic).",
+      "group": "options"
+    },
+    {
+      "option_strings": [
         "--anonymize-padding"
       ],
       "dest": "anonymize_padding",

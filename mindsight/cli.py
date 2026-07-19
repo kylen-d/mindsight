@@ -139,6 +139,7 @@ def main():
         fast_mode=args.fast,
         skip_phenomena=args.skip_phenomena,
         lite_overlay=args.lite_overlay,
+        overlay_theme=getattr(args, 'overlay_theme', 'classic'),
         no_dashboard=args.no_dashboard,
         profile=args.profile,
         depth_cfg=depth_cfg, depth_backend=depth_backend,

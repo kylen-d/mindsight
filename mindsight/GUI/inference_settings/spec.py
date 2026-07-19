@@ -455,6 +455,11 @@ _TAB_OUTPUT = SpecTab(
             SpecField("lite_overlay", "Overlay detail",
                       "Full overlays vs minimal (no cones, markers, debug "
                       "text). Checked = minimal."),
+            SpecField("overlay_theme", "Overlay theme",
+                      "Styling of the drawn overlays: classic "
+                      "(high-saturation) or mindsight (brand palette: "
+                      "indigo label tabs, logo magenta/jade accents). "
+                      "Cosmetic only."),
             SpecField("no_dashboard", "Show dashboard panels",
                       "Compose side dashboard onto processed frames (off = "
                       "fastest; the GUI Live tab works regardless).",

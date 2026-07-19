@@ -8,6 +8,7 @@ usage: MindSight -- Eye-Gaze Intersection Tracker [-h] [--source SOURCE] [--save
                                                   [--aux-auto-detect]
                                                   [--device {auto,cpu,cuda,mps}]
                                                   [--anonymize [{blur,black}]]
+                                                  [--overlay-theme {classic,mindsight}]
                                                   [--anonymize-padding FRAC] [--fast]
                                                   [--skip-phenomena N] [--lite-overlay]
                                                   [--no-dashboard] [--profile]
@@ -149,6 +150,11 @@ options:
   --anonymize [{blur,black}]
                         Anonymize faces in the output video: 'blur' applies heavy Gaussian blur,
                         'black' fills with a solid rectangle. Bare --anonymize means 'blur'.
+  --overlay-theme {classic,mindsight}
+                        Annotated-frame overlay styling: 'classic' is the historical high-
+                        saturation look, 'mindsight' uses the brand palette (indigo ink label
+                        tabs, logo magenta/jade accents). Cosmetic only -- analysis outputs are
+                        unaffected (default: classic).
   --anonymize-padding FRAC
                         Fraction of face bbox size added as padding for anonymization (default:
                         0.3).

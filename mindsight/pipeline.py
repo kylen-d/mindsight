@@ -247,6 +247,7 @@ class RunOptions:
     fast_mode: bool = False
     skip_phenomena: int = 0
     lite_overlay: bool = False
+    overlay_theme: str = "classic"
     no_dashboard: bool = False
     profile: bool = False
 
@@ -398,6 +399,7 @@ def _run_video(source, *, yolo, face_det, gaze_eng,
     fast_mode      = options.fast_mode
     skip_phenomena = options.skip_phenomena
     lite_overlay   = options.lite_overlay
+    overlay_theme  = options.overlay_theme
     no_dashboard   = options.no_dashboard
     profile        = options.profile
 
@@ -528,6 +530,8 @@ def _run_video(source, *, yolo, face_det, gaze_eng,
         gaze_cfg._lite_overlay = True
     else:
         gaze_cfg._lite_overlay = False
+    # Same dynamic-attr channel for the cosmetic overlay theme (W3Z item 6).
+    gaze_cfg._overlay_theme = overlay_theme
 
     # Profiling accumulators
     if profile:
@@ -772,6 +776,7 @@ def run(source, yolo, face_det, gaze_eng,
         detection_plugins=None,
         phenomena_cfg=None,
         fast_mode=False, skip_phenomena=0, lite_overlay=False,
+        overlay_theme="classic",
         no_dashboard=False, profile=False,
         depth_cfg=None, depth_backend=None,
         gazelle_provider=None, ray_cfg=None, data_plugins=None):
@@ -792,7 +797,8 @@ def run(source, yolo, face_det, gaze_eng,
     )
     options = RunOptions(
         fast_mode=fast_mode, skip_phenomena=skip_phenomena,
-        lite_overlay=lite_overlay, no_dashboard=no_dashboard, profile=profile,
+        lite_overlay=lite_overlay, overlay_theme=overlay_theme,
+        no_dashboard=no_dashboard, profile=profile,
     )
     return run_to_completion(pipeline, source, options=options)
 

@@ -94,6 +94,7 @@
   "ns_history": 2,
   "ns_speed_thresh": 40.0,
   "obj_persistence": 0,
+  "overlay_theme": "classic",
   "participant_csv": null,
   "participant_ids": null,
   "pipeline": null,

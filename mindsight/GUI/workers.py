@@ -182,6 +182,7 @@ class GazeWorker(threading.Thread):
             fast_mode=_fast,
             skip_phenomena=getattr(self.ns, 'skip_phenomena', 0),
             lite_overlay=getattr(self.ns, 'lite_overlay', False),
+            overlay_theme=getattr(self.ns, 'overlay_theme', 'classic'),
             no_dashboard=getattr(self.ns, 'no_dashboard', False),
             profile=getattr(self.ns, 'profile', False),
         )

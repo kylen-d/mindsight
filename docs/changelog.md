@@ -2,6 +2,18 @@
 
 ## [Unreleased]
 
+### Added (W3Z overlay theme)
+- `--overlay-theme {classic,mindsight}`: restyle the annotated-frame
+  overlays. `mindsight` uses the brand palette sampled from the logo and
+  app icon -- deep-indigo ink label tabs with coloured borders instead
+  of solid saturated fills, the logo's magenta and jade as hero accents
+  (participants, lock, convergence), warm gold for joint attention and
+  dwell, and indigo dashboard panels. Geometry is identical in both
+  themes; this is purely cosmetic and analysis outputs are unaffected.
+  Also selectable as "Overlay theme" in Inference Settings and the
+  tuning panel. **Default `classic`** (the historical look, byte-pinned
+  by the regression goldens).
+
 ### Added (W3Z VP Builder Suggest mode)
 - **Click, don't draw: the VP Builder can now propose object boxes.** A
   new "Suggest mode" toggle under the canvas segments the region under
