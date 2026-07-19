@@ -20,15 +20,19 @@ class _IO:
 
 
 class _FakeSession:
-    """Mimics the gazelle-dinov3 1xNx4 export I/O: image + bboxes in,
-    [N,S,S] heatmaps (+ optional [N] inout) out."""
+    """Mimics the gazelle-dinov3 export I/O: image + bboxes in,
+    [N,S,S] heatmaps (+ optional [N] inout) out.  ``n_dim`` mirrors the
+    export's bbox middle dim: "N" = dynamic multi-face, 1 = static
+    single-face (the CoreML-compatible kind)."""
 
-    def __init__(self, hm_size=32, with_inout=True, size=320):
+    def __init__(self, hm_size=32, with_inout=True, size=320, n_dim="N"):
         self._hm = hm_size
         self._inout = with_inout
+        self._n_dim = n_dim
         self._inputs = [_IO("image_bgr", [1, 3, size, size]),
-                        _IO("bboxes_x1y1x2y2", [1, "N", 4])]
+                        _IO("bboxes_x1y1x2y2", [1, n_dim, 4])]
         self.last_feed = None
+        self.calls = 0
 
     def get_inputs(self):
         return self._inputs
@@ -38,8 +42,11 @@ class _FakeSession:
         return [_IO(f"out{i}", None) for i in range(n)]
 
     def run(self, _names, feed):
+        self.calls += 1
         self.last_feed = feed
         n = feed["bboxes_x1y1x2y2"].shape[1]
+        if self._n_dim == 1:
+            assert n == 1, "static single-face export fed multiple boxes"
         hms = np.zeros((n, self._hm, self._hm), dtype=np.float32)
         for k in range(n):
             hms[k, self._hm // 2, self._hm // 2] = 1.0
@@ -87,6 +94,29 @@ def test_engine_native_64_maps_pass_through():
     assert hms[0, 32, 32] == 1.0              # untouched, no interpolation
 
 
+def test_static_single_face_export_loops_faces():
+    sess = _FakeSession(hm_size=64, with_inout=True, n_dim=1)
+    eng = GazelleOnnxEngine("fake.onnx", session=sess)
+    assert eng._static_one_face is True
+    hms = eng.raw_heatmaps(FRAME, BOXES)
+    assert sess.calls == 2                    # one call per face
+    assert hms.shape == (2, 64, 64)
+    np.testing.assert_allclose(eng._last_inout, [0.9, 0.9])
+
+
+def test_device_provider_mapping():
+    from Plugins.GazeTracking.Gazelle.gazelle_onnx_engine import (
+        _providers_for_device,
+    )
+    assert _providers_for_device("cpu") == ["CPUExecutionProvider"]
+    cuda = _providers_for_device("cuda")
+    assert cuda[0] == "CUDAExecutionProvider" and cuda[-1] == "CPUExecutionProvider"
+    mps = _providers_for_device("mps")
+    assert mps[0][0] == "CoreMLExecutionProvider"
+    assert mps[0][1]["MLComputeUnits"] == "CPUAndGPU"
+    assert mps[-1] == "CPUExecutionProvider"
+
+
 def test_engine_rejects_unrecognized_io():
     class _Bad(_FakeSession):
         def get_inputs(self):
@@ -109,8 +139,9 @@ def test_provider_dispatches_onnx_by_extension(tmp_path, monkeypatch):
     built = {}
 
     class _StubEngine:
-        def __init__(self, path, providers=None, session=None):
+        def __init__(self, path, device="cpu", providers=None, session=None):
             built["path"] = str(path)
+            built["device"] = device
             self._last_inout = None
 
     monkeypatch.setattr(onnx_mod, "GazelleOnnxEngine", _StubEngine)

@@ -10,8 +10,14 @@
   the torch engine, so the scheduler, blender, and length channel are
   untouched; sub-64 heatmaps are upsampled to the blend grid. Measured
   here: the 12 MB atto variant runs ~11 ms per call for two faces on CPU
-  vs ~88 ms for the torch DINOv2-vitb14 engine on Apple MPS. No default
-  change and no weights ship yet -- variant choice awaits eval results.
+  vs ~88 ms for the torch DINOv2-vitb14 engine on Apple MPS. The global
+  `--device` selects the execution provider (cuda -> CUDA EP on NVIDIA
+  machines with onnxruntime-gpu installed, mps -> Apple-GPU CoreML for
+  the ViT-backbone static single-face exports, which the engine loops
+  per face transparently -- measured 2-3x over CPU; cpu -> CPU), always
+  falling back to CPU with a plain note when a provider is unavailable
+  or rejects the model. No default change and no weights ship yet --
+  variant choice awaits eval results.
 
 ### Added (W3Z length accuracy knobs)
 - `--rf-len-gain F`: scale the blend ray-length target. The v1.1 eval

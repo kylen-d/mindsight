@@ -237,7 +237,10 @@ class GazelleProvider:
                 GazelleOnnxEngine,
             )
             gz_name = ckpt_path.name
-            engine = GazelleOnnxEngine(ckpt_path)
+            # The global --device picks the execution provider (cuda -> CUDA
+            # EP, mps -> CoreML EP for the ViT static exports, cpu -> CPU);
+            # unavailable/failing providers fall back to CPU with a note.
+            engine = GazelleOnnxEngine(ckpt_path, device=device)
         else:
             from Plugins.GazeTracking.Gazelle.gazelle_backend import (
                 GazeEstimationGazelle,
