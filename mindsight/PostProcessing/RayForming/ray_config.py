@@ -78,10 +78,12 @@ class RayFormingConfig:
     rf_len_refresh_gap: int = 10
     # W3Z length-slew: when a refresh re-latches ray length on an
     # already-latched track, slew the latch old -> new over N frames instead
-    # of snapping instantly.  Consumed by GazeLLEBlender.  Default 5 since
-    # the W3Z flip (user-approved; half the default refresh gap of 10;
-    # eval accuracy-neutral -- pure smoothness).  0 restores instant snap.
-    rf_len_slew: int = 5
+    # of snapping instantly.  Consumed by GazeLLEBlender.  Default back to
+    # 0 (2026-07-18 eyes-on: slewing the LATCH while the hold-decay pulls
+    # the target toward the PY baseline reads as BOUNCE, not smoothing --
+    # needs a rework that slews the effective target instead; flip
+    # reverted, knob kept).
+    rf_len_slew: int = 0
     # W3Z items 3a/3b (defaults = historical behavior, goldens pin them).
     # rf_len_gain scales the blender's length TARGET (eval decomposition:
     # 84% of rays measured too short -- pred 197px vs true 233px; offline
@@ -192,7 +194,7 @@ class RayFormingConfig:
             rf_onset_samples=getattr(ns, 'rf_onset_samples', 3) or 0,
             rf_onset_gap=getattr(ns, 'rf_onset_gap', 5) or 0,
             rf_len_refresh_gap=getattr(ns, 'rf_len_refresh_gap', 10) or 0,
-            rf_len_slew=getattr(ns, 'rf_len_slew', 5) or 0,
+            rf_len_slew=getattr(ns, 'rf_len_slew', 0) or 0,
             rf_len_gain=getattr(ns, 'rf_len_gain', 1.0) or 1.0,
             rf_endpoint_extract=getattr(ns, 'rf_endpoint_extract', 'centroid')
             or 'centroid',
