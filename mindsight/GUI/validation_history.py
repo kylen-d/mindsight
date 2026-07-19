@@ -27,7 +27,7 @@ _COLUMNS = [
     ("median px", "endpoint_px_median", "{:.1f}"),
     ("hit rate", "hit_rate", "{:.0%}"),
     ("MAE °", "mae_deg_mean", "{:.1f}"),
-    ("IoU", "object_iou_mean", "{:.2f}"),
+    ("avg fps", "avg_fps", "{:.1f}"),
     ("changed vs prev", None, "{}"),
 ]
 
