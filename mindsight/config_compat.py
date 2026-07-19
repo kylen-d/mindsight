@@ -427,6 +427,12 @@ def load_yaml(path: str | Path) -> PipelineConfig:
         if parsed:
             _set_path(tree, "output.aux_streams", parsed)
 
+    # 5. Validation summary metadata (v1.1 W4B): carried through so the
+    #    block survives load/inspect round trips; canonical_hash ignores
+    #    it by design (the ruled carve-out).
+    if isinstance(cfg.get("validation"), dict):
+        tree["validation"] = cfg["validation"]
+
     return PipelineConfig(**tree)
 
 

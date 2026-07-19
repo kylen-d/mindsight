@@ -23,6 +23,13 @@
   "changed vs previous" settings-diff column -- the per-run namespace
   snapshots make "what did I turn to get this number" a lookup, not a
   memory exercise. Selecting a run shows the full diff.
+- **Pipeline files can carry their evidence**: a new optional
+  `validation:` block in the pipeline YAML schema (set name, frame
+  count, date, metrics summary, settings hash), written by the
+  workbench's Embed button into any pipeline file. It is metadata only:
+  `canonical_hash` deliberately ignores the block (a tested carve-out),
+  so embedding or editing validation results never invalidates project
+  resume ledgers -- the existing pinned hash is byte-unchanged.
 
 ### Added (W4B validation suite groundwork)
 - **`--save-detections` writes an opt-in per-frame detections side

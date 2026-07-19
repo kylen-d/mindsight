@@ -139,6 +139,56 @@ def _jsonable(value):
         return str(value)
 
 
+def validation_summary_block(vset: ValidationSet, score: dict,
+                             settings: dict | None = None,
+                             date: str | None = None) -> dict:
+    """The ``validation:`` metadata block for a pipeline file (the shape
+    ``mindsight.config.ValidationSection`` accepts): set identity, a
+    compact metrics summary, and a hash of the validated settings so a
+    reader can tell whether the file's settings still match the ones
+    that scored these numbers."""
+    import hashlib
+    metrics = {k: score.get(k) for k in (
+        "scored_points", "endpoint_px_mean", "endpoint_px_median",
+        "endpoint_px_p95", "hit_rate", "mae_deg_mean", "object_iou_mean")
+        if score.get(k) is not None}
+    settings_hash = None
+    if settings is not None:
+        blob = json.dumps(settings, sort_keys=True, separators=(",", ":"),
+                          default=str)
+        settings_hash = hashlib.sha256(blob.encode("utf-8")).hexdigest()[:16]
+    return {
+        "set_name": vset.name,
+        "n_frames": len(vset.frames()),
+        "date": date,
+        "metrics": metrics,
+        "settings_hash": settings_hash,
+    }
+
+
+def embed_validation_summary(yaml_path: Path, block: dict) -> None:
+    """Set/replace the ``validation:`` block in an existing pipeline
+    YAML, leaving every other key untouched.  The block is validated
+    through ValidationSection first so a malformed embed cannot corrupt
+    the file."""
+    import yaml
+
+    from mindsight.config import ValidationSection
+    ValidationSection(**block)                      # shape check (raises)
+    yaml_path = Path(yaml_path)
+    try:
+        data = yaml.safe_load(yaml_path.read_text()) or {}
+    except (OSError, yaml.YAMLError) as exc:
+        raise ValidationSetError(
+            f"Cannot read pipeline file {yaml_path}: {exc}") from exc
+    if not isinstance(data, dict):
+        raise ValidationSetError(
+            f"{yaml_path} is not a pipeline mapping.")
+    data["validation"] = block
+    yaml_path.write_text(
+        yaml.dump(data, default_flow_style=False, sort_keys=False))
+
+
 def score_and_persist(vset: ValidationSet, run_dir: Path, ns=None,
                       radius: float = 80.0) -> dict:
     """Score *run_dir* against *vset*; write score.json (+ settings.json
