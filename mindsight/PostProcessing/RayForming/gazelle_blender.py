@@ -142,9 +142,16 @@ class GazeLLEBlender:
         last accepted inference
       - ``_latch_age_s[tid]``: seconds since that latch; drives the slow
         exp(-age/len_hold_tau) decay of length back toward the PY baseline
-      - ``_len_slew[tid]``: (start, target, steps_done) while a re-latch
-        is slewing old -> new over cfg.rf_len_slew frames (W3Z; empty
-        when rf_len_slew is 0 -- re-latches snap instantly)
+      - ``_len_slew[tid]``: (start_effective, steps_done) while a
+        re-latch is slewing the EFFECTIVE length target old -> new over
+        cfg.rf_len_slew updates (W4B rework; empty when rf_len_slew is
+        0 -- re-latches snap instantly).  The hold decay is PAUSED for
+        the duration: the W3Z version slewed the LATCH while the decay
+        kept pulling the target, and the two mechanisms fighting read
+        as ~3Hz length bounce on real footage (user eyes-on, w3z-8).
+      - ``_last_eff_len[tid]``: last update's pre-gain effective length
+        target -- the slew's start value, so a re-latch ramps from the
+        reach the ray actually showed
       - ``_dir_x_filter / _dir_y_filter / _len_filter``: One Euro filters
         for the output channels
     """
@@ -155,7 +162,8 @@ class GazeLLEBlender:
         self._prev_grid: dict[int, tuple[float, float]] = {}
         self._latched_lle_length: dict[int, float] = {}
         self._latch_age_s: dict[int, float] = {}
-        self._len_slew: dict[int, tuple[float, float, int]] = {}
+        self._len_slew: dict[int, tuple[float, int]] = {}
+        self._last_eff_len: dict[int, float] = {}
         # OneEuroFilter is 1D; direction needs two (x, y).
         self._dir_x_filter: dict[int, OneEuroFilter] = {}
         self._dir_y_filter: dict[int, OneEuroFilter] = {}
@@ -200,11 +208,6 @@ class GazeLLEBlender:
             lle_norm = float(np.linalg.norm(lle_vec))
             if lle_norm > 1e-6:
                 self._set_latch(track_id, lle_norm)
-
-        # Advance any in-flight length slew by one step per update, after
-        # this frame's re-latch decision so a fresh accept slews from the
-        # value the ray actually showed last frame.
-        self._advance_len_slew(track_id)
 
         self._beliefs[track_id] = belief
         self._prev_grid[track_id] = (gx, gy)
@@ -255,13 +258,32 @@ class GazeLLEBlender:
         if latched is None:
             raw_length_target = py_length
         else:
-            age = self._latch_age_s.get(track_id, 0.0)
-            if not accept_heatmap:
-                age += max(dt, 0.0)
-                self._latch_age_s[track_id] = age
-            tau = max(float(cfg.len_hold_tau), 1e-6)
-            hold = float(np.exp(-age / tau))
-            raw_length_target = py_length + hold * (latched - py_length)
+            slew = self._len_slew.get(track_id)
+            if slew is not None:
+                # W4B slew rework: ramp the EFFECTIVE target from the
+                # reach the ray last showed to the fresh latch, with the
+                # hold decay PAUSED (age stays at the 0 the latch set --
+                # decay resumes only after arrival).  The W3Z version
+                # slewed the latch while decay kept pulling; the two
+                # fighting read as ~3Hz bounce on real footage.
+                start, done = slew
+                done += 1
+                k = max(int(cfg.rf_len_slew or 0), 1)
+                if done >= k:
+                    raw_length_target = latched
+                    self._len_slew.pop(track_id, None)
+                else:
+                    raw_length_target = start + (latched - start) * (done / k)
+                    self._len_slew[track_id] = (start, done)
+            else:
+                age = self._latch_age_s.get(track_id, 0.0)
+                if not accept_heatmap:
+                    age += max(dt, 0.0)
+                    self._latch_age_s[track_id] = age
+                tau = max(float(cfg.len_hold_tau), 1e-6)
+                hold = float(np.exp(-age / tau))
+                raw_length_target = py_length + hold * (latched - py_length)
+        self._last_eff_len[track_id] = float(raw_length_target)
         # W3Z 3a: global length-gain correction for the measured systematic
         # under-reach.  Applied to the TARGET (pre One Euro) so snap and hit
         # detection downstream see the corrected reach.  1.0 = off; guarded
@@ -300,39 +322,28 @@ class GazeLLEBlender:
         return _heatmap_centroid_pixel(hm, frame_h, frame_w)
 
     def _set_latch(self, track_id: int, new_value: float) -> None:
-        """Latch a new LLE length; slew old -> new when configured (W3Z).
+        """Latch a new LLE length; slew the EFFECTIVE target when
+        configured (W4B rework of the W3Z latch-slew).
 
-        With cfg.rf_len_slew = K > 0 and an existing latch, the latch does
-        not snap: a per-track slew interpolates it linearly over the next K
-        ``update()`` calls (a refresh arriving mid-slew restarts from the
-        current interpolated value, so the ray never jumps).  The age clock
-        resets at slew START -- the hold decay must not double-count the
-        transition.  First-ever latches always snap (nothing to slew from).
+        The latch itself always snaps to the new value and the age clock
+        resets.  With cfg.rf_len_slew = K > 0 and a previous effective
+        length on record, the OUTPUT target ramps linearly from that
+        previous effective value to the new latch over the next K
+        ``update()`` calls, with the hold decay paused for the duration
+        (see ``update``).  A re-latch arriving mid-slew restarts the ramp
+        from the value the ray currently shows, so it never jumps.
+        First-ever latches snap (nothing to slew from).
         """
         k = int(self._cfg.rf_len_slew or 0)
-        cur = self._latched_lle_length.get(track_id)
-        if k > 0 and cur is not None and cur != new_value:
-            self._len_slew[track_id] = (float(cur), float(new_value), 0)
-        else:
-            self._latched_lle_length[track_id] = float(new_value)
-            self._len_slew.pop(track_id, None)
+        had_latch = track_id in self._latched_lle_length
+        prev_eff = self._last_eff_len.get(track_id)
+        self._latched_lle_length[track_id] = float(new_value)
         self._latch_age_s[track_id] = 0.0
-
-    def _advance_len_slew(self, track_id: int) -> None:
-        """Move an in-flight slew one step; lands exactly on the target."""
-        slew = self._len_slew.get(track_id)
-        if slew is None:
-            return
-        start, target, done = slew
-        done += 1
-        k = max(int(self._cfg.rf_len_slew or 0), 1)
-        if done >= k:
-            self._latched_lle_length[track_id] = target
-            self._len_slew.pop(track_id, None)
+        if k > 0 and had_latch and prev_eff is not None \
+                and prev_eff != float(new_value):
+            self._len_slew[track_id] = (float(prev_eff), 0)
         else:
-            self._latched_lle_length[track_id] = (
-                start + (target - start) * (done / k))
-            self._len_slew[track_id] = (start, target, done)
+            self._len_slew.pop(track_id, None)
 
     def refresh_length(self, *, track_id: int, gazelle_hm: np.ndarray,
                        origin: np.ndarray,
@@ -366,6 +377,7 @@ class GazeLLEBlender:
                 self._latched_lle_length.pop(tid, None)
                 self._latch_age_s.pop(tid, None)
                 self._len_slew.pop(tid, None)
+                self._last_eff_len.pop(tid, None)
                 self._dir_x_filter.pop(tid, None)
                 self._dir_y_filter.pop(tid, None)
                 self._len_filter.pop(tid, None)
