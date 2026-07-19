@@ -432,6 +432,18 @@
       "required": false,
       "source": "github-release",
       "note": "Powers the VP Builder's Suggest mode: click an object in a reference photo and accept a proposed box instead of drawing it by hand. FastSAM (CASIA-IVA-Lab) via the Ultralytics wrapper; same AGPL-3.0 license class as the Ultralytics package itself."
+    },
+    {
+      "backend": "Mediapipe",
+      "filename": "face_landmarker.task",
+      "label": "MediaPipe Face Landmarker (468-point)",
+      "url": "https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task",
+      "sha256": "64184e229b263107bc2b804c6625db1341ff2bb731874b0bcc2fe6544e0bc9ff",
+      "size": 3758596,
+      "license": "Apache-2.0",
+      "required": false,
+      "source": "vendor-cdn",
+      "note": "Runtime asset for the head-pose-normalized gaze backends (MPIIFaceGaze, adas-0002): 468-point landmarks on RetinaFace face crops. Google MediaPipe model storage, versioned float16/1 path; sha256 recorded from a fresh upstream download."
     }
   ]
 }
