@@ -172,6 +172,12 @@ be supplied multiple times.
 | `--gazelle-fp16` | flag | off | Use half-precision (float16) inference on CUDA/MPS (ignored on CPU). |
 | `--gazelle-compile` | flag | off | Use torch.compile() for the Gazelle model (PyTorch 2.0+ only). |
 
+### MPIIFaceGaze backend
+
+| Flag | Type / choices | Default | Description |
+|------|----------------|---------|-------------|
+| `--mpiifacegaze-model` | str | None | Path to the hysts MPIIFaceGaze resnet_simple checkpoint (.pth). Activates the head-pose-normalized MPIIFaceGaze backend (requires the MediaPipe `face_landmarker.task` asset). Weights are research-provenance -- trained on MPIIFaceGaze (CC BY-NC-SA); see THIRD_PARTY_LICENSES. |
+
 ### MGaze backend
 
 | Flag | Type / choices | Default | Description |

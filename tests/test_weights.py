@@ -72,6 +72,10 @@ def test_research_only_provenance_is_declared():
         if e["backend"] == "Gazelle":
             assert "research" in e.get("license_note", ""), \
                 f"{e['filename']}: Gaze-LLE checkpoints must declare training provenance"
+        if e["backend"] == "MPIIFaceGaze":
+            assert "research use only" in e.get("license_note", ""), \
+                (f"{e['filename']}: MPIIFaceGaze checkpoints must declare "
+                 "MPIIFaceGaze (CC BY-NC-SA) provenance")
 
 
 def test_committed_manifest_labels_use_paper_terms():

@@ -444,6 +444,19 @@
       "required": false,
       "source": "vendor-cdn",
       "note": "Runtime asset for the head-pose-normalized gaze backends (MPIIFaceGaze, adas-0002): 468-point landmarks on RetinaFace face crops. Google MediaPipe model storage, versioned float16/1 path; sha256 recorded from a fresh upstream download."
+    },
+    {
+      "backend": "MPIIFaceGaze",
+      "filename": "mpiifacegaze_resnet_simple.pth",
+      "label": "MPIIFaceGaze estimator (resnet_simple)",
+      "url": "https://github.com/hysts/pytorch_mpiigaze_demo/releases/download/v0.1.0/mpiifacegaze_resnet_simple.pth",
+      "sha256": "540dd5416ba420ba0ec9c4a64c0abbe99b572380c80664992aa44c530802f0f5",
+      "size": 11569635,
+      "license": "MIT",
+      "required": false,
+      "source": "github-release",
+      "note": "Head-pose-normalized per-face gaze backend (--mpiifacegaze-model). Direct-regression resnet_simple from hysts/pytorch_mpiigaze_demo; needs the Mediapipe face_landmarker.task asset. sha256 recorded from a fresh upstream download.",
+      "license_note": "checkpoint: research use only - trained on MPIIFaceGaze (CC BY-NC-SA, non-commercial research dataset); the release code/checkpoint itself is MIT"
     }
   ]
 }

@@ -116,6 +116,7 @@ KNOWN_PLUGIN_DESTS = {
     "gazelle_device", "gazelle_skip_frames", "gazelle_fp16",
     "gazelle_compile",
     "iris_refine", "iris_refine_weight", "iris_refine_upscale",
+    "mpiifacegaze_model",
     # core backend (MGaze)
     "mgaze_model", "mgaze_arch", "mgaze_dataset",
     # object detection plugins

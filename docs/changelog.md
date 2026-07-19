@@ -2,6 +2,32 @@
 
 ## [Unreleased]
 
+### Added (W4B MPIIFaceGaze head-pose-normalized gaze backend, opt-in)
+- **`--mpiifacegaze-model` activates a new per-face gaze backend** built
+  on vendored ptgaze normalization math (MIT, hysts): MediaPipe 468-point
+  landmarks on RetinaFace crops -> solvePnP head pose against the
+  canonical face model -> normalized 224px face patch -> hysts'
+  MPIIFaceGaze resnet_simple direct-regression model -> gaze vector
+  denormalized into the standard pitch/yaw ray convention. Both the
+  checkpoint (11.6 MB) and the MediaPipe `face_landmarker.task` asset
+  (3.8 MB) are checksummed manifest entries with Models-tab rows; the
+  checkpoint carries an honest research-provenance `license_note`
+  (trained on MPIIFaceGaze, CC BY-NC-SA). On the 87 hand-labeled eval
+  frames the bare backend slightly beats the bare MGaze default
+  (165.9 px mean / 9% vs 172.0 / 7% -- bare pitch/yaw rays are
+  face-width-long by design, hence the large absolute numbers); under
+  the full blend stack it trails the default engine (77.0 px / 63% vs
+  58.8 / 75%), so **the default backend is unchanged** and MPIIFaceGaze
+  ships as an opt-in research backend.
+- Per-face backends can now declare `estimate_in_frame(frame, bbox)` to
+  receive full-frame context instead of a bare crop, and such backends
+  see the frame **before** overlay annotation: the per-frame person
+  boxes are drawn onto the working frame ahead of gaze estimation, and
+  a box edge crossing a face crop reliably breaks the MediaPipe
+  landmarker (this halved the backend's landmark success rate before
+  the fix). The crop-only path (MGaze) is untouched -- its goldens were
+  blessed on the annotated frame.
+
 ### Changed (W4A default blend engine + length gain -- user-approved flip)
 - **The default blend gaze-target engine is now the DINOv3-distilled pico
   ONNX** (`gazelle_hgnetv2_pico_inout_distill_1x3x640x640_1xNx4.onnx`,

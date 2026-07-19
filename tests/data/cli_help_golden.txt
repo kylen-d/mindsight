@@ -84,6 +84,7 @@ usage: MindSight -- Eye-Gaze Intersection Tracker [-h] [--source SOURCE] [--save
                                                   [--gazelle-compile] [--iris-refine]
                                                   [--iris-refine-weight F]
                                                   [--iris-refine-upscale F]
+                                                  [--mpiifacegaze-model PATH]
                                                   [--mgaze-model MGAZE_MODEL]
                                                   [--mgaze-arch {resnet18,resnet34,resnet50,mobilenetv2,mobileone_s0,mobileone_s1,mobileone_s2,mobileone_s3,mobileone_s4}]
                                                   [--mgaze-dataset MGAZE_DATASET] [--gaze-boost]
@@ -417,6 +418,13 @@ Iris-Refined Gaze:
                         Blending weight for iris correction (default: 0.3).
   --iris-refine-upscale F
                         Upscale face crops before iris extraction (default: 2.0).
+
+MPIIFaceGaze backend:
+  --mpiifacegaze-model PATH
+                        Path to the hysts MPIIFaceGaze resnet_simple checkpoint (.pth). Activates
+                        the head-pose-normalized MPIIFaceGaze backend (requires the MediaPipe
+                        face_landmarker.task asset). Weights are research-provenance -- trained on
+                        MPIIFaceGaze (CC BY-NC-SA); see THIRD_PARTY_LICENSES.
 
 MGaze backend:
   --mgaze-model MGAZE_MODEL

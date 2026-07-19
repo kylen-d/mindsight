@@ -93,7 +93,7 @@ def _default_scene_pipeline(frame, faces, gaze_eng, eye_origin=False):
 # ══════════════════════════════════════════════════════════════════════════════
 
 def _estimate_pitchyaw(frame, faces, gaze_eng, smoother, reuse_cache=None,
-                       eye_origin=False):
+                       eye_origin=False, clean_frame=None):
     """Run per-face pitch/yaw estimation and temporal smoothing.
 
     When *reuse_cache* (an ``MGazeReuseCache``) is given, visually-unchanged
@@ -103,10 +103,20 @@ def _estimate_pitchyaw(frame, faces, gaze_eng, smoother, reuse_cache=None,
     *eye_origin* (W3X ``--face-eye-origin``) anchors ray origins at the
     detected eye midpoint instead of the bbox centre.
 
+    Backends that implement ``estimate_in_frame(frame, bbox)`` (the
+    head-pose-normalized ones: their landmarker works on PADDED crops and
+    the PnP fit needs full-frame intrinsics) get frame context instead of
+    the crop-only ``estimate()``.  They receive *clean_frame* when given:
+    by this point ``ctx['frame']`` already carries the drawn person boxes,
+    whose edges inside a face crop break the landmarker.  The crop path
+    (MGaze) is untouched — its goldens were blessed on the drawn frame.
+
     Returns (raw_faces, smoothed, face_widths, gaze_confs,
              raw_face_bboxes, face_track_ids, face_objs).
     """
     h, w = frame.shape[:2]
+    est_in_frame = getattr(gaze_eng, "estimate_in_frame", None)
+    context_frame = clean_frame if clean_frame is not None else frame
     raw_faces, face_widths, gaze_confs, raw_face_bboxes = [], [], [], []
     for f in faces:
         x1, y1 = max(0, int(f["bbox"][0])), max(0, int(f["bbox"][1]))
@@ -114,7 +124,9 @@ def _estimate_pitchyaw(frame, faces, gaze_eng, smoother, reuse_cache=None,
         crop = frame[y1:y2, x1:x2]
         if crop.size == 0:
             continue
-        if reuse_cache is not None:
+        if est_in_frame is not None:
+            pitch, yaw, gc = est_in_frame(context_frame, (x1, y1, x2, y2))
+        elif reuse_cache is not None:
             pitch, yaw, gc = reuse_cache.estimate(
                 (x1, y1, x2, y2), crop, gaze_eng.estimate)
         else:
@@ -237,7 +249,7 @@ def run_gaze_step(ctx, *, face_det, gaze_eng, gaze_cfg: GazeConfig, **kwargs):
         (raw_faces, smoothed, face_widths, gaze_confs,
          raw_face_bboxes, face_track_ids, face_objs) = _estimate_pitchyaw(
             frame, faces, gaze_eng, smoother, reuse_cache=reuse_cache,
-            eye_origin=_eye_origin)
+            eye_origin=_eye_origin, clean_frame=ctx.get('clean_frame'))
         if reuse_cache is not None:
             reuse_cache.end_frame()
 
@@ -298,6 +310,7 @@ def run_gaze_step(ctx, *, face_det, gaze_eng, gaze_cfg: GazeConfig, **kwargs):
             smoother=smoother, snap_temporal=snap_temporal,
             smooth_snap_tracker=smooth_snap_tracker,
             depth_map=depth_map, depth_cfg=depth_cfg,
+            clean_frame=ctx.get('clean_frame'),
         )
 
     # ── Path C: Default scene-level pipeline (standalone Gazelle) ───────────
