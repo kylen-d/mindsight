@@ -257,6 +257,8 @@ class RunOptions:
     overlay_theme: str = "classic"
     no_dashboard: bool = False
     profile: bool = False
+    # Opt-in {stem}_detections.csv side stream (v1.1 W4B validation suite).
+    save_detections: bool = False
 
 
 class CancelToken:
@@ -409,6 +411,7 @@ def _run_video(source, *, yolo, face_det, gaze_eng,
     overlay_theme  = options.overlay_theme
     no_dashboard   = options.no_dashboard
     profile        = options.profile
+    save_detections = options.save_detections
 
     from mindsight.Phenomena.phenomena_config import PhenomenaConfig
     if phenomena_cfg is None:
@@ -491,6 +494,9 @@ def _run_video(source, *, yolo, face_det, gaze_eng,
     look_counts: dict                = {}
     heatmap_gaze: dict               = {}
     gaze_stream_rows: list           = []
+    # Detections side stream (v1.1 W4B validation suite): None keeps the
+    # collector inert so default runs stay byte-identical.
+    detections_stream_rows = [] if save_detections else None
 
     # Persistent run-level state carried across frames via FrameContext.
     # Each frame gets a fresh FrameContext seeded with these base values.
@@ -501,6 +507,7 @@ def _run_video(source, *, yolo, face_det, gaze_eng,
         all_trackers=all_trackers,
         look_counts=look_counts,
         gaze_stream_rows=gaze_stream_rows,
+        detections_stream_rows=detections_stream_rows,
         heatmap_path=output_cfg.heatmap_path,
         heatmap_gaze=heatmap_gaze,
         charts_path=output_cfg.charts_path,
@@ -784,7 +791,7 @@ def run(source, yolo, face_det, gaze_eng,
         phenomena_cfg=None,
         fast_mode=False, skip_phenomena=0, lite_overlay=False,
         overlay_theme="classic",
-        no_dashboard=False, profile=False,
+        no_dashboard=False, profile=False, save_detections=False,
         depth_cfg=None, depth_backend=None,
         gazelle_provider=None, ray_cfg=None, data_plugins=None):
     """Backward-compatible entry point: build a :class:`Pipeline` and drive it.
@@ -806,6 +813,7 @@ def run(source, yolo, face_det, gaze_eng,
         fast_mode=fast_mode, skip_phenomena=skip_phenomena,
         lite_overlay=lite_overlay, overlay_theme=overlay_theme,
         no_dashboard=no_dashboard, profile=profile,
+        save_detections=save_detections,
     )
     return run_to_completion(pipeline, source, options=options)
 

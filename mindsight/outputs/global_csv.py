@@ -28,6 +28,7 @@ GLOBAL_TABLES: list[tuple[str, str]] = [
     ("_summary.csv", "Global_summary.csv"),
     ("_Events.csv", "Global_Events.csv"),
     ("_gaze.csv", "Global_gaze.csv"),
+    ("_detections.csv", "Global_detections.csv"),
     ("_phenomena_events.csv", "Global_phenomena_events.csv"),
     ("_scanpath.csv", "Global_scanpath.csv"),
     ("_novel_salience_events.csv", "Global_novel_salience_events.csv"),

@@ -1,9 +1,9 @@
 usage: MindSight -- Eye-Gaze Intersection Tracker [-h] [--source SOURCE] [--save [PATH]]
                                                   [--log LOG] [--summary [PATH]]
                                                   [--heatmap [PATH]] [--charts [PATH]]
-                                                  [--pipeline YAML] [--project DIR] [--no-resume]
-                                                  [--preflight] [--participant-ids IDS]
-                                                  [--participant-csv CSV]
+                                                  [--save-detections] [--pipeline YAML]
+                                                  [--project DIR] [--no-resume] [--preflight]
+                                                  [--participant-ids IDS] [--participant-csv CSV]
                                                   [--aux-stream SOURCE:VIDEO_TYPE:LABEL:PIDS]
                                                   [--aux-auto-detect]
                                                   [--device {auto,cpu,cuda,mps}]
@@ -121,6 +121,10 @@ options:
                         supply a custom directory/prefix path.
   --charts [PATH]       Generate post-run time-series charts for each phenomena tracker. Omit a
                         value to use Outputs/Charts/[stem]_Charts.png, or supply a custom path.
+  --save-detections     Write a per-frame detections side stream ([stem]_detections.csv next to
+                        the summary CSV: one row per detection with class, confidence, and bbox).
+                        Off by default; the validation suite enables it for its runs to score
+                        object IoU.
   --pipeline YAML       Load pipeline configuration from a YAML file. CLI flags override YAML
                         values.
   --project DIR         Run in project mode: process all staged videos (DIR/Inputs/Runs/ run

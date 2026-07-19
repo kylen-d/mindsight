@@ -99,6 +99,22 @@
     },
     {
       "option_strings": [
+        "--save-detections"
+      ],
+      "dest": "save_detections",
+      "action": "_StoreTrueAction",
+      "default": false,
+      "type": null,
+      "nargs": 0,
+      "const": true,
+      "choices": null,
+      "required": false,
+      "metavar": null,
+      "help": "Write a per-frame detections side stream ([stem]_detections.csv next to the summary CSV: one row per detection with class, confidence, and bbox). Off by default; the validation suite enables it for its runs to score object IoU.",
+      "group": "options"
+    },
+    {
+      "option_strings": [
         "--pipeline"
       ],
       "dest": "pipeline",
