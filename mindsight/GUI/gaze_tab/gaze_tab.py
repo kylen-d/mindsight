@@ -97,13 +97,25 @@ class GazeTab(QWidget):
         self._log_box.setVisible(True)
         log_group.toggled.connect(self._log_box.setVisible)
 
+        # Validation workbench (v1.1 W4B, Layout B): collapsible pane on
+        # the right split -- validates the settings currently dialed into
+        # this tab (namespace_provider = the census seam every run uses).
+        from ..validation_workbench import ValidationWorkbench
+        from ..widgets import CollapsibleGroupBox
+        self._validation_workbench = ValidationWorkbench(
+            namespace_provider=self._build_namespace)
+        validation_group = CollapsibleGroupBox("Validation && Testing")
+        validation_group.set_content(self._validation_workbench)
+
         v_split = QSplitter(Qt.Orientation.Vertical)
         v_split.addWidget(self._preview)
         v_split.addWidget(self._dashboard_panel)
+        v_split.addWidget(validation_group)
         v_split.addWidget(log_group)
         v_split.setStretchFactor(0, 3)
         v_split.setStretchFactor(1, 2)
         v_split.setStretchFactor(2, 0)
+        v_split.setStretchFactor(3, 0)
 
         h_split = QSplitter(Qt.Orientation.Horizontal)
         h_split.addWidget(scroll)

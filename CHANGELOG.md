@@ -2,6 +2,23 @@
 
 ## [Unreleased]
 
+### Added (W4B in-app validation & tuning suite -- first working core)
+- **Validation workbench on the Inference Tuning tab** (collapsible
+  "Validation & Testing" pane on the right split, Layout B): create
+  named validation sets from any video, label them in a new annotator
+  dialog (frame sampling; click-to-place per-participant gaze targets
+  with off-screen/uncertain/skip states; labeled object boxes drawn by
+  hand or accepted from FastSAM Suggest proposals -- the VP Builder
+  canvas, reused), then hit **Validate** to run the settings currently
+  dialed into the tab over the set's video and score them: mean/median/
+  p95 pixel error, gaze hit rate, Mean Angular Error, off-screen AUC,
+  and object IoU (vs the new detections side stream), side by side with
+  the previous run's numbers. Set files are valid eval-harness label
+  files (`scripts/eval_gaze.py` scores them unchanged); sets live in
+  `<project>/validation/` or `~/.mindsight/validation/`, run results
+  under `validation/.runs/<set>/run-NNN/` with a settings snapshot per
+  run.
+
 ### Added (W4B validation suite groundwork)
 - **`--save-detections` writes an opt-in per-frame detections side
   stream** (`[stem]_detections.csv` next to the summary CSV: one row

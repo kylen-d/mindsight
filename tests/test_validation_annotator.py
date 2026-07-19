@@ -67,22 +67,28 @@ def test_target_click_labels_and_advances_participant(qapp, tmp_path):
     dlg, vset, _ = _make_dialog(qapp, tmp_path)
     assert dlg._pid_combo.currentText() == "P0"
     dlg._on_point(45, 67)
-    assert vset.labels[0]["P0"] == {"x": 45, "y": 67}
+    # P<N> labels store as DIGIT keys -- the eval-harness convention, so
+    # scripts/eval_gaze.py can score the set file directly.
+    assert vset.labels[0]["0"] == {"x": 45, "y": 67}
     assert dlg._pid_combo.currentText() == "P1"      # auto-advance
     dlg._on_point(90, 20)
-    assert vset.labels[0]["P1"] == {"x": 90, "y": 20}
-    assert _saved(tmp_path)["labels"]["0"]["P0"] == {"x": 45, "y": 67}
+    assert vset.labels[0]["1"] == {"x": 90, "y": 20}
+    assert _saved(tmp_path)["labels"]["0"]["0"] == {"x": 45, "y": 67}
     assert dlg._label_list.count() == 2
+    # Custom (non-P<N>) labels store as typed.
+    dlg._pid_combo.setCurrentText("S70")
+    dlg._on_point(5, 6)
+    assert vset.labels[0]["S70"] == {"x": 5, "y": 6}
     dlg.reject()
 
 
 def test_state_buttons_and_clear(qapp, tmp_path):
     dlg, vset, _ = _make_dialog(qapp, tmp_path)
     dlg._set_state_label("offscreen")
-    assert vset.labels[0]["P0"] == "offscreen"
+    assert vset.labels[0]["0"] == "offscreen"
     dlg._pid_combo.setCurrentIndex(0)
     dlg._clear_label()
-    assert "P0" not in vset.labels[0]
+    assert "0" not in vset.labels[0]
     dlg.reject()
 
 
