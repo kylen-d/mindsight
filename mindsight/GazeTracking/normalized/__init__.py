@@ -24,6 +24,7 @@ from .normalizer import (
     denormalize_gaze_vector,
     gaze_angles_to_vector,
     gaze_vector_to_angles,
+    head_pose_angles_adas,
     normalize_image,
     normalized_head_rot2d,
     vector_to_pipeline_pitchyaw,
@@ -37,5 +38,5 @@ __all__ = [
     "compute_normalizing_rotation", "normalize_image",
     "normalized_head_rot2d", "gaze_angles_to_vector",
     "gaze_vector_to_angles", "denormalize_gaze_vector",
-    "vector_to_pipeline_pitchyaw",
+    "head_pose_angles_adas", "vector_to_pipeline_pitchyaw",
 ]

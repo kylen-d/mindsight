@@ -76,8 +76,8 @@ usage: MindSight -- Eye-Gaze Intersection Tracker [-h] [--source SOURCE] [--save
                                                   [--scanpath] [--scanpath-dwell N]
                                                   [--gaze-leader] [--gaze-leader-tips]
                                                   [--gaze-leader-tip-lag N] [--attn-span]
-                                                  [--all-phenomena] [--gazelle-model PATH]
-                                                  [--gazelle-name NAME]
+                                                  [--all-phenomena] [--adas-gaze-model PATH]
+                                                  [--gazelle-model PATH] [--gazelle-name NAME]
                                                   [--gazelle-inout-threshold F]
                                                   [--gazelle-device {auto,cpu,cuda,mps}]
                                                   [--gazelle-skip-frames N] [--gazelle-fp16]
@@ -394,6 +394,12 @@ Ray Forming (Gazelle blend):
   --depth-belief-boost F
                         How much depth agreement boosts Gaze-LLE heatmap confidence in the belief
                         update (default: 0.0).
+
+Adas Gaze backend:
+  --adas-gaze-model PATH
+                        Path to the Intel gaze-estimation-adas-0002 ONNX model. Activates the
+                        head-pose-normalized adas gaze backend (Apache-2.0, provenance-clean;
+                        requires the MediaPipe face_landmarker.task asset).
 
 Gazelle backend:
   --gazelle-model PATH  Path to a Gazelle checkpoint (.pt). Activates the Gazelle backend.

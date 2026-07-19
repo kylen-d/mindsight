@@ -1,6 +1,7 @@
 {
   "_version": 1,
   "adaptive_ray": "off",
+  "adas_gaze_model": "",
   "all_phenomena": false,
   "anonymize": null,
   "anonymize_padding": 0.3,
