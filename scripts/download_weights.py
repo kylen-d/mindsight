@@ -8,7 +8,7 @@ download/verify logic live in :mod:`mindsight.weights`; this script exists so a
 source checkout can still run ``python scripts/download_weights.py``.
 
 Usage:
-    python scripts/download_weights.py --required       # the 4 required weights
+    python scripts/download_weights.py --required       # the 6 required weights
     python scripts/download_weights.py --all            # every downloadable weight
     python scripts/download_weights.py --backend MGaze  # one backend
     python scripts/download_weights.py --verify-only    # check checksums only

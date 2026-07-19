@@ -185,8 +185,10 @@ class RayFormingSection(BaseModel):
     # v1.1 W3Z: slew re-latched ray length over N frames. Flip to 5 was
     # REVERTED same-day (eyes-on: reads as bounce; rework needed).
     rf_len_slew: int = Field(0, json_schema_extra={"cli": "--rf-len-slew"})
-    # v1.1 W3Z 3a/3b (defaults = historical behavior; flip pending evals).
-    rf_len_gain: float = Field(1.0, json_schema_extra={"cli": "--rf-len-gain"})
+    # v1.1 W4A flip (user-approved with the pico ONNX default engine, one
+    # combined re-bless): eval decomposition showed 84% of rays
+    # systematically short; 1.10 recovered ~5px mean / ~8px median.
+    rf_len_gain: float = Field(1.1, json_schema_extra={"cli": "--rf-len-gain"})
     rf_endpoint_extract: str = Field(
         "centroid", json_schema_extra={"cli": "--rf-endpoint-extract"})
     dir_min_cutoff: float = Field(1.0, json_schema_extra={"cli": "--dir-min-cutoff"})
@@ -447,7 +449,7 @@ class PipelineConfig(BaseModel):
             rf_onset_gap=g("rf_onset_gap", 5),
             rf_len_refresh_gap=g("rf_len_refresh_gap", 10),
             rf_len_slew=g("rf_len_slew", 0),
-            rf_len_gain=g("rf_len_gain", 1.0),
+            rf_len_gain=g("rf_len_gain", 1.1),
             rf_endpoint_extract=g("rf_endpoint_extract", "centroid"),
             dir_min_cutoff=g("dir_min_cutoff", 1.0),
             dir_beta=g("dir_beta", 0.5),

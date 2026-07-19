@@ -24,7 +24,10 @@ DT = 1.0 / 30.0
 
 
 def _make_blender(**kw) -> GazeLLEBlender:
-    cfg = RayFormingConfig()
+    # Gain off: these tests pin the blend/hold machinery against unscaled
+    # PY-baseline and heatmap distances; the W4A 1.1 default's semantics
+    # are covered in test_len_gain_extract.py.
+    cfg = RayFormingConfig(rf_len_gain=1.0)
     for k, v in kw.items():
         setattr(cfg, k, v)
     return GazeLLEBlender(cfg)

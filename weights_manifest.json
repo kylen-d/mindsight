@@ -191,7 +191,7 @@
       "license": "MIT",
       "required": true,
       "source": "github-release",
-      "note": "Published upstream as gazelle_dinov2_vitb14_inout.pt; MindSight stores it as gazelle_dinov2_vitb14.pt. Byte-identical (sha256 verified against a fresh upstream download).",
+      "note": "Published upstream as gazelle_dinov2_vitb14_inout.pt; MindSight stores it as gazelle_dinov2_vitb14.pt. Byte-identical (sha256 verified against a fresh upstream download). Since v1.1 W4A the torch fallback blend engine (the pico ONNX is the default) and the standalone Gaze-LLE backend checkpoint.",
       "license_note": "MIT code/checkpoint; DINOv2 backbone Apache-2.0; trained on GazeFollow/VideoAttentionTarget (research datasets)"
     },
     {
@@ -215,10 +215,10 @@
       "sha256": "05cead01802cc6538f4b36477494da4820cab8dc1394318498c6778dc1c02ec0",
       "size": 15758498,
       "license": "MIT",
-      "required": false,
+      "required": true,
       "optimal": ["cpu", "cuda"],
       "source": "github-release",
-      "note": "16 MB gaze-target model for the blend path (PINTO0309/gazelle-dinov3, 640px, in/out head, dynamic face count). Runs on onnxruntime CPU everywhere (Apple GPU/CoreML rejects this graph); v1.1 eval: 63.9 px mean / 71% hit rate vs 70.3 / 66% for the torch DINOv2 ViT-B/14 engine at the same amortized cost.",
+      "note": "The DEFAULT blend-path gaze-target model since v1.1 W4A (PINTO0309/gazelle-dinov3, 16 MB, 640px, in/out head, dynamic face count). Runs on onnxruntime CPU everywhere (Apple GPU/CoreML rejects this graph); v1.1 eval: 63.9 px mean / 71% hit rate vs 70.3 / 66% for the torch DINOv2 ViT-B/14 engine at the same amortized cost.",
       "license_note": "MIT release (PINTO0309/gazelle-dinov3); HGNetV2 backbone Apache-2.0 (D-FINE), distilled from DINOv3 outputs -- no Meta weights embedded; trained on GazeFollow/VideoAttentionTarget (research datasets)"
     },
     {

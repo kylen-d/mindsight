@@ -84,7 +84,8 @@ class RayFormingConfig:
     # needs a rework that slews the effective target instead; flip
     # reverted, knob kept).
     rf_len_slew: int = 0
-    # W3Z items 3a/3b (defaults = historical behavior, goldens pin them).
+    # W3Z items 3a/3b; gain default flipped to 1.1 in W4A (user-approved
+    # with the pico ONNX engine default, one combined re-bless).
     # rf_len_gain scales the blender's length TARGET (eval decomposition:
     # 84% of rays measured too short -- pred 197px vs true 233px; offline
     # gain 1.10 scored 65.2px mean vs 70.3 baseline).  rf_endpoint_extract
@@ -92,7 +93,7 @@ class RayFormingConfig:
     # centroid (historical), "topp" = mass centroid of the top-50%-mass
     # cells, robust to diffuse/multi-modal heatmaps dragging the centroid
     # toward the origin.
-    rf_len_gain: float = 1.0
+    rf_len_gain: float = 1.1
     rf_endpoint_extract: str = "centroid"    # "centroid" | "topp"
 
     # ── Object snap ─────────────────────────────────────────────────────────
@@ -195,7 +196,7 @@ class RayFormingConfig:
             rf_onset_gap=getattr(ns, 'rf_onset_gap', 5) or 0,
             rf_len_refresh_gap=getattr(ns, 'rf_len_refresh_gap', 10) or 0,
             rf_len_slew=getattr(ns, 'rf_len_slew', 0) or 0,
-            rf_len_gain=getattr(ns, 'rf_len_gain', 1.0) or 1.0,
+            rf_len_gain=getattr(ns, 'rf_len_gain', 1.1) or 1.1,
             rf_endpoint_extract=getattr(ns, 'rf_endpoint_extract', 'centroid')
             or 'centroid',
             snap_mode=getattr(ns, 'adaptive_ray', 'off'),

@@ -441,11 +441,15 @@ def test_ui_metadata_does_not_move_canonical_hash():
     one-time-reprocess consequence, still pre-release).
     Re-pinned 2026-07-18 (W3Z slew revert): rf_len_slew default 5 -> 0
     (eyes-on: latch slew + hold decay reads as bounce; rework pending).
+    Re-pinned 2026-07-18 (W4A flip): rf_len_gain default 1.0 -> 1.1
+    (user-approved with the pico ONNX default blend engine, one combined
+    re-bless -- the 5th; same one-time-reprocess consequence,
+    still pre-release).
     """
     assert PipelineConfig().canonical_hash() == (
-        "0b2f27c87ffecf85e807b440a3f4dd26ebef642d0d45554415e6ab22e87f740f")
+        "72fb6bef916c3e99b08deff3ed0dd68236bf1f9097e69cd756788b8384dd18d8")
     assert PipelineConfig(gaze={"ray_length": 1.5}).canonical_hash() == (
-        "209ec8969c3bed538ea4b5add5d3340c0c04ec34496547d9c97658792a15677f")
+        "0a6f74f324ce50b9082c1ba325765449f084b183c65370b69da57c45071e054e")
 
 
 def test_ui_mirror_rule_targets_are_hidden():

@@ -287,3 +287,26 @@ def test_blend_enable_without_model_shows_hint(qapp, monkeypatch):
         assert store.ns().rf_gazelle_model == ""
     finally:
         dlg.deleteLater()
+
+
+def test_blend_default_prefers_pico_onnx_then_torch(qapp, monkeypatch, tmp_path):
+    """v1.1 W4A: the blend toggle resolves to the DINOv3-distilled pico ONNX
+    when installed; the torch checkpoint for the active variant is the
+    fallback; nothing installed -> None (preflight is the hard gate)."""
+    from mindsight import constants
+    from mindsight.weights import DEFAULT_BLEND_MODEL
+
+    gz = tmp_path / "Weights" / "Gazelle"
+    gz.mkdir(parents=True)
+    monkeypatch.setattr(constants, "PROJECT_ROOT", tmp_path)
+    store = _store()
+    dlg = _dialog(store)
+    try:
+        ns = store.ns()
+        assert dlg._resolve_default_gazelle(ns) is None
+        (gz / "gazelle_dinov2_vitb14.pt").write_bytes(b"torch")
+        assert dlg._resolve_default_gazelle(ns) == "gazelle_dinov2_vitb14.pt"
+        (gz / DEFAULT_BLEND_MODEL).write_bytes(b"onnx")
+        assert dlg._resolve_default_gazelle(ns) == DEFAULT_BLEND_MODEL
+    finally:
+        dlg.deleteLater()

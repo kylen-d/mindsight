@@ -320,9 +320,10 @@ Depth Estimation:
 
 Ray Forming (Gazelle blend):
   --rf-gazelle-model PATH
-                        Path to a Gaze-LLE checkpoint (.pt) for Gazelle blend ray forming. Used
-                        alongside a pitch/yaw backend (MGaze, etc.) to periodically correct rays
-                        with Gaze-LLE heatmaps.
+                        Path to a gaze-target model for Gazelle blend ray forming: a Gaze-LLE
+                        checkpoint (.pt, torch) or a gazelle-dinov3 ONNX export (.onnx,
+                        onnxruntime). Used alongside a pitch/yaw backend (MGaze, etc.) to
+                        periodically correct rays with scene-aware heatmaps.
   --rf-gazelle-name NAME
                         Gaze-LLE model variant for ray forming (default: gazelle_dinov2_vitb14).
   --rf-inout-gate T     Activate the Gaze-LLE checkpoint's in/out-of-frame head (when present) and
@@ -351,7 +352,7 @@ Ray Forming (Gazelle blend):
   --rf-len-gain F       Scale the blend ray-length target by F. The v1.1 eval decomposition
                         measured a systematic under-reach (84% of rays short); 1.10 recovered ~5
                         px mean / ~8 px median on the eval labels. Applied before smoothing so
-                        snap and hit detection see the corrected reach. 1.0 = off (default: 1.0).
+                        snap and hit detection see the corrected reach. 1.0 = off (default: 1.10).
   --rf-endpoint-extract {centroid,topp}
                         How the Gaze-LLE heatmap becomes a ray-length endpoint: 'centroid' = full-
                         map mass centroid (historical), 'topp' = mass centroid of the top-50%-mass

@@ -417,11 +417,19 @@ class InferenceSettingsDialog(QDialog):
         ns.rf_gazelle_model = resolved or ""
 
     def _resolve_default_gazelle(self, ns) -> str | None:
-        """Bare checkpoint filename for the active variant if it exists under
-        the shared Weights root, else None (preflight is the hard gate)."""
+        """Bare model filename for the blend engine if it exists under the
+        shared Weights root, else None (preflight is the hard gate).
+
+        v1.1 W4A: the DINOv3-distilled pico ONNX is the default engine; the
+        torch checkpoint for the active ``rf_gazelle_name`` variant is the
+        fallback when the pico weight is not installed."""
         from mindsight import constants
+        from mindsight.weights import DEFAULT_BLEND_MODEL
+        gazelle_dir = constants.PROJECT_ROOT / "Weights" / "Gazelle"
+        if (gazelle_dir / DEFAULT_BLEND_MODEL).is_file():
+            return DEFAULT_BLEND_MODEL
         name = getattr(ns, "rf_gazelle_name", None) or "gazelle_dinov2_vitb14"
-        candidate = constants.PROJECT_ROOT / "Weights" / "Gazelle" / f"{name}.pt"
+        candidate = gazelle_dir / f"{name}.pt"
         return f"{name}.pt" if candidate.is_file() else None
 
     def _update_blend_hint(self):

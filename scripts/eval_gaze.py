@@ -12,7 +12,7 @@ Run a config (everything after ``--`` passes through to MindSight)::
     python scripts/eval_gaze.py run test_data/trimmed.mp4 --tag baseline -- \
         --model Weights/YOLO/yolov8n.pt \
         --mgaze-model Weights/MGaze/resnet50_gaze.onnx \
-        --rf-gazelle-model Weights/Gazelle/gazelle_dinov2_vitb14.pt \
+        --rf-gazelle-model Weights/Gazelle/gazelle_hgnetv2_pico_inout_distill_1x3x640x640_1xNx4.onnx \
         --rf-gazelle-interval 10
 
 Score a run against the labels::

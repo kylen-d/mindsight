@@ -9,12 +9,14 @@ import pytest
 
 from mindsight import weights
 
-# The required set (Q6, +yolo11n.pt for the v1.1 3.8 default flip) --
-# exactly these five filenames.
+# The required set (Q6; +yolo11n.pt for the v1.1 3.8 default flip;
+# +the DINOv3-distilled pico ONNX for the W4A default-blend-engine flip)
+# -- exactly these six filenames.
 REQUIRED_FILENAMES = {
     "yolov8n.pt",
     "yolo11n.pt",
     "gazelle_dinov2_vitb14.pt",
+    "gazelle_hgnetv2_pico_inout_distill_1x3x640x640_1xNx4.onnx",
     "resnet50_gaze.onnx",
     "mobileone_s0_gaze.onnx",
 }
@@ -31,7 +33,7 @@ def test_committed_manifest_loads():
     assert isinstance(data["weights"], list) and data["weights"]
 
 
-def test_committed_manifest_required_set_is_exactly_five():
+def test_committed_manifest_required_set_is_exactly_six():
     required = {e["filename"] for e in weights.manifest_entries() if e["required"]}
     assert required == REQUIRED_FILENAMES
 

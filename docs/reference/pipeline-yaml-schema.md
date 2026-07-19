@@ -215,8 +215,8 @@ plugins:
   all_phenomena: true               # -> --all-phenomena
   mgaze_model: resnet50             # -> --mgaze-model (bare name resolves per install)
   mgaze_dataset: gaze360
-  rf_gazelle_model: gazelle_dinov2_vitb14.pt   # -> --rf-gazelle-model (Gaze-LLE blend)
-  rf_gazelle_name: gazelle_dinov2_vitb14
+  rf_gazelle_model: gazelle_hgnetv2_pico_inout_distill_1x3x640x640_1xNx4.onnx   # -> --rf-gazelle-model (Gaze-LLE blend; .onnx = ONNX engine, .pt = torch)
+  rf_gazelle_name: gazelle_dinov2_vitb14      # torch variant (used when the model is a .pt)
   min_call_gap: 25
   forward_gaze_threshold: 13.0      # gaze knob with no gaze-section key
   smooth_snap: all
@@ -340,7 +340,7 @@ phenomena:
 plugins:
   mgaze_model: resnet50
   mgaze_dataset: gaze360
-  rf_gazelle_model: gazelle_dinov2_vitb14.pt
+  rf_gazelle_model: gazelle_hgnetv2_pico_inout_distill_1x3x640x640_1xNx4.onnx
   rf_gazelle_name: gazelle_dinov2_vitb14
   min_call_gap: 25
   forward_gaze_threshold: 13.0

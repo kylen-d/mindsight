@@ -119,7 +119,7 @@
   "rf_gazelle_model": null,
   "rf_gazelle_name": "gazelle_dinov2_vitb14",
   "rf_inout_gate": 0.0,
-  "rf_len_gain": 1.0,
+  "rf_len_gain": 1.1,
   "rf_len_refresh_gap": 10,
   "rf_len_slew": 0,
   "rf_onset_gap": 5,

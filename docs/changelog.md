@@ -2,6 +2,30 @@
 
 ## [Unreleased]
 
+### Changed (W4A default blend engine + length gain -- user-approved flip)
+- **The default blend gaze-target engine is now the DINOv3-distilled pico
+  ONNX** (`gazelle_hgnetv2_pico_inout_distill_1x3x640x640_1xNx4.onnx`,
+  16 MB, onnxruntime CPU) instead of the torch DINOv2 ViT-B/14
+  checkpoint: on the 87 hand-labeled eval frames it scores 63.9 px mean /
+  71% hit rate vs 70.3 / 66%, with both participants near-balanced, at
+  the same amortized cost -- and identical behavior on CPU-only Windows
+  lab machines. The GUI blend toggle now resolves to it when installed
+  (torch checkpoint remains the fallback and stays fully supported via
+  `--rf-gazelle-model *.pt`); the known-good and low-power presets carry
+  it; it joins the required weight set (now six files). The VAT-finetuned
+  in/out variant was chosen over the slightly more accurate
+  GazeFollow-only export to keep the off-screen in/out veto available.
+- **`--rf-len-gain` default flipped 1.0 -> 1.10**: the v1.1 eval
+  decomposition measured 84% of rays systematically short; the 1.10 gain
+  recovers ~5 px mean / ~8 px median. Combined with the new engine, the
+  default blend stack scores 58.8 px mean / 75% hit rate -- an ~11.5 px
+  mean improvement over the previous default stack. `--rf-len-gain 1.0`
+  restores the old reach.
+- Blend goldens re-blessed for the combined flip (the 5th v1.1 re-bless;
+  eyes-on approved). The pipeline `canonical_hash` moved (schema default
+  changed): resume ledgers written before this reprocess once, expected
+  pre-release.
+
 ### Added (W4A DINOv3-generation gaze-target weights in the manifest)
 - **Five PINTO0309/gazelle-dinov3 ONNX exports are now managed weights**
   (checksummed manifest entries; rows appear in the GUI Models tab with

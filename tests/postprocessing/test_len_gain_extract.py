@@ -1,8 +1,10 @@
 """W3Z items 3a/3b: --rf-len-gain and --rf-endpoint-extract.
 
-Both default to the historical behavior (gain 1.0, centroid extraction) --
-the smoke/CSV goldens pin that.  The eval decomposition that motivated them:
-84% of eval rays measured too short (pred 197 px vs true 233 px along-ray).
+Extraction defaults to the historical centroid; the gain default flipped
+to 1.1 in W4A (user-approved with the pico ONNX engine, the 5th re-bless)
+-- the smoke/CSV goldens pin the flipped behavior.  The eval decomposition
+that motivated the gain: 84% of eval rays measured too short (pred 197 px
+vs true 233 px along-ray).
 """
 from __future__ import annotations
 
@@ -36,9 +38,11 @@ def test_gain_scales_endpoint_reach():
                                1.10 * np.linalg.norm(e1 - ORIGIN), rtol=1e-9)
 
 
-def test_gain_one_is_byte_inert():
+def test_gain_default_equals_explicit_value():
+    """RayFormingConfig() carries the flipped 1.1 default; writing it
+    explicitly is byte-identical."""
     a = GazeLLEBlender(RayFormingConfig())
-    b = GazeLLEBlender(RayFormingConfig(rf_len_gain=1.0))
+    b = GazeLLEBlender(RayFormingConfig(rf_len_gain=1.1))
     np.testing.assert_array_equal(_update(a), _update(b))
 
 
@@ -48,7 +52,7 @@ def test_gain_applies_to_latched_length_too():
     b._latched_lle_length[0] = 300.0
     b._latch_age_s[0] = 0.0
     e = _update(b)
-    ref = GazeLLEBlender(RayFormingConfig(rf_len_slew=0))
+    ref = GazeLLEBlender(RayFormingConfig(rf_len_gain=1.0, rf_len_slew=0))
     ref._latched_lle_length[0] = 300.0
     ref._latch_age_s[0] = 0.0
     e_ref = _update(ref)
@@ -122,12 +126,13 @@ def test_flags_reach_schema_and_ray_config():
 
     ns = parse_cli([])
     cfg = PipelineConfig.from_namespace(ns)
-    assert cfg.rayforming.rf_len_gain == 1.0
+    # W4A flip: 1.1 is the shipped default.
+    assert cfg.rayforming.rf_len_gain == 1.1
     assert cfg.rayforming.rf_endpoint_extract == "centroid"
     rc = RayFormingConfig.from_namespace(ns)
-    assert rc.rf_len_gain == 1.0 and rc.rf_endpoint_extract == "centroid"
+    assert rc.rf_len_gain == 1.1 and rc.rf_endpoint_extract == "centroid"
 
-    ns = parse_cli(["--rf-len-gain", "1.1", "--rf-endpoint-extract", "topp"])
+    ns = parse_cli(["--rf-len-gain", "1.25", "--rf-endpoint-extract", "topp"])
     cfg = PipelineConfig.from_namespace(ns)
-    assert cfg.rayforming.rf_len_gain == 1.1
+    assert cfg.rayforming.rf_len_gain == 1.25
     assert cfg.rayforming.rf_endpoint_extract == "topp"

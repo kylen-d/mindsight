@@ -206,8 +206,8 @@ _TAB_GAZE = SpecTab(
                       tier="A"),
             SpecField("rf_len_gain", "Length gain",
                       "Scale the blend ray-length target. Rays measured "
-                      "systematically short on the v1.1 eval; values around "
-                      "1.10 recovered reach. 1.0 = off.",
+                      "systematically short on the v1.1 eval; the 1.10 "
+                      "default recovers reach. 1.0 = off.",
                       tier="A"),
             SpecField("rf_endpoint_extract", "Endpoint extraction",
                       "How the correction heatmap becomes a ray endpoint: "

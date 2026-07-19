@@ -103,7 +103,10 @@ plugins:
   mgaze_dataset: "gaze360"
 
   # Gaze-LLE blend stays ON (primary operating mode), lighter cadence.
-  rf_gazelle_model: "gazelle_dinov2_vitb14.pt"
+  # W4A: the 16 MB DINOv3-distilled pico ONNX default suits low power --
+  # no torch-hub backbone download, CPU-only, more accurate than the
+  # torch ViT-B/14 engine it replaces.
+  rf_gazelle_model: "gazelle_hgnetv2_pico_inout_distill_1x3x640x640_1xNx4.onnx"
   rf_gazelle_name: "gazelle_dinov2_vitb14"
   gazelle_name: "gazelle_dinov2_vitb14"
   min_call_gap: 40
