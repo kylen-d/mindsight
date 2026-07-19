@@ -2,6 +2,17 @@
 
 ## [Unreleased]
 
+### Added (W3Z ONNX gaze-target engine)
+- **`--rf-gazelle-model` now accepts `.onnx` checkpoints** and runs them
+  on onnxruntime (CPU) as the blend-path gaze-target engine -- built for
+  the PINTO0309 *gazelle-dinov3* exports (Gaze-LLE successors on DINOv3
+  and distilled HGNetV2 backbones, MIT). Same heatmap/in-out contract as
+  the torch engine, so the scheduler, blender, and length channel are
+  untouched; sub-64 heatmaps are upsampled to the blend grid. Measured
+  here: the 12 MB atto variant runs ~11 ms per call for two faces on CPU
+  vs ~88 ms for the torch DINOv2-vitb14 engine on Apple MPS. No default
+  change and no weights ship yet -- variant choice awaits eval results.
+
 ### Added (W3Z length accuracy knobs)
 - `--rf-len-gain F`: scale the blend ray-length target. The v1.1 eval
   decomposition found a systematic under-reach -- 84% of rays measured

@@ -221,27 +221,39 @@ class GazelleProvider:
         if not gazelle_ckpt:
             return None
 
-        from Plugins.GazeTracking.Gazelle.gazelle_backend import (
-            GazeEstimationGazelle,
-        )
         from mindsight.weights import resolve_weight
 
         ckpt_path = Path(resolve_weight("Gazelle", str(gazelle_ckpt)))
         if not ckpt_path.exists():
             raise FileNotFoundError(f"Gaze-LLE checkpoint not found: {ckpt_path}")
 
-        gz_name = _resolve_gazelle_name(ns, ckpt_path)
-        engine = GazeEstimationGazelle(
-            gz_name, ckpt_path,
-            inout_threshold=0.5,       # engine-internal; scheduler gates separately
-            skip_frames=0,
-            # v1.1 W2.3: plumbed through (previously hardcoded False, so the
-            # --gazelle-* flags only reached the standalone backend). Both
-            # default off -- fp16 is never byte-identical to fp32.
-            use_fp16=getattr(ns, 'rf_gazelle_fp16', False),
-            use_compile=getattr(ns, 'rf_gazelle_compile', False),
-            device=device,
-        )
+        # v1.1 W3Z: an .onnx checkpoint selects the onnxruntime engine
+        # (PINTO0309 gazelle-dinov3 exports -- DINOv3/distilled backbones;
+        # atto measured ~8x faster per call than the torch vitb14 engine).
+        # Same raw_heatmaps/_last_inout contract, so everything downstream
+        # (scheduler, blender, length channel) is untouched.
+        if ckpt_path.suffix.lower() == ".onnx":
+            from Plugins.GazeTracking.Gazelle.gazelle_onnx_engine import (
+                GazelleOnnxEngine,
+            )
+            gz_name = ckpt_path.name
+            engine = GazelleOnnxEngine(ckpt_path)
+        else:
+            from Plugins.GazeTracking.Gazelle.gazelle_backend import (
+                GazeEstimationGazelle,
+            )
+            gz_name = _resolve_gazelle_name(ns, ckpt_path)
+            engine = GazeEstimationGazelle(
+                gz_name, ckpt_path,
+                inout_threshold=0.5,   # engine-internal; scheduler gates separately
+                skip_frames=0,
+                # v1.1 W2.3: plumbed through (previously hardcoded False, so the
+                # --gazelle-* flags only reached the standalone backend). Both
+                # default off -- fp16 is never byte-identical to fp32.
+                use_fp16=getattr(ns, 'rf_gazelle_fp16', False),
+                use_compile=getattr(ns, 'rf_gazelle_compile', False),
+                device=device,
+            )
 
         v_thresh = getattr(ns, 'fixation_v_threshold', 0.04)
         d_thresh = getattr(ns, 'fixation_d_threshold', 0.15)
