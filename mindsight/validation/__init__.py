@@ -6,6 +6,14 @@ and report machinery.  The on-disk set format is a strict SUPERSET of
 the eval-harness label format (``eval_data/{stem}_labels.json``), so
 ``scripts/eval_gaze.py score`` works on a validation set unchanged.
 """
+from .runner import (
+    allocate_run_dir,
+    latest_score,
+    list_run_dirs,
+    prepare_validation_namespace,
+    score_and_persist,
+)
+from .scoring import score_run
 from .store import (
     LABEL_STATES,
     ValidationSet,
@@ -17,4 +25,6 @@ from .store import (
 __all__ = [
     "LABEL_STATES", "ValidationSet", "ValidationSetError",
     "ValidationStore", "validation_root",
+    "score_run", "allocate_run_dir", "list_run_dirs", "latest_score",
+    "prepare_validation_namespace", "score_and_persist",
 ]

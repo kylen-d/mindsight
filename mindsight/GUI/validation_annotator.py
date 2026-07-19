@@ -293,7 +293,15 @@ class ValidationAnnotatorDialog(QDialog):
         self._canvas.set_suggest_mode(not self._tool_draw.isChecked())
 
     def _pid(self) -> str:
-        return self._pid_combo.currentText().strip() or "P0"
+        """Participant key for the store.  Standard P<N> labels store as
+        digit keys — the eval-harness labels convention, matching the
+        gaze stream's face_idx — so scripts/eval_gaze.py scores the set
+        file directly.  Custom labels (e.g. S70) store as typed and are
+        matched against participant_label at scoring time."""
+        text = self._pid_combo.currentText().strip() or "P0"
+        if len(text) >= 2 and text[0] in "Pp" and text[1:].isdigit():
+            return text[1:]
+        return text
 
     # ── Labeling ─────────────────────────────────────────────────────────────
 
@@ -417,15 +425,16 @@ class ValidationAnnotatorDialog(QDialog):
         for i, (pid, v) in enumerate(
                 sorted(self._vset.labels.get(fno, {}).items())):
             colour = _TARGET_COLOURS_BGR[i % len(_TARGET_COLOURS_BGR)]
+            shown = f"P{pid}" if pid.isdigit() else pid
             if isinstance(v, dict):
                 cv2.drawMarker(disp, (v["x"], v["y"]), colour,
                                cv2.MARKER_CROSS, 18, 2)
-                cv2.putText(disp, pid, (v["x"] + 8, v["y"] - 8),
+                cv2.putText(disp, shown, (v["x"] + 8, v["y"] - 8),
                             cv2.FONT_HERSHEY_SIMPLEX, 0.55, colour, 2,
                             cv2.LINE_AA)
-                self._label_list.addItem(f"{pid}: ({v['x']}, {v['y']})")
+                self._label_list.addItem(f"{shown}: ({v['x']}, {v['y']})")
             else:
-                self._label_list.addItem(f"{pid}: {v}")
+                self._label_list.addItem(f"{shown}: {v}")
         crops = [{"x1": b["x1"], "y1": b["y1"], "x2": b["x2"], "y2": b["y2"],
                   "label": b["name"]}
                  for b in self._vset.objects.get(fno, [])]
