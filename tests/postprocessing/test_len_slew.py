@@ -1,11 +1,11 @@
 """W3Z length-slew: --rf-len-slew.
 
-Default off (0), reproducing the instant re-latch exactly -- the smoke/CSV
-goldens pin that.  Opt-in (N > 0): a refresh that re-latches an EXISTING
+Default 5 since the W3Z flip (user-approved; eval accuracy-neutral; blend
+goldens re-blessed).  With N > 0 a refresh that re-latches an EXISTING
 length no longer snaps; the latch slews old -> new linearly over the next N
 ``update()`` calls.  First-ever latches still snap (nothing to slew from),
 and the age clock resets at slew START so the len_hold_tau decay does not
-double-count the transition.
+double-count the transition.  ``--rf-len-slew 0`` restores the instant snap.
 """
 from __future__ import annotations
 
@@ -133,14 +133,14 @@ def test_prune_clears_slew_state():
     assert b._len_slew == {}
 
 
-def test_flag_reaches_schema_and_ray_config():
+def test_flag_reaches_schema_with_flipped_default():
     from mindsight.cli_flags import parse_cli
     from mindsight.config import PipelineConfig
 
     ns = parse_cli([])
+    assert PipelineConfig.from_namespace(ns).rayforming.rf_len_slew == 5   # W3Z flip
+    assert RayFormingConfig.from_namespace(ns).rf_len_slew == 5
+
+    ns = parse_cli(["--rf-len-slew", "0"])       # escape hatch: instant snap
     assert PipelineConfig.from_namespace(ns).rayforming.rf_len_slew == 0
     assert RayFormingConfig.from_namespace(ns).rf_len_slew == 0
-
-    ns = parse_cli(["--rf-len-slew", "5"])
-    assert PipelineConfig.from_namespace(ns).rayforming.rf_len_slew == 5
-    assert RayFormingConfig.from_namespace(ns).rf_len_slew == 5

@@ -343,8 +343,8 @@ Ray Forming (Gazelle blend):
                         corrections. Keeps ray reach fresh between corrections at a fraction of
                         the cost. 0 disables (default: 10).
   --rf-len-slew N       When a length refresh re-latches ray length, slew toward the new value
-                        over N frames instead of snapping instantly. Suggested: half the length
-                        refresh gap. 0 = instant snap (default: 0).
+                        over N frames instead of snapping instantly. 0 = instant snap, the
+                        pre-v1.1 behavior (default: 5 -- half the default length refresh gap).
   --rf-gazelle-fp16     Run the blend-path Gaze-LLE model in half precision (CUDA/MPS only;
                         ignored on CPU). Faster per call; output is NOT byte-identical to fp32, so
                         keep it off for regression baselines.

@@ -68,7 +68,10 @@ def test_full_accept_resets_length_counter():
 # ── Blender: length-only application ─────────────────────────────────────────
 
 def _blender_with_latch(tid=0, latched=200.0, age=3.0):
-    b = GazeLLEBlender(RayFormingConfig())
+    # rf_len_slew=0: these tests pin the refresh CHANNEL semantics with
+    # instant re-latching; the slew (default 5 since the W3Z flip) has its
+    # own suite in test_len_slew.py.
+    b = GazeLLEBlender(RayFormingConfig(rf_len_slew=0))
     b._latched_lle_length[tid] = latched
     b._latch_age_s[tid] = age
     return b

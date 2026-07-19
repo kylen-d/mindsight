@@ -45,9 +45,11 @@
   frames instead of snapping instantly (a refresh arriving mid-slew
   restarts from the current interpolated value, so the ray never
   jumps). First-ever latches still snap, and the length-hold decay
-  clock resets at slew start. **Default 0 (instant snap -- previous
-  behavior)**; suggested value is half the length refresh gap (5 at
-  the default `--rf-len-refresh-gap 10`). Also available as "Length
+  clock resets at slew start. **Default 5** (user-approved flip, half
+  the default length refresh gap; eval accuracy-neutral on the
+  87-frame labels -- pure smoothness; blend regression goldens
+  re-blessed, blend smoke now 1040 hit events). `--rf-len-slew 0`
+  restores the previous instant snap. Also available as "Length
   slew (frames)" in Inference Settings. Note: adds the
   `rayforming.rf_len_slew` schema field, so pre-existing resume
   ledgers report a config-hash change and reprocess once (pre-release;

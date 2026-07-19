@@ -76,11 +76,12 @@ class RayFormingConfig:
     # fixation-gated fp32 channel.  Consumed by GazelleProvider.
     # Default 10 since the W3Y flip (eval-validated; second re-bless).
     rf_len_refresh_gap: int = 10
-    # W3Z length-slew (0 = off): when a refresh re-latches ray length on an
+    # W3Z length-slew: when a refresh re-latches ray length on an
     # already-latched track, slew the latch old -> new over N frames instead
-    # of snapping instantly.  Consumed by GazeLLEBlender.  Suggested value:
-    # half of rf_len_refresh_gap (5 at the default gap of 10).
-    rf_len_slew: int = 0
+    # of snapping instantly.  Consumed by GazeLLEBlender.  Default 5 since
+    # the W3Z flip (user-approved; half the default refresh gap of 10;
+    # eval accuracy-neutral -- pure smoothness).  0 restores instant snap.
+    rf_len_slew: int = 5
 
     # ── Object snap ─────────────────────────────────────────────────────────
     snap_mode: str = "off"              # "off" | "extend" | "snap"
@@ -181,7 +182,7 @@ class RayFormingConfig:
             rf_onset_samples=getattr(ns, 'rf_onset_samples', 3) or 0,
             rf_onset_gap=getattr(ns, 'rf_onset_gap', 5) or 0,
             rf_len_refresh_gap=getattr(ns, 'rf_len_refresh_gap', 10) or 0,
-            rf_len_slew=getattr(ns, 'rf_len_slew', 0) or 0,
+            rf_len_slew=getattr(ns, 'rf_len_slew', 5) or 0,
             snap_mode=getattr(ns, 'adaptive_ray', 'off'),
             snap_dist=getattr(ns, 'snap_dist', 150.0),
             snap_bbox_scale=getattr(ns, 'snap_bbox_scale', 0.0),
