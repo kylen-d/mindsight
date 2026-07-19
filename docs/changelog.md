@@ -2,6 +2,22 @@
 
 ## [Unreleased]
 
+### Added (W3Z length accuracy knobs)
+- `--rf-len-gain F`: scale the blend ray-length target. The v1.1 eval
+  decomposition found a systematic under-reach -- 84% of rays measured
+  too short (197 px predicted vs 233 px true along-ray), and a global
+  1.10 gain recovered ~5 px mean / ~8 px median offline. Applied before
+  smoothing so snap and hit detection see the corrected reach.
+  **Default 1.0 (off)** pending in-pipeline eval.
+- `--rf-endpoint-extract {centroid,topp}`: how a Gaze-LLE heatmap
+  becomes the ray-length endpoint. `topp` takes the mass centroid of
+  only the top-50%-mass cells, so diffuse or multi-modal heatmaps stop
+  dragging the endpoint toward the origin (a suspected mechanism of the
+  under-reach). **Default `centroid` (historical)**. Both knobs also
+  appear in Inference Settings. Note: adds two `rayforming` schema
+  fields, so pre-existing resume ledgers report a config-hash change
+  and reprocess once (pre-release; same caveat as earlier adds).
+
 ### Added (W3Z overlay theme)
 - `--overlay-theme {classic,mindsight}`: restyle the annotated-frame
   overlays. `mindsight` uses the brand palette sampled from the logo and

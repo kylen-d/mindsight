@@ -1483,6 +1483,41 @@
     },
     {
       "option_strings": [
+        "--rf-len-gain"
+      ],
+      "dest": "rf_len_gain",
+      "action": "_StoreAction",
+      "default": 1.0,
+      "type": "float",
+      "nargs": null,
+      "const": null,
+      "choices": null,
+      "required": false,
+      "metavar": "F",
+      "help": "Scale the blend ray-length target by F. The v1.1 eval decomposition measured a systematic under-reach (84%% of rays short); 1.10 recovered ~5 px mean / ~8 px median on the eval labels. Applied before smoothing so snap and hit detection see the corrected reach. 1.0 = off (default: 1.0).",
+      "group": "Ray Forming (Gazelle blend)"
+    },
+    {
+      "option_strings": [
+        "--rf-endpoint-extract"
+      ],
+      "dest": "rf_endpoint_extract",
+      "action": "_StoreAction",
+      "default": "centroid",
+      "type": null,
+      "nargs": null,
+      "const": null,
+      "choices": [
+        "centroid",
+        "topp"
+      ],
+      "required": false,
+      "metavar": null,
+      "help": "How the Gaze-LLE heatmap becomes a ray-length endpoint: 'centroid' = full-map mass centroid (historical), 'topp' = mass centroid of the top-50%%-mass cells -- diffuse or multi-modal heatmaps no longer drag the endpoint toward the origin (default: centroid).",
+      "group": "Ray Forming (Gazelle blend)"
+    },
+    {
+      "option_strings": [
         "--rf-gazelle-fp16"
       ],
       "dest": "rf_gazelle_fp16",

@@ -95,6 +95,35 @@ def _heatmap_centroid_pixel(hm: np.ndarray,
     return np.array([cx / _GRID * frame_w, cy / _GRID * frame_h], dtype=float)
 
 
+_TOPP_MASS = 0.5
+"""Mass fraction kept by the top-p extraction (W3Z 3b).
+
+Not user-tunable: the extraction MODE is the knob (--rf-endpoint-extract);
+0.5 keeps the dominant mode of a bimodal map while ignoring diffuse tails.
+"""
+
+
+def _heatmap_topp_pixel(hm: np.ndarray,
+                        frame_h: int, frame_w: int) -> np.ndarray:
+    """Mass centroid of the highest-valued cells holding _TOPP_MASS of the
+    total -- a diffuse or multi-modal heatmap no longer drags the endpoint
+    toward the global mass center (the measured under-reach mechanism)."""
+    s = float(hm.sum())
+    if s < 1e-12:
+        return np.array([frame_w * 0.5, frame_h * 0.5], dtype=float)
+    flat = hm.astype(np.float32).ravel()
+    order = np.argsort(flat)[::-1]
+    csum = np.cumsum(flat[order])
+    k = int(np.searchsorted(csum, _TOPP_MASS * s)) + 1
+    idx = order[:k]
+    w = flat[idx]
+    ws = float(w.sum())
+    ys, xs = np.unravel_index(idx, hm.shape)
+    cx = float((xs * w).sum()) / ws
+    cy = float((ys * w).sum()) / ws
+    return np.array([cx / _GRID * frame_w, cy / _GRID * frame_h], dtype=float)
+
+
 class GazeLLEBlender:
     """Per-track Gaze-LLE blender with scheduler-driven trust.
 
@@ -163,9 +192,9 @@ class GazeLLEBlender:
         if accept_heatmap and gazelle_hm is not None:
             belief = belief * (gazelle_hm.astype(np.float32) + 1e-6)
             belief = _normalize(belief)
-            # Re-latch length from the raw heatmap centroid (not the
-            # belief centroid -- avoids past-frame contamination).
-            lle_pixel = _heatmap_centroid_pixel(
+            # Re-latch length from the raw heatmap (not the belief map --
+            # avoids past-frame contamination); extraction mode per cfg.
+            lle_pixel = self._extract_pixel(
                 gazelle_hm.astype(np.float32), frame_h, frame_w)
             lle_vec = lle_pixel - origin
             lle_norm = float(np.linalg.norm(lle_vec))
@@ -233,6 +262,12 @@ class GazeLLEBlender:
             tau = max(float(cfg.len_hold_tau), 1e-6)
             hold = float(np.exp(-age / tau))
             raw_length_target = py_length + hold * (latched - py_length)
+        # W3Z 3a: global length-gain correction for the measured systematic
+        # under-reach.  Applied to the TARGET (pre One Euro) so snap and hit
+        # detection downstream see the corrected reach.  1.0 = off; guarded
+        # so the default path stays byte-identical to the goldens.
+        if cfg.rf_len_gain != 1.0:
+            raw_length_target *= float(cfg.rf_len_gain)
 
         # === One Euro smoothing ===
         if track_id not in self._dir_x_filter:
@@ -256,6 +291,13 @@ class GazeLLEBlender:
         smoothed_length = len_f.update(float(raw_length_target))
 
         return origin + smoothed_dir * smoothed_length
+
+    def _extract_pixel(self, hm: np.ndarray,
+                       frame_h: int, frame_w: int) -> np.ndarray:
+        """Heatmap -> endpoint pixel per cfg.rf_endpoint_extract (W3Z 3b)."""
+        if self._cfg.rf_endpoint_extract == "topp":
+            return _heatmap_topp_pixel(hm, frame_h, frame_w)
+        return _heatmap_centroid_pixel(hm, frame_h, frame_w)
 
     def _set_latch(self, track_id: int, new_value: float) -> None:
         """Latch a new LLE length; slew old -> new when configured (W3Z).
@@ -307,7 +349,7 @@ class GazeLLEBlender:
         """
         if track_id not in self._latched_lle_length:
             return False
-        lle_pixel = _heatmap_centroid_pixel(
+        lle_pixel = self._extract_pixel(
             gazelle_hm.astype(np.float32), frame_h, frame_w)
         lle_norm = float(np.linalg.norm(lle_pixel - np.asarray(origin, float)))
         if lle_norm <= 1e-6:

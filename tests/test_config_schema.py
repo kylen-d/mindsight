@@ -436,11 +436,14 @@ def test_ui_metadata_does_not_move_canonical_hash():
     (same one-time-reprocess consequence, still pre-release).
     Re-pinned 2026-07-18 (W3Z flip): rf_len_slew default 0 -> 5
     (user-approved; blend goldens re-blessed -- the 4th re-bless).
+    Re-pinned 2026-07-18 (W3Z 3a/3b): rayforming.rf_len_gain +
+    rf_endpoint_extract fields added, defaults inert (same
+    one-time-reprocess consequence, still pre-release).
     """
     assert PipelineConfig().canonical_hash() == (
-        "7282d04f3bddda1c1b96c2776250a98e13ff004cd9fc4465b2eb9647776c4a38")
+        "02797c5cf533f07f5d634c49d78c85987e1601e1fe4597b77024147d6d086b36")
     assert PipelineConfig(gaze={"ray_length": 1.5}).canonical_hash() == (
-        "f6afba25adb97b9cc56552e3e7cdf9d33aa0be703c77d3fec3ef37d8471ad3ed")
+        "beb356151d0dd6659d2171cbac6c7e7189af5fe97498048a7d97a2ac4f27b622")
 
 
 def test_ui_mirror_rule_targets_are_hidden():

@@ -185,6 +185,10 @@ class RayFormingSection(BaseModel):
     # v1.1 W3Z flip: slew re-latched ray length over N frames (0 = instant
     # snap, the pre-flip behavior). Eval accuracy-neutral; user-approved.
     rf_len_slew: int = Field(5, json_schema_extra={"cli": "--rf-len-slew"})
+    # v1.1 W3Z 3a/3b (defaults = historical behavior; flip pending evals).
+    rf_len_gain: float = Field(1.0, json_schema_extra={"cli": "--rf-len-gain"})
+    rf_endpoint_extract: str = Field(
+        "centroid", json_schema_extra={"cli": "--rf-endpoint-extract"})
     dir_min_cutoff: float = Field(1.0, json_schema_extra={"cli": "--dir-min-cutoff"})
     dir_beta: float = Field(0.5, json_schema_extra={"cli": "--dir-beta"})
     len_min_cutoff: float = Field(1.0, json_schema_extra={"cli": "--len-min-cutoff"})
@@ -443,6 +447,8 @@ class PipelineConfig(BaseModel):
             rf_onset_gap=g("rf_onset_gap", 5),
             rf_len_refresh_gap=g("rf_len_refresh_gap", 10),
             rf_len_slew=g("rf_len_slew", 5),
+            rf_len_gain=g("rf_len_gain", 1.0),
+            rf_endpoint_extract=g("rf_endpoint_extract", "centroid"),
             dir_min_cutoff=g("dir_min_cutoff", 1.0),
             dir_beta=g("dir_beta", 0.5),
             len_min_cutoff=g("len_min_cutoff", 1.0),
@@ -739,6 +745,14 @@ _UI: dict[str, dict | None] = {
     "rayforming.rf_len_slew": {"group": "gazelle_blend",
                                "label": "Length slew (frames)",
                                "advanced": True, "min": 0, "max": 120},
+    "rayforming.rf_len_gain": {"group": "gazelle_blend",
+                               "label": "Length gain",
+                               "advanced": True, "min": 0.5, "max": 2.0,
+                               "step": 0.05, "decimals": 2},
+    "rayforming.rf_endpoint_extract": {"group": "gazelle_blend",
+                                       "label": "Endpoint extraction",
+                                       "advanced": True,
+                                       "choices": ["centroid", "topp"]},
     "rayforming.dir_min_cutoff": {"group": "gazelle_blend",
                                   "label": "Direction min-cutoff (Hz)",
                                   "advanced": True, "min": 0.1, "max": 20.0,

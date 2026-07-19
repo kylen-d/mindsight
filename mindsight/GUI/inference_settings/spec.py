@@ -204,6 +204,17 @@ _TAB_GAZE = SpecTab(
                       "snapping instantly. Suggested: half the length "
                       "refresh gap. 0 = instant snap.",
                       tier="A"),
+            SpecField("rf_len_gain", "Length gain",
+                      "Scale the blend ray-length target. Rays measured "
+                      "systematically short on the v1.1 eval; values around "
+                      "1.10 recovered reach. 1.0 = off.",
+                      tier="A"),
+            SpecField("rf_endpoint_extract", "Endpoint extraction",
+                      "How the correction heatmap becomes a ray endpoint: "
+                      "centroid (full-map, historical) or topp (top-mass "
+                      "cells only -- diffuse maps stop dragging the "
+                      "endpoint toward the origin).",
+                      tier="A"),
             SpecField("rf_gazelle_fp16", "Half precision (fp16)",
                       "Run Gaze-LLE in half precision on CUDA/MPS. Faster per "
                       "correction; results differ slightly from full "

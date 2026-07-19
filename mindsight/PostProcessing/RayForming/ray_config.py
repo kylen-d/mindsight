@@ -82,6 +82,16 @@ class RayFormingConfig:
     # the W3Z flip (user-approved; half the default refresh gap of 10;
     # eval accuracy-neutral -- pure smoothness).  0 restores instant snap.
     rf_len_slew: int = 5
+    # W3Z items 3a/3b (defaults = historical behavior, goldens pin them).
+    # rf_len_gain scales the blender's length TARGET (eval decomposition:
+    # 84% of rays measured too short -- pred 197px vs true 233px; offline
+    # gain 1.10 scored 65.2px mean vs 70.3 baseline).  rf_endpoint_extract
+    # picks the heatmap->length extraction: "centroid" = full-map mass
+    # centroid (historical), "topp" = mass centroid of the top-50%-mass
+    # cells, robust to diffuse/multi-modal heatmaps dragging the centroid
+    # toward the origin.
+    rf_len_gain: float = 1.0
+    rf_endpoint_extract: str = "centroid"    # "centroid" | "topp"
 
     # ── Object snap ─────────────────────────────────────────────────────────
     snap_mode: str = "off"              # "off" | "extend" | "snap"
@@ -183,6 +193,9 @@ class RayFormingConfig:
             rf_onset_gap=getattr(ns, 'rf_onset_gap', 5) or 0,
             rf_len_refresh_gap=getattr(ns, 'rf_len_refresh_gap', 10) or 0,
             rf_len_slew=getattr(ns, 'rf_len_slew', 5) or 0,
+            rf_len_gain=getattr(ns, 'rf_len_gain', 1.0) or 1.0,
+            rf_endpoint_extract=getattr(ns, 'rf_endpoint_extract', 'centroid')
+            or 'centroid',
             snap_mode=getattr(ns, 'adaptive_ray', 'off'),
             snap_dist=getattr(ns, 'snap_dist', 150.0),
             snap_bbox_scale=getattr(ns, 'snap_bbox_scale', 0.0),
