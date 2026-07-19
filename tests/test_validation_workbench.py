@@ -41,15 +41,21 @@ def qapp():
 
 
 class _FakeWorker(threading.Thread):
-    """Writes a gaze stream where the prepared namespace points, then
+    """Writes a gaze stream where the prepared namespace points, pushes
+    a few 'annotated frames' (the live-progress counter's food), then
     signals completion the way GazeWorker does (None sentinel)."""
 
     end_xy = (110, 110)
+    n_frames = 3
 
     def __init__(self, ns, frame_q, log_q):
         super().__init__(daemon=True)
         self.ns = ns
         self.frame_q = frame_q
+        self.stopped = False
+
+    def stop(self):
+        self.stopped = True
 
     def run(self):
         summary = Path(self.ns.summary)
@@ -60,6 +66,8 @@ class _FakeWorker(threading.Thread):
             w.writerow(GAZE_HEADER)
             w.writerow(["", "", 10, "", 0, "P0", "1.0", "0", "0",
                         100, 100, *type(self).end_xy, 0, 0, "", "", "", "", ""])
+        for _ in range(type(self).n_frames):
+            self.frame_q.put(np.zeros((4, 4, 3), np.uint8))
         self.frame_q.put(None)
 
 
@@ -113,11 +121,20 @@ def test_validate_flow_scores_and_fills_table(qapp, tmp_path):
     score = json.loads((runs[0] / "score.json").read_text())
     assert score["scored_points"] == 1
     assert score["endpoint_px_mean"] == pytest.approx(10.0)
+    # Live counter fed the avg-fps output row (3 fake frames drained).
+    assert wb._frames_done == 3
+    assert score.get("avg_fps", 0) > 0
     assert (runs[0] / "settings.json").is_file()
     # Table: run column filled, prev column empty (first run).
     assert wb._table.item(0, 0).text() == "10.0"
     assert wb._table.item(0, 1).text() == "—"
+    fps_row = [i for i, (k, *_r) in enumerate(
+        __import__("mindsight.GUI.validation_workbench",
+                   fromlist=["_METRICS"])._METRICS) if k == "avg_fps"][0]
+    assert wb._table.item(fps_row, 0).text() not in ("", "—")
     assert wb._validate_btn.isEnabled()
+    assert not wb._cancel_btn.isEnabled()
+    assert not wb._progress.isVisible()
 
     # Second run with a worse fake result: prev column = first run.
     _FakeWorker.end_xy = (130, 100)

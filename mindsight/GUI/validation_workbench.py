@@ -14,6 +14,7 @@ The tab injects ``namespace_provider`` (its ``_build_namespace``) and a
 from __future__ import annotations
 
 import queue
+import time
 from pathlib import Path
 
 from PyQt6.QtCore import QTimer
@@ -24,6 +25,7 @@ from PyQt6.QtWidgets import (
     QInputDialog,
     QLabel,
     QMessageBox,
+    QProgressBar,
     QPushButton,
     QTableWidget,
     QTableWidgetItem,
@@ -42,14 +44,17 @@ from mindsight.validation import (
     validation_root,
 )
 
+# Gaze-targets-only v1 (user ruling): the object-IoU row is shelved with
+# the object annotator; score.json still records it for sets that carry
+# boxes from earlier versions.
 _METRICS = [
     ("endpoint_px_mean", "mean px error", "{:.1f}"),
     ("endpoint_px_median", "median px", "{:.1f}"),
     ("endpoint_px_p95", "p95 px", "{:.0f}"),
     ("hit_rate", "gaze hit rate", "{:.0%}"),
     ("mae_deg_mean", "MAE (degrees)", "{:.1f}"),
-    ("object_iou_mean", "object IoU", "{:.2f}"),
     ("offscreen_auc", "off-screen AUC", "{:.2f}"),
+    ("avg_fps", "avg fps", "{:.1f}"),
 ]
 
 
@@ -71,6 +76,9 @@ class ValidationWorkbench(QWidget):
         self._frame_q: queue.Queue = queue.Queue(maxsize=4)
         self._log_q: queue.Queue = queue.Queue()
         self._pending = None          # (vset, run_dir, ns) while running
+        self._frames_done = 0
+        self._t_first_frame = None
+        self._total_frames = 0
         self._poll = QTimer(self)
         self._poll.timeout.connect(self._on_poll)
 
@@ -108,6 +116,10 @@ class ValidationWorkbench(QWidget):
             "set's video and score against its labels.")
         self._validate_btn.clicked.connect(self._on_validate)
         run_row.addWidget(self._validate_btn)
+        self._cancel_btn = QPushButton("Cancel")
+        self._cancel_btn.setEnabled(False)
+        self._cancel_btn.clicked.connect(self.stop)
+        run_row.addWidget(self._cancel_btn)
         history_btn = QPushButton("History…")
         history_btn.setToolTip(
             "All scored runs for this set, with the settings that "
@@ -121,9 +133,21 @@ class ValidationWorkbench(QWidget):
             "resume).")
         embed_btn.clicked.connect(self._on_embed)
         run_row.addWidget(embed_btn)
-        self._status = QLabel("")
-        run_row.addWidget(self._status, 1)
+        run_row.addStretch(1)
         lay.addLayout(run_row)
+
+        # Live run feedback: frame counter / fps / ETA + progress bar.
+        progress_row = QHBoxLayout()
+        self._progress = QProgressBar()
+        self._progress.setVisible(False)
+        self._progress.setTextVisible(False)
+        progress_row.addWidget(self._progress, 1)
+        lay.addLayout(progress_row)
+        self._status = QLabel(
+            "New… creates a validation set from a video; Annotate… opens "
+            "it to sample frames and label gaze targets.")
+        self._status.setWordWrap(True)
+        lay.addWidget(self._status)
 
         self.refresh_sets()
 
@@ -245,11 +269,35 @@ class ValidationWorkbench(QWidget):
             self._status.setText(str(exc))
             return
         self._pending = (vset, run_dir, ns)
+        self._frames_done = 0
+        self._t_first_frame = None
+        self._total_frames = self._probe_frame_count(vset.video)
+        self._progress.setRange(0, self._total_frames or 0)  # 0,0 = busy bar
+        self._progress.setValue(0)
+        self._progress.setVisible(True)
         self._worker = self._worker_factory(ns, self._frame_q, self._log_q)
         self._validate_btn.setEnabled(False)
-        self._status.setText(f"Validating '{name}'…")
+        self._cancel_btn.setEnabled(True)
+        self._status.setText(f"Validating '{name}' — loading models…")
         self._worker.start()
         self._poll.start(100)
+
+    @staticmethod
+    def _probe_frame_count(video: str) -> int:
+        try:
+            import cv2
+            cap = cv2.VideoCapture(str(video))
+            total = int(cap.get(cv2.CAP_PROP_FRAME_COUNT) or 0)
+            cap.release()
+            return max(total, 0)
+        except Exception:
+            return 0
+
+    def _live_fps(self) -> float | None:
+        if self._t_first_frame is None or self._frames_done < 2:
+            return None
+        elapsed = time.monotonic() - self._t_first_frame
+        return (self._frames_done - 1) / elapsed if elapsed > 0 else None
 
     def _on_poll(self):
         done = False
@@ -258,20 +306,44 @@ class ValidationWorkbench(QWidget):
                 item = self._frame_q.get_nowait()
                 if item is None:            # worker sentinel
                     done = True
+                else:
+                    if self._t_first_frame is None:
+                        self._t_first_frame = time.monotonic()
+                    self._frames_done += 1
         except queue.Empty:
             pass
         while not self._log_q.empty():
             self._log_q.get_nowait()
         if not done:
+            if self._frames_done:
+                self._progress.setValue(
+                    min(self._frames_done, self._total_frames)
+                    if self._total_frames else 0)
+                fps = self._live_fps()
+                total = (f"/{self._total_frames}"
+                         if self._total_frames else "")
+                parts = [f"frame {self._frames_done}{total}"]
+                if fps:
+                    parts.append(f"{fps:.1f} fps")
+                    if self._total_frames:
+                        remaining = self._total_frames - self._frames_done
+                        if remaining > 0:
+                            parts.append(f"ETA {remaining / fps:.0f}s")
+                self._status.setText("Validating — " + " · ".join(parts))
             return
         self._poll.stop()
         self._worker = None
         vset, run_dir, ns = self._pending
         self._pending = None
         self._validate_btn.setEnabled(True)
+        self._cancel_btn.setEnabled(False)
+        self._progress.setVisible(False)
+        avg_fps = self._live_fps()
         prev = latest_score(self._store.root, vset.name)
         try:
-            result = score_and_persist(vset, run_dir, ns=ns)
+            result = score_and_persist(
+                vset, run_dir, ns=ns,
+                extra={"avg_fps": avg_fps} if avg_fps else None)
         except ValidationSetError as exc:
             self._status.setText(str(exc))
             return
@@ -280,9 +352,14 @@ class ValidationWorkbench(QWidget):
                              f"→ {run_dir.name}")
 
     def stop(self):
-        """Cancel a running validation (tab teardown)."""
+        """Cancel a running validation (Cancel button / tab teardown).
+
+        The worker finishes the current frame and sends its sentinel;
+        whatever ran still gets scored, so a cancelled run is a shorter
+        run, not a lost one."""
         if self._worker is not None and hasattr(self._worker, "stop"):
             self._worker.stop()
+            self._status.setText("Cancelling — finishing the current frame…")
 
     # ── Report table ─────────────────────────────────────────────────────────
 

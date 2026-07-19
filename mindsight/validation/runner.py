@@ -190,12 +190,18 @@ def embed_validation_summary(yaml_path: Path, block: dict) -> None:
 
 
 def score_and_persist(vset: ValidationSet, run_dir: Path, ns=None,
-                      radius: float = 80.0) -> dict:
+                      radius: float = 80.0, extra: dict | None = None) -> dict:
     """Score *run_dir* against *vset*; write score.json (+ settings.json
-    when *ns* is given) into the run dir.  Returns the score dict."""
+    when *ns* is given) into the run dir.  Returns the score dict.
+
+    *extra* merges additional run measurements into the score (e.g.
+    ``{"avg_fps": ...}`` from the workbench's live counter) -- accuracy
+    keys always win on collision."""
     run_dir = Path(run_dir)
     stem = Path(vset.video).stem
     result = score_run(vset, run_dir, stem, radius=radius)
+    if extra:
+        result = {**extra, **result}
     (run_dir / "score.json").write_text(json.dumps(result, indent=2) + "\n")
     if ns is not None:
         snapshot = {k: _jsonable(v) for k, v in sorted(vars(ns).items())
