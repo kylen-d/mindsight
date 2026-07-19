@@ -65,7 +65,23 @@ def create_yolo_detector(
     from ultralytics import YOLO
     resolved = _resolve_yolo_path(model_path)
     print(f"Loading YOLO: {resolved}")
-    yolo = YOLO(resolved)
+    try:
+        yolo = YOLO(resolved)
+    except FileNotFoundError as exc:
+        # Official names auto-download inside YOLO(); only unknown names
+        # (typically typos -- e.g. "yolov11n.pt": the v-less "yolo11n.pt"
+        # is the real one) reach the open() failure.  Raise plain English
+        # instead of the raw torch traceback the GUI would otherwise show.
+        hint = ""
+        stem = Path(model_path).stem.lower()
+        if stem.startswith("yolov") and stem[5:6].isdigit() and stem[5] != "8":
+            hint = (f"  Did you mean '{Path(model_path).name.lower().replace('yolov', 'yolo', 1)}'"
+                    " (Ultralytics dropped the 'v' after YOLOv8)?")
+        raise FileNotFoundError(
+            f"YOLO model not found: {model_path!r} -- not a local file and "
+            f"not an official Ultralytics model name, so it cannot be "
+            f"auto-downloaded.{hint}  Installed models are listed on the "
+            f"Models tab (Weights/YOLO/).") from exc
     if resolved_dev != "cpu":
         try:
             yolo.to(resolved_dev)

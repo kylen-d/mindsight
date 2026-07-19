@@ -85,6 +85,19 @@ def prime_yoloe_multi_reference(model, references, predictor_cls,
              if class_names else [f"object{g}" for g in union])
     device = next(model.model.parameters()).device
     model.model.set_classes(names, pooled.to(device))
+    # The priming predicts leave ``model.predictor`` caching the LAST
+    # reference's class table (the predictor's model wrapper copies
+    # ``names`` at setup), and seg NMS sizes its mask-coefficient split
+    # from ``len(predictor.model.names)``.  When the last reference
+    # annotates only a SUBSET of the union, that stale count mis-splits
+    # the head output and ``process_mask`` crashes on the first real
+    # frame ("mat1 and mat2 shapes cannot be multiplied (Nx33 and
+    # 32x16640)" -- 33 = 32 coefficients + 1 missing class).  Sync the
+    # cached copy to the pooled table.
+    predictor = getattr(model, "predictor", None)
+    pred_model = getattr(predictor, "model", None)
+    if pred_model is not None:
+        pred_model.names = {i: n for i, n in enumerate(names)}
     log(f"YOLOE visual prompts: pooled {len(references)} reference image(s), "
         f"{len(union)} class(es)")
     return {idx: g for idx, g in enumerate(union)}
