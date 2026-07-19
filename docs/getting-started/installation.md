@@ -138,6 +138,7 @@ where the console command is not on PATH.)
 | **Gaze-LLE** | `gazelle_hgnetv2_pico_inout_distill_1x3x640x640_1xNx4.onnx` (default blend engine), `gazelle_dinov2_vitb14.pt` (torch fallback + standalone backend) | The larger `vitl14` checkpoint and the DINOv3 ViT tiny-plus / ViT-S/16 quality tiers (incl. single-face exports for Apple-GPU CoreML) are optional, in `Weights/Gazelle/` |
 | **MobileClip** | -- | `mobileclip_blt.ts` is auto-fetched by Ultralytics on first visual-prompt use |
 | **MediaPipe** | -- | `face_landmarker.task` (468-point landmarker feeding the head-pose-normalized gaze backends) is optional, in `Weights/Mediapipe/`; fetch with `mindsight-weights --backend Mediapipe` |
+| **MPIIFaceGaze / Adas** | -- | `mpiifacegaze_resnet_simple.pth` (research-provenance) and `gaze-estimation-adas-0002.onnx` (Apache-2.0) power the opt-in head-pose-normalized backends; in `Weights/MPIIFaceGaze/` and `Weights/AdasGaze/` |
 
 ### Verify the installation
 

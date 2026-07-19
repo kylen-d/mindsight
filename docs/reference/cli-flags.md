@@ -160,6 +160,12 @@ be supplied multiple times.
 | `--depth-length-max` | float | `3.0` | Ray length multiplier at depth=1 (farthest) (default: 3.0). |
 | `--depth-belief-boost` | float | `0.0` | How much depth agreement boosts Gaze-LLE heatmap confidence in the belief update (default: 0.0). |
 
+### Adas Gaze backend
+
+| Flag | Type / choices | Default | Description |
+|------|----------------|---------|-------------|
+| `--adas-gaze-model` | str | None | Path to the Intel gaze-estimation-adas-0002 ONNX model. Activates the head-pose-normalized adas gaze backend (Apache-2.0, provenance-clean; requires the MediaPipe `face_landmarker.task` asset). |
+
 ### Gazelle backend
 
 | Flag | Type / choices | Default | Description |

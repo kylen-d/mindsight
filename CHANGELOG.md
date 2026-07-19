@@ -2,7 +2,21 @@
 
 ## [Unreleased]
 
-### Added (W4B MPIIFaceGaze head-pose-normalized gaze backend, opt-in)
+### Added (W4B Intel adas-0002 gaze backend, opt-in)
+- **`--adas-gaze-model` activates the Intel gaze-estimation-adas-0002
+  backend** on the same head-pose-normalized core: MediaPipe landmarks
+  -> solvePnP head pose -> two de-rolled 60x60 eye crops + head pose
+  angles (the OMZ demo's roll-alignment scheme) -> 3-D gaze vector ->
+  the standard pitch/yaw ray convention. Unlike every other bundled
+  gaze estimator, this one is **provenance-clean Apache-2.0** (no
+  research-only training-set caveat). The ONNX was converted by
+  MindSight from Intel's published OpenVINO IR (FP32) and numerically
+  verified against the OpenVINO runtime (max abs diff 3.6e-7 at f32);
+  it ships as a checksummed manifest entry attached to the MindSight
+  weights release. On the 87 hand-labeled eval frames: bare 179.4 px /
+  4% hit rate; under the blend stack 81.3 px / 58% with near-balanced
+  participants (vs 58.8 / 75% for the default stack) -- defaults
+  unchanged, adas ships opt-in.
 - **`--mpiifacegaze-model` activates a new per-face gaze backend** built
   on vendored ptgaze normalization math (MIT, hysts): MediaPipe 468-point
   landmarks on RetinaFace crops -> solvePnP head pose against the

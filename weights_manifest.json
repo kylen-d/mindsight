@@ -446,6 +446,18 @@
       "note": "Runtime asset for the head-pose-normalized gaze backends (MPIIFaceGaze, adas-0002): 468-point landmarks on RetinaFace face crops. Google MediaPipe model storage, versioned float16/1 path; sha256 recorded from a fresh upstream download."
     },
     {
+      "backend": "AdasGaze",
+      "filename": "gaze-estimation-adas-0002.onnx",
+      "label": "Intel gaze estimator (adas-0002)",
+      "url": "https://github.com/kylen-d/mindsight/releases/download/weights/gaze-estimation-adas-0002.onnx",
+      "sha256": "cd153584e7f8f72e0dc7f5388978d6b06e34ba2c46b1a6ae825975dbb1282491",
+      "size": 7541174,
+      "license": "Apache-2.0",
+      "required": false,
+      "source": "github-release",
+      "note": "Head-pose-normalized per-face gaze backend (--adas-gaze-model), provenance-clean Apache-2.0. Converted offline from the Intel OpenVINO IR (open_model_zoo 2023.0 storage, FP32) to ONNX and numerically verified against the OpenVINO runtime (max abs diff 3.6e-7 over random inputs at f32); Apache-2.0 permits redistribution. Attached to the MindSight weights release; needs the Mediapipe face_landmarker.task asset."
+    },
+    {
       "backend": "MPIIFaceGaze",
       "filename": "mpiifacegaze_resnet_simple.pth",
       "label": "MPIIFaceGaze estimator (resnet_simple)",

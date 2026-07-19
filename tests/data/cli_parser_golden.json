@@ -2062,6 +2062,22 @@
     },
     {
       "option_strings": [
+        "--adas-gaze-model"
+      ],
+      "dest": "adas_gaze_model",
+      "action": "_StoreAction",
+      "default": null,
+      "type": null,
+      "nargs": null,
+      "const": null,
+      "choices": null,
+      "required": false,
+      "metavar": "PATH",
+      "help": "Path to the Intel gaze-estimation-adas-0002 ONNX model.  Activates the head-pose-normalized adas gaze backend (Apache-2.0, provenance-clean; requires the MediaPipe face_landmarker.task asset).",
+      "group": "Adas Gaze backend"
+    },
+    {
+      "option_strings": [
         "--gazelle-model"
       ],
       "dest": "gazelle_model",

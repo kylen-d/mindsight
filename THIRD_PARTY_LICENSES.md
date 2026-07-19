@@ -68,6 +68,7 @@ This file documents their licenses for compliance purposes.
 | RetinaFace weights | MIT (uniface release) | yakhyo/uniface, auto-downloaded to `~/.uniface` on first use; trained on WIDER FACE |
 | MPIIFaceGaze checkpoint (`mpiifacegaze_resnet_simple.pth`) | MIT (hysts/pytorch_mpiigaze_demo release) | Trained on **MPIIFaceGaze** (CC BY-NC-SA, non-commercial research dataset) -- treat the weights as research use only. The manifest carries this as `license_note` and the Models tab surfaces it. Powers the opt-in `--mpiifacegaze-model` backend. |
 | MediaPipe Face Landmarker (`face_landmarker.task`) | Apache-2.0 | Google MediaPipe model storage (versioned path); 468-point landmarker feeding the head-pose-normalized gaze backends. |
+| Intel gaze-estimation-adas-0002 (`gaze-estimation-adas-0002.onnx`) | Apache-2.0 | Intel Open Model Zoo model, converted by MindSight from the published OpenVINO IR to ONNX (numerically verified against the OpenVINO runtime) and redistributed under Apache-2.0 as a MindSight release asset. Powers the opt-in `--adas-gaze-model` backend. |
 | ArcFace embeddings (`--face-reid-sim`) | MIT (uniface release) | yakhyo/uniface, auto-downloaded on first use. Upstream provenance: InsightFace model zoo, which marks its models for **non-commercial research use**; the training set (WebFace600K) is research-only. Off by default; enable only if that provenance is acceptable for your use. |
 
 ## AGPL-3.0 Notice

@@ -84,6 +84,30 @@ def denormalize_gaze_vector(gaze_vector, normalizing_rot):
         normalizing_rot, dtype=float)
 
 
+# Camera coords (x right, y down, z away) -> the OMZ adas head frame
+# (OX face-to-camera, OY image-right, OZ up; head-pose-estimation-adas-0001
+# README).  Right-handed: OX x OY = OZ.
+_ADAS_BASIS = np.array([[0.0, 0.0, -1.0],
+                        [1.0, 0.0, 0.0],
+                        [0.0, -1.0, 0.0]])
+
+
+def head_pose_angles_adas(head_rot):
+    """Head pose (yaw, pitch, roll) in DEGREES, adas-0001 convention.
+
+    Decomposes a camera-frame head rotation (as returned by
+    ``estimate_head_pose``; identity = frontal) using the OMZ
+    parameterization ``R = Yaw_ccw(OZ) @ Pitch_ccw(OY) @ Roll_cw(OX)``
+    from the head-pose-estimation-adas-0001 README — the angle triplet
+    gaze-estimation-adas-0002 consumes.
+    """
+    r = _ADAS_BASIS @ np.asarray(head_rot, dtype=float) @ _ADAS_BASIS.T
+    yaw = np.arctan2(r[1, 0], r[0, 0])
+    pitch = np.arcsin(np.clip(-r[2, 0], -1.0, 1.0))
+    roll = np.arctan2(-r[2, 1], r[2, 2])
+    return np.degrees(np.array([yaw, pitch, roll]))
+
+
 def vector_to_pipeline_pitchyaw(gaze_vector):
     """Camera-frame gaze vector -> (pitch, yaw) in the MindSight ray convention.
 
