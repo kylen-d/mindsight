@@ -109,6 +109,38 @@ def test_pooling_averages_per_class_across_annotating_references():
     assert torch.allclose(pooled[0, 1], expected_toy, atol=1e-6)
 
 
+def test_pooling_syncs_stale_predictor_class_table():
+    """Regression (W4B, user repro): the priming predicts leave
+    model.predictor caching the LAST reference's class table, and seg
+    NMS sizes its mask split from len(predictor.model.names) -- with a
+    last reference annotating a SUBSET of the union, the first real
+    frame crashed in process_mask ("mat1 and mat2 shapes cannot be
+    multiplied (Nx33 and 32x16640)").  After pooling, the predictor's
+    cached names must equal the pooled union table."""
+    from types import SimpleNamespace
+
+    ea_cup, ea_toy = _unit(1.0, 0.0), _unit(0.0, 1.0)
+    ec_toy = _unit(1.0, 1.0)
+    fake = _FakeYOLOE({
+        "a.png": torch.stack([ea_cup, ea_toy]).unsqueeze(0),
+        "c.png": ec_toy.reshape(1, 1, 2),
+    })
+    # Simulate the retained predictor: after the last priming predict
+    # (c.png, toy only) its model wrapper carries the 1-class table.
+    fake.predictor = SimpleNamespace(
+        model=SimpleNamespace(names={0: "toy"}))
+    refs = [
+        {"image": "a.png", "bboxes": np.zeros((2, 4)),
+         "cls": np.array([0, 1])},
+        {"image": "c.png", "bboxes": np.zeros((1, 4)),
+         "cls": np.array([1])},                    # SUBSET last -- the trigger
+    ]
+    prime_yoloe_multi_reference(
+        fake, refs, predictor_cls=object, class_names={0: "cup", 1: "toy"},
+        log=lambda *_a: None)
+    assert fake.predictor.model.names == {0: "cup", 1: "toy"}
+
+
 def test_single_reference_files_keep_the_native_path():
     """YOLOEVPDetector with ONE reference must not touch the pooling helper
     (the 1.0 regression guarantee: identical native priming)."""
