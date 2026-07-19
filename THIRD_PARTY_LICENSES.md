@@ -17,6 +17,14 @@ This file documents their licenses for compliance purposes.
 - **Location:** `Plugins/GazeTracking/Gazelle/gazelle/`
 - **Full license:** `Plugins/GazeTracking/Gazelle/gazelle/LICENSE`
 
+### ptgaze normalization math (vendored)
+- **License:** MIT
+- **Copyright:** (c) 2017 hysts
+- **Location:** `mindsight/GazeTracking/normalized/` (canonical MediaPipe
+  468-point 3D face model data, head-pose fitting, normalizing-warp and
+  gaze-denormalization math from `hysts/pytorch_mpiigaze_demo`, vendored
+  for the head-pose-normalized estimator backends)
+
 ## Python Dependencies
 
 | Package | License | Notes |
