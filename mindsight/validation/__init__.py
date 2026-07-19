@@ -11,7 +11,9 @@ from .runner import (
     latest_score,
     list_run_dirs,
     prepare_validation_namespace,
+    run_history,
     score_and_persist,
+    settings_diff,
 )
 from .scoring import score_run
 from .store import (
@@ -27,4 +29,5 @@ __all__ = [
     "ValidationStore", "validation_root",
     "score_run", "allocate_run_dir", "list_run_dirs", "latest_score",
     "prepare_validation_namespace", "score_and_persist",
+    "run_history", "settings_diff",
 ]

@@ -18,6 +18,11 @@
   `<project>/validation/` or `~/.mindsight/validation/`, run results
   under `validation/.runs/<set>/run-NNN/` with a settings snapshot per
   run.
+- **History/Compare**: the workbench's History dialog lists every
+  scored run for a set (newest first) with its metrics AND a
+  "changed vs previous" settings-diff column -- the per-run namespace
+  snapshots make "what did I turn to get this number" a lookup, not a
+  memory exercise. Selecting a run shows the full diff.
 
 ### Added (W4B validation suite groundwork)
 - **`--save-detections` writes an opt-in per-frame detections side

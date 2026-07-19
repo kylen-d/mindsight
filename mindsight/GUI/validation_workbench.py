@@ -107,6 +107,12 @@ class ValidationWorkbench(QWidget):
             "set's video and score against its labels.")
         self._validate_btn.clicked.connect(self._on_validate)
         run_row.addWidget(self._validate_btn)
+        history_btn = QPushButton("History…")
+        history_btn.setToolTip(
+            "All scored runs for this set, with the settings that "
+            "changed between runs.")
+        history_btn.clicked.connect(self._on_history)
+        run_row.addWidget(history_btn)
         self._status = QLabel("")
         run_row.addWidget(self._status, 1)
         lay.addLayout(run_row)
@@ -175,6 +181,13 @@ class ValidationWorkbench(QWidget):
             return
         self._store.delete(name)
         self.refresh_sets()
+
+    def _on_history(self):
+        name = self._selected_name()
+        if not name:
+            return
+        from mindsight.GUI.validation_history import ValidationHistoryDialog
+        ValidationHistoryDialog(self._store, name, self).exec()
 
     # ── Validate ─────────────────────────────────────────────────────────────
 
