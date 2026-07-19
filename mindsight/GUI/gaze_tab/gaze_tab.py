@@ -94,7 +94,8 @@ class GazeTab(QWidget):
         quadrant = QWidget()
         quad_lay = QVBoxLayout(quadrant)
         quad_lay.setContentsMargins(4, 4, 4, 4)
-        header = QLabel("Validation && Testing")
+        # QLabel renders '&' literally (no mnemonics), so no escaping.
+        header = QLabel("Validation & Testing")
         header.setStyleSheet("font-weight: bold;")
         quad_lay.addWidget(header)
         quad_lay.addWidget(self._validation_workbench, 1)

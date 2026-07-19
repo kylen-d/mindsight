@@ -141,9 +141,7 @@ class ValidationWorkbench(QWidget):
         self._progress.setTextVisible(False)
         progress_row.addWidget(self._progress, 1)
         lay.addLayout(progress_row)
-        self._status = QLabel(
-            "New… creates a validation set from a video; Annotate… opens "
-            "it to sample frames and label gaze targets.")
+        self._status = QLabel("")
         self._status.setWordWrap(True)
         lay.addWidget(self._status)
 
