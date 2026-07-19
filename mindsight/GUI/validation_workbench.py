@@ -22,7 +22,6 @@ from PyQt6.QtWidgets import (
     QComboBox,
     QFileDialog,
     QHBoxLayout,
-    QInputDialog,
     QLabel,
     QMessageBox,
     QProgressBar,
@@ -34,7 +33,6 @@ from PyQt6.QtWidgets import (
 )
 
 from mindsight.validation import (
-    ValidationSet,
     ValidationSetError,
     ValidationStore,
     allocate_run_dir,
@@ -170,21 +168,11 @@ class ValidationWorkbench(QWidget):
         return self._set_combo.currentData()
 
     def _on_new(self):
-        name, ok = QInputDialog.getText(self, "New validation set",
-                                        "Set name:")
-        if not ok or not name.strip():
-            return
-        video, _ = QFileDialog.getOpenFileName(
-            self, "Choose the set's source video", "",
-            "Videos (*.mp4 *.mov *.avi *.mkv);;All files (*)")
-        if not video:
-            return
-        try:
-            self._store.save(ValidationSet(name=name.strip(), video=video))
-        except ValidationSetError as exc:
-            QMessageBox.warning(self, "Cannot create set", str(exc))
-            return
-        self.refresh_sets(select=name.strip())
+        from mindsight.GUI.validation_wizard import ValidationSetWizard
+        wizard = ValidationSetWizard(self._store, parent=self)
+        wizard.exec()
+        created = wizard._vset.name if wizard._vset is not None else None
+        self.refresh_sets(select=created)
 
     def _on_annotate(self):
         name = self._selected_name()
@@ -195,10 +183,8 @@ class ValidationWorkbench(QWidget):
         except ValidationSetError as exc:
             QMessageBox.warning(self, "Cannot open set", str(exc))
             return
-        from mindsight.GUI.validation_annotator import (
-            ValidationAnnotatorDialog,
-        )
-        ValidationAnnotatorDialog(vset, self._store, self).exec()
+        from mindsight.GUI.validation_wizard import ValidationSetWizard
+        ValidationSetWizard(self._store, vset, parent=self).exec()
         self.refresh_sets(select=name)
 
     def _on_delete(self):

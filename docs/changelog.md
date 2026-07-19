@@ -13,22 +13,28 @@
   currently shown reach). Default stays 0 (instant snap, byte-identical
   goldens); the knob remains opt-in pending eyes-on review.
 
-### Added (W4B in-app validation & tuning suite -- first working core)
-- **Validation workbench on the Inference Tuning tab** (collapsible
-  "Validation & Testing" pane on the right split, Layout B): create
-  named validation sets from any video, label them in a new annotator
-  dialog (frame sampling; click-to-place per-participant gaze targets
-  with off-screen/uncertain/skip states; labeled object boxes drawn by
-  hand or accepted from FastSAM Suggest proposals -- the VP Builder
-  canvas, reused), then hit **Validate** to run the settings currently
-  dialed into the tab over the set's video and score them: mean/median/
-  p95 pixel error, gaze hit rate, Mean Angular Error, off-screen AUC,
-  and object IoU (vs the new detections side stream), side by side with
-  the previous run's numbers. Set files are valid eval-harness label
-  files (`scripts/eval_gaze.py` scores them unchanged); sets live in
-  `<project>/validation/` or `~/.mindsight/validation/`, run results
-  under `validation/.runs/<set>/run-NNN/` with a settings snapshot per
-  run.
+### Added (W4B in-app validation & tuning suite)
+- **Validation & Testing is now a first-class part of Inference
+  Tuning**: the bottom-right quadrant of the tab is the always-visible
+  validation workbench (scrollable; the live chart viewer is gone from
+  this tab and the log hides under a "Show log" checkbox at the
+  bottom). Create named validation sets through a **guided wizard** --
+  name + source video, then frame sampling with labeled units ("sample
+  every N frames", with a live "= every 1.0 s at 30 fps → adds ~29
+  frames" readout; labeling stays locked until the set has frames),
+  then click-to-place per-participant gaze targets with
+  off-screen/uncertain/skip states. Hit **Validate** to run the
+  settings currently dialed into the tab over the set's video --
+  with a live frame counter, fps, ETA, progress bar, and Cancel --
+  and score them: mean/median/p95 pixel error, gaze hit rate, Mean
+  Angular Error, off-screen AUC, and **average processing fps**, side
+  by side with the previous run's numbers. Set files are valid
+  eval-harness label files (`scripts/eval_gaze.py` scores them
+  unchanged); sets live in `<project>/validation/` or
+  `~/.mindsight/validation/`, run results under
+  `validation/.runs/<set>/run-NNN/` with a settings snapshot per run.
+  (Object-box labeling and the IoU display are shelved for a later
+  pass -- gaze targets first.)
 - **History/Compare**: the workbench's History dialog lists every
   scored run for a set (newest first) with its metrics AND a
   "changed vs previous" settings-diff column -- the per-run namespace
