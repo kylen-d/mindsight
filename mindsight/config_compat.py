@@ -131,6 +131,7 @@ EXCLUDED_CLI_FLAGS: dict[str, str] = {
     "--overlay-theme":     "run-loop cosmetic overlay styling; passed directly to run()",
     "--no-dashboard":      "run-loop performance toggle; passed directly to run()",
     "--profile":           "run-loop diagnostics toggle; passed directly to run()",
+    "--save-detections":   "run-loop output side-stream toggle; passed directly to run()",
     # Config-loading meta flags.
     "--pipeline":          "meta: which pipeline YAML to load",
     "--project":           "meta: project-mode directory",

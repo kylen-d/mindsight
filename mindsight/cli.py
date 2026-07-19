@@ -142,6 +142,7 @@ def main():
         overlay_theme=getattr(args, 'overlay_theme', 'classic'),
         no_dashboard=args.no_dashboard,
         profile=args.profile,
+        save_detections=getattr(args, 'save_detections', False),
         depth_cfg=depth_cfg, depth_backend=depth_backend,
         gazelle_provider=gazelle_provider, ray_cfg=ray_cfg,
         data_plugins=data_plugins)

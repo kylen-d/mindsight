@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+### Added (W4B validation suite groundwork)
+- **`--save-detections` writes an opt-in per-frame detections side
+  stream** (`[stem]_detections.csv` next to the summary CSV: one row
+  per detection with class, confidence, and bbox; header-only when a
+  run finds nothing; project mode aggregates `Global_detections.csv`).
+  Off by default — all existing outputs stay byte-identical. Built for
+  the in-app validation suite's object-IoU metric; useful standalone
+  for auditing what the detector saw frame by frame.
+
 ### Added (W4B Intel adas-0002 gaze backend, opt-in)
 - **`--adas-gaze-model` activates the Intel gaze-estimation-adas-0002
   backend** on the same head-pose-normalized core: MediaPipe landmarks

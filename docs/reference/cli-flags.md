@@ -58,6 +58,7 @@ be supplied multiple times.
 | `--summary` | str (optional) | None | Save post-run summary CSV. Omit a value to use Outputs/CSV Files/[stem]_Summary_Output.csv, or supply a custom path. |
 | `--heatmap` | str (optional) | None | Save per-participant scene gaze heatmaps. Omit a value to use Outputs/heatmaps/[stem]_Heatmap_Output (one PNG per participant), or supply a custom directory/prefix path. |
 | `--charts` | str (optional) | None | Generate post-run time-series charts for each phenomena tracker. Omit a value to use Outputs/Charts/[stem]_Charts.png, or supply a custom path. |
+| `--save-detections` | flag | off | Write a per-frame detections side stream (`[stem]_detections.csv` next to the summary CSV: one row per detection with class, confidence, and bbox). Off by default; the validation suite enables it for its runs to score object IoU. |
 | `--anonymize` | `blur` / `black` | None | Anonymize faces in the output video: 'blur' applies heavy Gaussian blur, 'black' fills with a solid rectangle. |
 | `--anonymize-padding` | float | `0.3` | Fraction of face bbox size added as padding for anonymization (default: 0.3). |
 

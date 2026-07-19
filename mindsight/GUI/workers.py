@@ -185,6 +185,7 @@ class GazeWorker(threading.Thread):
             overlay_theme=getattr(self.ns, 'overlay_theme', 'classic'),
             no_dashboard=getattr(self.ns, 'no_dashboard', False),
             profile=getattr(self.ns, 'profile', False),
+            save_detections=getattr(self.ns, 'save_detections', False),
         )
 
         # Pump annotated frames to the GUI; translate the stop Event into a

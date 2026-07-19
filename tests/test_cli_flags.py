@@ -54,7 +54,7 @@ def test_generated_parser_spec_matches_golden():
     spec = parser_spec(build_parser())
     golden = _golden()
     assert spec["prog"] == golden["prog"]
-    assert len(spec["actions"]) == len(golden["actions"]) == 171
+    assert len(spec["actions"]) == len(golden["actions"]) == 172
     got = [_norm_action(a) for a in spec["actions"]]
     want = [_norm_action(a) for a in golden["actions"]]
     assert [a["dest"] for a in got] == [a["dest"] for a in want]
@@ -72,7 +72,7 @@ def test_flagspec_table_welds_to_schema_and_tables():
     from mindsight.config import PipelineConfig
     from mindsight.config_compat import CLI_ALIASES, EXCLUDED_CLI_FLAGS
 
-    assert len(CORE_FLAGS) == 126
+    assert len(CORE_FLAGS) == 127
 
     schema_cli: set[str] = set()
 
@@ -99,7 +99,7 @@ def test_flagspec_table_welds_to_schema_and_tables():
 
     assert schema_flags == schema_cli and len(schema_flags) == 82
     assert alias_flags == set(CLI_ALIASES) and len(alias_flags) == 12
-    assert excluded_flags == set(EXCLUDED_CLI_FLAGS) and len(excluded_flags) == 32
+    assert excluded_flags == set(EXCLUDED_CLI_FLAGS) and len(excluded_flags) == 33
 
 
 def test_only_two_default_overrides():

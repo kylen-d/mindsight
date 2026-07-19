@@ -133,6 +133,20 @@ def collect_frame_data(ctx, *, log_csv, frame_no: int,
                 ";".join(sorted(hit_names.get(tid, ()))),
             ])
 
+    # Detections side stream (v1.1 W4B validation suite, opt-in via
+    # --save-detections): one row per detection per frame, feeding the
+    # object-IoU metric.  The list is None unless the flag is on.
+    det_rows = ctx.get('detections_stream_rows')
+    if det_rows is not None:
+        fps = ctx.get('video_fps') or 0.0
+        t_seconds = f"{frame_no / fps:.3f}" if fps else ""
+        for d in ctx.get('all_dets', []):
+            det_rows.append([
+                frame_no, t_seconds, d['class_name'],
+                f"{float(d['conf']):.3f}",
+                d['x1'], d['y1'], d['x2'], d['y2'],
+            ])
+
     # DataCollection plugin per-frame hook (dead until v1.1: instances were
     # built and seeded into ctx but on_frame had no call site anywhere).
     data_plugins = ctx.get('data_plugins', [])
@@ -188,7 +202,8 @@ def finalize_run(ctx, **kwargs) -> None:
             all_trackers=all_trackers, pid_map=pid_map,
             video_name=ctx.get('video_name'),
             conditions=ctx.get('conditions', ''),
-            gaze_stream=ctx.get('gaze_stream_rows'))
+            gaze_stream=ctx.get('gaze_stream_rows'),
+            detections_stream=ctx.get('detections_stream_rows'))
 
     resolved_heatmap = resolve_heatmap_path(heatmap_path, source)
     if resolved_heatmap and heatmap_gaze:
