@@ -2,6 +2,17 @@
 
 ## [Unreleased]
 
+### Changed (W4B length-slew rework)
+- **`--rf-len-slew` now slews the *effective* length target** (the
+  value the ray actually shows) instead of the internal latch, with the
+  length-hold decay paused for the duration of the ramp. The previous
+  mechanism had the slewing latch and the decay pulling against each
+  other, which read as ~3 Hz length bounce on real footage -- the
+  reason the brief default-5 flip was reverted. The rework gives a
+  monotone, jump-free approach (a mid-ramp refresh restarts from the
+  currently shown reach). Default stays 0 (instant snap, byte-identical
+  goldens); the knob remains opt-in pending eyes-on review.
+
 ### Added (W4B in-app validation & tuning suite -- first working core)
 - **Validation workbench on the Inference Tuning tab** (collapsible
   "Validation & Testing" pane on the right split, Layout B): create

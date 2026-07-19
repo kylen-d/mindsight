@@ -1494,7 +1494,7 @@
       "choices": null,
       "required": false,
       "metavar": "N",
-      "help": "When a length refresh re-latches ray length, slew toward the new value over N frames instead of snapping instantly. Experimental: interacts with the length-hold decay and can read as bounce rather than smoothing. 0 = instant snap (default: 0).",
+      "help": "When a length refresh re-latches ray length, ramp the effective length target from the reach currently shown to the new value over N frames instead of snapping, with the length-hold decay paused during the ramp (monotone approach, no bounce). 0 = instant snap (default: 0).",
       "group": "Ray Forming (Gazelle blend)"
     },
     {
