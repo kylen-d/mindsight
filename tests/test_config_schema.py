@@ -233,6 +233,9 @@ def test_root_sections():
     assert set(PipelineConfig.model_fields) == {
         "detection", "gaze", "tracker", "rayforming", "depth",
         "phenomena", "output", "project",
+        # W4B: validation summary METADATA (no dataclass mirror, no
+        # CLI/UI surface; canonical_hash carves it out by design).
+        "validation",
     }
 
 

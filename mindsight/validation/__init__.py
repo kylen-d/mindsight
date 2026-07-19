@@ -8,12 +8,14 @@ the eval-harness label format (``eval_data/{stem}_labels.json``), so
 """
 from .runner import (
     allocate_run_dir,
+    embed_validation_summary,
     latest_score,
     list_run_dirs,
     prepare_validation_namespace,
     run_history,
     score_and_persist,
     settings_diff,
+    validation_summary_block,
 )
 from .scoring import score_run
 from .store import (
@@ -30,4 +32,5 @@ __all__ = [
     "score_run", "allocate_run_dir", "list_run_dirs", "latest_score",
     "prepare_validation_namespace", "score_and_persist",
     "run_history", "settings_diff",
+    "validation_summary_block", "embed_validation_summary",
 ]

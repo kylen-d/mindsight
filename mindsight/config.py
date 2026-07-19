@@ -343,6 +343,27 @@ class ProjectSection(BaseModel):
     output: ProjectOutputSection = Field(default_factory=ProjectOutputSection)
 
 
+class ValidationSection(BaseModel):
+    """Validation summary METADATA embedded in a pipeline file (v1.1 W4B,
+    ruled 2026-07-18: in-file block, not a sidecar).
+
+    Documentation only -- no dataclass mirror, no CLI flags, no UI spec:
+    it records which validation set the settings were scored against and
+    what they scored, so a shared pipeline file carries its evidence.
+    ``canonical_hash`` deliberately IGNORES this section (the tested
+    carve-out): embedding or editing validation metadata must never
+    invalidate resume ledgers.
+    """
+
+    model_config = _FORBID
+
+    set_name: str | None = None
+    n_frames: int | None = None
+    date: str | None = None
+    metrics: dict | None = None
+    settings_hash: str | None = None
+
+
 # ══════════════════════════════════════════════════════════════════════════════
 # Root model
 # ══════════════════════════════════════════════════════════════════════════════
@@ -360,11 +381,19 @@ class PipelineConfig(BaseModel):
     phenomena: PhenomenaSection = Field(default_factory=PhenomenaSection)
     output: OutputSection = Field(default_factory=OutputSection)
     project: ProjectSection = Field(default_factory=ProjectSection)
+    validation: ValidationSection = Field(default_factory=ValidationSection)
 
     def canonical_hash(self) -> str:
-        """sha256 over the sorted-key JSON dump; stable across processes."""
-        payload = json.dumps(self.model_dump(mode="json"), sort_keys=True,
-                             separators=(",", ":"))
+        """sha256 over the sorted-key JSON dump; stable across processes.
+
+        The ``validation`` section is EXCLUDED (W4B carve-out, ruled
+        2026-07-18): it is scoring metadata ABOUT the config, not
+        processing config -- embedding or editing it must never move the
+        hash and force a resume-ledger reprocess.
+        """
+        dump = self.model_dump(mode="json")
+        dump.pop("validation", None)
+        payload = json.dumps(dump, sort_keys=True, separators=(",", ":"))
         return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
     @classmethod
@@ -873,6 +902,13 @@ _UI: dict[str, dict | None] = {
     "project.conditions": None,
     "project.participants": None,
     "project.output": None,
+    # Validation summary metadata (W4B): documentation-only block, no UI
+    # widgets -- the workbench writes it, humans read it.
+    "validation.set_name": None,
+    "validation.n_frames": None,
+    "validation.date": None,
+    "validation.metrics": None,
+    "validation.settings_hash": None,
 }
 
 

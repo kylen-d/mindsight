@@ -14,6 +14,7 @@ The tab injects ``namespace_provider`` (its ``_build_namespace``) and a
 from __future__ import annotations
 
 import queue
+from pathlib import Path
 
 from PyQt6.QtCore import QTimer
 from PyQt6.QtWidgets import (
@@ -113,6 +114,13 @@ class ValidationWorkbench(QWidget):
             "changed between runs.")
         history_btn.clicked.connect(self._on_history)
         run_row.addWidget(history_btn)
+        embed_btn = QPushButton("Embed…")
+        embed_btn.setToolTip(
+            "Write this set's latest score into a pipeline YAML's "
+            "validation: block (metadata only -- never affects runs or "
+            "resume).")
+        embed_btn.clicked.connect(self._on_embed)
+        run_row.addWidget(embed_btn)
         self._status = QLabel("")
         run_row.addWidget(self._status, 1)
         lay.addLayout(run_row)
@@ -188,6 +196,36 @@ class ValidationWorkbench(QWidget):
             return
         from mindsight.GUI.validation_history import ValidationHistoryDialog
         ValidationHistoryDialog(self._store, name, self).exec()
+
+    def _on_embed(self):
+        name = self._selected_name()
+        if not name:
+            return
+        from mindsight.validation import (
+            embed_validation_summary,
+            validation_summary_block,
+        )
+        score = latest_score(self._store.root, name)
+        if score is None:
+            self._status.setText("Validate first — no score to embed.")
+            return
+        path, _ = QFileDialog.getOpenFileName(
+            self, "Pipeline file to embed the summary into", "",
+            "YAML (*.yaml *.yml);;All files (*)")
+        if not path:
+            return
+        import datetime
+        try:
+            vset = self._store.load(name)
+            block = validation_summary_block(
+                vset, score,
+                date=datetime.date.today().isoformat())
+            embed_validation_summary(path, block)
+        except ValidationSetError as exc:
+            QMessageBox.warning(self, "Cannot embed", str(exc))
+            return
+        self._status.setText(f"Embedded '{name}' summary into "
+                             f"{Path(path).name}")
 
     # ── Validate ─────────────────────────────────────────────────────────────
 
