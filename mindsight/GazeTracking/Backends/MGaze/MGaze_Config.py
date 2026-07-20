@@ -6,8 +6,11 @@ used by the MGaze ONNX and PyTorch estimation backends.
 """
 from mindsight.weights import resolve_weight
 
-# Default ONNX model (resolved via Weights/MGaze/)
-DEFAULT_ONNX_MODEL = str(resolve_weight("MGaze", "mobileone_s0_gaze.onnx"))
+# Default ONNX model (resolved via Weights/MGaze/).  v1.1 W4C flip
+# (ruling R7): resnet50 measures ~12px better than mobileone_s0 on
+# every eval config (88px/48% vs 74.5px/62% standalone); mobileone_s0
+# stays shipped as the low-power preset's pick.
+DEFAULT_ONNX_MODEL = str(resolve_weight("MGaze", "resnet50_gaze.onnx"))
 
 # Architecture choices for PyTorch (.pt) models
 ARCH_CHOICES = [

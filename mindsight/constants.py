@@ -111,7 +111,11 @@ LABEL_PAD_Y     = 4           # vertical padding inside label background
 # UI labels & strings
 # ═══════════════════════════════════════════════════════════════════════════════
 
-UI_ARROW_LEFT   = "\u2190"    # ← used next to object labels to show looker
+# ASCII on purpose: cv2 Hershey fonts render each non-ASCII byte as "?",
+# so on-frame overlay strings must stay ASCII (the old \u2190 arrow
+# rendered as "???" in saved videos). Console-only strings
+# (UI_ARROW_RIGHT) can keep real unicode.
+UI_ARROW_LEFT   = "<-"        # used next to object labels to show looker
 UI_ARROW_RIGHT  = "\u2192"    # → used in console output for gaze hits
 UI_LABEL_JOINT  = "JOINT"     # tag for joint-attention objects
 UI_LABEL_LOCKED = "LOCKED"    # tag for gaze-locked objects

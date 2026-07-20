@@ -82,7 +82,7 @@ class GazeBackendSection(QWidget):
         awl.setContentsMargins(0, 0, 0, 0)
         self._gaze_arch = QComboBox()
         self._gaze_arch.addItems(GAZE_ARCHS)
-        self._gaze_arch.setCurrentText("mobileone_s0")
+        self._gaze_arch.setCurrentText("resnet50")
         self._gaze_dataset = QComboBox()
         self._gaze_dataset.addItems(GAZE_DATASETS)
         awl.addRow("Arch:", self._gaze_arch)

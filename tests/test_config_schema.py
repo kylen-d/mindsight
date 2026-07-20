@@ -449,11 +449,16 @@ def test_ui_metadata_does_not_move_canonical_hash():
     (user-approved with the pico ONNX default blend engine, one combined
     re-bless -- the 5th; same one-time-reprocess consequence,
     still pre-release).
+    Re-pinned 2026-07-19 (W4C flip, ruling R5): rf_len_slew default
+    0 -> 5 (the W4B decay-paused rework, eyes-on approved; part of the
+    6th re-bless together with the R7 resnet50 mgaze default, which is
+    plugin-side and does NOT touch this hash; same one-time-reprocess
+    consequence, still pre-release).
     """
     assert PipelineConfig().canonical_hash() == (
-        "72fb6bef916c3e99b08deff3ed0dd68236bf1f9097e69cd756788b8384dd18d8")
+        "90753c9720e466b060030399314f3a093ef2013933ddb6c65deb598afcdb6879")
     assert PipelineConfig(gaze={"ray_length": 1.5}).canonical_hash() == (
-        "0a6f74f324ce50b9082c1ba325765449f084b183c65370b69da57c45071e054e")
+        "4ed82828db5c44f5ca6aacddcb1622f4ec61e1bf25bc566d82b467658259c52e")
 
 
 def test_ui_mirror_rule_targets_are_hidden():
