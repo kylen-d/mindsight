@@ -9,9 +9,13 @@ with per-step validation, and plain-English titles.
 Four steps:
 
 1. **Set** — name, how many people are on screen, participant labels
-   (seeded from project metadata via "Start from a project…").
+   (seeded from project metadata in project mode), and WHAT is being
+   validated: one video (picked right here; the Videos step is
+   skipped), several videos, or a whole project — the wizard reshapes
+   itself around that choice (user clarification, W4C round 2).
 2. **Videos** — one or more clips per set (W4C multi-video sets); add
-   individual files or every staged video of a project.
+   individual files or every staged video of a project.  Hidden in
+   single-video mode.
 3. **Frames** — per-video sampling ("sample every N frames" with a
    seconds-equivalent readout) or single-frame adds; "Sample ALL
    videos" covers the whole set at once.
@@ -40,6 +44,7 @@ from PyQt6.QtWidgets import (
     QLineEdit,
     QListWidget,
     QPushButton,
+    QRadioButton,
     QSpinBox,
     QStackedWidget,
     QVBoxLayout,
@@ -184,7 +189,11 @@ class ValidationSetWizard(QDialog):
             self._set_step(row)
 
     def _go_back(self):
-        self._set_step(max(0, self._stack.currentIndex() - 1))
+        i = self._stack.currentIndex()
+        prev = i - 1
+        if prev == PAGE_VIDEOS and self._mode() == "single":
+            prev = PAGE_SET                  # Videos step skipped
+        self._set_step(max(0, prev))
 
     def _go_next(self):
         i = self._stack.currentIndex()
@@ -199,7 +208,10 @@ class ValidationSetWizard(QDialog):
         if i == PAGE_LABEL:
             self.accept()
             return
-        self._set_step(i + 1)
+        nxt = i + 1
+        if nxt == PAGE_VIDEOS and self._mode() == "single":
+            nxt = PAGE_FRAMES                # Videos step skipped
+        self._set_step(nxt)
 
     # ── Step 1: Set ──────────────────────────────────────────────────────────
 
@@ -242,20 +254,87 @@ class ValidationSetWizard(QDialog):
         lay.addLayout(form)
         self._sync_default_labels()
 
-        proj_row = QHBoxLayout()
-        proj_btn = QPushButton("Start from a project…")
+        # What is being validated (user clarification): one video /
+        # several videos / a whole project.  The wizard reshapes around
+        # the choice -- single-video mode picks the file right here and
+        # skips the Videos step.
+        mode_title = QLabel("What are you validating?")
+        mode_title.setStyleSheet("font-weight: bold;")
+        lay.addWidget(mode_title)
+        self._mode_single = QRadioButton("One video")
+        self._mode_multi = QRadioButton("Several videos")
+        self._mode_project = QRadioButton("A whole project")
+        self._mode_single.setChecked(True)
+        mode_row = QHBoxLayout()
+        for rb in (self._mode_single, self._mode_multi, self._mode_project):
+            rb.toggled.connect(self._on_mode_changed)
+            mode_row.addWidget(rb)
+        mode_row.addStretch(1)
+        lay.addLayout(mode_row)
+
+        # Single-video mode: the clip is picked right here.
+        self._video_row = QWidget()
+        vrow = QHBoxLayout(self._video_row)
+        vrow.setContentsMargins(0, 0, 0, 0)
+        vrow.addWidget(QLabel("Source video:"))
+        self._video_edit = QLineEdit()
+        self._video_edit.setPlaceholderText("choose the clip to label…")
+        vrow.addWidget(self._video_edit, 1)
+        browse = QPushButton("Browse…")
+        browse.clicked.connect(self._on_browse_video)
+        vrow.addWidget(browse)
+        lay.addWidget(self._video_row)
+
+        # Project mode: the project is picked right here.
+        self._proj_row = QWidget()
+        prow = QHBoxLayout(self._proj_row)
+        prow.setContentsMargins(0, 0, 0, 0)
+        proj_btn = QPushButton("Choose project…")
         proj_btn.setToolTip(
             "Pick a MindSight project folder: every staged video becomes a "
             "clip of this set, and participant labels come from the "
             "project's run metadata.")
         proj_btn.clicked.connect(self._on_import_project)
-        proj_row.addWidget(proj_btn)
+        prow.addWidget(proj_btn)
         self._proj_note = QLabel("")
         self._proj_note.setStyleSheet("color: #888;")
-        proj_row.addWidget(self._proj_note, 1)
-        lay.addLayout(proj_row)
+        prow.addWidget(self._proj_note, 1)
+        lay.addWidget(self._proj_row)
+
+        self._multi_note = QLabel(
+            "You will add the videos on the next step.")
+        self._multi_note.setStyleSheet("color: #888;")
+        lay.addWidget(self._multi_note)
+
         lay.addStretch(1)
+        self._on_mode_changed()
         return page
+
+    def _mode(self) -> str:
+        if self._mode_project.isChecked():
+            return "project"
+        if self._mode_multi.isChecked():
+            return "multi"
+        return "single"
+
+    def _on_mode_changed(self, *_):
+        mode = self._mode()
+        self._video_row.setVisible(mode == "single")
+        self._proj_row.setVisible(mode == "project")
+        self._multi_note.setVisible(mode == "multi")
+        if hasattr(self, "_gate_msg"):       # nav row builds after pages
+            self._gate_msg.setText("")
+        # The Videos step only exists for multi/project sets.
+        item = self._steps.item(PAGE_VIDEOS)
+        if item is not None:
+            item.setHidden(mode == "single")
+
+    def _on_browse_video(self):
+        path, _ = QFileDialog.getOpenFileName(
+            self, "Choose the set's source video", "",
+            "Videos (*.mp4 *.mov *.avi *.mkv);;All files (*)")
+        if path:
+            self._video_edit.setText(path)
 
     def _default_labels_text(self) -> str:
         return ", ".join(f"P{i}" for i in range(self._people_spin.value()))
@@ -303,16 +382,47 @@ class ValidationSetWizard(QDialog):
             self._people_spin.setValue(min(
                 max(len(self._vset.participants), 1),
                 self._people_spin.maximum()))
+        # Reflect the set's shape in the mode choice (a one-clip set reads
+        # as single-video; switching to 'Several videos' re-reveals the
+        # Videos step to grow it).
+        if len(self._vset.clips) > 1:
+            self._mode_multi.setChecked(True)
+        else:
+            self._mode_single.setChecked(True)
+            if self._vset.clips:
+                self._video_edit.setText(self._vset.video)
+        self._on_mode_changed()
 
     def _commit_set_page(self) -> bool:
         name = self._name_edit.text().strip()
         if not name:
             self._gate_msg.setText("Give the set a name first.")
             return False
+        mode = self._mode()
+        if mode == "single":
+            video = self._video_edit.text().strip()
+            if not video:
+                self._gate_msg.setText("Choose the video to label.")
+                return False
+            if not Path(video).is_file():
+                self._gate_msg.setText("That video file does not exist.")
+                return False
+        if mode == "project" and not (
+                getattr(self, "_pending_clips", None)
+                or (self._vset is not None and self._vset.clips)):
+            self._gate_msg.setText(
+                "Choose a project first -- its staged videos become the "
+                "set's clips.")
+            return False
         try:
             if self._vset is None:
                 self._vset = ValidationSet(name=name)
             self._vset.participants = self._participants()
+            if mode == "single":
+                if not self._vset.clips:
+                    self._vset.add_clip(video)
+                elif self._vset.clips[0].video != video:
+                    self._vset.clips[0].video = video
             for info in getattr(self, "_pending_clips", []) or []:
                 if self._vset.clip_for_video(info["video"]) is None:
                     self._vset.add_clip(info["video"])

@@ -11,8 +11,10 @@
   keep their eval-harness file compatibility.
 - **The validation-set wizard was rebuilt in the Build-Project wizard's
   style**: a step list (Set / Videos / Frames / Label) with per-step
-  gating, participants count + labels on the first step (seeded from a
-  project's run metadata via "Start from a project..."), per-video
+  gating, a what-are-you-validating choice (one video / several videos /
+  a whole project -- single-video sets skip the Videos step entirely),
+  participants count + labels on the first step (seeded from a
+  project's run metadata in project mode), per-video
   frame sampling with "Sample ALL videos", and a labeling flow that
   resets the participant selector on every frame, hops to the next
   frame after the last participant, shows live progress, and supports
