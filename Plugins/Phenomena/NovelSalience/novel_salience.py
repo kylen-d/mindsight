@@ -303,12 +303,14 @@ class NovelSalienceTracker(PhenomenaPlugin):
         if self.events:
             # Show last 3 events
             for ev in self.events[-3:]:
-                speed_str = (f"{ev['speed_deg']:.1f}\u00b0/f"
+                # ASCII only: this row is drawn with cv2 putText, which
+                # renders each non-ASCII byte as "?".
+                speed_str = (f"{ev['speed_deg']:.1f}deg/f"
                              if ev['speed_deg'] is not None
                              else f"{ev['speed_px']:.0f}px/f")
                 plbl = resolve_display_pid(ev['face_id'], pid_map)
                 rows.append((
-                    f"{plbl} \u2192{ev['direction']}  "
+                    f"{plbl} ->{ev['direction']}  "
                     f"{speed_str}  @f{ev['frame_no']}",
                     self._NS_COL,
                 ))

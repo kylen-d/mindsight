@@ -10,7 +10,8 @@ as before, but the OUTPUT length target ramps linearly from the reach
 the ray last showed to the new latch over N ``update()`` calls, with
 the hold decay PAUSED for the duration (age frozen at 0; decay resumes
 after arrival).  Monotone approach, no interaction with the decay.
-Default stays 0 (snap) -- goldens byte-identical.
+Default flipped 0 -> 5 in W4C (ruling R5, eyes-on approved; part of
+the 6th golden re-bless); 0 restores the instant snap.
 """
 from __future__ import annotations
 
@@ -155,14 +156,14 @@ def test_prune_clears_slew_state():
     assert b._last_eff_len == {}
 
 
-def test_flag_reaches_schema_with_default_off():
+def test_flag_reaches_schema_with_default_five():
     from mindsight.cli_flags import parse_cli
     from mindsight.config import PipelineConfig
 
-    ns = parse_cli([])
-    assert PipelineConfig.from_namespace(ns).rayforming.rf_len_slew == 0
-    assert RayFormingConfig.from_namespace(ns).rf_len_slew == 0
-
-    ns = parse_cli(["--rf-len-slew", "5"])       # opt-in
+    ns = parse_cli([])                           # W4C flip (ruling R5)
     assert PipelineConfig.from_namespace(ns).rayforming.rf_len_slew == 5
     assert RayFormingConfig.from_namespace(ns).rf_len_slew == 5
+
+    ns = parse_cli(["--rf-len-slew", "0"])       # escape hatch: snap
+    assert PipelineConfig.from_namespace(ns).rayforming.rf_len_slew == 0
+    assert RayFormingConfig.from_namespace(ns).rf_len_slew == 0

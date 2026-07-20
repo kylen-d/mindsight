@@ -76,14 +76,15 @@ class RayFormingConfig:
     # fixation-gated fp32 channel.  Consumed by GazelleProvider.
     # Default 10 since the W3Y flip (eval-validated; second re-bless).
     rf_len_refresh_gap: int = 10
-    # W3Z length-slew: when a refresh re-latches ray length on an
-    # already-latched track, slew the latch old -> new over N frames instead
-    # of snapping instantly.  Consumed by GazeLLEBlender.  Default back to
-    # 0 (2026-07-18 eyes-on: slewing the LATCH while the hold-decay pulls
-    # the target toward the PY baseline reads as BOUNCE, not smoothing --
-    # needs a rework that slews the effective target instead; flip
-    # reverted, knob kept).
-    rf_len_slew: int = 0
+    # W3Z length-slew, reworked in W4B: when a refresh re-latches ray
+    # length on an already-latched track, ramp the EFFECTIVE length
+    # target from the reach currently shown to the new latch over N
+    # frames with the hold decay paused (the original latch-slew fought
+    # the decay and read as bounce; the rework removes the fight).
+    # Consumed by GazeLLEBlender.  Default flipped 0 -> 5 in W4C
+    # (ruling R5, eyes-on approved; eval accuracy-neutral, hit +1.2pp).
+    # 0 restores the instant snap.
+    rf_len_slew: int = 5
     # W3Z items 3a/3b; gain default flipped to 1.1 in W4A (user-approved
     # with the pico ONNX engine default, one combined re-bless).
     # rf_len_gain scales the blender's length TARGET (eval decomposition:
@@ -195,7 +196,7 @@ class RayFormingConfig:
             rf_onset_samples=getattr(ns, 'rf_onset_samples', 3) or 0,
             rf_onset_gap=getattr(ns, 'rf_onset_gap', 5) or 0,
             rf_len_refresh_gap=getattr(ns, 'rf_len_refresh_gap', 10) or 0,
-            rf_len_slew=getattr(ns, 'rf_len_slew', 0) or 0,
+            rf_len_slew=getattr(ns, 'rf_len_slew', 5) or 0,
             rf_len_gain=getattr(ns, 'rf_len_gain', 1.1) or 1.1,
             rf_endpoint_extract=getattr(ns, 'rf_endpoint_extract', 'centroid')
             or 'centroid',

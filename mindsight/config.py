@@ -182,9 +182,11 @@ class RayFormingSection(BaseModel):
     # v1.1 W3Y flip: eval-validated default (70.3px mean / 66% hit rate vs
     # 71.3/64% off, ~+0.6ms/frame). 0 disables.
     rf_len_refresh_gap: int = Field(10, json_schema_extra={"cli": "--rf-len-refresh-gap"})
-    # v1.1 W3Z: slew re-latched ray length over N frames. Flip to 5 was
-    # REVERTED same-day (eyes-on: reads as bounce; rework needed).
-    rf_len_slew: int = Field(0, json_schema_extra={"cli": "--rf-len-slew"})
+    # v1.1 W4C flip (ruling R5, eyes-on approved): W4B reworked the slew
+    # to ramp the EFFECTIVE length target with the hold decay paused (no
+    # more latch-vs-decay bounce); eval accuracy-neutral, hit +1.2pp.
+    # 0 restores the instant snap.
+    rf_len_slew: int = Field(5, json_schema_extra={"cli": "--rf-len-slew"})
     # v1.1 W4A flip (user-approved with the pico ONNX default engine, one
     # combined re-bless): eval decomposition showed 84% of rays
     # systematically short; 1.10 recovered ~5px mean / ~8px median.
@@ -477,7 +479,7 @@ class PipelineConfig(BaseModel):
             rf_onset_samples=g("rf_onset_samples", 3),
             rf_onset_gap=g("rf_onset_gap", 5),
             rf_len_refresh_gap=g("rf_len_refresh_gap", 10),
-            rf_len_slew=g("rf_len_slew", 0),
+            rf_len_slew=g("rf_len_slew", 5),
             rf_len_gain=g("rf_len_gain", 1.1),
             rf_endpoint_extract=g("rf_endpoint_extract", "centroid"),
             dir_min_cutoff=g("dir_min_cutoff", 1.0),

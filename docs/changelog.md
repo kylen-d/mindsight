@@ -2,6 +2,46 @@
 
 ## [Unreleased]
 
+### Added (W4C auto-tune)
+- **Auto-tune sweeps in the validation workbench**: the new
+  "Auto-tune..." button sweeps one or two knobs over a validation set
+  -- pick from a curated list (ray-length gain, min call gap, length
+  refresh gap, detection confidence, snap quality threshold, length
+  slew, detection scale), give each a comma-separated value list (up
+  to 12 combinations, with a live run-time estimate), and every
+  combination runs through the ordinary validation runner as its own
+  scored run -- History and the settings diff understand sweep runs
+  automatically. Results land in a table sorted by mean pixel error,
+  and **Apply best to tab** writes the winning values back into the
+  tab so Validate immediately reproduces the winner. Sweeps persist
+  (`validation/.runs/<set>/sweep-NNN.json`) and the dialog reopens on
+  the set's last sweep; cancelling keeps every completed combination's
+  score.
+
+### Changed (W4C default flips -- ruled, eyes-on approved)
+- **Ray-length slewing is on by default** (`--rf-len-slew` 0 -> 5):
+  re-latched ray lengths now ramp smoothly over 5 frames using the
+  reworked decay-paused mechanism (below). Accuracy-neutral on the
+  eval labels with a slightly higher hit rate; `--rf-len-slew 0`
+  restores the instant snap.
+- **The default MobileGaze weight is now `resnet50_gaze.onnx`** (was
+  `mobileone_s0_gaze.onnx`): resnet50 measures ~12 px better mean
+  error on every configuration evaluated. Both weights ship in the
+  required set; the low-power preset still picks mobileone_s0 for
+  throughput, and presets/pipelines that name a model are unaffected.
+- Golden smoke baselines re-blessed for the two flips (the 6th
+  re-bless): default smoke now 163 hit events (was 2), blend smoke
+  1468 (was 1443), YAML smoke unchanged at 711 (it already pins
+  resnet50).
+
+### Fixed (W4C)
+- **Overlay labels no longer render "???"**: cv2's Hershey fonts draw
+  every non-ASCII byte as "?", so the on-frame unicode glyphs -- the
+  object "looked-at" arrow, the empty gaze-badge dash, the
+  novel-salience panel arrow/degree signs, and the gaze-debug degree
+  readout -- now use ASCII ("<-", "-", "deg"). Saved-video overlays
+  only; CSV outputs are unaffected.
+
 ### Changed (W4B length-slew rework)
 - **`--rf-len-slew` now slews the *effective* length target** (the
   value the ray actually shows) instead of the internal latch, with the
@@ -10,8 +50,8 @@
   other, which read as ~3 Hz length bounce on real footage -- the
   reason the brief default-5 flip was reverted. The rework gives a
   monotone, jump-free approach (a mid-ramp refresh restarts from the
-  currently shown reach). Default stays 0 (instant snap, byte-identical
-  goldens); the knob remains opt-in pending eyes-on review.
+  currently shown reach). (Flipped on by default later in this release
+  -- see the W4C entry above.)
 
 ### Added (W4B in-app validation & tuning suite)
 - **Validation & Testing is now a first-class part of Inference

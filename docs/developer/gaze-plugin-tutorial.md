@@ -49,7 +49,7 @@ mindsight/GazeTracking/Backends/MGaze/
     └── config.py
 
 Weights/MGaze/              # weights live OUTSIDE the code tree
-└── mobileone_s0_gaze.onnx  # default shipped model
+└── resnet50_gaze.onnx      # default shipped model
 ```
 
 !!! note
@@ -65,7 +65,7 @@ Weights/MGaze/              # weights live OUTSIDE the code tree
 from mindsight.weights import resolve_weight
 
 # Default ONNX model — resolved via the shared Weights/MGaze/ directory.
-DEFAULT_ONNX_MODEL = str(resolve_weight("MGaze", "mobileone_s0_gaze.onnx"))
+DEFAULT_ONNX_MODEL = str(resolve_weight("MGaze", "resnet50_gaze.onnx"))
 
 ARCH_CHOICES = [
     "resnet18", "resnet34", "resnet50", "mobilenetv2",

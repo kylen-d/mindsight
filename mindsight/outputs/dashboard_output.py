@@ -368,7 +368,7 @@ def _draw_gaze_rays(frame, persons_gaze, lock_info, ray_snapped, ray_extended,
         # Participant badge: shows which objects this person is looking at
         targets = face_targets.get(fi, [])
         lock_tag = " [LOCK]" if locked_oi is not None else ""
-        badge = f"{plbl}: " + (", ".join(targets) or "\u2013") + lock_tag
+        badge = f"{plbl}: " + (", ".join(targets) or "-") + lock_tag
         (bw, bh), _ = cv2.getTextSize(badge, _FONT, 0.45, 1)
         # Place badge to the right of the origin; flip left if it would clip
         bx = ox + 10 if ox + 10 + bw + 6 <= w else ox - bw - 16
@@ -382,8 +382,8 @@ def _draw_gaze_rays(frame, persons_gaze, lock_info, ray_snapped, ray_extended,
 
         # Debug overlay: raw pitch/yaw in degrees next to the badge
         if gaze_debug and angles:
-            cv2.putText(frame, (f"p={np.degrees(angles[0]):.1f}\u00b0"
-                                f" y={np.degrees(angles[1]):.1f}\u00b0"),
+            cv2.putText(frame, (f"p={np.degrees(angles[0]):.1f}"
+                                f" y={np.degrees(angles[1]):.1f} deg"),
                         (bx, by + bh + 12), _FONT, 0.35,
                         _face_colour(pid), 1, cv2.LINE_AA)
 
