@@ -63,9 +63,11 @@ the gaze overlay live, and experiment to see each setting's effect immediately.
 - **Source** -- a webcam, a video file, or an image.
 - **Detection** -- YOLO (text classes) or YOLOE (visual prompt).
 - **Gaze backend** -- **MobileGaze** (default) or **Gaze-LLE**.
-- **Live preview and dashboard** -- **Start** processing to see annotated frames
-  and a real-time dashboard of gaze statistics, hit counts, and phenomenon
-  events; **Stop** to halt.
+- **Live preview** -- **Start** processing to see annotated frames as each
+  setting changes; **Stop** to halt.
+- **Validation & Testing** -- the bottom-right quadrant scores the tab's
+  current settings against your own labeled frames, with run history and
+  auto-tune sweeps. See [Validation and testing](validation-and-testing.md).
 - **Plugin panel** -- controls auto-generated from any installed plugins'
   arguments, so a plugin's tuning knobs appear here without extra wiring.
 
@@ -92,5 +94,7 @@ stores and where.
 
 - [Inference Settings reference](../reference/inference-settings.md) -- the
   field-by-field authority for the dialog.
+- [Validation and testing](validation-and-testing.md) -- score tuning
+  experiments against labeled ground truth instead of eyeballing them.
 - [Visual prompts](visual-prompts.md) -- the detection side of a run.
 - [Where things live](where-things-live.md) -- presets and app state on disk.
