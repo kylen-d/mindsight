@@ -165,13 +165,13 @@ options:
   --anonymize-padding FRAC
                         Fraction of face bbox size added as padding for anonymization (default:
                         0.3).
-  --model MODEL         Object Detection Model (default: yolo11n.pt since v1.1; yolo11n.onnx in
+  --model MODEL         Object Detection Model (default: yolo11n.pt since v1.3; yolo11n.onnx in
                         the Models tab is a faster option for CPU-bound installs)
   --face-conf T         RetinaFace face-detection confidence threshold (default: 0.5, the library
                         default). Lower to catch small/distant faces.
   --face-input-size PX  RetinaFace square input resolution in pixels (default: 640, the library
                         default). Raise for small/distant faces at a speed cost.
-  --face-model NAME     RetinaFace backbone variant (default: r34 -- the v1.1 eval pick: best
+  --face-model NAME     RetinaFace backbone variant (default: r34 -- the v1.3 eval pick: best
                         accuracy AND ~40% faster than mnet_v2 on the CoreML path; weights auto-
                         download on first use).
   --conf CONF           Object detection confidence threshold, defaults to 0.35
@@ -257,9 +257,9 @@ options:
                         (default: 0.0). Try 0.35-0.45. Embedding weights auto-download on first
                         use (InsightFace research-provenance -- see THIRD_PARTY_LICENSES).
   --face-eye-origin     Anchor gaze rays at the detected eye midpoint (RetinaFace landmarks)
-                        instead of the face-bbox centre (default: ON since v1.1; disable with
+                        instead of the face-bbox centre (default: ON since v1.3; disable with
                         --no-face-eye-origin).
-  --no-face-eye-origin  Anchor gaze rays at the face-bbox centre (the pre-v1.1 behavior),
+  --no-face-eye-origin  Anchor gaze rays at the face-bbox centre (the pre-v1.3 behavior),
                         overriding the eye-midpoint default.
   --forward-gaze-threshold DEG
                         Pitch/yaw angles below this (degrees) are treated as looking forward at
@@ -354,7 +354,7 @@ Ray Forming (Gazelle blend):
                         target from the reach currently shown to the new value over N frames
                         instead of snapping, with the length-hold decay paused during the ramp
                         (monotone approach, no bounce). 0 = instant snap (default: 5).
-  --rf-len-gain F       Scale the blend ray-length target by F. The v1.1 eval decomposition
+  --rf-len-gain F       Scale the blend ray-length target by F. The v1.3 eval decomposition
                         measured a systematic under-reach (84% of rays short); 1.10 recovered ~5
                         px mean / ~8 px median on the eval labels. Applied before smoothing so
                         snap and hit detection see the corrected reach. 1.0 = off (default: 1.10).

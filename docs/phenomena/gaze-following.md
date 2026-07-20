@@ -42,7 +42,7 @@ flowchart TD
 **Summary CSV** (`{stem}_summary.csv`, `phenomenon = gaze_following`). Three
 metrics per pair, with the **follower** in `participant` and the **leader** in
 `partner` -- the participant is the one doing the following, matching the
-episode stream. (Before v1.1 the summary had these two columns swapped
+episode stream. (Before v1.3 the summary had these two columns swapped
 relative to the episode stream; both files now share one convention.)
 
 ```
