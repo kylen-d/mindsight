@@ -122,6 +122,11 @@ class GazeTab(QWidget):
         v_split.addWidget(quad_scroll)
         v_split.setStretchFactor(0, 1)
         v_split.setStretchFactor(1, 1)
+        # Half/half by DEFAULT (W4C user feedback): the empty preview
+        # QLabel's tiny sizeHint let the quadrant's scroll area grab most
+        # of the column at first show; equal explicit sizes pin the split
+        # until the user drags the handle.
+        v_split.setSizes([400, 400])
 
         h_split = QSplitter(Qt.Orientation.Horizontal)
         h_split.addWidget(scroll)
@@ -202,11 +207,19 @@ class GazeTab(QWidget):
 
     def _build_start_stop(self, lay):
         btn_row = _hrow()
-        self._start_btn = QPushButton("\u25b6  Start")
+        # "Preview", not "Start" (W4C user feedback): this tab carries two
+        # run buttons -- this one drives the live preview only, while the
+        # workbench's Validate scores against ground truth. Distinct verbs
+        # keep them apart.
+        self._start_btn = QPushButton("\u25b6  Preview")
+        self._start_btn.setToolTip(
+            "Run the current settings over the source with a live preview. "
+            "To score them against labeled ground truth, use Validate in "
+            "the Validation & Testing panel.")
         self._start_btn.setStyleSheet(
             "QPushButton{background:#2a7a2a;color:white;"
             "font-weight:bold;padding:6px;}")
-        self._stop_btn = QPushButton("\u25a0  Stop")
+        self._stop_btn = QPushButton("\u25a0  Stop Preview")
         self._stop_btn.setStyleSheet(
             "QPushButton{background:#7a2a2a;color:white;"
             "font-weight:bold;padding:6px;}")
