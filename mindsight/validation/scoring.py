@@ -8,6 +8,14 @@ Mean Angular Error (predicted ray vs origin->label — needs no new label
 type) and object IoU (labeled boxes vs the opt-in
 ``{stem}_detections.csv`` side stream).
 
+W4C multi-clip sets: every clip's streams are collected from the SAME
+run dir (one stem per clip, ``ValidationSet.clip_stems()``), the raw
+accumulators are pooled, and the metrics are computed once over the
+pool — for a single-clip set this reduces exactly to the historical
+computation.  ``per_video`` carries the per-clip breakdown; clips whose
+gaze stream is missing (e.g. a run cancelled between clips) are listed
+in ``skipped_videos`` instead of failing the whole score.
+
 Pure functions over CSV/JSON files — no GUI, no cv2, no pipeline.
 """
 from __future__ import annotations
@@ -17,7 +25,7 @@ import math
 from collections import defaultdict
 from pathlib import Path
 
-from .store import ValidationSet, ValidationSetError
+from .store import ValidationClip, ValidationSet, ValidationSetError
 
 
 def _rank_auc(pos, neg):
@@ -78,29 +86,29 @@ def _load_detections(det_csv: Path):
     return dets
 
 
-def score_run(vset: ValidationSet, run_dir: Path, stem: str,
-              radius: float = 80.0) -> dict:
-    """Score one run's streams against *vset*; returns the metrics dict.
+class _Pool:
+    """Raw scoring accumulators, mergeable across clips."""
 
-    Raises ValidationSetError when the run has no gaze stream or no
-    label matched any row (plain-English message for the workbench).
-    """
-    run_dir = Path(run_dir)
-    gaze_csv = run_dir / f"{stem}_gaze.csv"
-    if not gaze_csv.is_file():
-        raise ValidationSetError(
-            f"Run has no gaze stream ({gaze_csv.name} missing).")
-    by_tid, by_label = _load_gaze_rows(gaze_csv)
+    def __init__(self):
+        self.errs: list[float] = []
+        self.maes: list[float] = []
+        self.hits = 0
+        self.scored = 0
+        self.on_inout: list[float] = []
+        self.off_inout: list[float] = []
+        self.per_pid: dict = defaultdict(list)
+        self.ious: list[float] = []
+        self.has_detections = False
 
-    errs: list[float] = []
-    maes: list[float] = []
-    hits = scored = 0
-    on_inout: list[float] = []
-    off_inout: list[float] = []
-    per_pid: dict = defaultdict(list)
 
-    for frame in sorted(vset.labels):
-        for pid, label in sorted(vset.labels[frame].items()):
+def _collect_clip(clip: ValidationClip, run_dir: Path, stem: str,
+                  radius: float, pool: _Pool) -> None:
+    """Score one clip's streams into *pool* (the historical per-file
+    computation, minus the final metric formulas)."""
+    by_tid, by_label = _load_gaze_rows(Path(run_dir) / f"{stem}_gaze.csv")
+
+    for frame in sorted(clip.labels):
+        for pid, label in sorted(clip.labels[frame].items()):
             # Digit participant keys match the gaze stream's face_idx
             # (the eval-harness convention); anything else matches the
             # participant_label column (custom labels).
@@ -111,17 +119,17 @@ def score_run(vset: ValidationSet, run_dir: Path, stem: str,
             inout = float(row["inout_score"]) if row["inout_score"] else None
             if label == "offscreen":
                 if inout is not None:
-                    off_inout.append(inout)
+                    pool.off_inout.append(inout)
                 continue
             if inout is not None:
-                on_inout.append(inout)
+                pool.on_inout.append(inout)
             ex, ey = float(row["ray_end_x"]), float(row["ray_end_y"])
             err = math.hypot(ex - label["x"], ey - label["y"])
-            errs.append(err)
-            per_pid[pid].append(err)
-            scored += 1
+            pool.errs.append(err)
+            pool.per_pid[pid].append(err)
+            pool.scored += 1
             if err <= radius:
-                hits += 1
+                pool.hits += 1
             # Mean Angular Error: predicted ray vs origin->label.
             ox, oy = float(row["origin_x"]), float(row["origin_y"])
             vp = (ex - ox, ey - oy)
@@ -129,49 +137,112 @@ def score_run(vset: ValidationSet, run_dir: Path, stem: str,
             np_, nt = math.hypot(*vp), math.hypot(*vt)
             if np_ > 1e-6 and nt > 1e-6:
                 cosang = (vp[0] * vt[0] + vp[1] * vt[1]) / (np_ * nt)
-                maes.append(math.degrees(
+                pool.maes.append(math.degrees(
                     math.acos(max(-1.0, min(1.0, cosang)))))
 
-    if not errs:
-        raise ValidationSetError(
-            "No scorable (on-screen) label matched any gaze row -- check "
-            "that the set's participants exist in this clip.")
+    # Object IoU vs the opt-in detections stream: for every labeled box
+    # on a labeled frame, the best IoU against ANY detection that frame
+    # (0 when the run detected nothing there); mean over labeled boxes.
+    det_csv = Path(run_dir) / f"{stem}_detections.csv"
+    if clip.objects and det_csv.is_file():
+        pool.has_detections = True
+        dets = _load_detections(det_csv)
+        pool.ious.extend(
+            max((_iou((b["x1"], b["y1"], b["x2"], b["y2"]), d)
+                 for d in dets.get(frame, [])), default=0.0)
+            for frame, boxes in sorted(clip.objects.items())
+            for b in boxes
+        )
 
-    errs.sort()
+
+def _metrics(pool: _Pool, radius: float) -> dict:
+    errs = sorted(pool.errs)
 
     def pct(p):
         return errs[min(len(errs) - 1, int(p / 100 * len(errs)))]
 
     result = {
-        "scored_points": scored,
+        "scored_points": pool.scored,
         "endpoint_px_mean": sum(errs) / len(errs),
         "endpoint_px_median": pct(50),
         "endpoint_px_p95": pct(95),
-        "hit_rate": hits / scored,
+        "hit_rate": pool.hits / pool.scored,
         "hit_radius_px": radius,
-        "mae_deg_mean": (sum(maes) / len(maes)) if maes else None,
-        "offscreen_auc": _rank_auc(off_inout, on_inout),
-        "offscreen_labels": len(off_inout),
+        "mae_deg_mean": (sum(pool.maes) / len(pool.maes)
+                         if pool.maes else None),
+        "offscreen_auc": _rank_auc(pool.off_inout, pool.on_inout),
+        "offscreen_labels": len(pool.off_inout),
         "per_participant_mean_px": {
-            str(pid): sum(v) / len(v) for pid, v in sorted(per_pid.items())},
+            str(pid): sum(v) / len(v)
+            for pid, v in sorted(pool.per_pid.items())},
     }
-
-    # Object IoU vs the opt-in detections stream: for every labeled box
-    # on a labeled frame, the best IoU against ANY detection that frame
-    # (0 when the run detected nothing there); mean over labeled boxes.
-    det_csv = run_dir / f"{stem}_detections.csv"
-    if vset.objects and det_csv.is_file():
-        dets = _load_detections(det_csv)
-        ious = [
-            max((_iou((b["x1"], b["y1"], b["x2"], b["y2"]), d)
-                 for d in dets.get(frame, [])), default=0.0)
-            for frame, boxes in sorted(vset.objects.items())
-            for b in boxes
-        ]
-        result["object_iou_mean"] = (sum(ious) / len(ious)) if ious else None
-        result["object_boxes_scored"] = len(ious)
+    if pool.has_detections:
+        result["object_iou_mean"] = (sum(pool.ious) / len(pool.ious)
+                                     if pool.ious else None)
+        result["object_boxes_scored"] = len(pool.ious)
     else:
         result["object_iou_mean"] = None
         result["object_boxes_scored"] = 0
+    return result
 
+
+def score_run(vset: ValidationSet, run_dir: Path, stem: str | None = None,
+              radius: float = 80.0) -> dict:
+    """Score one run's streams against *vset*; returns the metrics dict.
+
+    Multi-clip sets score every clip out of the same *run_dir* (one stem
+    per clip) and pool; single-clip sets reproduce the historical
+    result exactly.  *stem* overrides the single-clip stem (legacy
+    signature).  Raises ValidationSetError when nothing could be scored
+    (plain-English message for the workbench).
+    """
+    run_dir = Path(run_dir)
+    if not vset.clips:
+        raise ValidationSetError(f"Set {vset.name!r} has no videos.")
+    stems = vset.clip_stems()
+    if stem is not None and len(vset.clips) == 1:
+        stems = [stem]
+
+    pool = _Pool()
+    per_video: dict = {}
+    skipped: list[str] = []
+    for clip, clip_stem in zip(vset.clips, stems):
+        if not (run_dir / f"{clip_stem}_gaze.csv").is_file():
+            skipped.append(clip_stem)
+            continue
+        clip_pool = _Pool()
+        _collect_clip(clip, run_dir, clip_stem, radius, clip_pool)
+        if clip_pool.errs:
+            per_video[clip_stem] = {
+                "scored_points": clip_pool.scored,
+                "endpoint_px_mean": sum(clip_pool.errs) / len(clip_pool.errs),
+                "hit_rate": clip_pool.hits / clip_pool.scored,
+            }
+        # Merge into the pooled accumulators.
+        pool.errs.extend(clip_pool.errs)
+        pool.maes.extend(clip_pool.maes)
+        pool.hits += clip_pool.hits
+        pool.scored += clip_pool.scored
+        pool.on_inout.extend(clip_pool.on_inout)
+        pool.off_inout.extend(clip_pool.off_inout)
+        for pid, v in clip_pool.per_pid.items():
+            pool.per_pid[pid].extend(v)
+        pool.ious.extend(clip_pool.ious)
+        pool.has_detections |= clip_pool.has_detections
+
+    if skipped and not per_video and not pool.errs:
+        raise ValidationSetError(
+            "Run has no gaze stream "
+            f"({skipped[0]}_gaze.csv missing).")
+    if not pool.errs:
+        raise ValidationSetError(
+            "No scorable (on-screen) label matched any gaze row -- check "
+            "that the set's participants exist in this clip.")
+
+    result = _metrics(pool, radius)
+    if len(vset.clips) > 1:
+        result["per_video"] = per_video
+        result["videos_scored"] = len(per_video)
+        if skipped:
+            result["skipped_videos"] = skipped
     return result

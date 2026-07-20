@@ -104,23 +104,22 @@ def settings_diff(old: dict, new: dict) -> dict:
             for k in sorted(keys) if old.get(k) != new.get(k)}
 
 
-def prepare_validation_namespace(ns, vset: ValidationSet, run_dir: Path):
-    """Deep-copied namespace targeting *vset*'s video and *run_dir*.
+def prepare_clip_namespace(ns, video: str, run_dir: Path, stem: str):
+    """Deep-copied namespace targeting one clip's *video* with streams
+    keyed by *stem* inside *run_dir*.
 
     Everything the user dialed into the tab is preserved; only the run
-    targets move: the set's video as source, streams into the run dir,
+    targets move: the clip's video as source, streams into the run dir,
     detections stream ON (the IoU metric's input), no saved video /
     heatmaps / charts / dashboard.
     """
-    if not vset.video:
-        raise ValidationSetError(f"Set {vset.name!r} has no video.")
-    if not Path(vset.video).is_file():
-        raise ValidationSetError(
-            f"Set {vset.name!r} video not found: {vset.video}")
+    if not video:
+        raise ValidationSetError("Clip has no video.")
+    if not Path(video).is_file():
+        raise ValidationSetError(f"Video not found: {video}")
     run_dir = Path(run_dir)
-    stem = Path(vset.video).stem
     ns2 = copy.deepcopy(ns)
-    ns2.source = str(vset.video)
+    ns2.source = str(video)
     ns2.summary = str(run_dir / f"{stem}_summary.csv")
     ns2.log = str(run_dir / f"{stem}_events.csv")
     ns2.save = None
@@ -129,6 +128,16 @@ def prepare_validation_namespace(ns, vset: ValidationSet, run_dir: Path):
     ns2.no_dashboard = True
     ns2.save_detections = True
     return ns2
+
+
+def prepare_validation_namespace(ns, vset: ValidationSet, run_dir: Path):
+    """Single-clip compatibility wrapper: the FIRST clip's namespace.
+    Multi-clip runs prepare one namespace per clip via
+    :func:`prepare_clip_namespace` + ``ValidationSet.clip_stems()``."""
+    if not vset.clips or not vset.video:
+        raise ValidationSetError(f"Set {vset.name!r} has no video.")
+    return prepare_clip_namespace(ns, vset.video, run_dir,
+                                  vset.clip_stems()[0])
 
 
 def _jsonable(value):
@@ -159,7 +168,7 @@ def validation_summary_block(vset: ValidationSet, score: dict,
         settings_hash = hashlib.sha256(blob.encode("utf-8")).hexdigest()[:16]
     return {
         "set_name": vset.name,
-        "n_frames": len(vset.frames()),
+        "n_frames": vset.total_frames(),
         "date": date,
         "metrics": metrics,
         "settings_hash": settings_hash,
@@ -198,8 +207,7 @@ def score_and_persist(vset: ValidationSet, run_dir: Path, ns=None,
     ``{"avg_fps": ...}`` from the workbench's live counter) -- accuracy
     keys always win on collision."""
     run_dir = Path(run_dir)
-    stem = Path(vset.video).stem
-    result = score_run(vset, run_dir, stem, radius=radius)
+    result = score_run(vset, run_dir, radius=radius)
     if extra:
         result = {**extra, **result}
     (run_dir / "score.json").write_text(json.dumps(result, indent=2) + "\n")

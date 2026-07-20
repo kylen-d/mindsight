@@ -44,7 +44,7 @@ from mindsight.validation import (
     latest_sweep,
     new_sweep_manifest,
     pick_winner,
-    prepare_sweep_namespace,
+    prepare_sweep_clip_namespace,
     save_sweep,
     score_and_persist,
 )
@@ -93,6 +93,7 @@ class AutoTuneDialog(QDialog):
         self._manifest = None
         self._manifest_path = None
         self._pending = None            # (run_dir, ns) while a combo runs
+        self._combo_clip_queue: list = []   # namespaces left in this combo
         self._frames_done = 0
         self._t_first_frame = None
         self._total_frames = 0
@@ -215,7 +216,8 @@ class AutoTuneDialog(QDialog):
         except ValidationSetError:
             return 0
         from mindsight.GUI.validation_workbench import ValidationWorkbench
-        return ValidationWorkbench._probe_frame_count(vset.video)
+        return sum(ValidationWorkbench._probe_frame_count(c.video)
+                   for c in vset.clips)
 
     # ── Sweep loop ───────────────────────────────────────────────────────────
 
@@ -249,15 +251,23 @@ class AutoTuneDialog(QDialog):
             return
         overrides = self._combos[self._combo_idx]
         try:
+            if not self._vset.clips:
+                raise ValidationSetError(
+                    f"Set {self._set_name!r} has no videos.")
             run_dir = allocate_run_dir(self._store.root, self._set_name)
-            ns = prepare_sweep_namespace(
-                self._base_ns, self._vset, run_dir, overrides)
+            # One namespace per clip (multi-video sets run every clip per
+            # combo, into the combo's single run dir).
+            self._combo_clip_queue = [
+                prepare_sweep_clip_namespace(
+                    self._base_ns, clip.video, run_dir, stem, overrides)
+                for clip, stem in zip(self._vset.clips,
+                                      self._vset.clip_stems())]
         except ValidationSetError as exc:
             self._record_result(overrides, None, None, str(exc))
             self._combo_idx += 1
             self._next_combo()
             return
-        self._pending = (run_dir, ns)
+        self._pending = (run_dir, self._combo_clip_queue[0])
         self._frames_done = 0
         self._t_first_frame = None
         self._progress.setRange(0, self._total_frames or 0)
@@ -266,9 +276,13 @@ class AutoTuneDialog(QDialog):
         self._status.setText(
             f"Combo {self._combo_idx + 1}/{len(self._combos)} "
             f"({self._describe(overrides)}) — loading models…")
+        self._start_next_clip()
+        self._poll.start(100)
+
+    def _start_next_clip(self):
+        ns = self._combo_clip_queue.pop(0)
         self._worker = self._worker_factory(ns, self._frame_q, self._log_q)
         self._worker.start()
-        self._poll.start(100)
 
     @staticmethod
     def _describe(overrides: dict) -> str:
@@ -300,8 +314,14 @@ class AutoTuneDialog(QDialog):
                 self._progress.setValue(
                     min(self._frames_done, self._total_frames))
             return
-        self._poll.stop()
         self._worker = None
+        # More clips left in THIS combo (multi-video set): chain into the
+        # next one -- unless cancelled (the partial combo still scores).
+        if self._combo_clip_queue and not self._cancelled:
+            self._start_next_clip()
+            return
+        self._poll.stop()
+        self._combo_clip_queue = []
         run_dir, ns = self._pending
         self._pending = None
         overrides = self._combos[self._combo_idx]

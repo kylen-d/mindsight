@@ -1,21 +1,34 @@
 """
 validation/store.py — Validation-set data model + on-disk store.
 
-One JSON file per set.  The file IS a valid eval-harness labels file
-(``labels`` carries ``{frame: {participant: {x, y} | state}}`` exactly
-like ``eval_data/{stem}_labels.json``; ``scripts/eval_gaze.py score``
-reads it unchanged) extended with set metadata and per-frame labeled
-object boxes for the IoU metric:
+One JSON file per set.  A set holds one or more labeled **clips** (W4C:
+multiple videos / a whole project per set — user request):
 
-    {
-      "format": 1,
-      "name": "office-a",
-      "video": "/abs/path/clip.mp4",
-      "every": 10,
-      "note": "",
-      "labels":  {"120": {"P0": {"x": 451, "y": 475}, "P1": "offscreen"}},
-      "objects": {"120": [{"name": "plate", "x1": .., "y1": .., "x2": .., "y2": ..}]}
-    }
+- A SINGLE-clip set saves as **format 1**, byte-compatible with every
+  pre-W4C set: the file IS a valid eval-harness labels file (``labels``
+  carries ``{frame: {participant: {x, y} | state}}`` exactly like
+  ``eval_data/{stem}_labels.json``; ``scripts/eval_gaze.py score`` reads
+  it unchanged) extended with set metadata and per-frame object boxes:
+
+      {
+        "format": 1,
+        "name": "office-a",
+        "video": "/abs/path/clip.mp4",
+        "every": 10,
+        "note": "",
+        "participants": ["P0", "P1"],
+        "labels":  {"120": {"P0": {"x": 451, "y": 475}, "P1": "offscreen"}},
+        "objects": {"120": [{"name": "plate", "x1": .., "y1": .., "x2": .., "y2": ..}]}
+      }
+
+- A MULTI-clip set saves as **format 2**: the flat video/every/labels/
+  objects keys move into a ``clips`` array (one block per video, each
+  block shaped exactly like the format-1 payload, so per-clip eval
+  compatibility is preserved).
+
+``participants`` is the ordered display-label list the labeling UI
+offers (seeded from project metadata when a set is built from a
+project); empty means the P0..P3 defaults.
 
 Sets live in ``<project>/validation/`` when a project is open, else
 ``~/.mindsight/validation/`` (via :func:`validation_root`).
@@ -28,6 +41,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 FORMAT_VERSION = 1
+FORMAT_VERSION_MULTI = 2
 
 #: Non-point label states (mirroring scripts/eval_annotate.py):
 #: "offscreen" scores via the in/out head, "uncertain"/"skip" are
@@ -66,13 +80,12 @@ def _valid_point(v) -> bool:
 
 
 @dataclass
-class ValidationSet:
-    """In-memory validation set.  Frame keys are ints; JSON uses strings."""
+class ValidationClip:
+    """One labeled video within a set.  Frame keys are ints; JSON uses
+    strings."""
 
-    name: str
     video: str = ""
     every: int | None = None
-    note: str = ""
     #: {frame: {participant: {"x": int, "y": int} | one of LABEL_STATES}}
     labels: dict = field(default_factory=dict)
     #: {frame: [{"name": str, "x1": int, "y1": int, "x2": int, "y2": int}]}
@@ -105,6 +118,9 @@ class ValidationSet:
                 f"got {value!r}")
         self.labels.setdefault(int(frame), {})[str(participant)] = value
 
+    def get_label(self, frame: int, participant: str):
+        return self.labels.get(int(frame), {}).get(str(participant))
+
     def clear_label(self, frame: int, participant: str) -> None:
         self.labels.get(int(frame), {}).pop(str(participant), None)
 
@@ -126,23 +142,18 @@ class ValidationSet:
         return sum(1 for f in self.labels.values()
                    for v in f.values() if isinstance(v, dict))
 
-    # ── Serialization ────────────────────────────────────────────────────────
+    # ── Serialization (the format-1 flat payload shape) ─────────────────────
 
-    def to_dict(self) -> dict:
+    def payload(self) -> dict:
         return {
-            "format": FORMAT_VERSION,
-            "name": self.name,
             "video": self.video,
             "every": self.every,
-            "note": self.note,
             "labels": {str(k): self.labels[k] for k in sorted(self.labels)},
             "objects": {str(k): self.objects[k] for k in sorted(self.objects)},
         }
 
     @classmethod
-    def from_dict(cls, data: dict) -> "ValidationSet":
-        if not isinstance(data, dict) or "labels" not in data:
-            raise ValidationSetError("Not a validation set (no 'labels' key).")
+    def from_payload(cls, data: dict) -> "ValidationClip":
         labels: dict = {}
         for k, per_frame in (data.get("labels") or {}).items():
             entry: dict = {}
@@ -164,13 +175,244 @@ class ValidationSet:
                 for b in (boxes or [])
             ]
         return cls(
-            name=str(data.get("name", "")),
             video=str(data.get("video", "") or ""),
             every=data.get("every"),
-            note=str(data.get("note", "") or ""),
             labels=labels,
             objects=objects,
         )
+
+
+class ValidationSet:
+    """In-memory validation set: name, notes, participant labels, and one
+    or more labeled clips.
+
+    The single-clip accessors (``video``/``every``/``labels``/``objects``
+    and the editing methods) delegate to the FIRST clip so pre-W4C
+    call sites and single-video sets keep working unchanged; multi-clip
+    consumers iterate ``clips`` explicitly.  ``participants`` is the
+    ordered display-label list the labeling UI offers ("P0", "S71", ...);
+    empty = the P0..P3 defaults.  Seeded from project metadata on import.
+    """
+
+    def __init__(self, name: str, video: str | None = None,
+                 every: int | None = None, note: str = "",
+                 labels: dict | None = None, objects: dict | None = None,
+                 participants: list | None = None,
+                 clips: list | None = None):
+        self.name = name
+        self.note = note
+        self.participants = list(participants or [])
+        self.clips: list[ValidationClip] = list(clips or [])
+        # Single-clip constructor surface (pre-W4C call sites).
+        if video is not None or every is not None or labels or objects:
+            clip = self._clip0()
+            if video is not None:
+                clip.video = str(video)
+            if every is not None:
+                clip.every = every
+            if labels:
+                clip.labels.update({int(k): v for k, v in labels.items()})
+            if objects:
+                clip.objects.update({int(k): v for k, v in objects.items()})
+
+    def __repr__(self) -> str:  # debugging aid; not load-bearing
+        return (f"ValidationSet(name={self.name!r}, clips={len(self.clips)}, "
+                f"participants={self.participants!r})")
+
+    # ── Clip management ──────────────────────────────────────────────────────
+
+    def _clip0(self) -> ValidationClip:
+        if not self.clips:
+            self.clips.append(ValidationClip())
+        return self.clips[0]
+
+    def add_clip(self, video: str, every: int | None = None) -> ValidationClip:
+        clip = ValidationClip(video=str(video), every=every)
+        self.clips.append(clip)
+        return clip
+
+    def remove_clip(self, index: int) -> None:
+        if 0 <= index < len(self.clips):
+            self.clips.pop(index)
+
+    def clip_for_video(self, video: str) -> ValidationClip | None:
+        for clip in self.clips:
+            if clip.video == str(video):
+                return clip
+        return None
+
+    def clip_stems(self) -> list[str]:
+        """One OUTPUT STEM per clip, deduplicated: two clips named
+        ``trimmed.mp4`` in different folders must not overwrite each
+        other's streams inside a shared run dir.  Runner and scoring
+        both key streams off this list."""
+        stems: list[str] = []
+        for i, clip in enumerate(self.clips):
+            stem = Path(clip.video).stem or f"clip-{i}"
+            if stem in stems:
+                stem = f"{stem}-{i}"
+            stems.append(stem)
+        return stems
+
+    # ── Single-clip compatibility surface ────────────────────────────────────
+
+    @property
+    def video(self) -> str:
+        return self.clips[0].video if self.clips else ""
+
+    @video.setter
+    def video(self, value: str) -> None:
+        self._clip0().video = str(value or "")
+
+    @property
+    def every(self):
+        return self.clips[0].every if self.clips else None
+
+    @every.setter
+    def every(self, value) -> None:
+        self._clip0().every = value
+
+    @property
+    def labels(self) -> dict:
+        return self._clip0().labels
+
+    @property
+    def objects(self) -> dict:
+        return self._clip0().objects
+
+    def frames(self) -> list[int]:
+        """First clip's frames (single-clip compat); multi-clip consumers
+        use ``clip.frames()`` per clip."""
+        return self.clips[0].frames() if self.clips else []
+
+    def add_frame(self, frame: int) -> None:
+        self._clip0().add_frame(frame)
+
+    def remove_frame(self, frame: int) -> None:
+        self._clip0().remove_frame(frame)
+
+    def set_label(self, frame: int, participant: str, value) -> None:
+        self._clip0().set_label(frame, participant, value)
+
+    def clear_label(self, frame: int, participant: str) -> None:
+        self._clip0().clear_label(frame, participant)
+
+    def add_object(self, frame: int, name: str, box) -> None:
+        self._clip0().add_object(frame, name, box)
+
+    def remove_object(self, frame: int, index: int) -> None:
+        self._clip0().remove_object(frame, index)
+
+    # ── Set-wide tallies ─────────────────────────────────────────────────────
+
+    def point_label_count(self) -> int:
+        return sum(c.point_label_count() for c in self.clips)
+
+    def total_frames(self) -> int:
+        return sum(len(c.frames()) for c in self.clips)
+
+    # ── Serialization ────────────────────────────────────────────────────────
+
+    def to_dict(self) -> dict:
+        if len(self.clips) <= 1:
+            # Format 1: byte-compatible with pre-W4C sets; the file stays
+            # a valid eval-harness labels file.  ``participants`` is
+            # emitted only when set, so untouched old sets round-trip
+            # byte-identically.
+            payload = (self.clips[0] if self.clips
+                       else ValidationClip()).payload()
+            out = {
+                "format": FORMAT_VERSION,
+                "name": self.name,
+                "video": payload["video"],
+                "every": payload["every"],
+                "note": self.note,
+            }
+            if self.participants:
+                out["participants"] = list(self.participants)
+            out["labels"] = payload["labels"]
+            out["objects"] = payload["objects"]
+            return out
+        return {
+            "format": FORMAT_VERSION_MULTI,
+            "name": self.name,
+            "note": self.note,
+            "participants": list(self.participants),
+            "clips": [c.payload() for c in self.clips],
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict) -> "ValidationSet":
+        if not isinstance(data, dict):
+            raise ValidationSetError("Not a validation set (not a mapping).")
+        participants = [str(p) for p in (data.get("participants") or [])]
+        if data.get("format") == FORMAT_VERSION_MULTI or "clips" in data:
+            clips_raw = data.get("clips")
+            if not isinstance(clips_raw, list):
+                raise ValidationSetError(
+                    "Not a validation set (format 2 without a 'clips' list).")
+            return cls(
+                name=str(data.get("name", "")),
+                note=str(data.get("note", "") or ""),
+                participants=participants,
+                clips=[ValidationClip.from_payload(c) for c in clips_raw],
+            )
+        if "labels" not in data:
+            raise ValidationSetError("Not a validation set (no 'labels' key).")
+        return cls(
+            name=str(data.get("name", "")),
+            note=str(data.get("note", "") or ""),
+            participants=participants,
+            clips=[ValidationClip.from_payload(data)],
+        )
+
+
+def clips_from_project(project_dir) -> tuple[list[dict], list[str]]:
+    """Discover a project's staged videos for a whole-project validation
+    set: ``([{"video", "run_id", "pid_map"}...], participants)``.
+
+    Covers both layouts (``Inputs/Runs/<id>/`` folders and the legacy
+    flat ``Inputs/Videos/``).  *participants* is the ordered union of
+    per-run participant labels (run.yaml ``participants`` maps,
+    track-id order) — the wizard seeds its selector from it.  Raises
+    ValidationSetError when the directory has no staged videos.
+    """
+    project_dir = Path(project_dir)
+    from mindsight.project.staging import detect_layout, inspect_run_folders
+    clips: list[dict] = []
+    participants: list[str] = []
+
+    def _note_participants(pid_map):
+        for _tid, label in sorted((pid_map or {}).items()):
+            label = str(label)
+            if label not in participants:
+                participants.append(label)
+
+    try:
+        layout = detect_layout(project_dir)
+    except Exception:
+        layout = None
+    if layout == "run_folder":
+        for info in inspect_run_folders(project_dir):
+            if not info.videos:
+                continue                      # planned session -- no footage
+            _note_participants(getattr(info.meta, "pid_map", None))
+            clips.append({"video": str(info.videos[0]),
+                          "run_id": info.run_id,
+                          "pid_map": getattr(info.meta, "pid_map", None)})
+    else:
+        flat = project_dir / "Inputs" / "Videos"
+        if flat.is_dir():
+            from mindsight.project.staging import _ALL_MEDIA
+            for p in sorted(flat.iterdir()):
+                if p.is_file() and p.suffix.lower() in _ALL_MEDIA:
+                    clips.append({"video": str(p), "run_id": p.stem,
+                                  "pid_map": None})
+    if not clips:
+        raise ValidationSetError(
+            f"No staged videos found under {project_dir} -- expected "
+            "Inputs/Runs/<id>/ folders with footage or Inputs/Videos/.")
+    return clips, participants
 
 
 class ValidationStore:
@@ -183,9 +425,9 @@ class ValidationStore:
         return self.root / f"{_slug(name)}.json"
 
     def list_sets(self) -> list[dict]:
-        """[{name, path, frames, points}] for every readable set, sorted
-        by name.  Unreadable files are skipped (never crash the GUI on a
-        stray file)."""
+        """[{name, path, frames, points, videos}] for every readable set,
+        sorted by name.  Unreadable files are skipped (never crash the
+        GUI on a stray file)."""
         out = []
         if not self.root.is_dir():
             return out
@@ -195,8 +437,9 @@ class ValidationStore:
             except (ValidationSetError, OSError):
                 continue
             out.append({"name": vset.name or path.stem, "path": path,
-                        "frames": len(vset.frames()),
-                        "points": vset.point_label_count()})
+                        "frames": vset.total_frames(),
+                        "points": vset.point_label_count(),
+                        "videos": len(vset.clips)})
         return out
 
     def load_path(self, path: Path) -> ValidationSet:

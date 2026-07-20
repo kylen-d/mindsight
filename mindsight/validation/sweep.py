@@ -22,7 +22,12 @@ import math
 import re
 from pathlib import Path
 
-from .runner import _DIFF_IGNORE, prepare_validation_namespace, runs_root
+from .runner import (
+    _DIFF_IGNORE,
+    prepare_clip_namespace,
+    prepare_validation_namespace,
+    runs_root,
+)
 from .store import ValidationSet, ValidationSetError, _slug
 
 #: Hard ceiling on combinations per sweep (ruling R6, 2026-07-19).
@@ -87,12 +92,7 @@ def estimate_seconds(n_combos: int, clip_frames: int,
     return n_combos * clip_frames / float(avg_fps)
 
 
-def prepare_sweep_namespace(base_ns, vset: ValidationSet, run_dir: Path,
-                            overrides: dict):
-    """One combo's namespace: the ordinary validation preparation (deep
-    copy, run targets rewritten) with *overrides* applied on top.  The
-    base namespace is never mutated, so combos stay independent."""
-    ns = prepare_validation_namespace(base_ns, vset, run_dir)
+def _apply_overrides(ns, overrides: dict):
     for dest, value in overrides.items():
         if dest in _DIFF_IGNORE:
             raise ValidationSetError(
@@ -100,6 +100,24 @@ def prepare_sweep_namespace(base_ns, vset: ValidationSet, run_dir: Path,
                 "it cannot be swept.")
         setattr(ns, dest, value)
     return ns
+
+
+def prepare_sweep_namespace(base_ns, vset: ValidationSet, run_dir: Path,
+                            overrides: dict):
+    """One combo's namespace for a single-clip set: the ordinary
+    validation preparation (deep copy, run targets rewritten) with
+    *overrides* applied on top.  The base namespace is never mutated,
+    so combos stay independent."""
+    return _apply_overrides(
+        prepare_validation_namespace(base_ns, vset, run_dir), overrides)
+
+
+def prepare_sweep_clip_namespace(base_ns, video: str, run_dir: Path,
+                                 stem: str, overrides: dict):
+    """One (combo, clip) namespace for multi-clip sets: per-clip run
+    targets plus the combo's overrides."""
+    return _apply_overrides(
+        prepare_clip_namespace(base_ns, video, run_dir, stem), overrides)
 
 
 # ── Manifest ─────────────────────────────────────────────────────────────────

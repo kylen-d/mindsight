@@ -11,6 +11,7 @@ from .runner import (
     embed_validation_summary,
     latest_score,
     list_run_dirs,
+    prepare_clip_namespace,
     prepare_validation_namespace,
     run_history,
     score_and_persist,
@@ -27,22 +28,26 @@ from .sweep import (
     latest_sweep,
     new_sweep_manifest,
     pick_winner,
+    prepare_sweep_clip_namespace,
     prepare_sweep_namespace,
     save_sweep,
 )
 from .store import (
     LABEL_STATES,
+    ValidationClip,
     ValidationSet,
     ValidationSetError,
     ValidationStore,
+    clips_from_project,
     validation_root,
 )
 
 __all__ = [
-    "LABEL_STATES", "ValidationSet", "ValidationSetError",
-    "ValidationStore", "validation_root",
+    "LABEL_STATES", "ValidationClip", "ValidationSet", "ValidationSetError",
+    "ValidationStore", "validation_root", "clips_from_project",
     "score_run", "allocate_run_dir", "list_run_dirs", "latest_score",
-    "prepare_validation_namespace", "score_and_persist",
+    "prepare_validation_namespace", "prepare_clip_namespace",
+    "prepare_sweep_clip_namespace", "score_and_persist",
     "run_history", "settings_diff",
     "validation_summary_block", "embed_validation_summary",
     "COMBO_CAP", "CURATED_KNOBS", "expand_combos", "estimate_seconds",

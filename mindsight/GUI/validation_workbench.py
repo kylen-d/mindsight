@@ -37,7 +37,7 @@ from mindsight.validation import (
     ValidationStore,
     allocate_run_dir,
     latest_score,
-    prepare_validation_namespace,
+    prepare_clip_namespace,
     score_and_persist,
     validation_root,
 )
@@ -79,6 +79,12 @@ class ValidationWorkbench(QWidget):
         self._frames_done = 0
         self._t_first_frame = None
         self._total_frames = 0
+        # Multi-clip run state (W4C): prepared namespaces still to run,
+        # one per remaining clip, consumed head-first.
+        self._clip_queue: list = []
+        self._clip_idx = 0
+        self._clip_total = 0
+        self._cancel_rest = False
         self._poll = QTimer(self)
         self._poll.timeout.connect(self._on_poll)
 
@@ -267,25 +273,43 @@ class ValidationWorkbench(QWidget):
             return
         try:
             vset = self._store.load(name)
+            if not vset.clips:
+                raise ValidationSetError(
+                    f"Set {name!r} has no videos -- open Annotate to add "
+                    "one.")
             run_dir = allocate_run_dir(self._store.root, name)
-            ns = prepare_validation_namespace(
-                self._namespace_provider(), vset, run_dir)
+            # Prepare EVERY clip's namespace up front: a missing video
+            # fails the run before any pipeline work starts.
+            base_ns = self._namespace_provider()
+            stems = vset.clip_stems()
+            self._clip_queue = [
+                prepare_clip_namespace(base_ns, clip.video, run_dir, stem)
+                for clip, stem in zip(vset.clips, stems)]
         except ValidationSetError as exc:
             self._status.setText(str(exc))
             return
-        self._pending = (vset, run_dir, ns)
+        self._pending = (vset, run_dir, self._clip_queue[0])
+        self._clip_total = len(self._clip_queue)
+        self._clip_idx = 0
+        self._cancel_rest = False
         self._frames_done = 0
         self._t_first_frame = None
-        self._total_frames = self._probe_frame_count(vset.video)
+        self._total_frames = sum(
+            self._probe_frame_count(c.video) for c in vset.clips)
         self._progress.setRange(0, self._total_frames or 0)  # 0,0 = busy bar
         self._progress.setValue(0)
         self._progress.setVisible(True)
-        self._worker = self._worker_factory(ns, self._frame_q, self._log_q)
         self._validate_btn.setEnabled(False)
         self._cancel_btn.setEnabled(True)
         self._status.setText(f"Validating '{name}' — loading models…")
-        self._worker.start()
+        self._start_next_clip()
         self._poll.start(100)
+
+    def _start_next_clip(self):
+        ns = self._clip_queue.pop(0)
+        self._clip_idx += 1
+        self._worker = self._worker_factory(ns, self._frame_q, self._log_q)
+        self._worker.start()
 
     @staticmethod
     def _probe_frame_count(video: str) -> int:
@@ -327,7 +351,10 @@ class ValidationWorkbench(QWidget):
                 fps = self._live_fps()
                 total = (f"/{self._total_frames}"
                          if self._total_frames else "")
-                parts = [f"frame {self._frames_done}{total}"]
+                parts = []
+                if self._clip_total > 1:
+                    parts.append(f"video {self._clip_idx}/{self._clip_total}")
+                parts.append(f"frame {self._frames_done}{total}")
                 if fps:
                     parts.append(f"{fps:.1f} fps")
                     if self._total_frames:
@@ -336,8 +363,15 @@ class ValidationWorkbench(QWidget):
                             parts.append(f"ETA {remaining / fps:.0f}s")
                 self._status.setText("Validating — " + " · ".join(parts))
             return
-        self._poll.stop()
         self._worker = None
+        # More clips to run (multi-video set): chain into the next one --
+        # unless Cancel asked for the rest to be skipped (whatever ran
+        # still scores below).
+        if self._clip_queue and not self._cancel_rest:
+            self._start_next_clip()
+            return
+        self._poll.stop()
+        self._clip_queue = []
         vset, run_dir, ns = self._pending
         self._pending = None
         self._validate_btn.setEnabled(True)
@@ -353,16 +387,22 @@ class ValidationWorkbench(QWidget):
             self._status.setText(str(exc))
             return
         self._show_scores(result, prev)
+        note = ""
+        if result.get("skipped_videos"):
+            note = (f" ({len(result['skipped_videos'])} video(s) skipped "
+                    "by cancel)")
         self._status.setText(f"Scored {result['scored_points']} labels "
-                             f"→ {run_dir.name}")
+                             f"→ {run_dir.name}{note}")
 
     def stop(self):
         """Cancel a running validation (Cancel button / tab teardown).
 
         The worker finishes the current frame and sends its sentinel;
-        whatever ran still gets scored, so a cancelled run is a shorter
-        run, not a lost one."""
+        remaining clips of a multi-video set are skipped, and whatever
+        ran still gets scored, so a cancelled run is a shorter run, not
+        a lost one."""
         if self._worker is not None and hasattr(self._worker, "stop"):
+            self._cancel_rest = True
             self._worker.stop()
             self._status.setText("Cancelling — finishing the current frame…")
 
