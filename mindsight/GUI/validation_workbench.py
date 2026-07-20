@@ -99,7 +99,8 @@ class ValidationWorkbench(QWidget):
         for text, slot, tip in (
                 ("New…", self._on_new, "Create a validation set from a video"),
                 ("Annotate…", self._on_annotate,
-                 "Label gaze targets and object boxes for this set"),
+                 "Open the wizard to add videos, frames, and gaze-target "
+                 "labels for this set"),
                 ("Delete", self._on_delete, "Delete the selected set")):
             btn = QPushButton(text)
             btn.setToolTip(tip)
@@ -168,8 +169,10 @@ class ValidationWorkbench(QWidget):
         self._set_combo.blockSignals(True)
         self._set_combo.clear()
         for info in self._store.list_sets():
-            self._set_combo.addItem(
-                f"{info['name']}", info["name"])
+            text = info["name"]
+            if info.get("videos", 1) > 1:
+                text += f"  ({info['videos']} videos)"
+            self._set_combo.addItem(text, info["name"])
         self._set_combo.blockSignals(False)
         if current:
             idx = self._set_combo.findData(current)
