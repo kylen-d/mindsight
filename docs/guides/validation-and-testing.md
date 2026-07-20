@@ -28,15 +28,16 @@ Create one with **New...** — a four-step wizard (same style as the
 Build-Project wizard; the step list on the left navigates back to any step
 you have visited):
 
-1. **Set** — name the set, say how many people are on screen, and set the
-   participant labels (keep the `P0, P1` defaults or use your study's own).
-   **Start from a project...** stages every video of a MindSight project
-   *and* pulls participant labels from the project's run metadata in one
-   click. The set is saved as soon as you continue, so nothing is lost if
-   you stop early.
-2. **Videos** — the clips in this set. Add individual files, add all of a
-   project's staged videos, or remove one (labeled frames are confirmed
-   before they go).
+1. **Set** — name the set, say how many people are on screen, set the
+   participant labels (keep the `P0, P1` defaults or use your study's own),
+   and choose *what you are validating*: **one video** (picked right here —
+   the Videos step disappears), **several videos**, or **a whole project**
+   (every staged video becomes a clip, and participant labels come from the
+   project's run metadata). The set is saved as soon as you continue, so
+   nothing is lost if you stop early.
+2. **Videos** (several-videos and project modes) — the clips in this set.
+   Add individual files, add all of a project's staged videos, or remove
+   one (labeled frames are confirmed before they go).
 3. **Frames** — sample frames per video. The spinner is "sample every N
    frames" and translates itself live ("= every 1.0 s at 30 fps → adds ~29
    frames"); **Sample ALL videos** applies it to the whole set, and single

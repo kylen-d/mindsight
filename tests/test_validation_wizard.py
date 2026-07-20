@@ -62,6 +62,51 @@ def _existing_set(tmp_path, frames=(), name="s"):
 
 # ── Step gating ───────────────────────────────────────────────────────────────
 
+def test_single_video_mode_skips_videos_step(qapp, tmp_path):
+    """Default mode: ONE video, picked on the Set step; the Videos step
+    is hidden and skipped (user clarification, W4C round 2)."""
+    from mindsight.GUI.validation_wizard import (
+        PAGE_FRAMES,
+        PAGE_SET,
+        PAGE_VIDEOS,
+    )
+    wiz, store = _wizard(qapp, tmp_path)
+    assert wiz._mode() == "single"
+    assert wiz._video_row.isVisibleTo(wiz)
+    assert wiz._steps.item(PAGE_VIDEOS).isHidden()
+
+    wiz._name_edit.setText("solo")
+    wiz._go_next()                                    # no video yet
+    assert wiz._stack.currentIndex() == PAGE_SET
+    assert "video" in wiz._gate_msg.text().lower()
+
+    wiz._video_edit.setText(str(tmp_path / "nope.mp4"))
+    wiz._go_next()
+    assert "does not exist" in wiz._gate_msg.text()
+
+    video = tmp_path / "clip.mp4"
+    video.write_bytes(b"x")
+    wiz._video_edit.setText(str(video))
+    wiz._go_next()
+    assert wiz._stack.currentIndex() == PAGE_FRAMES   # Videos skipped
+    assert [c.video for c in wiz._vset.clips] == [str(video)]
+    wiz._go_back()
+    assert wiz._stack.currentIndex() == PAGE_SET      # skipped both ways
+    wiz.reject()
+
+
+def test_project_mode_requires_a_project(qapp, tmp_path):
+    from mindsight.GUI.validation_wizard import PAGE_SET
+    wiz, _ = _wizard(qapp, tmp_path)
+    wiz._name_edit.setText("proj-set")
+    wiz._mode_project.setChecked(True)
+    assert wiz._proj_row.isVisibleTo(wiz)
+    wiz._go_next()
+    assert wiz._stack.currentIndex() == PAGE_SET
+    assert "project" in wiz._gate_msg.text().lower()
+    wiz.reject()
+
+
 def test_new_set_flow_gates_each_step(qapp, tmp_path):
     from mindsight.GUI.validation_wizard import (
         PAGE_FRAMES,
@@ -77,6 +122,8 @@ def test_new_set_flow_gates_each_step(qapp, tmp_path):
     assert "name" in wiz._gate_msg.text().lower()
 
     wiz._name_edit.setText("office-a")
+    wiz._mode_multi.setChecked(True)                  # several videos
+    assert not wiz._steps.item(PAGE_VIDEOS).isHidden()
     wiz._go_next()
     assert wiz._stack.currentIndex() == PAGE_VIDEOS
     assert (tmp_path / "office-a.json").is_file()     # saved immediately
@@ -132,10 +179,11 @@ def test_videos_page_add_and_project_import(qapp, tmp_path, monkeypatch):
 
     wiz, store = _wizard(qapp, tmp_path)
     wiz._name_edit.setText("study")
+    wiz._mode_project.setChecked(True)
     monkeypatch.setattr(
         "PyQt6.QtWidgets.QFileDialog.getExistingDirectory",
         staticmethod(lambda *a, **k: str(tmp_path / "proj")))
-    wiz._on_import_project()                          # step-1 shortcut
+    wiz._on_import_project()                          # 'Choose project…'
     assert "2 video(s)" in wiz._proj_note.text()
     assert wiz._labels_edit.text() == "S70, S71"      # metadata labels
     wiz._go_next()
