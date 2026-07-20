@@ -89,7 +89,8 @@ class GazeTab(QWidget):
 
         from ..validation_workbench import ValidationWorkbench
         self._validation_workbench = ValidationWorkbench(
-            namespace_provider=self._build_namespace)
+            namespace_provider=self._build_namespace,
+            namespace_applier=self.apply_namespace)
 
         quadrant = QWidget()
         quad_lay = QVBoxLayout(quadrant)
