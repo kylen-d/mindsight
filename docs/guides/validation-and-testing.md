@@ -19,27 +19,40 @@ of eyeballed. It closes the tune → run → squint loop into tune → **Validat
 
 ## Validation sets
 
-A **validation set** is a named collection of ground-truth labels for one
-video: for a sample of frames, *where each participant is actually looking*
-(a clicked point, or an off-screen / uncertain / skip ruling).
+A **validation set** is a named collection of ground-truth labels for one or
+more videos — a single clip or a whole study: for a sample of frames, *where
+each participant is actually looking* (a clicked point, or an off-screen /
+uncertain / skip ruling).
 
-Create one with **New...** — a three-step wizard:
+Create one with **New...** — a four-step wizard (same style as the
+Build-Project wizard; the step list on the left navigates back to any step
+you have visited):
 
-1. **Set** — name the set and pick its source video. The set is saved as soon
-   as you continue, so nothing is lost if you stop early.
-2. **Frames** — sample frames from the clip. The spinner is "sample every N
+1. **Set** — name the set, say how many people are on screen, and set the
+   participant labels (keep the `P0, P1` defaults or use your study's own).
+   **Start from a project...** stages every video of a MindSight project
+   *and* pulls participant labels from the project's run metadata in one
+   click. The set is saved as soon as you continue, so nothing is lost if
+   you stop early.
+2. **Videos** — the clips in this set. Add individual files, add all of a
+   project's staged videos, or remove one (labeled frames are confirmed
+   before they go).
+3. **Frames** — sample frames per video. The spinner is "sample every N
    frames" and translates itself live ("= every 1.0 s at 30 fps → adds ~29
-   frames"); you can also add single frames by number. Labeling unlocks once
-   the set has frames.
-3. **Label** — for each frame, click where each participant is looking; the
-   wizard advances through participants and frames as you click (`n` / `b`
-   step forward and back). Use **Looking off-screen** when the gaze
-   target is outside the frame, **Uncertain** when you cannot tell, and
-   **Skip participant** to exclude someone from that frame. Every click
-   autosaves.
+   frames"); **Sample ALL videos** applies it to the whole set, and single
+   frames can be added by number. Labeling unlocks once the set has frames.
+4. **Label** — click where each participant is looking. The participant
+   selector starts at the first participant on every new frame, advances
+   with each label, and hops to the next frame after the last participant —
+   so a whole set labels as one unbroken click sequence (`n` / `b` step
+   frames manually). Use **Looking off-screen** when the gaze target is
+   outside the frame, **Uncertain** when you cannot tell, and **Skip
+   participant** to exclude someone from that frame. Every change
+   autosaves, and **Ctrl+Z / Undo** reverses labels, sampling, and frame
+   removals.
 
 **Annotate...** reopens the wizard for an existing set (straight to labeling,
-or to the frames page while the set is still empty); **Delete** removes a
+or to the earlier steps while the set is still empty); **Delete** removes a
 set's labels but keeps its past run results.
 
 !!! tip "How many labels?"
@@ -56,11 +69,13 @@ eval-harness label files — `scripts/eval_gaze.py score` reads them unchanged.
 
 ## Validate
 
-**▶ Validate (current settings)** runs the full pipeline over the set's video
-with the tab's current settings — live frame counter, fps, ETA and progress
-bar, with **Cancel** always available (a cancelled run still scores whatever
-it processed). When it finishes, the metrics table fills in, side by side
-with the previous run:
+**▶ Validate (current settings)** runs the full pipeline over every video in
+the set with the tab's current settings — live frame counter, fps, ETA and a
+progress bar spanning all videos ("video 2/5"), with **Cancel** always
+available (a cancelled run skips the remaining videos and still scores
+whatever it processed). Multi-video sets score as one pooled number with a
+per-video breakdown stored in the run's `score.json`. When it finishes, the
+metrics table fills in, side by side with the previous run:
 
 | Metric | Meaning |
 |--------|---------|

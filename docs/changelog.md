@@ -2,6 +2,29 @@
 
 ## [1.3.0] - 2026-07-19
 
+### Changed (W4C GUI-checklist fixes -- user eyes-on feedback)
+- **Validation sets can now span multiple videos or a whole project**:
+  a set holds one or more clips; Validate runs every clip sequentially
+  ("video 2/5" progress) and reports one pooled score with a per-video
+  breakdown in `score.json` (auto-tune sweeps run every clip per
+  combination). Existing single-video sets are untouched on disk and
+  keep their eval-harness file compatibility.
+- **The validation-set wizard was rebuilt in the Build-Project wizard's
+  style**: a step list (Set / Videos / Frames / Label) with per-step
+  gating, participants count + labels on the first step (seeded from a
+  project's run metadata via "Start from a project..."), per-video
+  frame sampling with "Sample ALL videos", and a labeling flow that
+  resets the participant selector on every frame, hops to the next
+  frame after the last participant, shows live progress, and supports
+  Ctrl+Z/Undo for labels, sampling, and frame removals.
+- **Models tab**: the License column moved to the end and now shows a
+  short summary with a "details" popup link -- the paragraph-length
+  license notes no longer push the working columns off-screen.
+- **Inference Tuning layout**: the Validation & Testing quadrant takes
+  half the right column by default (the empty preview no longer cedes
+  the space), and the pipeline buttons read "Preview"/"Stop Preview"
+  so they are no longer confusable with the workbench's Validate.
+
 ### Added (W4C auto-tune)
 - **Auto-tune sweeps in the validation workbench**: the new
   "Auto-tune..." button sweeps one or two knobs over a validation set
