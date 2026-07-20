@@ -65,9 +65,11 @@ class ValidationWorkbench(QWidget):
     """Sets row · metrics table (run vs prev) · Validate button."""
 
     def __init__(self, namespace_provider, parent=None, store=None,
-                 worker_factory=_default_worker_factory):
+                 worker_factory=_default_worker_factory,
+                 namespace_applier=None):
         super().__init__(parent)
         self._namespace_provider = namespace_provider
+        self._namespace_applier = namespace_applier
         self._store = store or ValidationStore(validation_root())
         self._worker_factory = worker_factory
         self._worker = None
@@ -118,6 +120,12 @@ class ValidationWorkbench(QWidget):
         self._cancel_btn.setEnabled(False)
         self._cancel_btn.clicked.connect(self.stop)
         run_row.addWidget(self._cancel_btn)
+        autotune_btn = QPushButton("Auto-tune…")
+        autotune_btn.setToolTip(
+            "Sweep one or two knobs over this set and apply the best "
+            "combination back to the tab.")
+        autotune_btn.clicked.connect(self._on_autotune)
+        run_row.addWidget(autotune_btn)
         history_btn = QPushButton("History…")
         history_btn.setToolTip(
             "All scored runs for this set, with the settings that "
@@ -204,6 +212,19 @@ class ValidationWorkbench(QWidget):
             return
         from mindsight.GUI.validation_history import ValidationHistoryDialog
         ValidationHistoryDialog(self._store, name, self).exec()
+
+    def _on_autotune(self):
+        if self._worker is not None:      # never two pipelines at once
+            return
+        name = self._selected_name()
+        if not name:
+            self._status.setText("Create a validation set first.")
+            return
+        from mindsight.GUI.validation_autotune import AutoTuneDialog
+        AutoTuneDialog(
+            self._store, name, self._namespace_provider,
+            self._namespace_applier or (lambda ns: None),
+            parent=self, worker_factory=self._worker_factory).exec()
 
     def _on_embed(self):
         name = self._selected_name()

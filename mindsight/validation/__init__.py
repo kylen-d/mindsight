@@ -18,6 +18,18 @@ from .runner import (
     validation_summary_block,
 )
 from .scoring import score_run
+from .sweep import (
+    COMBO_CAP,
+    CURATED_KNOBS,
+    allocate_sweep_path,
+    estimate_seconds,
+    expand_combos,
+    latest_sweep,
+    new_sweep_manifest,
+    pick_winner,
+    prepare_sweep_namespace,
+    save_sweep,
+)
 from .store import (
     LABEL_STATES,
     ValidationSet,
@@ -33,4 +45,7 @@ __all__ = [
     "prepare_validation_namespace", "score_and_persist",
     "run_history", "settings_diff",
     "validation_summary_block", "embed_validation_summary",
+    "COMBO_CAP", "CURATED_KNOBS", "expand_combos", "estimate_seconds",
+    "prepare_sweep_namespace", "new_sweep_manifest", "allocate_sweep_path",
+    "save_sweep", "latest_sweep", "pick_winner",
 ]
