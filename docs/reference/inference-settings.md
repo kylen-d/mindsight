@@ -58,7 +58,7 @@ and verifying weights rather than duplicating it.
 |---|---|
 | MobileGaze architecture | Architecture name, required for `.pt` MobileGaze weights (e.g. resnet50). |
 | MobileGaze dataset key | Dataset the gaze model was trained on (default: gaze360). |
-| Gaze-LLE variant | The Gaze-LLE model variant used for correction (default: gazelle_dinov2_vitb14). The `vitl14` variants are markedly heavier per correction (roughly 3-4x the latency spike) for a modest accuracy gain -- consider them only for offline batch runs where per-correction stalls don't matter. With the in/out gate active (v1.1), a checkpoint carrying the in/out head auto-upgrades to its `_inout` architecture unless a variant is set explicitly. |
+| Gaze-LLE variant | The Gaze-LLE model variant used for correction (default: gazelle_dinov2_vitb14). The `vitl14` variants are markedly heavier per correction (roughly 3-4x the latency spike) for a modest accuracy gain -- consider them only for offline batch runs where per-correction stalls don't matter. With the in/out gate active (v1.3), a checkpoint carrying the in/out head auto-upgrades to its `_inout` architecture unless a variant is set explicitly. |
 
 ---
 

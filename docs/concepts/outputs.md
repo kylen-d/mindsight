@@ -136,7 +136,7 @@ frame,t_seconds,face_idx,object,object_conf,bbox_x1,bbox_y1,bbox_x2,bbox_y2,join
 joint attention. In project mode a `video_name` and `conditions` column are
 prepended so rows from many videos stack.
 
-The columns after `participant_label` are new in v1.1 and strictly
+The columns after `participant_label` are new in v1.3 and strictly
 **additive** -- the original twelve columns are unchanged, so positional
 consumers of 1.0 files keep working. `gaze_conf` is the per-face gaze
 confidence, `gaze_pitch`/`gaze_yaw` are the smoothed gaze angles in degrees,
@@ -153,7 +153,7 @@ single-video mode you request it with `--log PATH`.
 
 ## Per-frame gaze stream
 
-`{stem}_gaze.csv` (new in v1.1) is the densest table: **one row per visible
+`{stem}_gaze.csv` (new in v1.3) is the densest table: **one row per visible
 face per frame, hits or not** -- the record of where every gaze ray pointed
 even when it hit nothing. It is written alongside the summary whenever the
 summary is enabled.

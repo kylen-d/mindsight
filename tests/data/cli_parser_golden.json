@@ -553,7 +553,7 @@
       "choices": null,
       "required": false,
       "metavar": null,
-      "help": "Object Detection Model (default: yolo11n.pt since v1.1; yolo11n.onnx in the Models tab is a faster option for CPU-bound installs)",
+      "help": "Object Detection Model (default: yolo11n.pt since v1.3; yolo11n.onnx in the Models tab is a faster option for CPU-bound installs)",
       "group": "options"
     },
     {
@@ -608,7 +608,7 @@
       ],
       "required": false,
       "metavar": "NAME",
-      "help": "RetinaFace backbone variant (default: r34 -- the v1.1 eval pick: best accuracy AND ~40%% faster than mnet_v2 on the CoreML path; weights auto-download on first use).",
+      "help": "RetinaFace backbone variant (default: r34 -- the v1.3 eval pick: best accuracy AND ~40%% faster than mnet_v2 on the CoreML path; weights auto-download on first use).",
       "group": "options"
     },
     {
@@ -1292,7 +1292,7 @@
       "choices": null,
       "required": false,
       "metavar": null,
-      "help": "Anchor gaze rays at the detected eye midpoint (RetinaFace landmarks) instead of the face-bbox centre (default: ON since v1.1; disable with --no-face-eye-origin).",
+      "help": "Anchor gaze rays at the detected eye midpoint (RetinaFace landmarks) instead of the face-bbox centre (default: ON since v1.3; disable with --no-face-eye-origin).",
       "group": "options"
     },
     {
@@ -1308,7 +1308,7 @@
       "choices": null,
       "required": false,
       "metavar": null,
-      "help": "Anchor gaze rays at the face-bbox centre (the pre-v1.1 behavior), overriding the eye-midpoint default.",
+      "help": "Anchor gaze rays at the face-bbox centre (the pre-v1.3 behavior), overriding the eye-midpoint default.",
       "group": "options"
     },
     {
@@ -1510,7 +1510,7 @@
       "choices": null,
       "required": false,
       "metavar": "F",
-      "help": "Scale the blend ray-length target by F. The v1.1 eval decomposition measured a systematic under-reach (84%% of rays short); 1.10 recovered ~5 px mean / ~8 px median on the eval labels. Applied before smoothing so snap and hit detection see the corrected reach. 1.0 = off (default: 1.10).",
+      "help": "Scale the blend ray-length target by F. The v1.3 eval decomposition measured a systematic under-reach (84%% of rays short); 1.10 recovered ~5 px mean / ~8 px median on the eval labels. Applied before smoothing so snap and hit detection see the corrected reach. 1.0 = off (default: 1.10).",
       "group": "Ray Forming (Gazelle blend)"
     },
     {

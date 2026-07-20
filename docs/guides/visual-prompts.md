@@ -44,7 +44,7 @@ A few rules the format enforces:
   contiguous.
 - `references` is a list of reference images, each with a set of annotated boxes
   referencing those class IDs.
-- **Every annotated reference image is used** (v1.1): each one contributes to
+- **Every annotated reference image is used** (v1.3): each one contributes to
   the class embeddings, averaged per class across the references that annotate
   it. Multiple references showing an object under different lighting, angles,
   or distances make matching noticeably more robust -- the standard fix for the

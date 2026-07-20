@@ -1,6 +1,6 @@
 # Changelog
 
-## [Unreleased]
+## [1.3.0] - 2026-07-19
 
 ### Added (W4C auto-tune)
 - **Auto-tune sweeps in the validation workbench**: the new
@@ -152,13 +152,13 @@
   it; it joins the required weight set (now six files). The VAT-finetuned
   in/out variant was chosen over the slightly more accurate
   GazeFollow-only export to keep the off-screen in/out veto available.
-- **`--rf-len-gain` default flipped 1.0 -> 1.10**: the v1.1 eval
+- **`--rf-len-gain` default flipped 1.0 -> 1.10**: the release eval
   decomposition measured 84% of rays systematically short; the 1.10 gain
   recovers ~5 px mean / ~8 px median. Combined with the new engine, the
   default blend stack scores 58.8 px mean / 75% hit rate -- an ~11.5 px
   mean improvement over the previous default stack. `--rf-len-gain 1.0`
   restores the old reach.
-- Blend goldens re-blessed for the combined flip (the 5th v1.1 re-bless;
+- Blend goldens re-blessed for the combined flip (the 5th re-bless;
   eyes-on approved). The pipeline `canonical_hash` moved (schema default
   changed): resume ledgers written before this reprocess once, expected
   pre-release.
@@ -168,7 +168,7 @@
   (checksummed manifest entries; rows appear in the GUI Models tab with
   license provenance, installable with `mindsight-weights` or one click):
   the 16 MB HGNetV2-pico model (640 px, in/out head, dynamic face count
-  -- v1.1 eval 63.9 px mean / 71% hit rate vs 70.3 / 66% for the torch
+  -- eval 63.9 px mean / 71% hit rate vs 70.3 / 66% for the torch
   DINOv2 ViT-B/14 engine, on CPU at the same amortized cost), and two
   opt-in quality tiers: ViT tiny-plus (52 MB, 59.8 px / 78%) and
   ViT-S/16 (100 MB, 57.3 px / 80% -- the measured ceiling). The ViT
@@ -203,7 +203,7 @@
   variant choice awaits eval results.
 
 ### Added (W3Z length accuracy knobs)
-- `--rf-len-gain F`: scale the blend ray-length target. The v1.1 eval
+- `--rf-len-gain F`: scale the blend ray-length target. The release eval
   decomposition found a systematic under-reach -- 84% of rays measured
   too short (197 px predicted vs 233 px true along-ray), and a global
   1.10 gain recovered ~5 px mean / ~8 px median offline. Applied before
@@ -270,7 +270,7 @@
   Settings. Note: adds the
   `rayforming.rf_len_slew` schema field, so pre-existing resume
   ledgers report a config-hash change and reprocess once (pre-release;
-  same caveat as earlier v1.1 schema adds).
+  same caveat as the earlier schema adds).
 
 ### Added (W3Y)
 - `--rf-len-refresh-gap N`: a cheap Gaze-LLE length-refresh channel for
@@ -291,7 +291,7 @@
   regression goldens re-blessed accordingly. Note: adds the
   `rayforming.rf_len_refresh_gap` schema field, so pre-existing resume
   ledgers report a config-hash change and reprocess once (pre-release;
-  same caveat as earlier v1.1 schema adds).
+  same caveat as the earlier schema adds).
 
 ### Added (W3Y update notifications)
 - **MindSight now notices new releases.** On launch a silent, non-blocking
@@ -360,7 +360,7 @@
   (hysts/pytorch_mpiigaze etc.) are trained on CC-BY-NC-SA / research-only
   data.
 
-### Changed (v1.1 default flips -- eval-validated on 87 hand-labeled frames)
+### Changed (default flips -- eval-validated on 87 hand-labeled frames)
 - **New defaults**: `yolo11n.pt` detector, RetinaFace `r34` face backbone,
   eye-midpoint ray origins (`--no-face-eye-origin` restores bbox centres),
   and earlier Gaze-LLE corrections for new faces (`rf_onset_samples 3`,
@@ -414,7 +414,7 @@
 - **`gaze_following` summary rows had the episode stream's columns
   swapped.** Both now use participant = follower, partner = leader.
 - The Gaze-LLE in/out-of-frame head is now read on the blend path (it was
-  loaded but discarded); gating lands with the v1.1 accuracy work.
+  loaded but discarded); gating lands with this release's accuracy work.
 - DataCollection plugins' `on_frame` / `on_run_complete` lifecycle hooks are
   now actually invoked, and their CLI flags register with the parser.
 - Bare `--anonymize` now means `blur` instead of crashing; stale `--summary`
@@ -455,7 +455,7 @@
 - `yolo11n.pt` added to the weights manifest (now the default, see the
   flips above); `scripts/eval_annotate.py` + `scripts/eval_gaze.py` give accuracy
   work ground-truth numbers.
-- Note: config hashes changed with the new schema fields, so pre-v1.1
+- Note: config hashes changed with the new schema fields, so pre-1.3.0
   resume ledgers report a config mismatch and reprocess once.
 
 ## [1.0.0] - 2026-07-12

@@ -77,9 +77,9 @@ be supplied multiple times.
 
 | Flag | Type / choices | Default | Description |
 |------|----------------|---------|-------------|
-| `--model` | str | `"yolo11n.pt"` | Object Detection Model (default: yolo11n.pt since v1.1; yolo11n.onnx in the Models tab is a faster option for CPU-bound installs) |
-| `--face-model` | str | `"r34"` | RetinaFace backbone variant (default: r34 -- the v1.1 eval pick: best accuracy AND ~40% faster than mnet_v2 on the CoreML path; weights auto-download on first use) |
-| `--no-face-eye-origin` | flag | off | Anchor gaze rays at the face-bbox centre (the pre-v1.1 behavior), overriding the eye-midpoint default |
+| `--model` | str | `"yolo11n.pt"` | Object Detection Model (default: yolo11n.pt since v1.3; yolo11n.onnx in the Models tab is a faster option for CPU-bound installs) |
+| `--face-model` | str | `"r34"` | RetinaFace backbone variant (default: r34 -- the v1.3 eval pick: best accuracy AND ~40% faster than mnet_v2 on the CoreML path; weights auto-download on first use) |
+| `--no-face-eye-origin` | flag | off | Anchor gaze rays at the face-bbox centre (the pre-v1.3 behavior), overriding the eye-midpoint default |
 | `--face-reid-sim` | float | `0.0` | Verify lost-track revivals with ArcFace embeddings: a dead track is re-identified by cosine similarity ≥ SIM (anywhere in frame, not just near its last position), falling back to positional matching. 0 disables (default: 0.0). Try 0.35–0.45. Embedding weights auto-download on first use (InsightFace research-provenance — see THIRD_PARTY_LICENSES). |
 | `--conf` | float | `0.35` | Object detection confidence threshold, defaults to 0.35 |
 | `--classes` | str[] | `[]` | Specified YOLO Object Detection Classes Prompt |
@@ -157,7 +157,7 @@ be supplied multiple times.
 | `--rf-onset-gap` | int | `5` | When a never-anchored face wants inference, relax the global call gap to min(`--min-call-gap`, N) so a new participant is not stuck behind another face's recent call. 0 disables (default: 5). |
 | `--rf-len-refresh-gap` | int | `10` | Every N frames, run a cheap half-precision Gaze-LLE pass that refreshes ray LENGTH only — direction stays with the full-precision fixation-gated corrections. Keeps ray reach fresh between corrections at a fraction of the cost. 0 disables (default: 10). |
 | `--rf-len-slew` | int | `5` | When a length refresh re-latches ray length, ramp the effective length target from the reach currently shown to the new value over N frames instead of snapping, with the length-hold decay paused during the ramp (monotone approach, no bounce). 0 = instant snap (default: 5). |
-| `--rf-len-gain` | float | `1.1` | Scale the blend ray-length target by F. The v1.1 eval decomposition measured a systematic under-reach (84% of rays short); 1.10 recovered ~5 px mean / ~8 px median on the eval labels. Applied before smoothing so snap and hit detection see the corrected reach. 1.0 = off (default: 1.10). |
+| `--rf-len-gain` | float | `1.1` | Scale the blend ray-length target by F. The v1.3 eval decomposition measured a systematic under-reach (84% of rays short); 1.10 recovered ~5 px mean / ~8 px median on the eval labels. Applied before smoothing so snap and hit detection see the corrected reach. 1.0 = off (default: 1.10). |
 | `--rf-endpoint-extract` | `centroid` / `topp` | `"centroid"` | How the Gaze-LLE heatmap becomes a ray-length endpoint: `centroid` = full-map mass centroid (historical), `topp` = mass centroid of the top-50%-mass cells — diffuse or multi-modal heatmaps no longer drag the endpoint toward the origin (default: centroid). |
 | `--fixation-v-threshold` | float | `0.04` | Smoothed pitch/yaw velocity (rad/frame) at which a face is treated as 50% fixating. Lower = safer anchoring (default: 0.04). |
 | `--fixation-d-threshold` | float | `0.15` | Windowed pitch/yaw dispersion (rad) at which a face is treated as 50% fixating (default: 0.15). |
