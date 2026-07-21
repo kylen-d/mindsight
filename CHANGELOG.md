@@ -1,6 +1,6 @@
 # Changelog
 
-## [1.3.0] - 2026-07-19
+## [1.3.0] - 2026-07-21
 
 ### Changed (W4C GUI-checklist fixes -- user eyes-on feedback)
 - **Validation sets can now span multiple videos or a whole project**:
