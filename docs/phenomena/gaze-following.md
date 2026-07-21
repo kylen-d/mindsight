@@ -40,19 +40,21 @@ flowchart TD
 ## Output
 
 **Summary CSV** (`{stem}_summary.csv`, `phenomenon = gaze_following`). Three
-metrics per leader-follower pair, with the leader in `participant` and the
-follower in `partner`:
+metrics per pair, with the **follower** in `participant` and the **leader** in
+`partner` -- the participant is the one doing the following, matching the
+episode stream. (Before v1.3 the summary had these two columns swapped
+relative to the episode stream; both files now share one convention.)
 
 ```
 video_name,conditions,phenomenon,participant,partner,object,metric,value
-,,gaze_following,P0,P1,,event_count,4
-,,gaze_following,P0,P1,,mean_lag_frames,12.5
-,,gaze_following,P0,P1,,mean_lag_seconds,0.417
+,,gaze_following,P1,P0,,event_count,4
+,,gaze_following,P1,P0,,mean_lag_frames,12.5
+,,gaze_following,P1,P0,,mean_lag_seconds,0.417
 ```
 
 **Episode stream** (`{stem}_phenomena_events.csv`): each following event is a
 point event logged as one `gaze_following` row (`participant` = follower,
-`partner` = leader).
+`partner` = leader -- same convention as the summary).
 
 **Dashboard**: A "GAZE FOLLOWING" panel displays the last few detected events in
 the format `P1<-P0 lag=12f`.

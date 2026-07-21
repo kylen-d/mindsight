@@ -54,7 +54,7 @@ def test_generated_parser_spec_matches_golden():
     spec = parser_spec(build_parser())
     golden = _golden()
     assert spec["prog"] == golden["prog"]
-    assert len(spec["actions"]) == len(golden["actions"]) == 151
+    assert len(spec["actions"]) == len(golden["actions"]) == 172
     got = [_norm_action(a) for a in spec["actions"]]
     want = [_norm_action(a) for a in golden["actions"]]
     assert [a["dest"] for a in got] == [a["dest"] for a in want]
@@ -72,7 +72,7 @@ def test_flagspec_table_welds_to_schema_and_tables():
     from mindsight.config import PipelineConfig
     from mindsight.config_compat import CLI_ALIASES, EXCLUDED_CLI_FLAGS
 
-    assert len(CORE_FLAGS) == 108
+    assert len(CORE_FLAGS) == 127
 
     schema_cli: set[str] = set()
 
@@ -97,9 +97,9 @@ def test_flagspec_table_welds_to_schema_and_tables():
         if s.schema_path is not None:
             assert s.flag in schema_cli or s.flag in CLI_ALIASES, s.flag
 
-    assert schema_flags == schema_cli and len(schema_flags) == 71
+    assert schema_flags == schema_cli and len(schema_flags) == 82
     assert alias_flags == set(CLI_ALIASES) and len(alias_flags) == 12
-    assert excluded_flags == set(EXCLUDED_CLI_FLAGS) and len(excluded_flags) == 25
+    assert excluded_flags == set(EXCLUDED_CLI_FLAGS) and len(excluded_flags) == 33
 
 
 def test_only_two_default_overrides():
@@ -141,6 +141,15 @@ def test_parse_cli_rejects_bad_values():
         parse_cli(["--anonymize", "rainbow"])
     with pytest.raises(SystemExit):
         parse_cli(["--totally-unknown-flag"])
+
+
+def test_parse_cli_bare_anonymize_means_blur():
+    """Bare --anonymize used to crash (required a value); it now means blur
+    (v1.1 W0.3).  Explicit values still parse, absence still means None."""
+    assert parse_cli([]).anonymize is None
+    assert parse_cli(["--anonymize"]).anonymize == "blur"
+    assert parse_cli(["--anonymize", "black"]).anonymize == "black"
+    assert parse_cli(["--anonymize", "blur"]).anonymize == "blur"
 
 
 def test_parse_cli_help_exits_cleanly(capsys):

@@ -23,7 +23,7 @@ import threading
 from argparse import Namespace
 from pathlib import Path
 
-from .widgets import load_vp_file, vp_to_yoloe_args
+from .widgets import load_vp_file
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -64,6 +64,32 @@ class WeightsDownloadWorker(threading.Thread):
             except weights.WeightsError as exc:
                 self._q.put(("error", entry, str(exc)))
         self._q.put(("finished", None, None))
+
+
+class WeightsVerifyWorker(threading.Thread):
+    """Checksum-verify manifest weight rows off the GUI thread (Models tab).
+
+    Same worker pattern as :class:`WeightsDownloadWorker` (v1.1 W0.7 -- the
+    tab previously spun raw ``threading.Thread``s for this).  Messages match
+    the Models tab's queue pump:
+
+    * ``("vstate", row, state)`` -- one row verified.
+    * ``("vdone", None, None)``  -- the whole batch is done (always last).
+    """
+
+    def __init__(self, rows, row_info, out_q: queue.Queue):
+        super().__init__(daemon=True)
+        self._rows = list(rows)
+        self._row_info = row_info
+        self._q = out_q
+
+    def run(self):
+        from mindsight import weights
+        for row in self._rows:
+            info = self._row_info[row]
+            state = weights.verify(info["dest"], info["entry"])
+            self._q.put(("vstate", row, state))
+        self._q.put(("vdone", None, None))
 
 # ══════════════════════════════════════════════════════════════════════════════
 # Background worker: Gaze Tracker (namespace-driven, full CLI parity)
@@ -156,8 +182,10 @@ class GazeWorker(threading.Thread):
             fast_mode=_fast,
             skip_phenomena=getattr(self.ns, 'skip_phenomena', 0),
             lite_overlay=getattr(self.ns, 'lite_overlay', False),
+            overlay_theme=getattr(self.ns, 'overlay_theme', 'classic'),
             no_dashboard=getattr(self.ns, 'no_dashboard', False),
             profile=getattr(self.ns, 'profile', False),
+            save_detections=getattr(self.ns, 'save_detections', False),
         )
 
         # Pump annotated frames to the GUI; translate the stop Event into a
@@ -399,21 +427,42 @@ class VPInferenceWorker(threading.Thread):
         # ── Determine mode ───────────────────────────────────────────────────
         if self.vp_file:
             from ultralytics.models.yolo.yoloe import YOLOEVPSegPredictor
+
+            from mindsight.ObjectDetection.object_detection import (
+                parse_vp_references,
+                prime_yoloe_multi_reference,
+            )
             vp_data = load_vp_file(self.vp_file)
-            refer_image, visual_prompts, class_names = vp_to_yoloe_args(vp_data)
-            self._log(f"VP classes: {class_names}  (ref: {Path(refer_image).name})")
+            references = parse_vp_references(vp_data)
+            vp_names = {c["id"]: c["name"]
+                        for c in vp_data.get("classes", [])}
+            class_names = list(vp_names.values())
+            n_total = len(vp_data.get("references", []))
+            self._log(f"VP classes: {class_names}  "
+                      f"({len(references)} of {n_total} reference image(s) "
+                      f"annotated and used)")
             classes_set = False
 
             def _predict(frame):
                 nonlocal classes_set
                 if not classes_set:
-                    r = model.predict(frame,
-                                      refer_image=refer_image,
-                                      visual_prompts=visual_prompts,
-                                      predictor=YOLOEVPSegPredictor,
-                                      conf=self.conf, verbose=False)
                     classes_set = True
-                    return r
+                    if len(references) > 1:
+                        # Same pooled priming the real pipeline uses (W3.7),
+                        # so Test behaves identically to a study run.
+                        prime_yoloe_multi_reference(
+                            model, references, YOLOEVPSegPredictor,
+                            class_names=vp_names, log=self._log)
+                        return model.predict(frame, conf=self.conf,
+                                             verbose=False)
+                    ref = references[0]
+                    return model.predict(
+                        frame,
+                        refer_image=ref["image"],
+                        visual_prompts={"bboxes": ref["bboxes"],
+                                        "cls": ref["cls"]},
+                        predictor=YOLOEVPSegPredictor,
+                        conf=self.conf, verbose=False)
                 return model.predict(frame, conf=self.conf, verbose=False)
 
         else:

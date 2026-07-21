@@ -4,7 +4,7 @@
   <img src="mindsightlogo.png" alt="MindSight logo">
 </p>
 
-> **v1.0.0** -- first stable release. Bug reports and feedback are welcome via [GitHub Issues](https://github.com/kylen-d/mindsight/issues).
+> **v1.3.0** -- accuracy, validation tooling, and in-app auto-tune. Bug reports and feedback are welcome via [GitHub Issues](https://github.com/kylen-d/mindsight/issues).
 
 MindSight combines multi-person gaze estimation with YOLO object detection to determine *where* and *what* every participant in a scene is looking at, frame by frame, and turns that signal into measurements of attention-based psychological phenomena — such as joint attention, mutual gaze, social referencing, and more.
 
@@ -12,7 +12,7 @@ MindSight combines multi-person gaze estimation with YOLO object detection to de
 
 [![License: AGPL v3](https://img.shields.io/badge/License-AGPLv3-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
 [![CI](https://github.com/kylen-d/mindsight/actions/workflows/ci.yml/badge.svg)](https://github.com/kylen-d/mindsight/actions/workflows/ci.yml)
-[![Release](https://img.shields.io/badge/release-v1.0.0-success.svg)](https://github.com/kylen-d/mindsight/releases)
+[![Release](https://img.shields.io/badge/release-v1.3.0-success.svg)](https://github.com/kylen-d/mindsight/releases)
 
 
 
@@ -41,7 +41,7 @@ The fastest way to run MindSight — **no Python setup required** — is the dou
 
 The installer provisions a self-contained Python, installs MindSight with locked dependencies, downloads the required model weights, and creates a launcher. You do not need Python or anything else installed first.
 
-1. **Download the release zip** for your platform — `MindSight-1.0.0-mac.zip` or `MindSight-1.0.0-win.zip` — from the [GitHub Releases](https://github.com/kylen-d/mindsight/releases) page.
+1. **Download the release zip** for your platform — `MindSight-1.3.0-mac.zip` or `MindSight-1.3.0-win.zip` — from the [GitHub Releases](https://github.com/kylen-d/mindsight/releases) page.
 2. **Extract** it somewhere you can find again (Desktop or Downloads is fine).
 3. **Run the installer:**
    - **Windows:** double-click `Install-MindSight.bat`. If the blue **"Windows protected your PC"** SmartScreen box appears, click **More info → Run anyway** (expected — the in-house tool is unsigned).

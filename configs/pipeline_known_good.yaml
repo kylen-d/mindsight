@@ -124,7 +124,12 @@ plugins:
   mgaze_dataset: "gaze360"
 
   # ── Gaze-LLE Blend (primary operating mode) ──
-  rf_gazelle_model: "gazelle_dinov2_vitb14.pt"
+  # W4A flip (user-approved 2026-07-18): the DINOv3-distilled pico ONNX is
+  # the default gaze-target engine -- v1.1 eval 63.9 px mean / 71% hit rate
+  # vs 70.3 / 66% for the torch DINOv2 ViT-B/14 engine, 16 MB, CPU-only
+  # (identical behavior on Windows lab boxes). The *_name keys keep the
+  # torch fallback variant and the standalone Gaze-LLE backend unchanged.
+  rf_gazelle_model: "gazelle_hgnetv2_pico_inout_distill_1x3x640x640_1xNx4.onnx"
   rf_gazelle_name: "gazelle_dinov2_vitb14"
   gazelle_name: "gazelle_dinov2_vitb14"
   # Inference cadence. Ruled 2026-07-09: 25 (the pre-rewrite recommended

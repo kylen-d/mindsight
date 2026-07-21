@@ -21,7 +21,10 @@ import pytest
 REPO_ROOT = Path(__file__).resolve().parents[1]
 VIDEO = REPO_ROOT / "test_data" / "trimmed.mp4"
 EXPECTED_FRAMES = 869
-EXPECTED_HITS = 0  # default config on trimmed.mp4 (golden_events.csv: header only)
+EXPECTED_HITS = 163  # default config on trimmed.mp4 (W4C ruling R7: the
+                     # default MGaze weight is now resnet50_gaze.onnx --
+                     # bare resnet50 rays intersect far more than the old
+                     # mobileone_s0's; was 2 on the 3.8 defaults)
 
 pytestmark = [
     pytest.mark.slow,

@@ -1,8 +1,9 @@
 """
 GUI/main_window.py — Main application window for MindSight.
 
-Hosts four tabs (Analyze Footage, VP Builder, Gaze Tuning, Models) and provides
-the menu bar for presets, pipeline import/export, and application settings.
+Hosts six tabs (Analyze Footage, Projects, VP Builder, Inference Tuning,
+Models, About) and provides the menu bar for presets, pipeline
+import/export, and application settings.
 """
 from __future__ import annotations
 
@@ -10,6 +11,7 @@ import sys
 from argparse import Namespace
 from pathlib import Path
 
+from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QIcon
 from PyQt6.QtWidgets import (
     QApplication,
@@ -35,7 +37,8 @@ _TAB_ABOUT = 5
 
 
 class MainWindow(QMainWindow):
-    """Top-level window: Analyze Footage, VP Builder, Gaze Tuning, Models."""
+    """Top-level window: Analyze Footage, Projects, VP Builder,
+    Inference Tuning, Models, About."""
 
     def __init__(self):
         super().__init__()
@@ -59,9 +62,13 @@ class MainWindow(QMainWindow):
                                           settings=self._settings)
         self._models_tab = ModelsTab(gaze_tab=self._gaze_tab)
         # UP3: project creation/browsing home; opening jumps to Analyze Footage.
+        # W3Y item 8: it also hosts the project-level Study setup panel (which
+        # needs the gaze tab for "Import from Inference Tuning").
         from .projects_tab import ProjectsTab
-        self._projects_tab = ProjectsTab(settings=self._settings)
+        self._projects_tab = ProjectsTab(settings=self._settings,
+                                         gaze_tab=self._gaze_tab)
         self._projects_tab.open_in_analyze.connect(self._open_project_from_tab)
+        self._projects_tab.setup_saved.connect(self._on_project_setup_saved)
 
         # About: program identity + in-app doc reader (eyes-on 2026-07-11).
         from .about_tab import AboutTab
@@ -93,6 +100,55 @@ class MainWindow(QMainWindow):
         # every dest it carries.
         self._seed_from_preset()
         self._try_restore_last_session()
+
+        # ── Update notification (W3Y item 7): silent, non-blocking ────────────
+        self._build_update_chip()
+
+    # ── Update notification ───────────────────────────────────────────────────
+
+    def _build_update_chip(self):
+        """A hidden status-bar chip + launch-time checker (W3Y item 7).
+
+        The checker runs on a daemon thread and is a silent no-op on any
+        network failure or when checks are disabled (gui_state toggle /
+        MINDSIGHT_NO_UPDATE_CHECK).  The chip stays visible on every tab
+        (it is not part of the per-tab button sets).
+        """
+        self._update_chip = QPushButton("")
+        self._update_chip.setVisible(False)
+        self._update_chip.setFlat(True)
+        self._update_chip.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._update_chip.setStyleSheet(
+            "QPushButton{color:#3b82c4;font-weight:bold;padding:6px 10px;}")
+        self.statusBar().addPermanentWidget(self._update_chip)
+        from .update_check import UpdateChecker
+        self._update_checker = UpdateChecker(parent=self)
+        self._update_checker.update_available.connect(self._on_update_available)
+        self._update_checker.start()
+
+    def _on_update_available(self, tag: str, url: str):
+        self._update_chip.setText(f"⬆ {tag} available")
+        self._update_chip.setToolTip(
+            "A newer MindSight release is available -- open the release page")
+        try:
+            self._update_chip.clicked.disconnect()
+        except TypeError:
+            pass
+        self._update_chip.clicked.connect(
+            lambda _c=False, t=tag, u=url: self._open_release(t, u))
+        self._update_chip.setVisible(True)
+        if hasattr(self._about_tab, "show_update"):
+            self._about_tab.show_update(tag, url)
+
+    def _open_release(self, tag: str, url: str):
+        """Open the release page in the browser; never re-announce this tag."""
+        from PyQt6.QtCore import QUrl
+        from PyQt6.QtGui import QDesktopServices
+
+        from .update_check import dismiss
+        QDesktopServices.openUrl(QUrl(url))
+        dismiss(tag)
+        self._update_chip.setVisible(False)
 
     def _build_menu_bar(self):
         """Build the application menu bar."""
@@ -155,6 +211,17 @@ class MainWindow(QMainWindow):
         """Projects tab 'Open in Analyze Footage': switch + open (UP3)."""
         self._tabs.setCurrentIndex(_TAB_ANALYZE)
         self._run_study_tab.open_project_path(path)
+
+    def _on_project_setup_saved(self, path: str):
+        """Study setup saved on the Projects tab (W3Y item 8): if the same
+        project is open in Analyze Footage, reopen it so the preflight,
+        runs table, and pipeline-into-store load see the new project.yaml."""
+        try:
+            open_path = self._run_study_tab._project_path
+            if open_path and str(open_path) == str(path):
+                self._run_study_tab.open_project_path(path)
+        except Exception as exc:  # pragma: no cover - GUI resilience
+            print(f"[WARN] could not resync Analyze Footage: {exc}")
 
     def _menu_new_project(self):
         """Switch to Analyze Footage and start the new-project flow there."""
@@ -319,66 +386,50 @@ class MainWindow(QMainWindow):
         self._gaze_tab.set_vp_file(path)
         self._tabs.setCurrentIndex(_TAB_TUNING)
 
-    # ── Preset / pipeline stubs ───────────────────────────────────────────────
+    # ── Preset / pipeline actions ─────────────────────────────────────────────
 
     def _load_preset(self):
-        """Load a saved preset (placeholder — wired in Phase 4)."""
-        try:
-            from PyQt6.QtWidgets import QInputDialog
+        """Load a saved preset into the Inference Tuning tab."""
+        from PyQt6.QtWidgets import QInputDialog
 
-            from .settings_manager import SettingsManager
-            mgr = SettingsManager()
-            presets = mgr.list_presets()
-            if not presets:
-                QMessageBox.information(self, "No Presets", "No saved presets found.")
-                return
-            name, ok = QInputDialog.getItem(
-                self, "Load Preset", "Select preset:", presets, 0, False)
-            if ok and name:
-                ns = mgr.load_preset(name)
-                self._gaze_tab.apply_namespace(ns)
-        except ImportError:
-            QMessageBox.information(self, "Not Available",
-                                   "Settings manager not yet implemented.")
+        from .settings_manager import SettingsManager
+        mgr = SettingsManager()
+        presets = mgr.list_presets()
+        if not presets:
+            QMessageBox.information(self, "No Presets", "No saved presets found.")
+            return
+        name, ok = QInputDialog.getItem(
+            self, "Load Preset", "Select preset:", presets, 0, False)
+        if ok and name:
+            ns = mgr.load_preset(name)
+            self._gaze_tab.apply_namespace(ns)
 
     def _save_preset(self):
-        """Save current settings as a preset (placeholder — wired in Phase 4)."""
-        try:
-            from PyQt6.QtWidgets import QInputDialog
+        """Save the Inference Tuning tab's current settings as a preset."""
+        from PyQt6.QtWidgets import QInputDialog
 
-            from .settings_manager import SettingsManager
-            mgr = SettingsManager()
-            name, ok = QInputDialog.getText(
-                self, "Save Preset", "Preset name:")
-            if ok and name.strip():
-                ns = self._gaze_tab._build_namespace()
-                mgr.save_preset(name.strip(), ns)
-                QMessageBox.information(
-                    self, "Saved", f"Preset '{name.strip()}' saved.")
-        except ImportError:
-            QMessageBox.information(self, "Not Available",
-                                   "Settings manager not yet implemented.")
+        from .settings_manager import SettingsManager
+        mgr = SettingsManager()
+        name, ok = QInputDialog.getText(
+            self, "Save Preset", "Preset name:")
+        if ok and name.strip():
+            ns = self._gaze_tab._build_namespace()
+            mgr.save_preset(name.strip(), ns)
+            QMessageBox.information(
+                self, "Saved", f"Preset '{name.strip()}' saved.")
 
     def _import_pipeline(self):
         """Import settings from a pipeline YAML file."""
-        try:
-            from .pipeline_dialog import import_pipeline
-            ns = import_pipeline(self)
-            if ns is not None:
-                self._gaze_tab.apply_namespace(ns)
-        except ImportError:
-            QMessageBox.information(self, "Not Available",
-                                   "Pipeline dialogue not yet implemented.")
+        from .pipeline_dialog import import_pipeline
+        ns = import_pipeline(self)
+        if ns is not None:
+            self._gaze_tab.apply_namespace(ns)
 
     def _export_pipeline(self):
         """Export current settings to a pipeline YAML file."""
-        try:
-            from .pipeline_dialog import export_pipeline
-            ns = self._gaze_tab._build_namespace()
-            export_pipeline(self, ns)
-        except ImportError:
-            QMessageBox.information(self, "Not Available",
-                                   "Pipeline dialogue not yet implemented.")
+        from .pipeline_dialog import export_pipeline
+        ns = self._gaze_tab._build_namespace()
+        export_pipeline(self, ns)
 
     # ── Close ─────────────────────────────────────────────────────────────────
 

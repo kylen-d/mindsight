@@ -56,6 +56,16 @@ def run_pitchyaw_pipeline(*, frame, faces, gaze_eng, objects, gaze_cfg,
     face_confs:  list = []
     face_bboxes: list = []
 
+    # Backends that need frame context (e.g. head-pose-normalized models
+    # run a landmarker on a PADDED crop and fit against the full-frame
+    # camera) implement estimate_in_frame(frame, bbox) instead of the
+    # crop-only estimate(); everything downstream is identical.  They get
+    # the pre-annotation frame when the caller provides one (person boxes
+    # drawn on ``frame`` break the landmarker inside face crops).
+    est_in_frame = getattr(gaze_eng, "estimate_in_frame", None)
+    _clean = kwargs.get('clean_frame')
+    context_frame = _clean if _clean is not None else frame
+
     # -- Per-face estimation --------------------------------------------------
     raw_faces, face_widths, gaze_confs, raw_face_bboxes = [], [], [], []
     for f in faces:
@@ -64,13 +74,22 @@ def run_pitchyaw_pipeline(*, frame, faces, gaze_eng, objects, gaze_cfg,
         crop = frame[y1:y2, x1:x2]
         if crop.size == 0:
             continue
-        pitch, yaw, gc = gaze_eng.estimate(crop)
+        if est_in_frame is not None:
+            pitch, yaw, gc = est_in_frame(context_frame, (x1, y1, x2, y2))
+        else:
+            pitch, yaw, gc = gaze_eng.estimate(crop)
 
         face_score = f["bbox"][4] if len(f["bbox"]) > 4 else 1.0
-        ec = _get_eye_center(f, inv_scale=1.0) if face_score >= EYE_CONF_THRESH else None
+        # Eye-midpoint origins are opt-in (W3X --face-eye-origin).
+        _eye_origin = bool(getattr(gaze_cfg, 'face_eye_origin', False))
+        ec = (_get_eye_center(f, inv_scale=1.0)
+              if _eye_origin and face_score >= EYE_CONF_THRESH else None)
         center = ec if ec is not None else np.array([(x1+x2)/2, (y1+y2)/2], float)
 
-        raw_faces.append((center, pitch, yaw, crop))
+        kps = f.get("kps")
+        kps_local = ([[float(k[0]) - x1, float(k[1]) - y1] for k in kps]
+                     if kps is not None else None)
+        raw_faces.append((center, pitch, yaw, crop, kps_local))
         face_widths.append(x2 - x1)
         gaze_confs.append(gc)
         raw_face_bboxes.append((x1, y1, x2, y2))

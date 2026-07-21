@@ -48,6 +48,9 @@ class RayFormingResult:
     face_objs: list            # [Detection, ...]
     ray_snapped: list          # [bool, ...]
     ray_extended: list         # [bool, ...]
+    blend_info: list = None    # per-face blend telemetry dicts or None
+                               # ({'trust','accepted','inout'}) -- v1.1 W1.4,
+                               # feeds the {stem}_gaze.csv stream
 
 
 def run_ray_forming(
@@ -94,6 +97,7 @@ def run_ray_forming(
     face_track_ids = []
     ray_snapped = []
     ray_extended = []
+    blend_info = []
 
     for rg in raw_gazes:
         c = np.asarray(rg.origin, float)
@@ -115,6 +119,7 @@ def run_ray_forming(
             face_track_ids.append(tid)
             ray_snapped.append(False)
             ray_extended.append(False)
+            blend_info.append(None)   # dead zone: blend never consulted
             # Update snap temporal state so it doesn't hold stale targets
             if object_snap is not None and object_snap.temporal is not None:
                 object_snap.temporal.update(tid, None, False, gaze_conf=gc)
@@ -133,12 +138,35 @@ def run_ray_forming(
         # endpoint.  observe_face() feeds THIS frame's PY signal into the
         # scheduler for the NEXT frame's fire decision (one-frame lag,
         # documented in gazelle_provider.py).
+        face_blend = None
         if gazelle_provider is not None and gazelle_blender is not None:
             gazelle_provider.observe_face(
                 track_id=tid, py_dir=d, py_conf=gc)
             hm, age, inout, wanted = gazelle_provider.heatmap_cache.get(tid)
             trust = gazelle_provider.likelihood(tid)
             accept = bool(wanted and age == 0)
+            # In/out gating (v1.1 W3.1; inert at the 0.0 default).  Veto
+            # protects the belief map + length latch from off-screen
+            # garbage; trust attenuation fades direction blending, since
+            # PY fixation likelihood cannot see off-screen gaze.  The
+            # cached inout refreshes at every fire regardless of veto, so
+            # attenuation always tracks the newest estimate.
+            if cfg.rf_inout_gate > 0:
+                accept = accept and inout >= cfg.rf_inout_gate
+                trust = trust * inout
+            # Cheap length-refresh channel (v1.1 W3Y): consume a pending
+            # fp16 heatmap and re-latch the length target only.  A full
+            # accept this frame supersedes it (fp32 is the authority and
+            # update() re-latches anyway); the in/out veto protects the
+            # latch from off-screen garbage exactly as for accepts.
+            len_pending = gazelle_provider.pop_length_refresh(tid)
+            if len_pending is not None and not accept:
+                len_hm, len_inout = len_pending
+                if not (cfg.rf_inout_gate > 0
+                        and len_inout < cfg.rf_inout_gate):
+                    gazelle_blender.refresh_length(
+                        track_id=tid, gazelle_hm=len_hm, origin=c,
+                        frame_h=frame_h, frame_w=frame_w)
             endpoint = gazelle_blender.update(
                 track_id=tid,
                 pitch=pitch, yaw=yaw, gaze_conf=gc,
@@ -147,6 +175,7 @@ def run_ray_forming(
                 gazelle_hm=(hm if accept else None),
                 accept_heatmap=accept, trust=trust, dt=dt)
             fb = endpoint
+            face_blend = {'trust': trust, 'accepted': accept, 'inout': inout}
 
         # ── 4. Depth-adjusted ray length ──────────────────────────────────
         if cfg.depth_ray_length and depth_map is not None:
@@ -183,6 +212,7 @@ def run_ray_forming(
         face_track_ids.append(tid)
         ray_snapped.append(snap)
         ray_extended.append(extended)
+        blend_info.append(face_blend)
 
     return RayFormingResult(
         persons_gaze=persons_gaze,
@@ -192,4 +222,5 @@ def run_ray_forming(
         face_objs=face_objs,
         ray_snapped=ray_snapped,
         ray_extended=ray_extended,
+        blend_info=blend_info,
     )

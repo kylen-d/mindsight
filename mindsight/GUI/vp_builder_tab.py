@@ -21,6 +21,7 @@ from __future__ import annotations
 import json
 import queue
 import tempfile
+import threading
 from pathlib import Path
 
 from PyQt6.QtCore import Qt, QTimer
@@ -92,6 +93,13 @@ class VisualPromptBuilderTab(QWidget):
         self._log_q:    queue.Queue = queue.Queue()
         self._poll_timer = QTimer()
         self._poll_timer.timeout.connect(self._poll_worker)
+        # Suggest mode (W3Z): lazy FastSAM suggester + its own poll loop.
+        self._suggester = None
+        self._suggest_q: queue.Queue = queue.Queue()
+        self._suggest_busy = False
+        self._pending_suggestions: list = []
+        self._suggest_timer = QTimer()
+        self._suggest_timer.timeout.connect(self._poll_suggest)
         self._build_ui()
 
     # -- UI ----------------------------------------------------------------
@@ -166,7 +174,20 @@ class VisualPromptBuilderTab(QWidget):
         self._canvas = ImageCanvas()
         self._canvas.box_toggled.connect(self._on_box_delete)
         self._canvas.crop_drawn.connect(self._on_box_drawn)
+        self._canvas.point_clicked.connect(self._on_suggest_point)
+        self._canvas.suggestion_accepted.connect(self._on_suggestion_accepted)
         canvas_lay.addWidget(self._canvas)
+        suggest_row = QHBoxLayout()
+        self._suggest_btn = QPushButton("Suggest mode")
+        self._suggest_btn.setCheckable(True)
+        self._suggest_btn.setToolTip(
+            "Click an object in the image and accept a proposed box instead "
+            "of drawing it by hand (FastSAM segmentation). Needs the "
+            "FastSAM-s weight from the Models tab.")
+        self._suggest_btn.toggled.connect(self._on_suggest_toggled)
+        suggest_row.addWidget(self._suggest_btn)
+        suggest_row.addStretch(1)
+        canvas_lay.addLayout(suggest_row)
         self._canvas_status = QLabel("Load reference images to begin.")
         self._canvas_status.setStyleSheet("color:#aaa;font-size:11px;")
         canvas_lay.addWidget(self._canvas_status)
@@ -347,11 +368,13 @@ class VisualPromptBuilderTab(QWidget):
         if not refs:
             QMessageBox.warning(self, "Empty", "Draw at least one annotation.")
             return
+        from mindsight.GUI.path_picker import remember_vp_dir, vp_default_dir
         path, _ = QFileDialog.getSaveFileName(
-            self, "Export portable VP archive", "",
+            self, "Export portable VP archive", vp_default_dir(),
             f"Portable Visual Prompt (*{VP_ARCHIVE_EXT})")
         if not path:
             return
+        remember_vp_dir(path)
         if not path.endswith(VP_ARCHIVE_EXT):
             path += VP_ARCHIVE_EXT
         try:
@@ -403,6 +426,9 @@ class VisualPromptBuilderTab(QWidget):
                 info["frame"] = cv2.imread(path)
             except Exception:
                 pass
+        # Proposals belong to the image they were suggested on.
+        self._pending_suggestions = []
+        self._canvas.set_suggestions([])
         self._refresh_canvas()
         self._refresh_annotations_panel()
 
@@ -510,6 +536,90 @@ class VisualPromptBuilderTab(QWidget):
             self._refresh_canvas()
             self._refresh_annotations_panel()
 
+    # -- Suggest mode (W3Z: FastSAM click-to-suggest) ----------------------
+
+    def _on_suggest_toggled(self, checked: bool):
+        if checked:
+            from mindsight.GUI.region_suggest import fastsam_path
+            if fastsam_path() is None:
+                QMessageBox.information(
+                    self, "Weight needed",
+                    "Suggest mode needs the FastSAM-s segmentation weight "
+                    "(24 MB).\n\nDownload it on the Models tab (SAM row), "
+                    "then turn Suggest mode on again.")
+                self._suggest_btn.setChecked(False)
+                return
+            self._set_status(
+                "Suggest mode: click an object to get box proposals.")
+        else:
+            self._pending_suggestions = []
+        self._canvas.set_suggest_mode(checked)
+
+    def _on_suggest_point(self, ix: int, iy: int):
+        if self._suggest_busy or self._current_path is None:
+            return
+        info = self._images.get(self._current_path)
+        if info is None or info["frame"] is None:
+            return
+        if self._suggester is None:
+            from mindsight.GUI.region_suggest import RegionSuggester
+            self._suggester = RegionSuggester()
+        frame, suggester = info["frame"], self._suggester
+        self._suggest_busy = True
+        self._set_status("Suggesting…")
+
+        def work():
+            try:
+                self._suggest_q.put(("ok", suggester.suggest(frame, ix, iy)))
+            except Exception as exc:                       # pragma: no cover
+                self._suggest_q.put(("err", str(exc)))
+
+        threading.Thread(target=work, daemon=True).start()
+        self._suggest_timer.start(100)
+
+    def _poll_suggest(self):
+        try:
+            kind, payload = self._suggest_q.get_nowait()
+        except queue.Empty:
+            return
+        self._suggest_timer.stop()
+        self._suggest_busy = False
+        if kind == "err":
+            self._set_status(f"Suggest failed: {payload}")
+            return
+        self._pending_suggestions = payload
+        self._canvas.set_suggestions(payload)
+        if payload:
+            self._set_status(
+                f"{len(payload)} proposal(s) — click one to accept, or "
+                "click elsewhere to re-suggest.")
+        else:
+            self._set_status(
+                "No region found there — try another point or draw the "
+                "box by hand.")
+
+    def _on_suggestion_accepted(self, idx: int):
+        boxes = self._pending_suggestions
+        if not (0 <= idx < len(boxes)) or self._current_path is None:
+            return
+        row = self._class_list.currentRow()
+        if row < 0 or row >= len(self._classes):
+            QMessageBox.warning(self, "No class selected",
+                                "Add and select a class before accepting a "
+                                "suggestion.")
+            return
+        x1, y1, x2, y2 = boxes[idx]
+        cls = self._classes[row]
+        self._images[self._current_path]["annotations"].append({
+            "cls_id":   cls["id"],
+            "cls_name": cls["name"],
+            "bbox":     [int(x1), int(y1), int(x2), int(y2)],
+        })
+        self._pending_suggestions = []
+        self._canvas.set_suggestions([])
+        self._refresh_canvas()
+        self._refresh_annotations_panel()
+
     def _clear_image_annotations(self):
         if self._current_path is None:
             return
@@ -574,13 +684,15 @@ class VisualPromptBuilderTab(QWidget):
         if not has_anns:
             QMessageBox.warning(self, "Empty", "Draw at least one annotation."); return
 
+        from mindsight.GUI.path_picker import remember_vp_dir, vp_default_dir
         path, _ = QFileDialog.getSaveFileName(
-            self, "Save VP file", "",
+            self, "Save VP file", vp_default_dir(),
             f"Visual Prompt (*{VP_EXT});;JSON (*.json)")
         if not path:
             return
         if not path.endswith(VP_EXT) and not path.endswith(".json"):
             path += VP_EXT
+        remember_vp_dir(path)
 
         refs = [
             {"image": str(Path(img_path).resolve()),

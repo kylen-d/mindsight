@@ -32,21 +32,118 @@ from mindsight.constants import (
 )
 from mindsight.pipeline_config import resolve_display_pid
 
-# ── Shared colour / font constants ────────────────────────────────────────────
-_FACE_COLS  = [(100,100,255),(100,255,100),(255,100,100),(255,220,50),(255,80,255),(80,255,255)]
-_JOINT_COL  = (0, 200, 255)
-_LOCK_COL   = (0, 215, 255)
-_CONV_COL   = (0, 220, 180)
+# ── Overlay themes (v1.1 W3Z item 6) ──────────────────────────────────────────
+# "classic" is the byte-exact historical look -- the regression goldens pin
+# it, so its values must never drift.  "mindsight" restyles the overlay to
+# the brand family sampled from the logo + app icon: deep-indigo ink
+# (#1f1b37 wordmark background / #332747 icon halo), the brain's magenta
+# (#b5367a) and the eye's jade (#4ec083) as hero accents, and the icon's
+# warm off-white (#dbe1d4).  Ink label tabs with a coloured border replace
+# solid saturated fills.  Geometry (box shapes, positions, sizes) is
+# identical in both themes by design.
+_INK      = (55, 27, 31)       # #1f1b37 -- wordmark/GUI background indigo
+_INK_SEP  = (71, 39, 51)       # #332747 -- icon halo indigo
+_MAGENTA  = (137, 68, 201)     # #c94489 -- icon brain magenta (lifted a touch)
+_JADE     = (131, 192, 78)     # #4ec083 -- icon eye jade (light tone)
+_GOLD     = (94, 199, 240)     # #f0c75e -- warm gold accent (complement)
+_OFFWHITE = (212, 225, 219)    # #dbe1d4 -- icon off-white
+
+OVERLAY_THEMES: dict[str, dict] = {
+    "classic": dict(
+        face_cols=[(100, 100, 255), (100, 255, 100), (255, 100, 100),
+                   (255, 220, 50), (255, 80, 255), (80, 255, 255)],
+        joint=(0, 200, 255), lock=(0, 215, 255), conv=(0, 220, 180),
+        multi_watch=(0, 255, 0),
+        label_fill=None,               # None -> solid box-colour tab
+        label_text=(255, 255, 255),    # None -> box-colour text
+        badge_bg=(20, 20, 20),
+        lock_rim=(255, 255, 255),
+        snap_fill=(180, 255, 120), snap_rim=(60, 180, 60),
+        extend=(255, 165, 0), dwell=(255, 200, 0),
+        footer_bg=(0, 0, 0),
+        dash_bg=(18, 18, 18), dash_sep=(55, 55, 55),
+        dash_head=(210, 210, 210), dash_dim=(70, 70, 70),
+    ),
+    "mindsight": dict(
+        # Participant palette led by the logo pair (magenta, jade), then
+        # complementary pastels that hold up on real footage.
+        face_cols=[_MAGENTA, _JADE, (248, 158, 108), _GOLD,
+                   (240, 138, 180), (200, 211, 94)],
+        joint=_GOLD, lock=_MAGENTA, conv=_JADE,
+        multi_watch=_JADE,
+        label_fill=_INK,               # indigo ink tab, coloured border
+        label_text=None,               # box-colour text on the ink tab
+        badge_bg=_INK,
+        lock_rim=_OFFWHITE,
+        snap_fill=_JADE, snap_rim=_INK,
+        extend=_GOLD, dwell=_GOLD,
+        footer_bg=_INK,
+        dash_bg=_INK, dash_sep=_INK_SEP,
+        dash_head=_OFFWHITE, dash_dim=(100, 70, 85),
+    ),
+}
+
+# ── Shared colour / font constants (rebound by set_overlay_theme) ─────────────
+_FACE_COLS  = OVERLAY_THEMES["classic"]["face_cols"]
+_JOINT_COL  = OVERLAY_THEMES["classic"]["joint"]
+_LOCK_COL   = OVERLAY_THEMES["classic"]["lock"]
+_CONV_COL   = OVERLAY_THEMES["classic"]["conv"]
+_MULTI_WATCH_COL = OVERLAY_THEMES["classic"]["multi_watch"]
+_LABEL_FILL = OVERLAY_THEMES["classic"]["label_fill"]
+_LABEL_TEXT = OVERLAY_THEMES["classic"]["label_text"]
+_BADGE_BG   = OVERLAY_THEMES["classic"]["badge_bg"]
+_LOCK_RIM   = OVERLAY_THEMES["classic"]["lock_rim"]
+_SNAP_FILL  = OVERLAY_THEMES["classic"]["snap_fill"]
+_SNAP_RIM   = OVERLAY_THEMES["classic"]["snap_rim"]
+_EXTEND_COL = OVERLAY_THEMES["classic"]["extend"]
+_DWELL_COL  = OVERLAY_THEMES["classic"]["dwell"]
+_FOOTER_BG  = OVERLAY_THEMES["classic"]["footer_bg"]
 _FONT       = cv2.FONT_HERSHEY_SIMPLEX
 
 # ── Dashboard panel constants ─────────────────────────────────────────────────
-_DASH_BG   = (18, 18, 18)     # panel fill
-_DASH_SEPL = (55, 55, 55)     # separator / border colour
-_DASH_HEAD = (210, 210, 210)  # section heading colour
-_DASH_DIM  = (70, 70, 70)     # placeholder / no-data colour
+_DASH_BG   = OVERLAY_THEMES["classic"]["dash_bg"]
+_DASH_SEPL = OVERLAY_THEMES["classic"]["dash_sep"]
+_DASH_HEAD = OVERLAY_THEMES["classic"]["dash_head"]
+_DASH_DIM  = OVERLAY_THEMES["classic"]["dash_dim"]
 _DASH_FS   = DASH_FONT_SCALE
 _DASH_PAD  = DASH_PADDING
 _DASH_W    = DASH_WIDTH
+
+_ACTIVE_THEME = "classic"
+
+
+def set_overlay_theme(name: str) -> None:
+    """Select the overlay/dashboard theme (unknown names -> classic).
+
+    Drawing happens on the single pipeline thread, so rebinding the module
+    colour globals per call is safe and keeps every draw helper untouched.
+    """
+    global _ACTIVE_THEME, _FACE_COLS, _JOINT_COL, _LOCK_COL, _CONV_COL, \
+        _MULTI_WATCH_COL, _LABEL_FILL, _LABEL_TEXT, _BADGE_BG, _LOCK_RIM, \
+        _SNAP_FILL, _SNAP_RIM, _EXTEND_COL, _DWELL_COL, _FOOTER_BG, \
+        _DASH_BG, _DASH_SEPL, _DASH_HEAD, _DASH_DIM
+    if name == _ACTIVE_THEME:
+        return
+    t = OVERLAY_THEMES.get(name) or OVERLAY_THEMES["classic"]
+    _ACTIVE_THEME = name if name in OVERLAY_THEMES else "classic"
+    _FACE_COLS  = t["face_cols"]
+    _JOINT_COL  = t["joint"]
+    _LOCK_COL   = t["lock"]
+    _CONV_COL   = t["conv"]
+    _MULTI_WATCH_COL = t["multi_watch"]
+    _LABEL_FILL = t["label_fill"]
+    _LABEL_TEXT = t["label_text"]
+    _BADGE_BG   = t["badge_bg"]
+    _LOCK_RIM   = t["lock_rim"]
+    _SNAP_FILL  = t["snap_fill"]
+    _SNAP_RIM   = t["snap_rim"]
+    _EXTEND_COL = t["extend"]
+    _DWELL_COL  = t["dwell"]
+    _FOOTER_BG  = t["footer_bg"]
+    _DASH_BG    = t["dash_bg"]
+    _DASH_SEPL  = t["dash_sep"]
+    _DASH_HEAD  = t["dash_head"]
+    _DASH_DIM   = t["dash_dim"]
 
 
 def _face_colour(face_index):
@@ -55,11 +152,20 @@ def _face_colour(face_index):
 
 
 def _draw_labelled_box(frame, x1, y1, x2, y2, colour, label, thick=2):
-    """Draw a bounding box with a filled label tab on *frame* (in-place)."""
+    """Draw a bounding box with a filled label tab on *frame* (in-place).
+
+    Classic theme: solid box-colour tab with white text (the golden-pinned
+    look).  Navy theme: navy-ink tab with a 1 px coloured border and
+    box-colour text.
+    """
     cv2.rectangle(frame, (x1, y1), (x2, y2), colour, thick)
     (tw, th), bl = cv2.getTextSize(label, _FONT, 0.55, 1)
-    cv2.rectangle(frame, (x1, y1-th-bl-4), (x1+tw+4, y1), colour, -1)
-    cv2.putText(frame, label, (x1+2, y1-bl-2), _FONT, 0.55, (255,255,255), 1, cv2.LINE_AA)
+    fill = colour if _LABEL_FILL is None else _LABEL_FILL
+    text = colour if _LABEL_TEXT is None else _LABEL_TEXT
+    cv2.rectangle(frame, (x1, y1-th-bl-4), (x1+tw+4, y1), fill, -1)
+    if _LABEL_FILL is not None:
+        cv2.rectangle(frame, (x1, y1-th-bl-4), (x1+tw+4, y1), colour, 1)
+    cv2.putText(frame, label, (x1+2, y1-bl-2), _FONT, 0.55, text, 1, cv2.LINE_AA)
 
 
 def _dash_line_h() -> int:
@@ -152,7 +258,7 @@ def _draw_object_boxes(frame, dets, obj_watchers, joint_objs, locked_set,
             # Single watcher → their colour; multi-watcher → green
             _wtid = _resolve_pid(watchers[0], face_track_ids, pid_map)[1]
             col = (_face_colour(_wtid) if len(watchers) == 1
-                   else (0, 255, 0))
+                   else _MULTI_WATCH_COL)
             thick = 3
             who = " ".join(
                 _resolve_pid(fi, face_track_ids, pid_map)[0] for fi in watchers)
@@ -243,32 +349,32 @@ def _draw_gaze_rays(frame, persons_gaze, lock_info, ray_snapped, ray_extended,
         if locked_oi is not None:
             # Solid white-rimmed dot: gaze is locked onto an object
             cv2.circle(frame, (ex, ey), 8, _LOCK_COL, -1, cv2.LINE_AA)
-            cv2.circle(frame, (ex, ey), 8, (255, 255, 255), 1, cv2.LINE_AA)
+            cv2.circle(frame, (ex, ey), 8, _LOCK_RIM, 1, cv2.LINE_AA)
         elif snapped:
             # Green filled dot: adaptive snap found a nearby object
-            cv2.circle(frame, (ex, ey), 9, (180, 255, 120), -1, cv2.LINE_AA)
-            cv2.circle(frame, (ex, ey), 9, (60, 180, 60), 1, cv2.LINE_AA)
+            cv2.circle(frame, (ex, ey), 9, _SNAP_FILL, -1, cv2.LINE_AA)
+            cv2.circle(frame, (ex, ey), 9, _SNAP_RIM, 1, cv2.LINE_AA)
         elif extended:
             # Orange ring: ray was extended toward a distant object
-            cv2.circle(frame, (ex, ey), 9, (255, 165, 0), 2, cv2.LINE_AA)
-            cv2.circle(frame, (ex, ey), 4, (255, 165, 0), -1, cv2.LINE_AA)
+            cv2.circle(frame, (ex, ey), 9, _EXTEND_COL, 2, cv2.LINE_AA)
+            cv2.circle(frame, (ex, ey), 4, _EXTEND_COL, -1, cv2.LINE_AA)
 
         # Dwell-progress arc: shows how close the participant is to locking on
         if DWELL_MIN_FRACTION < dwell_frac < 1.0 and locked_oi is None:
             r = DWELL_INDICATOR_RADIUS
             cv2.ellipse(frame, (ox, oy), (r, r), -90, 0,
-                        int(360 * dwell_frac), (255, 200, 0), 2, cv2.LINE_AA)
+                        int(360 * dwell_frac), _DWELL_COL, 2, cv2.LINE_AA)
 
         # Participant badge: shows which objects this person is looking at
         targets = face_targets.get(fi, [])
         lock_tag = " [LOCK]" if locked_oi is not None else ""
-        badge = f"{plbl}: " + (", ".join(targets) or "\u2013") + lock_tag
+        badge = f"{plbl}: " + (", ".join(targets) or "-") + lock_tag
         (bw, bh), _ = cv2.getTextSize(badge, _FONT, 0.45, 1)
         # Place badge to the right of the origin; flip left if it would clip
         bx = ox + 10 if ox + 10 + bw + 6 <= w else ox - bw - 16
         by = oy - 10
         cv2.rectangle(frame, (bx - 2, by - bh - 4), (bx + bw + 4, by + 2),
-                      (20, 20, 20), -1)
+                      _BADGE_BG, -1)
         cv2.rectangle(frame, (bx - 2, by - bh - 4), (bx + bw + 4, by + 2),
                       arrow_col, 1)
         cv2.putText(frame, badge, (bx, by), _FONT, 0.45, arrow_col, 1,
@@ -276,8 +382,8 @@ def _draw_gaze_rays(frame, persons_gaze, lock_info, ray_snapped, ray_extended,
 
         # Debug overlay: raw pitch/yaw in degrees next to the badge
         if gaze_debug and angles:
-            cv2.putText(frame, (f"p={np.degrees(angles[0]):.1f}\u00b0"
-                                f" y={np.degrees(angles[1]):.1f}\u00b0"),
+            cv2.putText(frame, (f"p={np.degrees(angles[0]):.1f}"
+                                f" y={np.degrees(angles[1]):.1f} deg"),
                         (bx, by + bh + 12), _FONT, 0.35,
                         _face_colour(pid), 1, cv2.LINE_AA)
 
@@ -303,7 +409,7 @@ def _draw_gaze_footer(frame, persons_gaze, face_track_ids, pid_map=None):
     ]
     widths = [cv2.getTextSize(lbl, _FONT, 0.55, 1)[0][0] for lbl in labels]
     total = sum(widths) + 10 * (len(labels) - 1) + 12
-    cv2.rectangle(frame, (0, h - 32), (min(w, total), h), (0, 0, 0), -1)
+    cv2.rectangle(frame, (0, h - 32), (min(w, total), h), _FOOTER_BG, -1)
     x = 6
     for (lbl, lw), (_plbl, tid) in zip(zip(labels, widths), resolved):
         cv2.putText(frame, lbl, (x, h - 10), _FONT, 0.55,
@@ -462,6 +568,8 @@ def draw_overlay(ctx, *, gaze_cfg=None, **kwargs):
     gaze_debug      = False if lite_overlay else (gaze_cfg.gaze_debug if gaze_cfg else False)
     tip_radius      = gaze_cfg.tip_radius if gaze_cfg else 80
     gaze_cone_angle = 0.0 if lite_overlay else (gaze_cfg.gaze_cone_angle if gaze_cfg else 0.0)
+    set_overlay_theme(
+        getattr(gaze_cfg, '_overlay_theme', 'classic') if gaze_cfg else 'classic')
 
     # Pre-compute per-object watcher lists and per-face target names
     obj_watchers, face_targets = {}, {}

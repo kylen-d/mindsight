@@ -12,7 +12,6 @@ from PyQt6.QtWidgets import (
     QFileDialog,
     QFormLayout,
     QGroupBox,
-    QLineEdit,
     QRadioButton,
     QSpinBox,
     QVBoxLayout,
@@ -62,10 +61,13 @@ class GazeBackendSection(QWidget):
         self._mgaze_widget = QWidget()
         mgl = QVBoxLayout(self._mgaze_widget)
         mgl.setContentsMargins(0, 0, 0, 0)
-        self._gaze_model = QLineEdit(DEFAULT_ONNX_MODEL)
+        from mindsight.GUI.path_picker import KnownPathCombo, known_candidates
+        self._gaze_model = KnownPathCombo(known_candidates("mgaze_model"))
+        self._gaze_model.setText(DEFAULT_ONNX_MODEL)
         gm_btn = _browse_btn()
         gm_btn.clicked.connect(
-            lambda: self._browse_to(self._gaze_model, "*.onnx *.pt"))
+            lambda: self._browse_to(self._gaze_model, "*.onnx *.pt",
+                                    dest="mgaze_model"))
         model_row = QWidget()
         model_lay = QFormLayout(model_row)
         model_lay.setContentsMargins(0, 0, 0, 0)
@@ -80,7 +82,7 @@ class GazeBackendSection(QWidget):
         awl.setContentsMargins(0, 0, 0, 0)
         self._gaze_arch = QComboBox()
         self._gaze_arch.addItems(GAZE_ARCHS)
-        self._gaze_arch.setCurrentText("mobileone_s0")
+        self._gaze_arch.setCurrentText("resnet50")
         self._gaze_dataset = QComboBox()
         self._gaze_dataset.addItems(GAZE_DATASETS)
         awl.addRow("Arch:", self._gaze_arch)
@@ -94,10 +96,11 @@ class GazeBackendSection(QWidget):
         gwl.setContentsMargins(0, 0, 0, 0)
         self._gazelle_name = QComboBox()
         self._gazelle_name.addItems(GAZELLE_NAMES)
-        self._gazelle_ckpt = QLineEdit()
+        self._gazelle_ckpt = KnownPathCombo(known_candidates("gazelle_model"))
         gc_btn = _browse_btn()
         gc_btn.clicked.connect(
-            lambda: self._browse_to(self._gazelle_ckpt, "*.pt"))
+            lambda: self._browse_to(self._gazelle_ckpt, "*.pt",
+                                    dest="gazelle_model"))
         self._gazelle_inout = QDoubleSpinBox()
         self._gazelle_inout.setRange(0.0, 1.0)
         self._gazelle_inout.setSingleStep(0.05)
@@ -147,9 +150,11 @@ class GazeBackendSection(QWidget):
         self._arch_widget.setVisible(is_mgaze and mgaze_path.endswith('.pt'))
         self._gazelle_widget.setVisible(self._rb_gazelle.isChecked())
 
-    def _browse_to(self, line_edit: QLineEdit, filt: str = "*"):
+    def _browse_to(self, line_edit, filt: str = "*", dest: str = ""):
+        from mindsight.GUI.path_picker import default_browse_dir
         path, _ = QFileDialog.getOpenFileName(
-            self, "Select file", "", f"Files ({filt});;All (*)")
+            self, "Select file", default_browse_dir(dest),
+            f"Files ({filt});;All (*)")
         if path:
             line_edit.setText(path)
 

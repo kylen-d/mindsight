@@ -297,13 +297,14 @@ filled in when the session day comes.
 
 ### Study-wide settings
 
-Expand the **Study setup** panel (below the runs table) for settings that
-apply to the whole project -- the pipeline preset in use, a project-wide
-participant map, and an **Anonymize Footage** toggle that blurs or blacks out
-faces in the annotated video and heatmap backgrounds (turn this on if your
-ethics protocol requires de-identified outputs).
-
-![The Study setup panel expanded](../assets/tutorial/study-setup.png)
+Study-wide settings -- the pipeline preset in use, the project-wide
+participant map, and per-video conditions -- are edited on the **Projects**
+tab: open your project's overview, expand **Study setup**, and press
+**Save project.yaml**. To de-identify outputs (blur or black out faces in
+the annotated video and heatmap backgrounds -- e.g. when your ethics
+protocol requires it), turn on **Anonymize faces** in the **Inference
+Settings...** dialog; like every processing option, it applies to any run
+you launch until you turn it off.
 
 ---
 
@@ -493,7 +494,7 @@ their effect immediately. It is the right place to *find* good values -- and
 since it is deliberately decoupled from everything else, nothing you try here
 changes your study's runs. When an experiment is worth keeping, bring it
 across with **Import from Inference Tuning** in the Inference Settings dialog
-(or the Study setup panel's pipeline import).
+(or **Import from Inference Tuning** in the Projects tab's Study setup).
 
 ![Inference Tuning, basic view](../assets/tutorial/gaze-tuning-basic.png)
 

@@ -31,6 +31,23 @@ else:
 # Recognized still-image extensions — used to distinguish image vs video input.
 IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".bmp", ".tiff", ".tif", ".webp"}
 
+
+def state_dir() -> Path:
+    """Per-user state dir (settings, caches), resolved at call time.
+
+    ``$MINDSIGHT_STATE_DIR`` when set, else ``$MINDSIGHT_HOME/.mindsight``
+    for relocated installs, else ``~/.mindsight``.  Shared by the GUI
+    settings manager and the persistent weight-hash cache (v1.1 W0.7/W2.5)
+    so two installs with different homes never share state.
+    """
+    state = os.environ.get("MINDSIGHT_STATE_DIR")
+    if state:
+        return Path(state)
+    home = os.environ.get("MINDSIGHT_HOME")
+    if home:
+        return Path(home) / ".mindsight"
+    return Path.home() / ".mindsight"
+
 # Default root for all run-time outputs (video, CSV, heatmaps).
 OUTPUTS_ROOT = PROJECT_ROOT / "Outputs"
 
@@ -94,7 +111,11 @@ LABEL_PAD_Y     = 4           # vertical padding inside label background
 # UI labels & strings
 # ═══════════════════════════════════════════════════════════════════════════════
 
-UI_ARROW_LEFT   = "\u2190"    # ← used next to object labels to show looker
+# ASCII on purpose: cv2 Hershey fonts render each non-ASCII byte as "?",
+# so on-frame overlay strings must stay ASCII (the old \u2190 arrow
+# rendered as "???" in saved videos). Console-only strings
+# (UI_ARROW_RIGHT) can keep real unicode.
+UI_ARROW_LEFT   = "<-"        # used next to object labels to show looker
 UI_ARROW_RIGHT  = "\u2192"    # → used in console output for gaze hits
 UI_LABEL_JOINT  = "JOINT"     # tag for joint-attention objects
 UI_LABEL_LOCKED = "LOCKED"    # tag for gaze-locked objects

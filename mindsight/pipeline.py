@@ -40,7 +40,7 @@ from mindsight.io.sources import (
 )
 from mindsight.io.writers import finalize_video, open_event_log, open_video_writer
 from mindsight.GazeTracking.gaze_pipeline import run_gaze_step
-from mindsight.GazeTracking.gaze_processing import GazeSmootherReID
+from mindsight.GazeTracking.gaze_processing import GazeSmootherReID, MGazeReuseCache
 from mindsight.PostProcessing.RayForming.fixation import GazeLockTracker
 from mindsight.PostProcessing.RayForming.object_snap import (
     SmoothSnapTracker,
@@ -75,13 +75,20 @@ def process_frame(ctx, *, yolo, face_det, gaze_eng,
                   gaze_cfg: GazeConfig, det_cfg: DetectionConfig,
                   obj_cache=None, phenomena_cfg=None,
                   detection_plugins=None,
-                  depth_cfg=None, depth_backend=None):
+                  depth_cfg=None, depth_backend=None, prof=None):
     """
     Process one frame through detection, gaze, JA, and overlay stages.
 
     Reads from ctx: frame (required), plus optional cached_all_dets, cached_faces.
     Writes all stage outputs back to ctx.
+
+    When ``prof`` is given (a dict of per-stage accumulators), stage wall
+    times are added to its ``detect``/``depth``/``gaze``/``gazelle``/``draw``
+    keys.  Gaze-LLE time is measured inside the gaze step (via
+    ``ctx['_prof_gazelle']``) and reported separately from ``gaze``.
     """
+    _t = time.perf_counter() if prof is not None else 0.0
+
     # 1. Object detection
     run_detection_step(ctx, yolo=yolo, det_cfg=det_cfg, obj_cache=obj_cache,
                        detection_plugins=detection_plugins)
@@ -89,8 +96,18 @@ def process_frame(ctx, *, yolo, face_det, gaze_eng,
     if ctx.get('do_cache'):
         ctx['cached_all_dets_out'] = ctx['all_dets']
 
+    # Frame-context gaze backends (estimate_in_frame) must see the frame
+    # BEFORE annotation: the person boxes drawn below land inside face
+    # crops and break the MediaPipe landmarker.  Copy only when such a
+    # backend is active — the default (MGaze) path stays byte-identical.
+    if hasattr(gaze_eng, 'estimate_in_frame'):
+        ctx['clean_frame'] = ctx['frame'].copy()
+
     for p in ctx['persons']:
         cv2.rectangle(ctx['frame'], (p['x1'], p['y1']), (p['x2'], p['y2']), (255, 120, 30), 1)
+
+    if prof is not None:
+        _now = time.perf_counter(); prof['detect'] += _now - _t; _t = _now
 
     # 1.5. Depth estimation (between detection and gaze)
     if depth_cfg and depth_cfg.enabled and depth_backend and 'depth_map' not in ctx:
@@ -99,8 +116,18 @@ def process_frame(ctx, *, yolo, face_det, gaze_eng,
     if depth_cfg and depth_cfg.enabled:
         ctx['depth_cfg'] = depth_cfg
 
+    if prof is not None:
+        _now = time.perf_counter(); prof['depth'] += _now - _t; _t = _now
+
     # 2. Gaze estimation + ray-bbox intersection
     run_gaze_step(ctx, face_det=face_det, gaze_eng=gaze_eng, gaze_cfg=gaze_cfg)
+
+    if prof is not None:
+        _now = time.perf_counter()
+        _gz = ctx.get('_prof_gazelle', 0.0)
+        prof['gaze'] += (_now - _t) - _gz
+        prof['gazelle'] += _gz
+        _t = _now
 
     # 3. Joint attention + gaze convergence
     ja_enabled = phenomena_cfg.joint_attention if phenomena_cfg is not None else True
@@ -124,6 +151,9 @@ def process_frame(ctx, *, yolo, face_det, gaze_eng,
 
     # 4. Annotate frame
     draw_overlay(ctx, gaze_cfg=gaze_cfg)
+
+    if prof is not None:
+        prof['draw'] += time.perf_counter() - _t
 
 
 # ==============================================================================
@@ -224,8 +254,11 @@ class RunOptions:
     fast_mode: bool = False
     skip_phenomena: int = 0
     lite_overlay: bool = False
+    overlay_theme: str = "classic"
     no_dashboard: bool = False
     profile: bool = False
+    # Opt-in {stem}_detections.csv side stream (v1.1 W4B validation suite).
+    save_detections: bool = False
 
 
 class CancelToken:
@@ -375,8 +408,10 @@ def _run_video(source, *, yolo, face_det, gaze_eng,
     fast_mode      = options.fast_mode
     skip_phenomena = options.skip_phenomena
     lite_overlay   = options.lite_overlay
+    overlay_theme  = options.overlay_theme
     no_dashboard   = options.no_dashboard
     profile        = options.profile
+    save_detections = options.save_detections
 
     from mindsight.Phenomena.phenomena_config import PhenomenaConfig
     if phenomena_cfg is None:
@@ -410,8 +445,16 @@ def _run_video(source, *, yolo, face_det, gaze_eng,
     aux_captures, _aux_ended = open_aux_streams(output_cfg, _fps)
     grace_frames = max(0, int(round(tracker_cfg.reid_grace_seconds * _fps)))
 
+    _embed_fn = None
+    if tracker_cfg.face_reid_sim > 0:
+        from mindsight.GazeTracking.gaze_processing import create_face_embedder
+        _embed_fn = create_face_embedder()
     smoother  = GazeSmootherReID(grace_frames=grace_frames,
-                                   max_dist=tracker_cfg.reid_max_dist)
+                                   max_dist=tracker_cfg.reid_max_dist,
+                                   embed_fn=_embed_fn,
+                                   embed_sim=tracker_cfg.face_reid_sim)
+    mgaze_reuse = (MGazeReuseCache(tracker_cfg.mgaze_reuse_eps)
+                   if tracker_cfg.mgaze_reuse_eps > 0 else None)
     locker    = (GazeLockTracker(dwell_frames=tracker_cfg.dwell_frames,
                                  lock_dist=tracker_cfg.lock_dist)
                  if tracker_cfg.gaze_lock else None)
@@ -450,15 +493,21 @@ def _run_video(source, *, yolo, face_det, gaze_eng,
     _prev_fps                        = 0.0
     look_counts: dict                = {}
     heatmap_gaze: dict               = {}
+    gaze_stream_rows: list           = []
+    # Detections side stream (v1.1 W4B validation suite): None keeps the
+    # collector inert so default runs stay byte-identical.
+    detections_stream_rows = [] if save_detections else None
 
     # Persistent run-level state carried across frames via FrameContext.
     # Each frame gets a fresh FrameContext seeded with these base values.
     run_ctx_base = dict(
         source=source,
         smoother=smoother, locker=locker, snap_temporal=snap_temporal,
-        smooth_snap_tracker=smooth_snap,
+        smooth_snap_tracker=smooth_snap, mgaze_reuse=mgaze_reuse,
         all_trackers=all_trackers,
         look_counts=look_counts,
+        gaze_stream_rows=gaze_stream_rows,
+        detections_stream_rows=detections_stream_rows,
         heatmap_path=output_cfg.heatmap_path,
         heatmap_gaze=heatmap_gaze,
         charts_path=output_cfg.charts_path,
@@ -495,11 +544,13 @@ def _run_video(source, *, yolo, face_det, gaze_eng,
         gaze_cfg._lite_overlay = True
     else:
         gaze_cfg._lite_overlay = False
+    # Same dynamic-attr channel for the cosmetic overlay theme (W3Z item 6).
+    gaze_cfg._overlay_theme = overlay_theme
 
     # Profiling accumulators
     if profile:
-        _prof = {'detect': 0.0, 'gaze': 0.0, 'phenomena': 0.0,
-                 'draw': 0.0, 'dashboard': 0.0, 'n': 0}
+        _prof = {'detect': 0.0, 'depth': 0.0, 'gaze': 0.0, 'gazelle': 0.0,
+                 'phenomena': 0.0, 'draw': 0.0, 'dashboard': 0.0, 'n': 0}
 
     print("MindSight running -> press Q to quit.")
     cache: dict = {}
@@ -540,17 +591,12 @@ def _run_video(source, *, yolo, face_det, gaze_eng,
             ctx['prev_persons_gaze'] = cache.get('prev_persons_gaze', [])
             ctx['prev_face_track_ids'] = cache.get('prev_face_track_ids', [])
 
-            if profile: _t1 = time.perf_counter()
-
             process_frame(ctx, yolo=yolo, face_det=face_det, gaze_eng=gaze_eng,
                           gaze_cfg=gaze_cfg, det_cfg=det_cfg, obj_cache=obj_cache,
                           phenomena_cfg=phenomena_cfg,
                           detection_plugins=detection_plugins,
-                          depth_cfg=depth_cfg, depth_backend=depth_backend)
-
-            if profile:
-                _t2 = time.perf_counter()
-                _prof['detect'] += _t2 - _t1
+                          depth_cfg=depth_cfg, depth_backend=depth_backend,
+                          prof=_prof if profile else None)
 
             if do_det:
                 cache['all_dets'] = ctx['all_dets']
@@ -658,6 +704,9 @@ def _run_video(source, *, yolo, face_det, gaze_eng,
                     n = _prof['n']
                     print(f"[PROFILE] frame {n} avg: "
                           f"detect={_prof['detect']/n*1000:.1f}ms "
+                          f"depth={_prof['depth']/n*1000:.1f}ms "
+                          f"gaze={_prof['gaze']/n*1000:.1f}ms "
+                          f"gazelle={_prof['gazelle']/n*1000:.1f}ms "
                           f"phenomena={_prof['phenomena']/n*1000:.1f}ms "
                           f"draw={_prof['draw']/n*1000:.1f}ms "
                           f"dashboard={_prof['dashboard']/n*1000:.1f}ms "
@@ -741,7 +790,8 @@ def run(source, yolo, face_det, gaze_eng,
         detection_plugins=None,
         phenomena_cfg=None,
         fast_mode=False, skip_phenomena=0, lite_overlay=False,
-        no_dashboard=False, profile=False,
+        overlay_theme="classic",
+        no_dashboard=False, profile=False, save_detections=False,
         depth_cfg=None, depth_backend=None,
         gazelle_provider=None, ray_cfg=None, data_plugins=None):
     """Backward-compatible entry point: build a :class:`Pipeline` and drive it.
@@ -761,7 +811,9 @@ def run(source, yolo, face_det, gaze_eng,
     )
     options = RunOptions(
         fast_mode=fast_mode, skip_phenomena=skip_phenomena,
-        lite_overlay=lite_overlay, no_dashboard=no_dashboard, profile=profile,
+        lite_overlay=lite_overlay, overlay_theme=overlay_theme,
+        no_dashboard=no_dashboard, profile=profile,
+        save_detections=save_detections,
     )
     return run_to_completion(pipeline, source, options=options)
 

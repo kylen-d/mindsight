@@ -58,6 +58,7 @@ be supplied multiple times.
 | `--summary` | str (optional) | None | Save post-run summary CSV. Omit a value to use Outputs/CSV Files/[stem]_Summary_Output.csv, or supply a custom path. |
 | `--heatmap` | str (optional) | None | Save per-participant scene gaze heatmaps. Omit a value to use Outputs/heatmaps/[stem]_Heatmap_Output (one PNG per participant), or supply a custom directory/prefix path. |
 | `--charts` | str (optional) | None | Generate post-run time-series charts for each phenomena tracker. Omit a value to use Outputs/Charts/[stem]_Charts.png, or supply a custom path. |
+| `--save-detections` | flag | off | Write a per-frame detections side stream (`[stem]_detections.csv` next to the summary CSV: one row per detection with class, confidence, and bbox). Off by default; the validation suite enables it for its runs to score object IoU. |
 | `--anonymize` | `blur` / `black` | None | Anonymize faces in the output video: 'blur' applies heavy Gaussian blur, 'black' fills with a solid rectangle. |
 | `--anonymize-padding` | float | `0.3` | Fraction of face bbox size added as padding for anonymization (default: 0.3). |
 
@@ -68,6 +69,7 @@ be supplied multiple times.
 | `--fast` | flag | off | Enable bundled performance optimizations: skip phenomena on non-detection frames, throttle dashboard bridge, reduce GUI poll rate. |
 | `--skip-phenomena` | int | `0` | Run phenomena trackers only every N frames (0 = every frame). Independent of --skip-frames.  (default: 0) |
 | `--lite-overlay` | flag | off | Minimal overlay: disable cone rendering, convergence markers, dwell arcs, and debug text.  Keeps gaze arrows, boxes, badges. |
+| `--overlay-theme` | `classic` / `mindsight` | `"classic"` | Annotated-frame overlay styling: `classic` is the historical high-saturation look, `mindsight` uses the brand palette (indigo ink label tabs, logo magenta/jade accents). Cosmetic only — analysis outputs are unaffected (default: classic). |
 | `--no-dashboard` | flag | off | Skip dashboard composition for maximum throughput. Displays the raw annotated frame only. |
 | `--profile` | flag | off | Print per-stage timing breakdown every 100 frames. |
 
@@ -75,7 +77,10 @@ be supplied multiple times.
 
 | Flag | Type / choices | Default | Description |
 |------|----------------|---------|-------------|
-| `--model` | str | `"yolov8n.pt"` | Object Detection Model, defaults to yolov8n.pt |
+| `--model` | str | `"yolo11n.pt"` | Object Detection Model (default: yolo11n.pt since v1.3; yolo11n.onnx in the Models tab is a faster option for CPU-bound installs) |
+| `--face-model` | str | `"r34"` | RetinaFace backbone variant (default: r34 -- the v1.3 eval pick: best accuracy AND ~40% faster than mnet_v2 on the CoreML path; weights auto-download on first use) |
+| `--no-face-eye-origin` | flag | off | Anchor gaze rays at the face-bbox centre (the pre-v1.3 behavior), overriding the eye-midpoint default |
+| `--face-reid-sim` | float | `0.0` | Verify lost-track revivals with ArcFace embeddings: a dead track is re-identified by cosine similarity ≥ SIM (anywhere in frame, not just near its last position), falling back to positional matching. 0 disables (default: 0.0). Try 0.35–0.45. Embedding weights auto-download on first use (InsightFace research-provenance — see THIRD_PARTY_LICENSES). |
 | `--conf` | float | `0.35` | Object detection confidence threshold, defaults to 0.35 |
 | `--classes` | str[] | `[]` | Specified YOLO Object Detection Classes Prompt |
 | `--blacklist` | str[] | `[]` | Specified YOLO Object Detection Classes Blacklist |
@@ -142,10 +147,18 @@ be supplied multiple times.
 
 | Flag | Type / choices | Default | Description |
 |------|----------------|---------|-------------|
-| `--rf-gazelle-model` | str | None | Path to a Gaze-LLE checkpoint (.pt) for Gazelle blend ray forming. Used alongside a pitch/yaw backend (MGaze, etc.) to periodically correct rays with Gaze-LLE heatmaps. |
+| `--rf-gazelle-model` | str | None | Path to a gaze-target model for Gazelle blend ray forming: a Gaze-LLE checkpoint (.pt, torch) or a gazelle-dinov3 ONNX export (.onnx, onnxruntime). Used alongside a pitch/yaw backend (MobileGaze, etc.) to periodically correct rays with scene-aware heatmaps. |
 | `--rf-gazelle-name` | `gazelle_dinov2_vitb14` / `gazelle_dinov2_vitb14_inout` / `gazelle_dinov2_vitl14` / `gazelle_dinov2_vitl14_inout` | `"gazelle_dinov2_vitb14"` | Gaze-LLE model variant for ray forming (default: gazelle_dinov2_vitb14). |
 | `--rf-gazelle-interval` | int | None | (Legacy) alias for --min-call-gap. If both are given, --min-call-gap wins. Kept so old scripts/YAMLs keep working (default: unset -> min_call_gap default). |
 | `--min-call-gap` | int | None | Minimum frames between Gaze-LLE inference calls. The scheduler also requires at least one participant to be fixating before firing (default: 30). |
+| `--rf-inout-gate` | float | `0.0` | Activate the Gaze-LLE checkpoint's in/out-of-frame head (when present) and gate the blend with it: heatmap accepts with an in-frame score below the threshold are vetoed and blend trust is scaled by the score. 0 disables (default: 0.0). |
+| `--rf-reuse-eps` | float | `0.0` | Skip a scheduled Gaze-LLE call when the scene is visually unchanged since the last real call (mean-abs 64×64 grayscale frame diff below EPS and stable face boxes); the cached heatmaps are re-anchored instead. 0 disables (default: 0.0). Saves forward passes on static footage. |
+| `--rf-onset-samples` | int | `3` | Let a NEW face reach fixation eligibility after N pitch/yaw samples instead of the full warmup of 5 (half the history buffer). Minimum effective value 2; 0 keeps the full warmup (default: 3). Cuts first-anchor latency for freshly appeared faces. |
+| `--rf-onset-gap` | int | `5` | When a never-anchored face wants inference, relax the global call gap to min(`--min-call-gap`, N) so a new participant is not stuck behind another face's recent call. 0 disables (default: 5). |
+| `--rf-len-refresh-gap` | int | `10` | Every N frames, run a cheap half-precision Gaze-LLE pass that refreshes ray LENGTH only — direction stays with the full-precision fixation-gated corrections. Keeps ray reach fresh between corrections at a fraction of the cost. 0 disables (default: 10). |
+| `--rf-len-slew` | int | `5` | When a length refresh re-latches ray length, ramp the effective length target from the reach currently shown to the new value over N frames instead of snapping, with the length-hold decay paused during the ramp (monotone approach, no bounce). 0 = instant snap (default: 5). |
+| `--rf-len-gain` | float | `1.1` | Scale the blend ray-length target by F. The v1.3 eval decomposition measured a systematic under-reach (84% of rays short); 1.10 recovered ~5 px mean / ~8 px median on the eval labels. Applied before smoothing so snap and hit detection see the corrected reach. 1.0 = off (default: 1.10). |
+| `--rf-endpoint-extract` | `centroid` / `topp` | `"centroid"` | How the Gaze-LLE heatmap becomes a ray-length endpoint: `centroid` = full-map mass centroid (historical), `topp` = mass centroid of the top-50%-mass cells — diffuse or multi-modal heatmaps no longer drag the endpoint toward the origin (default: centroid). |
 | `--fixation-v-threshold` | float | `0.04` | Smoothed pitch/yaw velocity (rad/frame) at which a face is treated as 50% fixating. Lower = safer anchoring (default: 0.04). |
 | `--fixation-d-threshold` | float | `0.15` | Windowed pitch/yaw dispersion (rad) at which a face is treated as 50% fixating (default: 0.15). |
 | `--dir-min-cutoff` | float | `1.0` | Direction One Euro smoother floor cutoff (Hz). Lower = smoother at rest (default: 1.0). |
@@ -157,6 +170,12 @@ be supplied multiple times.
 | `--depth-length-min` | float | `0.5` | Ray length multiplier at depth=0 (nearest) (default: 0.5). |
 | `--depth-length-max` | float | `3.0` | Ray length multiplier at depth=1 (farthest) (default: 3.0). |
 | `--depth-belief-boost` | float | `0.0` | How much depth agreement boosts Gaze-LLE heatmap confidence in the belief update (default: 0.0). |
+
+### Adas Gaze backend
+
+| Flag | Type / choices | Default | Description |
+|------|----------------|---------|-------------|
+| `--adas-gaze-model` | str | None | Path to the Intel gaze-estimation-adas-0002 ONNX model. Activates the head-pose-normalized adas gaze backend (Apache-2.0, provenance-clean; requires the MediaPipe `face_landmarker.task` asset). |
 
 ### Gazelle backend
 
@@ -170,11 +189,17 @@ be supplied multiple times.
 | `--gazelle-fp16` | flag | off | Use half-precision (float16) inference on CUDA/MPS (ignored on CPU). |
 | `--gazelle-compile` | flag | off | Use torch.compile() for the Gazelle model (PyTorch 2.0+ only). |
 
+### MPIIFaceGaze backend
+
+| Flag | Type / choices | Default | Description |
+|------|----------------|---------|-------------|
+| `--mpiifacegaze-model` | str | None | Path to the hysts MPIIFaceGaze resnet_simple checkpoint (.pth). Activates the head-pose-normalized MPIIFaceGaze backend (requires the MediaPipe `face_landmarker.task` asset). Weights are research-provenance -- trained on MPIIFaceGaze (CC BY-NC-SA); see THIRD_PARTY_LICENSES. |
+
 ### MGaze backend
 
 | Flag | Type / choices | Default | Description |
 |------|----------------|---------|-------------|
-| `--mgaze-model` | str | (bundled ONNX weights) | Path to MGaze model weights (.onnx or .pt) |
+| `--mgaze-model` | str | `resnet50_gaze.onnx` (bundled) | Path to MobileGaze model weights (.onnx or .pt). The bundled `mobileone_s0_gaze.onnx` is the lighter/faster alternative (used by the low-power preset). |
 | `--mgaze-arch` | `resnet18` / `resnet34` / `resnet50` / `mobilenetv2` / `mobileone_s0` / `mobileone_s1` / `mobileone_s2` / `mobileone_s3` / `mobileone_s4` | None | Architecture name (required for .pt models) |
 | `--mgaze-dataset` | str | `"gaze360"` | Dataset config key (default: gaze360) |
 

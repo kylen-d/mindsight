@@ -139,6 +139,10 @@ _TAB_GAZE = SpecTab(
                       "0 = ray. Cones catch more objects, less precisely."),
             SpecField("conf_ray", "Confidence-scaled ray length",
                       "Shorten the ray when the gaze model is unsure.", tier="A"),
+            SpecField("face_eye_origin", "Eye-midpoint ray origin",
+                      "Anchor rays at the detected eye midpoint instead of "
+                      "the face-box centre. Changes ray origins vs. blessed "
+                      "baselines.", tier="A"),
         )),
         SpecGroup("gazelle_blend", "Gaze-LLE Blend",
                   toggle="rf_gazelle_model",
@@ -167,6 +171,59 @@ _TAB_GAZE = SpecTab(
             SpecField("dir_min_cutoff", "Direction smoother floor (Hz)",
                       tier="A"),
             SpecField("len_min_cutoff", "Length smoother floor (Hz)", tier="A"),
+            SpecField("rf_inout_gate", "In/out-of-frame gate",
+                      "Use the Gaze-LLE in/out-of-frame estimate (when the "
+                      "checkpoint has the head): corrections with an "
+                      "in-frame score below this are rejected and blend "
+                      "trust scales with the score. 0 = off.",
+                      tier="A"),
+            SpecField("rf_reuse_eps", "Reuse unchanged scenes",
+                      "Skip a scheduled Gaze-LLE correction when the frame "
+                      "is visually unchanged since the last one (mean pixel "
+                      "difference below this threshold) and re-apply the "
+                      "cached result instead. 0 = off.",
+                      tier="A"),
+            SpecField("rf_onset_samples", "Onset warmup samples",
+                      "Let a newly appeared face qualify for its first "
+                      "correction after this many gaze samples instead of "
+                      "the default 5. 0 = default warmup.",
+                      tier="A"),
+            SpecField("rf_onset_gap", "Onset call gap (frames)",
+                      "Let a face that never had a correction fire after "
+                      "this many frames since the last call, instead of the "
+                      "full minimum call gap. 0 = off.",
+                      tier="A"),
+            SpecField("rf_len_refresh_gap", "Length refresh gap (frames)",
+                      "Every N frames, run a cheap half-precision Gaze-LLE "
+                      "pass that refreshes ray length only; direction stays "
+                      "with the full-precision corrections. 0 = off.",
+                      tier="A"),
+            SpecField("rf_len_slew", "Length slew (frames)",
+                      "When a refresh re-latches ray length, transition to "
+                      "the new value over this many frames instead of "
+                      "snapping instantly. Suggested: half the length "
+                      "refresh gap. 0 = instant snap.",
+                      tier="A"),
+            SpecField("rf_len_gain", "Length gain",
+                      "Scale the blend ray-length target. Rays measured "
+                      "systematically short on the v1.3 eval; the 1.10 "
+                      "default recovers reach. 1.0 = off.",
+                      tier="A"),
+            SpecField("rf_endpoint_extract", "Endpoint extraction",
+                      "How the correction heatmap becomes a ray endpoint: "
+                      "centroid (full-map, historical) or topp (top-mass "
+                      "cells only -- diffuse maps stop dragging the "
+                      "endpoint toward the origin).",
+                      tier="A"),
+            SpecField("rf_gazelle_fp16", "Half precision (fp16)",
+                      "Run Gaze-LLE in half precision on CUDA/MPS. Faster per "
+                      "correction; results differ slightly from full "
+                      "precision, so keep off for regression baselines.",
+                      tier="A"),
+            SpecField("rf_gazelle_compile", "torch.compile (experimental)",
+                      "Compile the Gaze-LLE model (PyTorch 2+). First "
+                      "correction pays a warmup cost; MPS support immature.",
+                      tier="A"),
         ), caption="Fixation sensitivity + smoother floor cutoffs (Hz) tune "
                    "when corrections fire and how the One-Euro smoother floors "
                    "direction/length."),
@@ -253,6 +310,11 @@ _TAB_DETECTION = SpecTab(
             SpecField("reid_grace_seconds", "Track re-ID grace (s)",
                       "How long a lost person track can reappear with the same "
                       "identity.", tier="A"),
+            SpecField("face_reid_sim", "Face re-ID similarity",
+                      "Verify track revivals with face embeddings: a lost "
+                      "track is re-identified anywhere in frame when "
+                      "similarity is at least this value. 0 = off.",
+                      tier="A"),
         )),
         SpecGroup("gaze_boost", "Gaze-guided detection boost",
                   toggle="gaze_boost",
@@ -404,6 +466,11 @@ _TAB_OUTPUT = SpecTab(
             SpecField("lite_overlay", "Overlay detail",
                       "Full overlays vs minimal (no cones, markers, debug "
                       "text). Checked = minimal."),
+            SpecField("overlay_theme", "Overlay theme",
+                      "Styling of the drawn overlays: classic "
+                      "(high-saturation) or mindsight (brand palette: "
+                      "indigo label tabs, logo magenta/jade accents). "
+                      "Cosmetic only."),
             SpecField("no_dashboard", "Show dashboard panels",
                       "Compose side dashboard onto processed frames (off = "
                       "fastest; the GUI Live tab works regardless).",
@@ -436,6 +503,11 @@ _TAB_PERFORMANCE = SpecTab(
                       "non-detection frames, throttle previews)."),
             SpecField("skip_phenomena", "Phenomena every Nth frame",
                       "Run phenomena trackers every N frames. 0 = every frame.",
+                      tier="A"),
+            SpecField("mgaze_reuse_eps", "Reuse unchanged faces",
+                      "Skip the per-face gaze model when a face crop is "
+                      "visually unchanged from the previous frame (mean "
+                      "pixel difference below this threshold). 0 = off.",
                       tier="A"),
         )),
     ),

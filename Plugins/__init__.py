@@ -229,8 +229,9 @@ class GazePlugin(ABC):
         gaze_cfg        : GazeConfig with ray parameters.
         smoother        : Optional GazeSmootherReID instance.
         snap_temporal   : Optional SnapTemporalState instance.
-        aux_frames      : dict[(pid_label, stream_type), ndarray | None] —
-                          per-participant auxiliary video frames.  Empty dict
+        aux_frames      : dict[(pid, stream_label, video_type), ndarray | None]
+                          — per-participant auxiliary video frames keyed by the
+                          3-tuple (see mindsight/io/sources.py).  Empty dict
                           when no auxiliary streams are configured.
 
         Returns
@@ -420,11 +421,13 @@ class PhenomenaPlugin(ABC):
         face_track_ids : list[int]  stable Re-ID track IDs (same order as
                          persons_gaze). Falls back to list-position indices when
                          the smoother is disabled.
-        hits           : set of (face_list_idx, obj_list_idx) pairs — pre-computed
-                         gaze-object intersections.
-        aux_frames     : dict[(pid_label, stream_type), ndarray | None] —
-                         per-participant auxiliary video frames (e.g. eye-tracking
-                         cameras, first-person views).  Empty dict when no
+        hits           : set of (face_track_id, obj_list_idx) pairs — pre-computed
+                         gaze-object intersections.  Face side is the stable
+                         track ID (same convention as hit_events) since v1.1.
+        aux_frames     : dict[(pid, stream_label, video_type), ndarray | None]
+                         — per-participant auxiliary video frames keyed by the
+                         3-tuple (see mindsight/io/sources.py), e.g. eye-tracking
+                         cameras, first-person views.  Empty dict when no
                          auxiliary streams are configured.
 
         Returns
@@ -689,19 +692,21 @@ class DataCollectionPlugin(ABC):
 
     def on_frame(self, **kwargs) -> None:
         """
-        Per-frame data collection hook.  Called once per frame after all
-        pipeline stages and display updates.
+        Per-frame data collection hook.  Called once per frame from the
+        data-collection stage, after the detection, gaze, and phenomena
+        stages (before display composition).
 
-        Common kwargs: frame_no, persons_gaze, face_bboxes, hit_events,
-        face_track_ids, hits, objects, confirmed_objs, etc.
+        Receives the full frame context as keyword arguments: frame,
+        frame_no, persons_gaze, face_bboxes, hit_events, face_track_ids,
+        hits, objects, confirmed_objs, etc.
         """
 
     def on_run_complete(self, **kwargs) -> None:
         """
         Post-run hook.  Called after the video loop ends with summary data.
 
-        Common kwargs: total_frames, joint_frames, confirmed_frames,
-        total_hits, look_counts, source, all_trackers, etc.
+        Kwargs: total_frames, total_hits, look_counts, source,
+        all_trackers, pid_map, video_name, conditions, fps.
         """
 
     def generate_charts(self, output_dir: str, **kwargs) -> list[str]:

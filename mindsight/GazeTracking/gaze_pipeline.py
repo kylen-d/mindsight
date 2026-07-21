@@ -19,12 +19,15 @@ Usage
     run_gaze_step(ctx, face_det=face_det, gaze_eng=gaze_eng, gaze_cfg=gaze_cfg)
 """
 
+import time
+
 import numpy as np
 
 from mindsight.constants import EYE_CONF_THRESH
 from mindsight.GazeTracking.gaze_processing import (
     _faces_as_objects,
     _get_eye_center,
+    normalize_face_dicts,
 )
 from mindsight.PostProcessing.RayForming.fixation import apply_lock_on
 from mindsight.PostProcessing.RayForming.hit_detection import compute_ray_intersections
@@ -40,7 +43,7 @@ from Plugins import GazePlugin
 # Default scene-level pipeline (for plugins without run_pipeline)
 # ══════════════════════════════════════════════════════════════════════════════
 
-def _default_scene_pipeline(frame, faces, gaze_eng):
+def _default_scene_pipeline(frame, faces, gaze_eng, eye_origin=False):
     """Fallback pipeline for scene-level backends (e.g. Gazelle) that do not
     implement their own ``run_pipeline()``."""
     h, w = frame.shape[:2]
@@ -67,7 +70,10 @@ def _default_scene_pipeline(frame, faces, gaze_eng):
     persons_gaze = []
     for f, (x1, y1, x2, y2), (xy, gc) in zip(valid_faces, bboxes_raw, gz):
         face_score = f["bbox"][4] if len(f["bbox"]) > 4 else 1.0
-        ec = _get_eye_center(f) if face_score >= EYE_CONF_THRESH else None
+        # Eye-midpoint origins are opt-in (W3X --face-eye-origin): the
+        # blessed baselines anchor rays at the bbox centre.
+        ec = (_get_eye_center(f)
+              if eye_origin and face_score >= EYE_CONF_THRESH else None)
         origin = ec if ec is not None else np.array([(x1+x2)/2, (y1+y2)/2], float)
         persons_gaze.append((origin, xy, None))
         face_confs.append(gc)
@@ -86,13 +92,31 @@ def _default_scene_pipeline(frame, faces, gaze_eng):
 # Core estimation: per-face pitch/yaw + temporal smoothing
 # ══════════════════════════════════════════════════════════════════════════════
 
-def _estimate_pitchyaw(frame, faces, gaze_eng, smoother):
+def _estimate_pitchyaw(frame, faces, gaze_eng, smoother, reuse_cache=None,
+                       eye_origin=False, clean_frame=None):
     """Run per-face pitch/yaw estimation and temporal smoothing.
+
+    When *reuse_cache* (an ``MGazeReuseCache``) is given, visually-unchanged
+    face crops reuse the previous frame's estimate instead of re-running the
+    model (v1.1 W2.2; off unless ``--mgaze-reuse-eps`` > 0).
+
+    *eye_origin* (W3X ``--face-eye-origin``) anchors ray origins at the
+    detected eye midpoint instead of the bbox centre.
+
+    Backends that implement ``estimate_in_frame(frame, bbox)`` (the
+    head-pose-normalized ones: their landmarker works on PADDED crops and
+    the PnP fit needs full-frame intrinsics) get frame context instead of
+    the crop-only ``estimate()``.  They receive *clean_frame* when given:
+    by this point ``ctx['frame']`` already carries the drawn person boxes,
+    whose edges inside a face crop break the landmarker.  The crop path
+    (MGaze) is untouched — its goldens were blessed on the drawn frame.
 
     Returns (raw_faces, smoothed, face_widths, gaze_confs,
              raw_face_bboxes, face_track_ids, face_objs).
     """
     h, w = frame.shape[:2]
+    est_in_frame = getattr(gaze_eng, "estimate_in_frame", None)
+    context_frame = clean_frame if clean_frame is not None else frame
     raw_faces, face_widths, gaze_confs, raw_face_bboxes = [], [], [], []
     for f in faces:
         x1, y1 = max(0, int(f["bbox"][0])), max(0, int(f["bbox"][1]))
@@ -100,15 +124,27 @@ def _estimate_pitchyaw(frame, faces, gaze_eng, smoother):
         crop = frame[y1:y2, x1:x2]
         if crop.size == 0:
             continue
-        pitch, yaw, gc = gaze_eng.estimate(crop)
+        if est_in_frame is not None:
+            pitch, yaw, gc = est_in_frame(context_frame, (x1, y1, x2, y2))
+        elif reuse_cache is not None:
+            pitch, yaw, gc = reuse_cache.estimate(
+                (x1, y1, x2, y2), crop, gaze_eng.estimate)
+        else:
+            pitch, yaw, gc = gaze_eng.estimate(crop)
 
         face_score = f["bbox"][4] if len(f["bbox"]) > 4 else 1.0
         ec = (_get_eye_center(f, inv_scale=1.0)
-              if face_score >= EYE_CONF_THRESH else None)
+              if eye_origin and face_score >= EYE_CONF_THRESH else None)
         center = ec if ec is not None else np.array(
             [(x1 + x2) / 2, (y1 + y2) / 2], float)
 
-        raw_faces.append((center, pitch, yaw, crop))
+        # Crop-relative landmarks ride along for the smoother's embedding
+        # ReID (W3X --face-reid-sim); None when the detector has none.
+        kps = f.get("kps")
+        kps_local = ([[float(k[0]) - x1, float(k[1]) - y1] for k in kps]
+                     if kps is not None else None)
+
+        raw_faces.append((center, pitch, yaw, crop, kps_local))
         face_widths.append(x2 - x1)
         gaze_confs.append(gc)
         raw_face_bboxes.append((x1, y1, x2, y2))
@@ -181,14 +217,10 @@ def run_gaze_step(ctx, *, face_det, gaze_eng, gaze_cfg: GazeConfig, **kwargs):
         faces = cached_faces
     else:
         raw = face_det.detect(fdet)
-        faces = (
-            [{**f,
-              "bbox": [c * inv for c in f["bbox"][:4]] + list(f["bbox"][4:]),
-              "kps":  [[kp[0] * inv, kp[1] * inv] for kp in f["kps"]]
-                      if f.get("kps") is not None else None}
-             for f in raw]
-            if inv != 1.0 else raw
-        )
+        # Adapter (W3X): uniface 1.1.0 emits 'landmarks'/'confidence';
+        # downstream reads 'kps'/bbox[4].  Normalize once at the boundary
+        # (also applies inverse detection scaling).
+        faces = normalize_face_dicts(raw, inv_scale=inv)
 
     if do_cache:
         ctx['faces'] = faces
@@ -209,15 +241,23 @@ def run_gaze_step(ctx, *, face_det, gaze_eng, gaze_cfg: GazeConfig, **kwargs):
         and getattr(gaze_eng, 'mode', 'per_face') == 'per_face'
     )
 
+    _eye_origin = bool(getattr(gaze_cfg, 'face_eye_origin', False))
+
     if use_core_ray_forming:
         # Per-face pitch/yaw estimation
+        reuse_cache = ctx.get('mgaze_reuse')
         (raw_faces, smoothed, face_widths, gaze_confs,
          raw_face_bboxes, face_track_ids, face_objs) = _estimate_pitchyaw(
-            frame, faces, gaze_eng, smoother)
+            frame, faces, gaze_eng, smoother, reuse_cache=reuse_cache,
+            eye_origin=_eye_origin, clean_frame=ctx.get('clean_frame'))
+        if reuse_cache is not None:
+            reuse_cache.end_frame()
 
         # Gazelle heatmap inference (core, not plugin)
         if gazelle_provider is not None:
+            _t_gz = time.perf_counter()
             gazelle_provider.step(frame, raw_face_bboxes, face_track_ids)
+            ctx['_prof_gazelle'] = time.perf_counter() - _t_gz
 
         # Build RawGaze list
         raw_gazes = []
@@ -259,22 +299,26 @@ def run_gaze_step(ctx, *, face_det, gaze_eng, gaze_cfg: GazeConfig, **kwargs):
         face_objs = result.face_objs
         ray_snapped = result.ray_snapped
         ray_extended = result.ray_extended
+        blend_info = result.blend_info or []
 
     # ── Path B: Custom plugin pipeline ──────────────────────────────────────
     elif has_plugin_pipeline:
+        blend_info = []
         (persons_gaze, face_confs, face_bboxes, face_track_ids,
          face_objs, ray_snapped, ray_extended) = gaze_eng.run_pipeline(
             frame=frame, faces=faces, objects=objects, gaze_cfg=gaze_cfg,
             smoother=smoother, snap_temporal=snap_temporal,
             smooth_snap_tracker=smooth_snap_tracker,
             depth_map=depth_map, depth_cfg=depth_cfg,
+            clean_frame=ctx.get('clean_frame'),
         )
 
     # ── Path C: Default scene-level pipeline (standalone Gazelle) ───────────
     else:
+        blend_info = []
         (persons_gaze, face_confs, face_bboxes, face_track_ids,
          face_objs, ray_snapped, ray_extended) = _default_scene_pipeline(
-            frame, faces, gaze_eng,
+            frame, faces, gaze_eng, eye_origin=_eye_origin,
         )
 
     # ── Tip-snapping between gaze rays (per-face backends only) ──────────────
@@ -292,7 +336,8 @@ def run_gaze_step(ctx, *, face_det, gaze_eng, gaze_cfg: GazeConfig, **kwargs):
     _hit_cfg = ray_cfg if ray_cfg is not None else gaze_cfg
     all_targets, hits, hit_events = compute_ray_intersections(
         persons_gaze, face_confs, face_track_ids, face_objs, objects, _hit_cfg,
-        depth_map=depth_map, gaze_sample_radius=_sample_r)
+        depth_map=depth_map, gaze_sample_radius=_sample_r,
+        ray_snapped=ray_snapped, ray_extended=ray_extended)
 
     ctx['persons_gaze'] = persons_gaze
     ctx['face_confs'] = face_confs
@@ -304,3 +349,4 @@ def run_gaze_step(ctx, *, face_det, gaze_eng, gaze_cfg: GazeConfig, **kwargs):
     ctx['lock_info'] = lock_info
     ctx['ray_snapped'] = ray_snapped
     ctx['ray_extended'] = ray_extended
+    ctx['blend_info'] = blend_info

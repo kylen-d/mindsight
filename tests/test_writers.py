@@ -38,7 +38,12 @@ class TestOpenEventLogHeader:
         assert header == ["frame", "t_seconds", "face_idx", "object",
                           "object_conf", "bbox_x1", "bbox_y1", "bbox_x2",
                           "bbox_y2", "joint_attention",
-                          "joint_attention_confirmed", "participant_label"]
+                          "joint_attention_confirmed", "participant_label",
+                          # v1.1 W1.3: additive columns appended at the end so
+                          # positional consumers of the 1.0 columns still work.
+                          "gaze_conf", "gaze_pitch", "gaze_yaw",
+                          "ray_end_x", "ray_end_y", "depth_at_hit",
+                          "ray_snapped", "ray_extended"]
 
     def test_project_mode_header(self, tmp_path):
         log = tmp_path / "events.csv"

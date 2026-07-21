@@ -445,6 +445,17 @@ def _check_device(work_ns, device_check) -> CheckResult:
         return CheckResult("device", label, _FAIL,
                            f"device '{requested}' check failed: {exc}",
                            "use --device auto or cpu")
+    # W3Y item 4: an NVIDIA GPU with a CPU-only torch wheel silently
+    # degrades every device decision -- surface it LOUDLY as a warn (the
+    # run still works, just slower/on the wrong 'optimal' weights).
+    try:
+        from mindsight.utils.device import cuda_support_note
+        note = cuda_support_note()
+    except Exception:
+        note = None
+    if note:
+        return CheckResult("device", label, _WARN, note,
+                           "install a CUDA-enabled torch build")
     if requested == "auto":
         return CheckResult("device", label, _OK, f"auto -> {resolved}")
     if not available:

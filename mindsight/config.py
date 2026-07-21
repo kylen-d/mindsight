@@ -127,6 +127,8 @@ class GazeSection(BaseModel):
         5.0, json_schema_extra={"cli": "--forward-gaze-threshold"})
     smooth_snap: str = Field("off", json_schema_extra={"cli": "--smooth-snap"})
     smooth_snap_alpha: float = Field(0.20, json_schema_extra={"cli": "--smooth-snap-alpha"})
+    # v1.1 3.8 flip: eye-midpoint origins by default (eval-validated).
+    face_eye_origin: bool = Field(True, json_schema_extra={"cli": "--face-eye-origin"})
 
 
 class TrackerSection(BaseModel):
@@ -143,6 +145,8 @@ class TrackerSection(BaseModel):
     snap_engage_frames: int = Field(0, json_schema_extra={"cli": "--snap-engage-frames"})
     reid_grace_seconds: float = Field(1.0, json_schema_extra={"cli": "--reid-grace-seconds"})
     reid_max_dist: int = 200              # no CLI flag today (dead getattr fallback)
+    mgaze_reuse_eps: float = Field(0.0, json_schema_extra={"cli": "--mgaze-reuse-eps"})
+    face_reid_sim: float = Field(0.0, json_schema_extra={"cli": "--face-reid-sim"})
 
 
 class RayFormingSection(BaseModel):
@@ -170,6 +174,25 @@ class RayFormingSection(BaseModel):
     # (CLI_ALIASES); both default to None in argparse so "unset" resolves to
     # this schema default of 30 via ray_config.resolve_min_call_gap.
     min_call_gap: int = Field(30, json_schema_extra={"cli": "--min-call-gap"})
+    rf_inout_gate: float = Field(0.0, json_schema_extra={"cli": "--rf-inout-gate"})
+    rf_reuse_eps: float = Field(0.0, json_schema_extra={"cli": "--rf-reuse-eps"})
+    # v1.1 3.8 flips: eval-validated onset defaults (corrections from frame ~3).
+    rf_onset_samples: int = Field(3, json_schema_extra={"cli": "--rf-onset-samples"})
+    rf_onset_gap: int = Field(5, json_schema_extra={"cli": "--rf-onset-gap"})
+    # v1.1 W3Y flip: eval-validated default (70.3px mean / 66% hit rate vs
+    # 71.3/64% off, ~+0.6ms/frame). 0 disables.
+    rf_len_refresh_gap: int = Field(10, json_schema_extra={"cli": "--rf-len-refresh-gap"})
+    # v1.1 W4C flip (ruling R5, eyes-on approved): W4B reworked the slew
+    # to ramp the EFFECTIVE length target with the hold decay paused (no
+    # more latch-vs-decay bounce); eval accuracy-neutral, hit +1.2pp.
+    # 0 restores the instant snap.
+    rf_len_slew: int = Field(5, json_schema_extra={"cli": "--rf-len-slew"})
+    # v1.1 W4A flip (user-approved with the pico ONNX default engine, one
+    # combined re-bless): eval decomposition showed 84% of rays
+    # systematically short; 1.10 recovered ~5px mean / ~8px median.
+    rf_len_gain: float = Field(1.1, json_schema_extra={"cli": "--rf-len-gain"})
+    rf_endpoint_extract: str = Field(
+        "centroid", json_schema_extra={"cli": "--rf-endpoint-extract"})
     dir_min_cutoff: float = Field(1.0, json_schema_extra={"cli": "--dir-min-cutoff"})
     dir_beta: float = Field(0.5, json_schema_extra={"cli": "--dir-beta"})
     len_min_cutoff: float = Field(1.0, json_schema_extra={"cli": "--len-min-cutoff"})
@@ -322,6 +345,27 @@ class ProjectSection(BaseModel):
     output: ProjectOutputSection = Field(default_factory=ProjectOutputSection)
 
 
+class ValidationSection(BaseModel):
+    """Validation summary METADATA embedded in a pipeline file (v1.1 W4B,
+    ruled 2026-07-18: in-file block, not a sidecar).
+
+    Documentation only -- no dataclass mirror, no CLI flags, no UI spec:
+    it records which validation set the settings were scored against and
+    what they scored, so a shared pipeline file carries its evidence.
+    ``canonical_hash`` deliberately IGNORES this section (the tested
+    carve-out): embedding or editing validation metadata must never
+    invalidate resume ledgers.
+    """
+
+    model_config = _FORBID
+
+    set_name: str | None = None
+    n_frames: int | None = None
+    date: str | None = None
+    metrics: dict | None = None
+    settings_hash: str | None = None
+
+
 # ══════════════════════════════════════════════════════════════════════════════
 # Root model
 # ══════════════════════════════════════════════════════════════════════════════
@@ -339,11 +383,19 @@ class PipelineConfig(BaseModel):
     phenomena: PhenomenaSection = Field(default_factory=PhenomenaSection)
     output: OutputSection = Field(default_factory=OutputSection)
     project: ProjectSection = Field(default_factory=ProjectSection)
+    validation: ValidationSection = Field(default_factory=ValidationSection)
 
     def canonical_hash(self) -> str:
-        """sha256 over the sorted-key JSON dump; stable across processes."""
-        payload = json.dumps(self.model_dump(mode="json"), sort_keys=True,
-                             separators=(",", ":"))
+        """sha256 over the sorted-key JSON dump; stable across processes.
+
+        The ``validation`` section is EXCLUDED (W4B carve-out, ruled
+        2026-07-18): it is scoring metadata ABOUT the config, not
+        processing config -- embedding or editing it must never move the
+        hash and force a resume-ledger reprocess.
+        """
+        dump = self.model_dump(mode="json")
+        dump.pop("validation", None)
+        payload = json.dumps(dump, sort_keys=True, separators=(",", ":"))
         return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
     @classmethod
@@ -400,6 +452,7 @@ class PipelineConfig(BaseModel):
             forward_gaze_threshold=g("forward_gaze_threshold", 5.0),
             smooth_snap=g("smooth_snap", "off"),
             smooth_snap_alpha=g("smooth_snap_alpha", 0.20),
+            face_eye_origin=g("face_eye_origin", True),
         )
         tracker = TrackerSection(
             gaze_lock=g("gaze_lock", False),
@@ -411,6 +464,8 @@ class PipelineConfig(BaseModel):
             snap_engage_frames=g("snap_engage_frames", 0),
             reid_grace_seconds=g("reid_grace_seconds", 1.0),
             reid_max_dist=g("reid_max_dist", 200),
+            mgaze_reuse_eps=g("mgaze_reuse_eps", 0.0),
+            face_reid_sim=g("face_reid_sim", 0.0),
         )
         rayforming = RayFormingSection(
             ray_length=g("ray_length", 1.0),
@@ -419,6 +474,14 @@ class PipelineConfig(BaseModel):
             fixation_v_threshold=g("fixation_v_threshold", 0.04),
             fixation_d_threshold=g("fixation_d_threshold", 0.15),
             min_call_gap=resolve_min_call_gap(ns),
+            rf_inout_gate=g("rf_inout_gate", 0.0),
+            rf_reuse_eps=g("rf_reuse_eps", 0.0),
+            rf_onset_samples=g("rf_onset_samples", 3),
+            rf_onset_gap=g("rf_onset_gap", 5),
+            rf_len_refresh_gap=g("rf_len_refresh_gap", 10),
+            rf_len_slew=g("rf_len_slew", 5),
+            rf_len_gain=g("rf_len_gain", 1.1),
+            rf_endpoint_extract=g("rf_endpoint_extract", "centroid"),
             dir_min_cutoff=g("dir_min_cutoff", 1.0),
             dir_beta=g("dir_beta", 0.5),
             len_min_cutoff=g("len_min_cutoff", 1.0),
@@ -648,6 +711,9 @@ _UI: dict[str, dict | None] = {
     "gaze.ja_quorum": None,          # mirror of phenomena.ja_quorum (canonical)
     "gaze.gaze_debug": {"group": "performance",
                         "label": "Show pitch/yaw debug overlay"},
+    "gaze.face_eye_origin": {"group": "ray_geometry",
+                             "label": "Eye-midpoint ray origin",
+                             "advanced": True},
 
     # -- Tracker ------------------------------------------------------------
     "tracker.gaze_lock": {"group": "fixation", "label": "Fixation Lock-On",
@@ -658,6 +724,9 @@ _UI: dict[str, dict | None] = {
                           "min": 20, "max": 400},
     "tracker.skip_frames": {"group": "performance", "label": "Skip frames",
                             "min": 1, "max": 10},
+    "tracker.mgaze_reuse_eps": {"group": "performance",
+                                "label": "Face reuse eps",
+                                "min": 0.0, "max": 20.0, "advanced": True},
     "tracker.obj_persistence": {"group": "performance", "label": "Obj persistence",
                                 "min": 0, "max": 60},
     "tracker.snap_release_frames": {"group": "adaptive_snap",
@@ -669,6 +738,10 @@ _UI: dict[str, dict | None] = {
     "tracker.reid_grace_seconds": {"group": "performance", "label": "ReID grace (s)",
                                    "advanced": True, "min": 0.0, "max": 10.0,
                                    "step": 0.5, "decimals": 1},
+    "tracker.face_reid_sim": {"group": "performance",
+                              "label": "ReID embed similarity",
+                              "advanced": True, "min": 0.0, "max": 1.0,
+                              "step": 0.05, "decimals": 2},
     "tracker.reid_max_dist": None,   # no CLI flag / no widget (dead fallback)
 
     # -- Ray forming (Gaze-LLE blend scheduler/smoother) -------------------
@@ -685,6 +758,34 @@ _UI: dict[str, dict | None] = {
     "rayforming.min_call_gap": {"group": "gazelle_blend",
                                 "label": "Min call gap (frames)",
                                 "min": 1, "max": 120},
+    "rayforming.rf_inout_gate": {"group": "gazelle_blend",
+                                 "label": "In/out gate",
+                                 "advanced": True, "min": 0.0, "max": 1.0,
+                                 "step": 0.05, "decimals": 2},
+    "rayforming.rf_reuse_eps": {"group": "gazelle_blend",
+                                "label": "Scene reuse eps",
+                                "advanced": True, "min": 0.0, "max": 20.0,
+                                "step": 0.1, "decimals": 1},
+    "rayforming.rf_onset_samples": {"group": "gazelle_blend",
+                                    "label": "Onset samples",
+                                    "advanced": True, "min": 0, "max": 5},
+    "rayforming.rf_onset_gap": {"group": "gazelle_blend",
+                                "label": "Onset call gap (frames)",
+                                "advanced": True, "min": 0, "max": 120},
+    "rayforming.rf_len_refresh_gap": {"group": "gazelle_blend",
+                                      "label": "Length refresh gap (frames)",
+                                      "advanced": True, "min": 0, "max": 300},
+    "rayforming.rf_len_slew": {"group": "gazelle_blend",
+                               "label": "Length slew (frames)",
+                               "advanced": True, "min": 0, "max": 120},
+    "rayforming.rf_len_gain": {"group": "gazelle_blend",
+                               "label": "Length gain",
+                               "advanced": True, "min": 0.5, "max": 2.0,
+                               "step": 0.05, "decimals": 2},
+    "rayforming.rf_endpoint_extract": {"group": "gazelle_blend",
+                                       "label": "Endpoint extraction",
+                                       "advanced": True,
+                                       "choices": ["centroid", "topp"]},
     "rayforming.dir_min_cutoff": {"group": "gazelle_blend",
                                   "label": "Direction min-cutoff (Hz)",
                                   "advanced": True, "min": 0.1, "max": 20.0,
@@ -803,6 +904,13 @@ _UI: dict[str, dict | None] = {
     "project.conditions": None,
     "project.participants": None,
     "project.output": None,
+    # Validation summary metadata (W4B): documentation-only block, no UI
+    # widgets -- the workbench writes it, humans read it.
+    "validation.set_name": None,
+    "validation.n_frames": None,
+    "validation.date": None,
+    "validation.metrics": None,
+    "validation.settings_hash": None,
 }
 
 

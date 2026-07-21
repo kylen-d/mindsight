@@ -238,3 +238,32 @@ def test_start_refuses_while_one_off_worker_alive(tab):
     assert "still finishing" in tab._log_box.toPlainText()
     assert len(FakeProjectWorker.instances) == 0
     tab._one_off_worker = None
+
+
+# ── W3Y items 3+8: the Inference Settings store governs every launch ──────────
+
+
+def _quick_spec(tab, tmp_path):
+    from mindsight.project.staging import single_run_spec
+    video = Path(tab._project_path) / "Inputs" / "Videos" / "a.mp4"
+    return single_run_spec(str(video), meta=None,
+                          output_dir=str(tmp_path / "quick_out"))
+
+
+@pytest.mark.parametrize("mode", ["video", "project"])
+def test_one_off_launches_read_inference_settings(
+        tab, tmp_path, monkeypatch, mode):
+    """One-off launches read the Inference Settings store untouched in
+    EVERY mode. Item 3 fixed the quick modes; item 8 removed the study
+    pane, so project-context launches follow the same single authority."""
+    import mindsight.GUI.workers as workers_mod
+    monkeypatch.setattr(workers_mod, "GazeWorker", FakeGazeWorker)
+    FakeGazeWorker.instances = []
+    ns = tab._settings.working_copy()
+    ns.anonymize = "black"                  # the dialog's per-run authority
+    tab._settings.commit(ns)
+    tab._set_mode(mode, persist=False)
+    tab._launch_one_off(_quick_spec(tab, tmp_path))
+    assert len(FakeGazeWorker.instances) == 1
+    assert FakeGazeWorker.instances[0].ns.anonymize == "black"
+    tab._poll_timer.stop()

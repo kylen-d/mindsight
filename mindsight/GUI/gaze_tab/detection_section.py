@@ -61,9 +61,12 @@ class DetectionSection(QWidget):
         self._yolo_det_panel = QWidget()
         fp = QFormLayout(self._yolo_det_panel)
         fp.setContentsMargins(0, 0, 0, 0)
-        self._yolo_model = QLineEdit("yolov8n.pt")
+        from mindsight.GUI.path_picker import KnownPathCombo, known_candidates
+        self._yolo_model = KnownPathCombo(known_candidates("model"))
+        self._yolo_model.setText("yolov8n.pt")
         btn2 = _browse_btn()
-        btn2.clicked.connect(lambda: self._browse_to(self._yolo_model, "*.pt"))
+        btn2.clicked.connect(lambda: self._browse_to(self._yolo_model, "*.pt",
+                                                     dest="model"))
         fp.addRow("Model:", _hrow(self._yolo_model, btn2))
         self._conf_spin = QDoubleSpinBox()
         self._conf_spin.setRange(0.05, 0.95)
@@ -89,10 +92,12 @@ class DetectionSection(QWidget):
         vp_btn = _browse_btn()
         vp_btn.clicked.connect(self._browse_vp_file)
         fv.addRow("VP file:", _hrow(self._vp_file, vp_btn))
-        self._yoloe_model = QLineEdit("yoloe-26l-seg.pt")
+        self._yoloe_model = KnownPathCombo(known_candidates("vp_model"))
+        self._yoloe_model.setText("yoloe-26l-seg.pt")
         yoloe_btn = _browse_btn()
         yoloe_btn.clicked.connect(
-            lambda: self._browse_to(self._yoloe_model, "*.pt"))
+            lambda: self._browse_to(self._yoloe_model, "*.pt",
+                                    dest="vp_model"))
         fv.addRow("YOLOE model:", _hrow(self._yoloe_model, yoloe_btn))
         self._vp_conf_spin = QDoubleSpinBox()
         self._vp_conf_spin.setRange(0.05, 0.95)
@@ -171,15 +176,19 @@ class DetectionSection(QWidget):
             self._src.setText(path)
 
     def _browse_vp_file(self):
+        from mindsight.GUI.path_picker import remember_vp_dir, vp_default_dir
         path, _ = QFileDialog.getOpenFileName(
-            self, "Select VP file", "",
+            self, "Select VP file", vp_default_dir(),
             f"Visual Prompt (*{VP_EXT});;JSON (*.json);;All (*)")
         if path:
             self._vp_file.setText(path)
+            remember_vp_dir(path)
 
-    def _browse_to(self, line_edit: QLineEdit, filt: str = "*"):
+    def _browse_to(self, line_edit, filt: str = "*", dest: str = ""):
+        from mindsight.GUI.path_picker import default_browse_dir
         path, _ = QFileDialog.getOpenFileName(
-            self, "Select file", "", f"Files ({filt});;All (*)")
+            self, "Select file", default_browse_dir(dest),
+            f"Files ({filt});;All (*)")
         if path:
             line_edit.setText(path)
 

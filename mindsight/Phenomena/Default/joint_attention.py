@@ -175,10 +175,17 @@ class JointAttentionTracker(PhenomenaPlugin):
         self._prev_ja_cls = current_cls
 
         # Tip-convergence spans, keyed by the converging face-set.
+        # gaze_convergence emits positional face sets; map them to stable
+        # track IDs before resolving participant labels (v1.1 W1.1).
+        face_track_ids = kwargs.get('face_track_ids')
+        tids = (face_track_ids if face_track_ids is not None
+                else list(range(len(persons_gaze))))
         current_tips = {faces for faces, _ in tip_convergences}
         for faces in current_tips - self._prev_tip_sets:
-            parts = "+".join(resolve_display_pid(fi, pid_map)
-                             for fi in sorted(faces))
+            parts = "+".join(
+                resolve_display_pid(tids[fi] if fi < len(tids) else fi,
+                                    pid_map)
+                for fi in sorted(faces))
             self._episodes.open(('tip', faces), phenomenon="tip_convergence",
                                 participant=parts, partner="", object="",
                                 frame_start=frame_no)

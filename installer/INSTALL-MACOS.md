@@ -47,16 +47,18 @@ name and icon in the Dock. The first time you open it, Gatekeeper may prompt
 again -- use **right-click > Open** once, and after that a plain double-click
 works.
 
-The four required model weights (about 115 MB total) are downloaded during the
+The six required model weights (about 141 MB total) are downloaded during the
 install step, not at launch, so by the time you open the app they are already
 in place:
 
-| Model                         | File                       | Size    |
-| ----------------------------- | -------------------------- | ------- |
-| YOLO detector                 | `yolov8n.pt`               | ~6 MB   |
-| Gaze-LLE (DINOv2 ViT-B/14)    | `gazelle_dinov2_vitb14.pt` | ~12 MB  |
-| MobileGaze (ResNet-50)        | `resnet50_gaze.onnx`       | ~91 MB  |
-| MobileGaze (MobileOne-S0)     | `mobileone_s0_gaze.onnx`   | ~5 MB   |
+| Model                              | File                       | Size    |
+| ---------------------------------- | -------------------------- | ------- |
+| YOLO detector                      | `yolov8n.pt`               | ~6 MB   |
+| YOLO detector (v11 default)        | `yolo11n.pt`               | ~6 MB   |
+| Gaze-LLE DINOv3-distilled (pico)   | `gazelle_hgnetv2_pico_inout_distill_1x3x640x640_1xNx4.onnx` | ~16 MB |
+| Gaze-LLE (DINOv2 ViT-B/14)         | `gazelle_dinov2_vitb14.pt` | ~12 MB  |
+| MobileGaze (ResNet-50)             | `resnet50_gaze.onnx`       | ~91 MB  |
+| MobileGaze (MobileOne-S0)          | `mobileone_s0_gaze.onnx`   | ~5 MB   |
 
 Before it analyzes footage, MindSight runs a short **preflight** check. Part of
 that check verifies each model weight against a published checksum, so you know

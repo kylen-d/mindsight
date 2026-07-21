@@ -75,6 +75,7 @@ nav:
       - Visual Prompts: guides/visual-prompts.md
       - Crop and Adjust: guides/crop-and-adjust.md
       - Inference Settings and Tuning: guides/inference-settings-and-tuning.md
+      - Validation and Testing: guides/validation-and-testing.md
       - About and Theming: guides/about-and-theming.md
       - Where Things Live: guides/where-things-live.md
   - Concepts & Phenomena:

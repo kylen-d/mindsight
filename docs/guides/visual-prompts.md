@@ -44,9 +44,12 @@ A few rules the format enforces:
   contiguous.
 - `references` is a list of reference images, each with a set of annotated boxes
   referencing those class IDs.
-- The **first** reference image initialises YOLOE's class embeddings. Additional
-  reference images are currently reserved for future use, so the first image is
-  the one that matters.
+- **Every annotated reference image is used** (v1.3): each one contributes to
+  the class embeddings, averaged per class across the references that annotate
+  it. Multiple references showing an object under different lighting, angles,
+  or distances make matching noticeably more robust -- the standard fix for the
+  resolution/contrast failure modes below. References without annotations are
+  skipped.
 
 You do not hand-edit this JSON -- the VP Builder writes it for you.
 
@@ -68,6 +71,16 @@ The **VP Builder** tab produces valid `.vp.json` files by pointing and clicking:
 5. **Test Inference** -- point a YOLOE model at a folder of test images and
    preview the detections before committing to a full run (this runs
    asynchronously, so the UI stays responsive).
+
+!!! tip "Suggest mode: click instead of drawing"
+    Turn on **Suggest mode** under the canvas and simply *click* an object:
+    MindSight segments the region under your cursor (FastSAM) and shows up to
+    four dashed box proposals, most specific first. Click a proposal to accept
+    it into the selected class -- exactly as if you had drawn it -- or click
+    elsewhere to get new proposals. It needs the small **FastSAM-s** weight
+    (24 MB, AGPL-3.0): download it once from the **Models** tab (SAM row).
+    Suggestions are a drawing aid only; the saved `.vp.json` is identical to
+    a hand-drawn one.
 
 ![The VP Builder with classes and drawn boxes](../assets/tutorial/vp-builder-annotated.png)
 

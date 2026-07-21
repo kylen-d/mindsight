@@ -15,6 +15,66 @@
     },
     {
       "backend": "YOLO",
+      "filename": "yolo11n.pt",
+      "label": "YOLO detector (yolo11n)",
+      "url": "https://github.com/ultralytics/assets/releases/download/v8.3.0/yolo11n.pt",
+      "sha256": "0ebbc80d4a7680d14987a577cd21342b65ecfd94632bd9a8da63ae6417644ee1",
+      "size": 5613764,
+      "license": "AGPL-3.0",
+      "required": true,
+      "source": "github-release",
+      "note": "Newer-generation nano detector (COCO-80): the v1.1 default (eval-validated: better gaze accuracy than yolov8n at equal-or-better speed)."
+    },
+    {
+      "backend": "YOLO",
+      "filename": "yolo11n.onnx",
+      "label": "YOLO detector (yolo11n, ONNX)",
+      "url": "https://github.com/ultralytics/assets/releases/download/v8.3.0/yolo11n.onnx",
+      "sha256": "634279b40c07c6391472c51ad45b81ebc48706a9a1fe72dd3396322acd0c053b",
+      "size": 10930182,
+      "license": "AGPL-3.0",
+      "required": false,
+      "source": "github-release",
+      "note": "Official ONNX export of yolo11n -- onnxruntime path for CPU-bound installs. The only yolo11 variant ultralytics publishes as ONNX."
+    },
+    {
+      "backend": "YOLO",
+      "filename": "yoloe-11s-seg.pt",
+      "label": "YOLOE-11 segment detector (yoloe-11s-seg, VP/text-prompt)",
+      "url": "https://github.com/ultralytics/assets/releases/download/v8.3.0/yoloe-11s-seg.pt",
+      "sha256": "8e439445c87338b79d9ce21dec109f4621e26df67e94d26ea1a98c1e64dce3e3",
+      "size": 27803986,
+      "license": "AGPL-3.0",
+      "required": false,
+      "source": "github-release",
+      "note": "Open-vocabulary YOLOE on the yolo11 backbone (small). Lighter visual-prompt alternative to yoloe-26l-seg."
+    },
+    {
+      "backend": "YOLO",
+      "filename": "yoloe-11m-seg.pt",
+      "label": "YOLOE-11 segment detector (yoloe-11m-seg, VP/text-prompt)",
+      "url": "https://github.com/ultralytics/assets/releases/download/v8.3.0/yoloe-11m-seg.pt",
+      "sha256": "785199b7cc75a5f4041dec15782a4b8a4105e5a34d7ffb287a0a10781724c5bd",
+      "size": 60276714,
+      "license": "AGPL-3.0",
+      "required": false,
+      "source": "github-release",
+      "note": "Open-vocabulary YOLOE on the yolo11 backbone (medium)."
+    },
+    {
+      "backend": "YOLO",
+      "filename": "yoloe-11l-seg.pt",
+      "label": "YOLOE-11 segment detector (yoloe-11l-seg, VP/text-prompt)",
+      "url": "https://github.com/ultralytics/assets/releases/download/v8.3.0/yoloe-11l-seg.pt",
+      "sha256": "a993fb0fc7c8830939ae14e6434a925dd1179428158c2761482eb8a8d8a3699f",
+      "size": 70982416,
+      "license": "AGPL-3.0",
+      "required": false,
+      "source": "github-release",
+      "note": "Open-vocabulary YOLOE on the yolo11 backbone (large)."
+    },
+    {
+      "backend": "YOLO",
       "filename": "yolov8s.pt",
       "label": "YOLO detector (yolov8s)",
       "url": "https://github.com/ultralytics/assets/releases/download/v8.3.0/yolov8s.pt",
@@ -131,7 +191,8 @@
       "license": "MIT",
       "required": true,
       "source": "github-release",
-      "note": "Published upstream as gazelle_dinov2_vitb14_inout.pt; MindSight stores it as gazelle_dinov2_vitb14.pt. Byte-identical (sha256 verified against a fresh upstream download)."
+      "note": "Published upstream as gazelle_dinov2_vitb14_inout.pt; MindSight stores it as gazelle_dinov2_vitb14.pt. Byte-identical (sha256 verified against a fresh upstream download). Since v1.1 W4A the torch fallback blend engine (the pico ONNX is the default) and the standalone Gaze-LLE backend checkpoint.",
+      "license_note": "MIT code/checkpoint; DINOv2 backbone Apache-2.0; trained on GazeFollow/VideoAttentionTarget (research datasets)"
     },
     {
       "backend": "Gazelle",
@@ -143,7 +204,78 @@
       "license": "MIT",
       "required": false,
       "source": "github-release",
-      "note": "Larger ViT-L/14 Gaze-LLE backbone. sha256 recorded from a fresh upstream download; a local copy predating the manifest may verify as mismatch -- re-download from the Models tab to align it."
+      "note": "Larger ViT-L/14 Gaze-LLE backbone. sha256 recorded from a fresh upstream download; a local copy predating the manifest may verify as mismatch -- re-download from the Models tab to align it.",
+      "license_note": "MIT code/checkpoint; DINOv2 backbone Apache-2.0; trained on GazeFollow/VideoAttentionTarget (research datasets)"
+    },
+    {
+      "backend": "Gazelle",
+      "filename": "gazelle_hgnetv2_pico_inout_distill_1x3x640x640_1xNx4.onnx",
+      "label": "Gaze-LLE DINOv3-distilled (pico, ONNX)",
+      "url": "https://github.com/PINTO0309/gazelle-dinov3/releases/download/weights/gazelle_hgnetv2_pico_inout_distill_1x3x640x640_1xNx4.onnx",
+      "sha256": "05cead01802cc6538f4b36477494da4820cab8dc1394318498c6778dc1c02ec0",
+      "size": 15758498,
+      "license": "MIT",
+      "required": true,
+      "optimal": ["cpu", "cuda"],
+      "source": "github-release",
+      "note": "The DEFAULT blend-path gaze-target model since v1.1 W4A (PINTO0309/gazelle-dinov3, 16 MB, 640px, in/out head, dynamic face count). Runs on onnxruntime CPU everywhere (Apple GPU/CoreML rejects this graph); v1.1 eval: 63.9 px mean / 71% hit rate vs 70.3 / 66% for the torch DINOv2 ViT-B/14 engine at the same amortized cost.",
+      "license_note": "MIT release (PINTO0309/gazelle-dinov3); HGNetV2 backbone Apache-2.0 (D-FINE), distilled from DINOv3 outputs -- no Meta weights embedded; trained on GazeFollow/VideoAttentionTarget (research datasets)"
+    },
+    {
+      "backend": "Gazelle",
+      "filename": "gazelle_dinov3_vit_tinyplus_inout_1x3x640x640_1xNx4.onnx",
+      "label": "Gaze-LLE DINOv3-distilled (ViT tiny-plus, ONNX)",
+      "url": "https://github.com/PINTO0309/gazelle-dinov3/releases/download/weights/gazelle_dinov3_vit_tinyplus_inout_1x3x640x640_1xNx4.onnx",
+      "sha256": "96e2e355701ba00700991fe4adc133d1d4d223cd4f78574911272b09e44619c8",
+      "size": 52117160,
+      "license": "MIT",
+      "required": false,
+      "optimal": ["cpu", "cuda"],
+      "source": "github-release",
+      "note": "Quality tier M (52 MB, 640px, in/out head, dynamic face count). v1.1 eval: 59.8 px mean / 78% hit rate. CPU ~213 ms/call; on Apple GPU use the single-face sibling export instead (--device mps).",
+      "license_note": "MIT release (PINTO0309/gazelle-dinov3); DEIMv2 ViT backbone Apache-2.0, itself distilled from DINOv3 outputs -- no Meta weights embedded; trained on GazeFollow/VideoAttentionTarget (research datasets)"
+    },
+    {
+      "backend": "Gazelle",
+      "filename": "gazelle_dinov3_vit_tinyplus_inout_1x3x640x640_1x1x4.onnx",
+      "label": "Gaze-LLE DINOv3-distilled (ViT tiny-plus, single-face ONNX)",
+      "url": "https://github.com/PINTO0309/gazelle-dinov3/releases/download/weights/gazelle_dinov3_vit_tinyplus_inout_1x3x640x640_1x1x4.onnx",
+      "sha256": "43bd057d8783e767a4daed23131df189aca54c1d5d55988a36e5ec9a814cdbce",
+      "size": 52105389,
+      "license": "MIT",
+      "required": false,
+      "optimal": ["mps"],
+      "source": "github-release",
+      "note": "Static single-face export of the ViT tiny-plus tier: the shape CoreML accepts, so --device mps rides the Apple GPU (measured 48 ms/face vs 151 CPU; the engine loops it per face transparently). Same weights and accuracy as the dynamic sibling.",
+      "license_note": "MIT release (PINTO0309/gazelle-dinov3); DEIMv2 ViT backbone Apache-2.0, itself distilled from DINOv3 outputs -- no Meta weights embedded; trained on GazeFollow/VideoAttentionTarget (research datasets)"
+    },
+    {
+      "backend": "Gazelle",
+      "filename": "gazelle_dinov3_vits16_inout_1x3x640x640_1xNx4.onnx",
+      "label": "Gaze-LLE DINOv3 (ViT-S/16, ONNX)",
+      "url": "https://github.com/PINTO0309/gazelle-dinov3/releases/download/weights/gazelle_dinov3_vits16_inout_1x3x640x640_1xNx4.onnx",
+      "sha256": "503a290f23cbfa75631b388d03bd0edf59c10b2a96df1d5958d603ce50eb588a",
+      "size": 99917260,
+      "license": "MIT / DINOv3 License",
+      "required": false,
+      "optimal": ["cpu", "cuda"],
+      "source": "github-release",
+      "note": "Quality tier L (100 MB, 640px, in/out head, dynamic face count) -- the measured accuracy ceiling: 57.3 px mean / 80% hit rate (56.3 with --rf-len-gain 1.10). CPU ~283 ms/call; on Apple GPU use the single-face sibling export instead (--device mps).",
+      "license_note": "MIT release (PINTO0309/gazelle-dinov3) embedding the Meta DINOv3 ViT-S/16 backbone: use is subject to the DINOv3 License (commercial use permitted; redistribution requires license passthrough + attribution -- see THIRD_PARTY_LICENSES.md); trained on GazeFollow/VideoAttentionTarget (research datasets)"
+    },
+    {
+      "backend": "Gazelle",
+      "filename": "gazelle_dinov3_vits16_inout_1x3x640x640_1x1x4.onnx",
+      "label": "Gaze-LLE DINOv3 (ViT-S/16, single-face ONNX)",
+      "url": "https://github.com/PINTO0309/gazelle-dinov3/releases/download/weights/gazelle_dinov3_vits16_inout_1x3x640x640_1x1x4.onnx",
+      "sha256": "f657c649d96616add4adc48a484f65894d21066d6354e158f99e61be168b5e91",
+      "size": 99907952,
+      "license": "MIT / DINOv3 License",
+      "required": false,
+      "optimal": ["mps"],
+      "source": "github-release",
+      "note": "Static single-face export of the ViT-S/16 tier: the shape CoreML accepts, so --device mps rides the Apple GPU (measured 69 ms/face vs ~141 CPU; harness parity within fp16 noise). Same weights and accuracy as the dynamic sibling.",
+      "license_note": "MIT release (PINTO0309/gazelle-dinov3) embedding the Meta DINOv3 ViT-S/16 backbone: use is subject to the DINOv3 License (commercial use permitted; redistribution requires license passthrough + attribution -- see THIRD_PARTY_LICENSES.md); trained on GazeFollow/VideoAttentionTarget (research datasets)"
     },
     {
       "backend": "MGaze",
@@ -159,7 +291,8 @@
       "optimal": [
         "mps",
         "cpu"
-      ]
+      ],
+      "license_note": "weights: research use only - trained on Gaze360 (non-commercial research dataset)"
     },
     {
       "backend": "MGaze",
@@ -175,7 +308,8 @@
       "optimal": [
         "mps",
         "cpu"
-      ]
+      ],
+      "license_note": "weights: research use only - trained on Gaze360 (non-commercial research dataset)"
     },
     {
       "backend": "MGaze",
@@ -190,7 +324,8 @@
       "note": null,
       "optimal": [
         "cuda"
-      ]
+      ],
+      "license_note": "weights: research use only - trained on Gaze360 (non-commercial research dataset)"
     },
     {
       "backend": "MGaze",
@@ -205,7 +340,8 @@
       "note": "sha256 recorded from a fresh upstream download; a local copy predating the manifest may verify as mismatch -- re-download from the Models tab to align it.",
       "optimal": [
         "cuda"
-      ]
+      ],
+      "license_note": "weights: research use only - trained on Gaze360 (non-commercial research dataset)"
     },
     {
       "backend": "MGaze",
@@ -221,7 +357,8 @@
       "optimal": [
         "mps",
         "cpu"
-      ]
+      ],
+      "license_note": "weights: research use only - trained on Gaze360 (non-commercial research dataset)"
     },
     {
       "backend": "MGaze",
@@ -236,7 +373,8 @@
       "note": "sha256 recorded from a fresh upstream download; a local copy predating the manifest may verify as mismatch -- re-download from the Models tab to align it.",
       "optimal": [
         "cuda"
-      ]
+      ],
+      "license_note": "weights: research use only - trained on Gaze360 (non-commercial research dataset)"
     },
     {
       "backend": "MGaze",
@@ -252,7 +390,8 @@
       "optimal": [
         "mps",
         "cpu"
-      ]
+      ],
+      "license_note": "weights: research use only - trained on Gaze360 (non-commercial research dataset)"
     },
     {
       "backend": "MGaze",
@@ -267,7 +406,8 @@
       "note": "sha256 recorded from a fresh upstream download; a local copy predating the manifest may verify as mismatch -- re-download from the Models tab to align it.",
       "optimal": [
         "cuda"
-      ]
+      ],
+      "license_note": "weights: research use only - trained on Gaze360 (non-commercial research dataset)"
     },
     {
       "backend": "MobileClip",
@@ -280,6 +420,55 @@
       "required": false,
       "source": "ultralytics-auto",
       "note": "Fetched automatically by Ultralytics on first YOLOE text/visual-prompt use (currently mobileclip_blt.ts from the ultralytics/assets release). Only needed for YOLOE visual prompts."
+    },
+    {
+      "backend": "SAM",
+      "filename": "FastSAM-s.pt",
+      "label": "FastSAM segmenter (VP Builder Suggest mode)",
+      "url": "https://github.com/ultralytics/assets/releases/download/v8.4.0/FastSAM-s.pt",
+      "sha256": "c9f78716a81c7aff0d608ccc73e1b82ab3aaad86005049f6a92106a0be6d0844",
+      "size": 23851578,
+      "license": "AGPL-3.0",
+      "required": false,
+      "source": "github-release",
+      "note": "Powers the VP Builder's Suggest mode: click an object in a reference photo and accept a proposed box instead of drawing it by hand. FastSAM (CASIA-IVA-Lab) via the Ultralytics wrapper; same AGPL-3.0 license class as the Ultralytics package itself."
+    },
+    {
+      "backend": "Mediapipe",
+      "filename": "face_landmarker.task",
+      "label": "MediaPipe Face Landmarker (468-point)",
+      "url": "https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task",
+      "sha256": "64184e229b263107bc2b804c6625db1341ff2bb731874b0bcc2fe6544e0bc9ff",
+      "size": 3758596,
+      "license": "Apache-2.0",
+      "required": false,
+      "source": "vendor-cdn",
+      "note": "Runtime asset for the head-pose-normalized gaze backends (MPIIFaceGaze, adas-0002): 468-point landmarks on RetinaFace face crops. Google MediaPipe model storage, versioned float16/1 path; sha256 recorded from a fresh upstream download."
+    },
+    {
+      "backend": "AdasGaze",
+      "filename": "gaze-estimation-adas-0002.onnx",
+      "label": "Intel gaze estimator (adas-0002)",
+      "url": "https://github.com/kylen-d/mindsight/releases/download/weights/gaze-estimation-adas-0002.onnx",
+      "sha256": "cd153584e7f8f72e0dc7f5388978d6b06e34ba2c46b1a6ae825975dbb1282491",
+      "size": 7541174,
+      "license": "Apache-2.0",
+      "required": false,
+      "source": "github-release",
+      "note": "Head-pose-normalized per-face gaze backend (--adas-gaze-model), provenance-clean Apache-2.0. Converted offline from the Intel OpenVINO IR (open_model_zoo 2023.0 storage, FP32) to ONNX and numerically verified against the OpenVINO runtime (max abs diff 3.6e-7 over random inputs at f32); Apache-2.0 permits redistribution. Attached to the MindSight weights release; needs the Mediapipe face_landmarker.task asset."
+    },
+    {
+      "backend": "MPIIFaceGaze",
+      "filename": "mpiifacegaze_resnet_simple.pth",
+      "label": "MPIIFaceGaze estimator (resnet_simple)",
+      "url": "https://github.com/hysts/pytorch_mpiigaze_demo/releases/download/v0.1.0/mpiifacegaze_resnet_simple.pth",
+      "sha256": "540dd5416ba420ba0ec9c4a64c0abbe99b572380c80664992aa44c530802f0f5",
+      "size": 11569635,
+      "license": "MIT",
+      "required": false,
+      "source": "github-release",
+      "note": "Head-pose-normalized per-face gaze backend (--mpiifacegaze-model). Direct-regression resnet_simple from hysts/pytorch_mpiigaze_demo; needs the Mediapipe face_landmarker.task asset. sha256 recorded from a fresh upstream download.",
+      "license_note": "checkpoint: research use only - trained on MPIIFaceGaze (CC BY-NC-SA, non-commercial research dataset); the release code/checkpoint itself is MIT"
     }
   ]
 }

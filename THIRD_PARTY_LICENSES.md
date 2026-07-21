@@ -17,6 +17,14 @@ This file documents their licenses for compliance purposes.
 - **Location:** `Plugins/GazeTracking/Gazelle/gazelle/`
 - **Full license:** `Plugins/GazeTracking/Gazelle/gazelle/LICENSE`
 
+### ptgaze normalization math (vendored)
+- **License:** MIT
+- **Copyright:** (c) 2017 hysts
+- **Location:** `mindsight/GazeTracking/normalized/` (canonical MediaPipe
+  468-point 3D face model data, head-pose fitting, normalizing-warp and
+  gaze-denormalization math from `hysts/pytorch_mpiigaze_demo`, vendored
+  for the head-pose-normalized estimator backends)
+
 ## Python Dependencies
 
 | Package | License | Notes |
@@ -51,7 +59,17 @@ This file documents their licenses for compliance purposes.
 | Model | License | Source |
 |-------|---------|--------|
 | DINOv2 | Apache-2.0 | Meta AI, loaded via `torch.hub` by the Gazelle backend |
+| MobileGaze weights (`*_gaze.onnx` / `*.pt`) | MIT (yakhyo/gaze-estimation release) | Trained on **Gaze360**, a non-commercial research dataset -- treat the weights as research use only. The manifest carries this as `license_note` and the Models tab surfaces it. |
+| Gaze-LLE checkpoints | MIT (fkryan/gazelle release) | Trained on GazeFollow / VideoAttentionTarget (research datasets); DINOv2 backbone Apache-2.0. |
+| Gaze-LLE DINOv3-distilled ONNX (pico / ViT tiny-plus) | MIT (PINTO0309/gazelle-dinov3 release) | Blend-path gaze-target models. Backbones are Apache-2.0 (D-FINE HGNetV2 / DEIMv2 ViT) trained on DINOv3 *outputs* via distillation -- no Meta weights embedded. Trained on GazeFollow / VideoAttentionTarget (research datasets). Downloaded from the upstream release; not redistributed by MindSight. |
+| Gaze-LLE DINOv3 ONNX (ViT-S/16) | MIT (PINTO0309/gazelle-dinov3 release) + [DINOv3 License](https://github.com/facebookresearch/dinov3/blob/main/LICENSE.md) | Embeds the Meta DINOv3 ViT-S/16 backbone weights, so use is additionally subject to the DINOv3 License (Copyright (c) Meta Platforms, Inc.): commercial use is permitted; redistributing the weights or derivatives requires passing through the DINOv3 License text and attribution. MindSight does not redistribute these weights -- the manifest downloads them from the upstream release on demand. Trained on GazeFollow / VideoAttentionTarget (research datasets). |
 | YOLO / YOLOE weights | AGPL-3.0 | Ultralytics, auto-downloaded on first use |
+| FastSAM-s (`Weights/SAM/`) | AGPL-3.0 | CASIA-IVA-Lab FastSAM via the Ultralytics wrapper and asset release; powers the VP Builder's Suggest mode. Same license class as the ultralytics package itself. |
+| RetinaFace weights | MIT (uniface release) | yakhyo/uniface, auto-downloaded to `~/.uniface` on first use; trained on WIDER FACE |
+| MPIIFaceGaze checkpoint (`mpiifacegaze_resnet_simple.pth`) | MIT (hysts/pytorch_mpiigaze_demo release) | Trained on **MPIIFaceGaze** (CC BY-NC-SA, non-commercial research dataset) -- treat the weights as research use only. The manifest carries this as `license_note` and the Models tab surfaces it. Powers the opt-in `--mpiifacegaze-model` backend. |
+| MediaPipe Face Landmarker (`face_landmarker.task`) | Apache-2.0 | Google MediaPipe model storage (versioned path); 468-point landmarker feeding the head-pose-normalized gaze backends. |
+| Intel gaze-estimation-adas-0002 (`gaze-estimation-adas-0002.onnx`) | Apache-2.0 | Intel Open Model Zoo model, converted by MindSight from the published OpenVINO IR to ONNX (numerically verified against the OpenVINO runtime) and redistributed under Apache-2.0 as a MindSight release asset. Powers the opt-in `--adas-gaze-model` backend. |
+| ArcFace embeddings (`--face-reid-sim`) | MIT (uniface release) | yakhyo/uniface, auto-downloaded on first use. Upstream provenance: InsightFace model zoo, which marks its models for **non-commercial research use**; the training set (WebFace600K) is research-only. Off by default; enable only if that provenance is acceptable for your use. |
 
 ## AGPL-3.0 Notice
 

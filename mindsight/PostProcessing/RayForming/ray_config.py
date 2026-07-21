@@ -56,6 +56,46 @@ class RayFormingConfig:
     # reach is the main pathology the blend fixes, so it persists on a
     # much longer timescale than the instantaneous fixation signal.
     len_hold_tau: float = 5.0                # seconds; length-hold time constant
+    # In/out-of-frame gating (v1.1 W3.1).  0.0 = fully inert (1.0.0 behavior:
+    # the non-inout architecture is constructed and inout never consulted).
+    # > 0 activates the checkpoint's in/out head when present: accepts are
+    # VETOED when the fresh inout score falls below the gate (protecting the
+    # belief map and length latch from off-screen garbage), and blend trust
+    # is attenuated by the cached inout score (PY fixation likelihood is
+    # blind to off-screen gaze; this is exactly the missing signal).
+    rf_inout_gate: float = 0.0
+    # W3X fire-decision knobs (all 0 = off = 1.0.0 behavior).  Consumed by
+    # GazelleProvider/InferenceScheduler at construction (read off the ns in
+    # from_namespace there); mirrored here so the schema section stays a
+    # faithful transcript of the runtime config surface.
+    rf_reuse_eps: float = 0.0        # perceptual refire suppression (frame MAD)
+    rf_onset_samples: int = 3        # bootstrap fixation warmup override (3.8 default)
+    rf_onset_gap: int = 5            # relaxed global gap for new faces (3.8 default)
+    # W3Y cheap length channel (0 = off): every N frames a cheap Gaze-LLE
+    # pass refreshes ray LENGTH only; direction stays with the
+    # fixation-gated fp32 channel.  Consumed by GazelleProvider.
+    # Default 10 since the W3Y flip (eval-validated; second re-bless).
+    rf_len_refresh_gap: int = 10
+    # W3Z length-slew, reworked in W4B: when a refresh re-latches ray
+    # length on an already-latched track, ramp the EFFECTIVE length
+    # target from the reach currently shown to the new latch over N
+    # frames with the hold decay paused (the original latch-slew fought
+    # the decay and read as bounce; the rework removes the fight).
+    # Consumed by GazeLLEBlender.  Default flipped 0 -> 5 in W4C
+    # (ruling R5, eyes-on approved; eval accuracy-neutral, hit +1.2pp).
+    # 0 restores the instant snap.
+    rf_len_slew: int = 5
+    # W3Z items 3a/3b; gain default flipped to 1.1 in W4A (user-approved
+    # with the pico ONNX engine default, one combined re-bless).
+    # rf_len_gain scales the blender's length TARGET (eval decomposition:
+    # 84% of rays measured too short -- pred 197px vs true 233px; offline
+    # gain 1.10 scored 65.2px mean vs 70.3 baseline).  rf_endpoint_extract
+    # picks the heatmap->length extraction: "centroid" = full-map mass
+    # centroid (historical), "topp" = mass centroid of the top-50%-mass
+    # cells, robust to diffuse/multi-modal heatmaps dragging the centroid
+    # toward the origin.
+    rf_len_gain: float = 1.1
+    rf_endpoint_extract: str = "centroid"    # "centroid" | "topp"
 
     # ── Object snap ─────────────────────────────────────────────────────────
     snap_mode: str = "off"              # "off" | "extend" | "snap"
@@ -151,6 +191,15 @@ class RayFormingConfig:
             len_min_cutoff=getattr(ns, 'len_min_cutoff', 1.0),
             len_beta=getattr(ns, 'len_beta', 0.3),
             len_hold_tau=getattr(ns, 'len_hold_tau', 5.0),
+            rf_inout_gate=getattr(ns, 'rf_inout_gate', 0.0),
+            rf_reuse_eps=getattr(ns, 'rf_reuse_eps', 0.0) or 0.0,
+            rf_onset_samples=getattr(ns, 'rf_onset_samples', 3) or 0,
+            rf_onset_gap=getattr(ns, 'rf_onset_gap', 5) or 0,
+            rf_len_refresh_gap=getattr(ns, 'rf_len_refresh_gap', 10) or 0,
+            rf_len_slew=getattr(ns, 'rf_len_slew', 5) or 0,
+            rf_len_gain=getattr(ns, 'rf_len_gain', 1.1) or 1.1,
+            rf_endpoint_extract=getattr(ns, 'rf_endpoint_extract', 'centroid')
+            or 'centroid',
             snap_mode=getattr(ns, 'adaptive_ray', 'off'),
             snap_dist=getattr(ns, 'snap_dist', 150.0),
             snap_bbox_scale=getattr(ns, 'snap_bbox_scale', 0.0),

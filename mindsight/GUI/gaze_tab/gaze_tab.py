@@ -47,7 +47,6 @@ class GazeTab(QWidget):
         self._worker = None
         self._frame_q: queue.Queue = queue.Queue(maxsize=4)
         self._log_q: queue.Queue = queue.Queue()
-        self._dashboard_q: queue.Queue = queue.Queue(maxsize=30)
         self._poll_timer = QTimer()
         self._poll_timer.timeout.connect(self._poll)
 
@@ -75,35 +74,59 @@ class GazeTab(QWidget):
 
         self._build_settings(settings_lay)
 
-        # Right: vertical splitter (Video | Dashboard | Log)
+        # Right: vertical splitter (Video preview | Validation quadrant).
+        # W4B rework (user direction): validation is the FIRST-CLASS
+        # feature of this tab -- the live chart viewer is gone, the
+        # bottom-right quadrant is the always-visible Validation &
+        # Testing workbench inside a scroll area (the project-mode
+        # left-panel pattern), and the log hides under a checkbox at
+        # the bottom of the quadrant.
         self._preview = QLabel()
         self._preview.setStyleSheet("background:#1a1a2e;")
         self._preview.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self._preview.setSizePolicy(
             QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
 
-        from ..live_dashboard import LiveDashboardPanel
-        self._dashboard_panel = LiveDashboardPanel(self._dashboard_q)
+        from ..validation_workbench import ValidationWorkbench
+        self._validation_workbench = ValidationWorkbench(
+            namespace_provider=self._build_namespace,
+            namespace_applier=self.apply_namespace)
 
-        log_group = QGroupBox("Log")
-        log_group.setCheckable(True)
-        log_group.setChecked(True)
-        log_lay = QVBoxLayout(log_group)
+        quadrant = QWidget()
+        quad_lay = QVBoxLayout(quadrant)
+        quad_lay.setContentsMargins(4, 4, 4, 4)
+        # QLabel renders '&' literally (no mnemonics), so no escaping.
+        header = QLabel("Validation & Testing")
+        header.setStyleSheet("font-weight: bold;")
+        quad_lay.addWidget(header)
+        quad_lay.addWidget(self._validation_workbench, 1)
+
+        self._show_log_check = QCheckBox("Show log")
+        self._show_log_check.setChecked(False)
+        quad_lay.addWidget(self._show_log_check)
         self._log_box = QTextEdit()
         self._log_box.setReadOnly(True)
         self._log_box.setMinimumHeight(60)
         self._log_box.setFont(QFont("Courier", 10))
-        log_lay.addWidget(self._log_box)
-        self._log_box.setVisible(True)
-        log_group.toggled.connect(self._log_box.setVisible)
+        self._log_box.setVisible(False)
+        self._show_log_check.toggled.connect(self._log_box.setVisible)
+        quad_lay.addWidget(self._log_box)
+
+        quad_scroll = QScrollArea()
+        quad_scroll.setWidgetResizable(True)
+        quad_scroll.setFrameShape(QScrollArea.Shape.NoFrame)
+        quad_scroll.setWidget(quadrant)
 
         v_split = QSplitter(Qt.Orientation.Vertical)
         v_split.addWidget(self._preview)
-        v_split.addWidget(self._dashboard_panel)
-        v_split.addWidget(log_group)
-        v_split.setStretchFactor(0, 3)
-        v_split.setStretchFactor(1, 2)
-        v_split.setStretchFactor(2, 0)
+        v_split.addWidget(quad_scroll)
+        v_split.setStretchFactor(0, 1)
+        v_split.setStretchFactor(1, 1)
+        # Half/half by DEFAULT (W4C user feedback): the empty preview
+        # QLabel's tiny sizeHint let the quadrant's scroll area grab most
+        # of the column at first show; equal explicit sizes pin the split
+        # until the user drags the handle.
+        v_split.setSizes([400, 400])
 
         h_split = QSplitter(Qt.Orientation.Horizontal)
         h_split.addWidget(scroll)
@@ -184,11 +207,19 @@ class GazeTab(QWidget):
 
     def _build_start_stop(self, lay):
         btn_row = _hrow()
-        self._start_btn = QPushButton("\u25b6  Start")
+        # "Preview", not "Start" (W4C user feedback): this tab carries two
+        # run buttons -- this one drives the live preview only, while the
+        # workbench's Validate scores against ground truth. Distinct verbs
+        # keep them apart.
+        self._start_btn = QPushButton("\u25b6  Preview")
+        self._start_btn.setToolTip(
+            "Run the current settings over the source with a live preview. "
+            "To score them against labeled ground truth, use Validate in "
+            "the Validation & Testing panel.")
         self._start_btn.setStyleSheet(
             "QPushButton{background:#2a7a2a;color:white;"
             "font-weight:bold;padding:6px;}")
-        self._stop_btn = QPushButton("\u25a0  Stop")
+        self._stop_btn = QPushButton("\u25a0  Stop Preview")
         self._stop_btn.setStyleSheet(
             "QPushButton{background:#7a2a2a;color:white;"
             "font-weight:bold;padding:6px;}")
@@ -295,11 +326,8 @@ class GazeTab(QWidget):
         self._frame_q = queue.Queue(maxsize=4)
         self._log_q = queue.Queue()
         from ..workers import GazeWorker
-        self._worker = GazeWorker(ns, self._frame_q, self._log_q,
-                                   dashboard_q=self._dashboard_q)
+        self._worker = GazeWorker(ns, self._frame_q, self._log_q)
         self._worker.start()
-        self._dashboard_panel.reset()
-        self._dashboard_panel.start()
         self._start_btn.setEnabled(False)
         self._stop_btn.setEnabled(True)
         self._append_log("Starting...")
@@ -310,7 +338,6 @@ class GazeTab(QWidget):
         if self._worker:
             self._worker.stop()
         self._poll_timer.stop()
-        self._dashboard_panel.stop()
         self._start_btn.setEnabled(True)
         self._stop_btn.setEnabled(False)
 

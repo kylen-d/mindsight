@@ -4,6 +4,7 @@ ObjectDetection/model_factory.py — Shared model loading for YOLO and RetinaFac
 Both the CLI (MindSight.py) and GUI (MindSight_GUI.py) use these helpers
 so that detector initialization logic is defined in one place.
 """
+import contextlib
 import sys
 from pathlib import Path
 
@@ -64,7 +65,23 @@ def create_yolo_detector(
     from ultralytics import YOLO
     resolved = _resolve_yolo_path(model_path)
     print(f"Loading YOLO: {resolved}")
-    yolo = YOLO(resolved)
+    try:
+        yolo = YOLO(resolved)
+    except FileNotFoundError as exc:
+        # Official names auto-download inside YOLO(); only unknown names
+        # (typically typos -- e.g. "yolov11n.pt": the v-less "yolo11n.pt"
+        # is the real one) reach the open() failure.  Raise plain English
+        # instead of the raw torch traceback the GUI would otherwise show.
+        hint = ""
+        stem = Path(model_path).stem.lower()
+        if stem.startswith("yolov") and stem[5:6].isdigit() and stem[5] != "8":
+            hint = (f"  Did you mean '{Path(model_path).name.lower().replace('yolov', 'yolo', 1)}'"
+                    " (Ultralytics dropped the 'v' after YOLOv8)?")
+        raise FileNotFoundError(
+            f"YOLO model not found: {model_path!r} -- not a local file and "
+            f"not an official Ultralytics model name, so it cannot be "
+            f"auto-downloaded.{hint}  Installed models are listed on the "
+            f"Models tab (Weights/YOLO/).") from exc
     if resolved_dev != "cpu":
         try:
             yolo.to(resolved_dev)
@@ -86,11 +103,68 @@ def create_yolo_detector(
     return yolo, class_ids, bl
 
 
-def create_face_detector():
-    """Create and return a RetinaFace instance."""
+@contextlib.contextmanager
+def _uniface_download_lock():
+    """Serialize concurrent first-use RetinaFace weight downloads.
+
+    uniface's model store is not concurrency-safe: two processes fetching
+    the same backbone into ``~/.uniface`` race, and one crashes mid-verify
+    on the other's partial file (hit by three concurrent gate smokes on a
+    fresh HOME once r34 became the default).  An exclusive flock on a
+    sidecar lock file makes the first construction finish its download
+    before the others start; best-effort no-op where flock is unavailable
+    (Windows), where GUI launches are single-process anyway.
+    """
+    try:
+        import fcntl
+        lock_dir = Path.home() / ".uniface"
+        lock_dir.mkdir(parents=True, exist_ok=True)
+        fh = open(lock_dir / ".mindsight-download.lock", "w")
+    except Exception:
+        yield
+        return
+    try:
+        fcntl.flock(fh, fcntl.LOCK_EX)
+        yield
+    finally:
+        fcntl.flock(fh, fcntl.LOCK_UN)
+        fh.close()
+
+
+# --face-model short names -> uniface RetinaFaceWeights enum values.
+_FACE_MODEL_NAMES = {
+    "mnet025": "retinaface_mnet025",
+    "mnet050": "retinaface_mnet050",
+    "mnet_v1": "retinaface_mnet_v1",
+    "mnet_v2": "retinaface_mnet_v2",
+    "r18":     "retinaface_r18",
+    "r34":     "retinaface_r34",
+}
+
+
+def create_face_detector(conf_thresh: float = 0.5, input_size: int = 640,
+                         model_name: str | None = None):
+    """Create and return a RetinaFace instance.
+
+    v1.1 W2.4: the confidence threshold and (square) input size are
+    configurable via --face-conf / --face-input-size; the defaults are the
+    uniface library defaults, so an unconfigured build is byte-unchanged.
+    Faces feed BOTH the per-face gaze model and Gaze-LLE's head bboxes, so
+    these are the first knobs to reach for on distant/small-face footage.
+    v1.1 W3X adds --face-model to pick the backbone (r18/r34 for
+    small/distant faces); None keeps the library default (mnet_v2).
+    """
     _GAZE_DIR = Path(__file__).parent.parent / "GazeTracking" / "Backends" / "MGaze" / "gaze-estimation"
     if str(_GAZE_DIR) not in sys.path:
         sys.path.insert(0, str(_GAZE_DIR))
     from uniface import RetinaFace
     print("Loading RetinaFace…")
-    return RetinaFace()
+    kwargs = {}
+    if model_name:
+        from uniface.constants import RetinaFaceWeights
+        kwargs["model_name"] = RetinaFaceWeights(
+            _FACE_MODEL_NAMES.get(model_name, model_name))
+    with _uniface_download_lock():
+        return RetinaFace(conf_thresh=float(conf_thresh),
+                          input_size=(int(input_size), int(input_size)),
+                          **kwargs)

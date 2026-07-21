@@ -112,6 +112,12 @@ EXCLUDED_CLI_FLAGS: dict[str, str] = {
     "--device":            "model wiring: compute device for all backends",
     "--rf-gazelle-model":  "model wiring: GazelleProvider checkpoint",
     "--rf-gazelle-name":   "model wiring: GazelleProvider variant",
+    "--rf-gazelle-fp16":   "model wiring: GazelleProvider half precision",
+    "--rf-gazelle-compile": "model wiring: GazelleProvider torch.compile",
+    "--face-conf":         "model wiring: RetinaFace confidence threshold",
+    "--no-face-eye-origin": "run-loop: override switch for the schema face_eye_origin default",
+    "--face-input-size":   "model wiring: RetinaFace input resolution",
+    "--face-model":        "model wiring: RetinaFace backbone variant",
     # Raw name lists resolved against the loaded model into
     # detection.class_ids / detection.blacklist by create_yolo_detector.
     "--classes":           "raw class names; resolved to detection.class_ids at build",
@@ -122,8 +128,10 @@ EXCLUDED_CLI_FLAGS: dict[str, str] = {
     "--fast":              "run-loop performance toggle; passed directly to run()",
     "--skip-phenomena":    "run-loop performance knob; passed directly to run()",
     "--lite-overlay":      "run-loop performance toggle; passed directly to run()",
+    "--overlay-theme":     "run-loop cosmetic overlay styling; passed directly to run()",
     "--no-dashboard":      "run-loop performance toggle; passed directly to run()",
     "--profile":           "run-loop diagnostics toggle; passed directly to run()",
+    "--save-detections":   "run-loop output side-stream toggle; passed directly to run()",
     # Config-loading meta flags.
     "--pipeline":          "meta: which pipeline YAML to load",
     "--project":           "meta: project-mode directory",
@@ -418,6 +426,12 @@ def load_yaml(path: str | Path) -> PipelineConfig:
         parsed = _parse_aux_streams(aux_list)
         if parsed:
             _set_path(tree, "output.aux_streams", parsed)
+
+    # 5. Validation summary metadata (v1.1 W4B): carried through so the
+    #    block survives load/inspect round trips; canonical_hash ignores
+    #    it by design (the ruled carve-out).
+    if isinstance(cfg.get("validation"), dict):
+        tree["validation"] = cfg["validation"]
 
     return PipelineConfig(**tree)
 

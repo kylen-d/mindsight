@@ -122,13 +122,13 @@ enabled -- for example `{stem}_novel_salience_events.csv`,
 
 ## Per-frame events CSV
 
-`{stem}_Events.csv` is the finest-grained table: one row per gaze-object hit per
-frame. If a participant's gaze ray intersects two objects in the same frame,
-that is two rows; if nobody hits any object on a frame, that frame contributes
-no rows. Its columns are:
+`{stem}_Events.csv` is one row per gaze-object hit per frame. If a
+participant's gaze ray intersects two objects in the same frame, that is two
+rows; if nobody hits any object on a frame, that frame contributes no rows.
+Its columns are:
 
 ```
-frame,t_seconds,face_idx,object,object_conf,bbox_x1,bbox_y1,bbox_x2,bbox_y2,joint_attention,joint_attention_confirmed,participant_label
+frame,t_seconds,face_idx,object,object_conf,bbox_x1,bbox_y1,bbox_x2,bbox_y2,joint_attention,joint_attention_confirmed,participant_label,gaze_conf,gaze_pitch,gaze_yaw,ray_end_x,ray_end_y,depth_at_hit,ray_snapped,ray_extended
 ```
 
 `t_seconds` is the frame's timestamp, and `joint_attention` /
@@ -136,11 +136,45 @@ frame,t_seconds,face_idx,object,object_conf,bbox_x1,bbox_y1,bbox_x2,bbox_y2,join
 joint attention. In project mode a `video_name` and `conditions` column are
 prepended so rows from many videos stack.
 
-**When to use it.** Anything needing frame-level granularity -- custom
-downstream analysis, validation against human coding, fixation or transition
-extraction. If you only care about aggregate look-time per object, the summary
-CSV already has it. In project mode this file is written automatically; in CLI
+The columns after `participant_label` are new in v1.3 and strictly
+**additive** -- the original twelve columns are unchanged, so positional
+consumers of 1.0 files keep working. `gaze_conf` is the per-face gaze
+confidence, `gaze_pitch`/`gaze_yaw` are the smoothed gaze angles in degrees,
+`ray_end_x`/`ray_end_y` is the finalized ray endpoint in pixels,
+`depth_at_hit` is the normalized scene depth sampled at the endpoint (empty
+unless depth estimation is on), and `ray_snapped`/`ray_extended` flag whether
+object snap or reach extension shaped that ray.
+
+**When to use it.** Anything needing frame-level hit granularity -- custom
+downstream analysis, validation against human coding, transition extraction.
+If you only care about aggregate look-time per object, the summary CSV already
+has it. In project mode this file is written automatically; in CLI
 single-video mode you request it with `--log PATH`.
+
+## Per-frame gaze stream
+
+`{stem}_gaze.csv` (new in v1.3) is the densest table: **one row per visible
+face per frame, hits or not** -- the record of where every gaze ray pointed
+even when it hit nothing. It is written alongside the summary whenever the
+summary is enabled.
+
+```
+video_name,conditions,frame,t_seconds,face_idx,participant_label,gaze_conf,gaze_pitch,gaze_yaw,origin_x,origin_y,ray_end_x,ray_end_y,ray_snapped,ray_extended,trust,accepted_inference,inout_score,depth_at_end,hit_objects
+```
+
+`origin_x/y` is the ray origin (eye centre), `ray_end_x/y` the finalized
+endpoint. The three blend-telemetry columns expose the Gaze-LLE blend's
+internals per face and frame: `trust` is the fixation likelihood driving the
+blend, `accepted_inference` is 1 on the frames where a fresh Gaze-LLE heatmap
+was accepted for that face, and `inout_score` is the model's
+in/out-of-frame estimate for the most recent inference (1.0 when the loaded
+variant has no in/out head). `hit_objects` lists the classes hit that frame,
+semicolon-joined, empty when the gaze landed on nothing.
+
+**When to use it.** Gaze-trajectory analysis, accuracy evaluation against
+hand-labeled frames, and any question about frames *without* hits (aversion,
+off-target scanning). The blend columns are also the first place to look when
+tuning: they show when and how much the Gaze-LLE signal was trusted.
 
 ## Provenance manifest
 
@@ -200,6 +234,7 @@ videos carry condition tags, splits each one by condition. The global files
 
 - `Global_summary.csv` -- every video's summary stacked.
 - `Global_Events.csv` -- every video's per-frame events stacked.
+- `Global_gaze.csv` -- every video's per-frame gaze stream stacked.
 - `Global_phenomena_events.csv` -- every video's episode stream stacked.
 - `Global_scanpath.csv` -- every video's fixation stream stacked.
 - `Global_novel_salience_events.csv`, `Global_eye_movement_events.csv`,

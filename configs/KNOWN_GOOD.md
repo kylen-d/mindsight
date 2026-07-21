@@ -18,6 +18,19 @@ MobileGaze resnet50 ONNX + gazelle_dinov2_vitb14, interval 10). Result:
 length tracks the Gaze-LLE reach (median ratio 1.03) with ~1-2 px/frame
 length jitter.
 
+**Gaze-target engine (updated 2026-07-18, W4A user ruling):**
+`rf_gazelle_model: gazelle_hgnetv2_pico_inout_distill_1x3x640x640_1xNx4.onnx`
+-- the DINOv3-distilled pico ONNX (PINTO0309/gazelle-dinov3, 16 MB,
+in/out head, onnxruntime CPU). Validated on the 87 hand-labeled frames of
+the same footage: 63.9 px mean / 71% hit rate vs 70.3 / 66% for the torch
+`gazelle_dinov2_vitb14` engine at the same amortized cost (~10 ms/frame
+gazelle bucket at interval 10), with both participants near-balanced.
+Combined with the `--rf-len-gain 1.10` default (flipped the same day):
+58.8 px mean / 75% hit rate. Opt-in quality tiers (manifest weights):
+ViT tiny-plus 59.8/78%, ViT-S/16 57.3/80% (56.3 with gain -- the measured
+ceiling); their static single-face exports ride the Apple GPU via
+`--device mps`. The torch checkpoint remains the fallback engine.
+
 | Parameter | Value | Flag / notes |
 |---|---|---|
 | Inference interval / min call gap | 25 | user ruling 2026-07-09 (pre-rewrite recommendation; 2026-07-05 ruling was 10, widget default 30) |

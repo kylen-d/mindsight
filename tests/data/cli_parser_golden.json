@@ -62,7 +62,7 @@
       "choices": null,
       "required": false,
       "metavar": "PATH",
-      "help": "Save post-run summary CSV. Omit a value to use Outputs/CSV Files/[stem]_Summary_Output.csv, or supply a custom path.",
+      "help": "Save post-run summary CSV. Omit a value to use Outputs/CSV Files/[stem]_summary.csv, or supply a custom path.",
       "group": "options"
     },
     {
@@ -95,6 +95,22 @@
       "required": false,
       "metavar": "PATH",
       "help": "Generate post-run time-series charts for each phenomena tracker. Omit a value to use Outputs/Charts/[stem]_Charts.png, or supply a custom path.",
+      "group": "options"
+    },
+    {
+      "option_strings": [
+        "--save-detections"
+      ],
+      "dest": "save_detections",
+      "action": "_StoreTrueAction",
+      "default": false,
+      "type": null,
+      "nargs": 0,
+      "const": true,
+      "choices": null,
+      "required": false,
+      "metavar": null,
+      "help": "Write a per-frame detections side stream ([stem]_detections.csv next to the summary CSV: one row per detection with class, confidence, and bbox). Off by default; the validation suite enables it for its runs to score object IoU.",
       "group": "options"
     },
     {
@@ -254,15 +270,34 @@
       "action": "_StoreAction",
       "default": null,
       "type": null,
-      "nargs": null,
-      "const": null,
+      "nargs": "?",
+      "const": "blur",
       "choices": [
         "blur",
         "black"
       ],
       "required": false,
       "metavar": null,
-      "help": "Anonymize faces in the output video: 'blur' applies heavy Gaussian blur, 'black' fills with a solid rectangle.",
+      "help": "Anonymize faces in the output video: 'blur' applies heavy Gaussian blur, 'black' fills with a solid rectangle. Bare --anonymize means 'blur'.",
+      "group": "options"
+    },
+    {
+      "option_strings": [
+        "--overlay-theme"
+      ],
+      "dest": "overlay_theme",
+      "action": "_StoreAction",
+      "default": "classic",
+      "type": null,
+      "nargs": null,
+      "const": null,
+      "choices": [
+        "classic",
+        "mindsight"
+      ],
+      "required": false,
+      "metavar": null,
+      "help": "Annotated-frame overlay styling: 'classic' is the historical high-saturation look, 'mindsight' uses the brand palette (indigo ink label tabs, logo magenta/jade accents). Cosmetic only -- analysis outputs are unaffected (default: classic).",
       "group": "options"
     },
     {
@@ -359,6 +394,22 @@
       "required": false,
       "metavar": null,
       "help": "Print per-stage timing breakdown every 100 frames.",
+      "group": "Performance"
+    },
+    {
+      "option_strings": [
+        "--mgaze-reuse-eps"
+      ],
+      "dest": "mgaze_reuse_eps",
+      "action": "_StoreAction",
+      "default": 0.0,
+      "type": "float",
+      "nargs": null,
+      "const": null,
+      "choices": null,
+      "required": false,
+      "metavar": "EPS",
+      "help": "Reuse the previous gaze estimate when a face crop is visually unchanged (mean-abs 32x32 grayscale diff below EPS). 0 disables (default: 0.0). Saves per-face model calls on static footage.",
       "group": "Performance"
     },
     {
@@ -495,14 +546,69 @@
       ],
       "dest": "model",
       "action": "_StoreAction",
-      "default": "yolov8n.pt",
+      "default": "yolo11n.pt",
       "type": null,
       "nargs": null,
       "const": null,
       "choices": null,
       "required": false,
       "metavar": null,
-      "help": "Object Detection Model, defaults to yolov8n.pt",
+      "help": "Object Detection Model (default: yolo11n.pt since v1.3; yolo11n.onnx in the Models tab is a faster option for CPU-bound installs)",
+      "group": "options"
+    },
+    {
+      "option_strings": [
+        "--face-conf"
+      ],
+      "dest": "face_conf",
+      "action": "_StoreAction",
+      "default": 0.5,
+      "type": "float",
+      "nargs": null,
+      "const": null,
+      "choices": null,
+      "required": false,
+      "metavar": "T",
+      "help": "RetinaFace face-detection confidence threshold (default: 0.5, the library default). Lower to catch small/distant faces.",
+      "group": "options"
+    },
+    {
+      "option_strings": [
+        "--face-input-size"
+      ],
+      "dest": "face_input_size",
+      "action": "_StoreAction",
+      "default": 640,
+      "type": "int",
+      "nargs": null,
+      "const": null,
+      "choices": null,
+      "required": false,
+      "metavar": "PX",
+      "help": "RetinaFace square input resolution in pixels (default: 640, the library default). Raise for small/distant faces at a speed cost.",
+      "group": "options"
+    },
+    {
+      "option_strings": [
+        "--face-model"
+      ],
+      "dest": "face_model",
+      "action": "_StoreAction",
+      "default": "r34",
+      "type": null,
+      "nargs": null,
+      "const": null,
+      "choices": [
+        "mnet025",
+        "mnet050",
+        "mnet_v1",
+        "mnet_v2",
+        "r18",
+        "r34"
+      ],
+      "required": false,
+      "metavar": "NAME",
+      "help": "RetinaFace backbone variant (default: r34 -- the v1.3 eval pick: best accuracy AND ~40%% faster than mnet_v2 on the CoreML path; weights auto-download on first use).",
       "group": "options"
     },
     {
@@ -1159,6 +1265,54 @@
     },
     {
       "option_strings": [
+        "--face-reid-sim"
+      ],
+      "dest": "face_reid_sim",
+      "action": "_StoreAction",
+      "default": 0.0,
+      "type": "float",
+      "nargs": null,
+      "const": null,
+      "choices": null,
+      "required": false,
+      "metavar": "SIM",
+      "help": "Verify lost-track revivals with ArcFace embeddings: a dead track is re-identified by cosine similarity >= SIM (anywhere in frame, not just near its last position), falling back to positional matching. 0 disables (default: 0.0). Try 0.35-0.45. Embedding weights auto-download on first use (InsightFace research-provenance -- see THIRD_PARTY_LICENSES).",
+      "group": "options"
+    },
+    {
+      "option_strings": [
+        "--face-eye-origin"
+      ],
+      "dest": "face_eye_origin",
+      "action": "_StoreTrueAction",
+      "default": true,
+      "type": null,
+      "nargs": 0,
+      "const": true,
+      "choices": null,
+      "required": false,
+      "metavar": null,
+      "help": "Anchor gaze rays at the detected eye midpoint (RetinaFace landmarks) instead of the face-bbox centre (default: ON since v1.3; disable with --no-face-eye-origin).",
+      "group": "options"
+    },
+    {
+      "option_strings": [
+        "--no-face-eye-origin"
+      ],
+      "dest": "no_face_eye_origin",
+      "action": "_StoreTrueAction",
+      "default": false,
+      "type": null,
+      "nargs": 0,
+      "const": true,
+      "choices": null,
+      "required": false,
+      "metavar": null,
+      "help": "Anchor gaze rays at the face-bbox centre (the pre-v1.3 behavior), overriding the eye-midpoint default.",
+      "group": "options"
+    },
+    {
+      "option_strings": [
         "--forward-gaze-threshold"
       ],
       "dest": "forward_gaze_threshold",
@@ -1223,7 +1377,7 @@
       "choices": null,
       "required": false,
       "metavar": "PATH",
-      "help": "Path to a Gaze-LLE checkpoint (.pt) for Gazelle blend ray forming. Used alongside a pitch/yaw backend (MGaze, etc.) to periodically correct rays with Gaze-LLE heatmaps.",
+      "help": "Path to a gaze-target model for Gazelle blend ray forming: a Gaze-LLE checkpoint (.pt, torch) or a gazelle-dinov3 ONNX export (.onnx, onnxruntime). Used alongside a pitch/yaw backend (MGaze, etc.) to periodically correct rays with scene-aware heatmaps.",
       "group": "Ray Forming (Gazelle blend)"
     },
     {
@@ -1245,6 +1399,169 @@
       "required": false,
       "metavar": "NAME",
       "help": "Gaze-LLE model variant for ray forming (default: gazelle_dinov2_vitb14).",
+      "group": "Ray Forming (Gazelle blend)"
+    },
+    {
+      "option_strings": [
+        "--rf-inout-gate"
+      ],
+      "dest": "rf_inout_gate",
+      "action": "_StoreAction",
+      "default": 0.0,
+      "type": "float",
+      "nargs": null,
+      "const": null,
+      "choices": null,
+      "required": false,
+      "metavar": "T",
+      "help": "Activate the Gaze-LLE checkpoint's in/out-of-frame head (when present) and gate the blend with it: heatmap accepts with an in-frame score below T are vetoed and blend trust is scaled by the score. 0 disables (default: 0.0).",
+      "group": "Ray Forming (Gazelle blend)"
+    },
+    {
+      "option_strings": [
+        "--rf-reuse-eps"
+      ],
+      "dest": "rf_reuse_eps",
+      "action": "_StoreAction",
+      "default": 0.0,
+      "type": "float",
+      "nargs": null,
+      "const": null,
+      "choices": null,
+      "required": false,
+      "metavar": "EPS",
+      "help": "Skip a scheduled Gaze-LLE call when the scene is visually unchanged since the last real call (mean-abs 64x64 grayscale frame diff below EPS and stable face boxes); the cached heatmaps are re-anchored instead. 0 disables (default: 0.0). Saves forward passes on static footage.",
+      "group": "Ray Forming (Gazelle blend)"
+    },
+    {
+      "option_strings": [
+        "--rf-onset-samples"
+      ],
+      "dest": "rf_onset_samples",
+      "action": "_StoreAction",
+      "default": 3,
+      "type": "int",
+      "nargs": null,
+      "const": null,
+      "choices": null,
+      "required": false,
+      "metavar": "N",
+      "help": "Let a NEW face reach fixation eligibility after N pitch/yaw samples instead of the full warmup of 5 (half the history buffer). Minimum effective value 2; 0 keeps the full warmup (default: 3). Cuts first-anchor latency for freshly appeared faces.",
+      "group": "Ray Forming (Gazelle blend)"
+    },
+    {
+      "option_strings": [
+        "--rf-onset-gap"
+      ],
+      "dest": "rf_onset_gap",
+      "action": "_StoreAction",
+      "default": 5,
+      "type": "int",
+      "nargs": null,
+      "const": null,
+      "choices": null,
+      "required": false,
+      "metavar": "N",
+      "help": "When a never-anchored face wants inference, relax the global call gap to min(--min-call-gap, N) so a new participant is not stuck behind another face's recent call. 0 disables (default: 5).",
+      "group": "Ray Forming (Gazelle blend)"
+    },
+    {
+      "option_strings": [
+        "--rf-len-refresh-gap"
+      ],
+      "dest": "rf_len_refresh_gap",
+      "action": "_StoreAction",
+      "default": 10,
+      "type": "int",
+      "nargs": null,
+      "const": null,
+      "choices": null,
+      "required": false,
+      "metavar": "N",
+      "help": "Every N frames, run a cheap half-precision Gaze-LLE pass that refreshes ray LENGTH only -- direction stays with the full-precision fixation-gated corrections. Keeps ray reach fresh between corrections at a fraction of the cost. 0 disables (default: 10).",
+      "group": "Ray Forming (Gazelle blend)"
+    },
+    {
+      "option_strings": [
+        "--rf-len-slew"
+      ],
+      "dest": "rf_len_slew",
+      "action": "_StoreAction",
+      "default": 5,
+      "type": "int",
+      "nargs": null,
+      "const": null,
+      "choices": null,
+      "required": false,
+      "metavar": "N",
+      "help": "When a length refresh re-latches ray length, ramp the effective length target from the reach currently shown to the new value over N frames instead of snapping, with the length-hold decay paused during the ramp (monotone approach, no bounce). 0 = instant snap (default: 5).",
+      "group": "Ray Forming (Gazelle blend)"
+    },
+    {
+      "option_strings": [
+        "--rf-len-gain"
+      ],
+      "dest": "rf_len_gain",
+      "action": "_StoreAction",
+      "default": 1.1,
+      "type": "float",
+      "nargs": null,
+      "const": null,
+      "choices": null,
+      "required": false,
+      "metavar": "F",
+      "help": "Scale the blend ray-length target by F. The v1.3 eval decomposition measured a systematic under-reach (84%% of rays short); 1.10 recovered ~5 px mean / ~8 px median on the eval labels. Applied before smoothing so snap and hit detection see the corrected reach. 1.0 = off (default: 1.10).",
+      "group": "Ray Forming (Gazelle blend)"
+    },
+    {
+      "option_strings": [
+        "--rf-endpoint-extract"
+      ],
+      "dest": "rf_endpoint_extract",
+      "action": "_StoreAction",
+      "default": "centroid",
+      "type": null,
+      "nargs": null,
+      "const": null,
+      "choices": [
+        "centroid",
+        "topp"
+      ],
+      "required": false,
+      "metavar": null,
+      "help": "How the Gaze-LLE heatmap becomes a ray-length endpoint: 'centroid' = full-map mass centroid (historical), 'topp' = mass centroid of the top-50%%-mass cells -- diffuse or multi-modal heatmaps no longer drag the endpoint toward the origin (default: centroid).",
+      "group": "Ray Forming (Gazelle blend)"
+    },
+    {
+      "option_strings": [
+        "--rf-gazelle-fp16"
+      ],
+      "dest": "rf_gazelle_fp16",
+      "action": "_StoreTrueAction",
+      "default": false,
+      "type": null,
+      "nargs": 0,
+      "const": true,
+      "choices": null,
+      "required": false,
+      "metavar": null,
+      "help": "Run the blend-path Gaze-LLE model in half precision (CUDA/MPS only; ignored on CPU). Faster per call; output is NOT byte-identical to fp32, so keep it off for regression baselines.",
+      "group": "Ray Forming (Gazelle blend)"
+    },
+    {
+      "option_strings": [
+        "--rf-gazelle-compile"
+      ],
+      "dest": "rf_gazelle_compile",
+      "action": "_StoreTrueAction",
+      "default": false,
+      "type": null,
+      "nargs": 0,
+      "const": true,
+      "choices": null,
+      "required": false,
+      "metavar": null,
+      "help": "torch.compile the blend-path Gaze-LLE model (PyTorch 2+, experimental -- MPS support immature). First call pays a warmup cost.",
       "group": "Ray Forming (Gazelle blend)"
     },
     {
@@ -1761,6 +2078,22 @@
     },
     {
       "option_strings": [
+        "--adas-gaze-model"
+      ],
+      "dest": "adas_gaze_model",
+      "action": "_StoreAction",
+      "default": null,
+      "type": null,
+      "nargs": null,
+      "const": null,
+      "choices": null,
+      "required": false,
+      "metavar": "PATH",
+      "help": "Path to the Intel gaze-estimation-adas-0002 ONNX model.  Activates the head-pose-normalized adas gaze backend (Apache-2.0, provenance-clean; requires the MediaPipe face_landmarker.task asset).",
+      "group": "Adas Gaze backend"
+    },
+    {
+      "option_strings": [
         "--gazelle-model"
       ],
       "dest": "gazelle_model",
@@ -1931,11 +2264,27 @@
     },
     {
       "option_strings": [
+        "--mpiifacegaze-model"
+      ],
+      "dest": "mpiifacegaze_model",
+      "action": "_StoreAction",
+      "default": null,
+      "type": null,
+      "nargs": null,
+      "const": null,
+      "choices": null,
+      "required": false,
+      "metavar": "PATH",
+      "help": "Path to the hysts MPIIFaceGaze resnet_simple checkpoint (.pth).  Activates the head-pose-normalized MPIIFaceGaze backend (requires the MediaPipe face_landmarker.task asset).  Weights are research-provenance -- trained on MPIIFaceGaze (CC BY-NC-SA); see THIRD_PARTY_LICENSES.",
+      "group": "MPIIFaceGaze backend"
+    },
+    {
+      "option_strings": [
         "--mgaze-model"
       ],
       "dest": "mgaze_model",
       "action": "_StoreAction",
-      "default": "Weights/MGaze/mobileone_s0_gaze.onnx",
+      "default": "Weights/MGaze/resnet50_gaze.onnx",
       "type": null,
       "nargs": null,
       "const": null,

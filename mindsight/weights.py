@@ -32,10 +32,20 @@ from mindsight.constants import PROJECT_ROOT
 WEIGHTS_ROOT = PROJECT_ROOT / "Weights"
 MANIFEST_PATH = PROJECT_ROOT / "weights_manifest.json"
 
-# Manifest sources: a real GitHub-release asset (url + sha256), or an asset
-# Ultralytics auto-fetches on first use (url/sha256 null + an explanatory note).
+# Manifest sources: a real GitHub-release asset (url + sha256), a versioned
+# vendor CDN/storage asset (url + sha256, e.g. Google's MediaPipe model
+# storage), or an asset Ultralytics auto-fetches on first use (url/sha256
+# null + an explanatory note).
 SOURCE_GITHUB = "github-release"
+SOURCE_VENDOR_CDN = "vendor-cdn"
 SOURCE_ULTRALYTICS_AUTO = "ultralytics-auto"
+
+#: The default blend-path gaze-target model (v1.1 W4A flip, user-approved):
+#: the 16 MB DINOv3-distilled pico ONNX beats the torch DINOv2 ViT-B/14
+#: engine on the v1.1 eval (63.9 px mean / 71% hit rate vs 70.3 / 66%) at
+#: the same amortized cost, CPU-only.  The GUI blend toggle resolves to it
+#: when no model is typed; the torch checkpoint remains the fallback.
+DEFAULT_BLEND_MODEL = "gazelle_hgnetv2_pico_inout_distill_1x3x640x640_1xNx4.onnx"
 
 
 class WeightsError(Exception):

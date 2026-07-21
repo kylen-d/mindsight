@@ -116,6 +116,7 @@ KNOWN_PLUGIN_DESTS = {
     "gazelle_device", "gazelle_skip_frames", "gazelle_fp16",
     "gazelle_compile",
     "iris_refine", "iris_refine_weight", "iris_refine_upscale",
+    "mpiifacegaze_model", "adas_gaze_model",
     # core backend (MGaze)
     "mgaze_model", "mgaze_arch", "mgaze_dataset",
     # object detection plugins
@@ -232,6 +233,9 @@ def test_root_sections():
     assert set(PipelineConfig.model_fields) == {
         "detection", "gaze", "tracker", "rayforming", "depth",
         "phenomena", "output", "project",
+        # W4B: validation summary METADATA (no dataclass mirror, no
+        # CLI/UI surface; canonical_hash carves it out by design).
+        "validation",
     }
 
 
@@ -418,12 +422,43 @@ def test_ui_metadata_completeness():
 
 def test_ui_metadata_does_not_move_canonical_hash():
     """Attaching ui metadata is inert to canonical_hash (hashes VALUES, not
-    json_schema_extra).  Pins the default + a perturbed config against hashes
-    captured on HEAD before the tagging pass landed."""
+    json_schema_extra).  Pins the default + a perturbed config.
+
+    Re-pinned 2026-07-16 (v1.1 W2.2): adding the tracker.mgaze_reuse_eps
+    schema FIELD legitimately moves the hash (it hashes values, and there is
+    one more value).  Consequence: resume ledgers written before v1.1 report
+    a config-hash mismatch and reprocess -- expected, noted in the changelog.
+    Re-pinned again 2026-07-16 (v1.1 W3X): rayforming.rf_reuse_eps /
+    rf_onset_samples / rf_onset_gap, then gaze.face_eye_origin +
+    tracker.face_reid_sim fields added (same one-time-reprocess
+    consequence, still pre-release on v1.1-dev).
+    Re-pinned 2026-07-17 (v1.1 W3Y): rayforming.rf_len_refresh_gap field
+    added (same one-time-reprocess consequence, still pre-release).
+    Re-pinned 2026-07-18 (W3Y flip): rf_len_refresh_gap default 0 -> 10
+    (user-approved; blend goldens re-blessed).
+    Re-pinned 2026-07-18 (v1.1 W3Z): rayforming.rf_len_slew field added
+    (same one-time-reprocess consequence, still pre-release).
+    Re-pinned 2026-07-18 (W3Z flip): rf_len_slew default 0 -> 5
+    (user-approved; blend goldens re-blessed -- the 4th re-bless).
+    Re-pinned 2026-07-18 (W3Z 3a/3b): rayforming.rf_len_gain +
+    rf_endpoint_extract fields added, defaults inert (same
+    one-time-reprocess consequence, still pre-release).
+    Re-pinned 2026-07-18 (W3Z slew revert): rf_len_slew default 5 -> 0
+    (eyes-on: latch slew + hold decay reads as bounce; rework pending).
+    Re-pinned 2026-07-18 (W4A flip): rf_len_gain default 1.0 -> 1.1
+    (user-approved with the pico ONNX default blend engine, one combined
+    re-bless -- the 5th; same one-time-reprocess consequence,
+    still pre-release).
+    Re-pinned 2026-07-19 (W4C flip, ruling R5): rf_len_slew default
+    0 -> 5 (the W4B decay-paused rework, eyes-on approved; part of the
+    6th re-bless together with the R7 resnet50 mgaze default, which is
+    plugin-side and does NOT touch this hash; same one-time-reprocess
+    consequence, still pre-release).
+    """
     assert PipelineConfig().canonical_hash() == (
-        "ca98e94aac8ecc787a862b4a4560618bb212f668081bb948b9399192ee4829d6")
+        "90753c9720e466b060030399314f3a093ef2013933ddb6c65deb598afcdb6879")
     assert PipelineConfig(gaze={"ray_length": 1.5}).canonical_hash() == (
-        "4432ebb01e05167f1c402b075e251d7debc36d1b5715b3468b9fbf52a520d03f")
+        "4ed82828db5c44f5ca6aacddcb1622f4ec61e1bf25bc566d82b467658259c52e")
 
 
 def test_ui_mirror_rule_targets_are_hidden():

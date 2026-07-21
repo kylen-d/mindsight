@@ -1,6 +1,6 @@
 [project]
 name = "mindsight"
-version = "1.0.0"
+version = "1.3.0"
 description = "Real-time multi-person gaze tracking and attention analysis platform"
 requires-python = ">=3.10"
 license = "AGPL-3.0-or-later"
@@ -21,7 +21,10 @@ dependencies = [
     "onnxruntime==1.24.2",
     # Object detection
     "ultralytics==8.4.14",
-    "clip @ git+https://github.com/ultralytics/CLIP.git@88ade288431a46233f1556d1e141901b3ef0a36b",
+    # Commit tarball, NOT git+: a VCS dep makes uv/pip shell out to a git
+    # executable, which the one-click installers cannot assume (fresh Windows
+    # lab boxes have no git; macOS prompts for Xcode CLT). Same pinned commit.
+    "clip @ https://github.com/ultralytics/CLIP/archive/88ade288431a46233f1556d1e141901b3ef0a36b.tar.gz",
     # Gaze estimation
     "uniface==1.1.0",  # later releases return Face objects; the pipeline reads the dict face API validated in the golden regime
     "timm==1.0.25",

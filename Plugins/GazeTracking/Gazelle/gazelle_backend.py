@@ -119,6 +119,11 @@ class GazeEstimationGazelle(GazePlugin):
         self._cached_result     = None
         self._cached_bbox_count = 0
 
+        # Per-face in/out-of-frame scores from the most recent
+        # raw_heatmaps() pass ([N] float array, or None for non-inout
+        # variants).  Read by GazelleProvider.step().
+        self._last_inout        = None
+
     # ── Estimation ────────────────────────────────────────────────────────────
 
     def estimate_frame(self, frame_bgr, face_bboxes_px: list) -> list:
@@ -207,8 +212,13 @@ class GazeEstimationGazelle(GazePlugin):
         numpy array of shape ``[N, 64, 64]`` with sigmoid-activated values
         in [0, 1].  Returns an empty ``(0, 64, 64)`` array when no faces
         are supplied.
+
+        Side effect: stores the per-face in/out-of-frame scores from this
+        pass in ``self._last_inout`` ([N] float array; None for non-inout
+        model variants), which GazelleProvider reads alongside the heatmaps.
         """
         if not face_bboxes_px:
+            self._last_inout = None
             return np.empty((0, 64, 64), dtype=np.float32)
 
         h, w = frame_bgr.shape[:2]
@@ -223,6 +233,11 @@ class GazeEstimationGazelle(GazePlugin):
         with torch.no_grad():
             out = self.model({"images": img_tensor, "bboxes": [norm]})
 
+        self._last_inout = (
+            out["inout"][0].float().cpu().numpy()
+            if self._has_inout and out["inout"] is not None
+            else None
+        )
         return out["heatmap"][0].cpu().numpy()           # [N, 64, 64]
 
     # ── CLI protocol ──────────────────────────────────────────────────────────

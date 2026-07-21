@@ -142,10 +142,19 @@ def _browse_btn(text="Browse"):
 
 class ImageCanvas(QWidget):
     """Displays a BGR frame with detection overlays; supports click-to-toggle
-    and drag-to-draw interaction."""
+    and drag-to-draw interaction.
+
+    Suggest mode (v1.1 W3Z, VP Builder): while enabled, clicks stop toggling
+    boxes / starting drags.  A click inside a suggestion box emits
+    ``suggestion_accepted(index)``; any other click on the image emits
+    ``point_clicked(ix, iy)`` in image coordinates.  Suggestions render as
+    dashed overlays on top of the pixmap.
+    """
 
     box_toggled = pyqtSignal(int)
     crop_drawn  = pyqtSignal(int, int, int, int)
+    point_clicked       = pyqtSignal(int, int)
+    suggestion_accepted = pyqtSignal(int)
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -161,6 +170,18 @@ class ImageCanvas(QWidget):
         self._off_x = self._off_y = 0
         self._drag_start   = None
         self._drag_current = None
+        self._suggest_mode = False
+        self._suggestions: list = []   # [[x1, y1, x2, y2], ...] image coords
+
+    def set_suggest_mode(self, on: bool):
+        self._suggest_mode = bool(on)
+        if not on:
+            self._suggestions = []
+        self.update()
+
+    def set_suggestions(self, boxes):
+        self._suggestions = [list(b) for b in (boxes or [])]
+        self.update()
 
     def set_image_data(self, frame, dets, manual_crops):
         """Initialize the canvas with a BGR *frame*, detections, and manual crops."""
@@ -219,6 +240,16 @@ class ImageCanvas(QWidget):
             x1, y1 = self._drag_current
             painter.drawRect(QRect(QPoint(min(x0, x1), min(y0, y1)),
                                    QPoint(max(x0, x1), max(y0, y1))))
+        if self._suggestions and self._pixmap:
+            pen = QPen(QColor("#ffb454"), 2, Qt.PenStyle.DashLine)
+            painter.setPen(pen)
+            painter.setBrush(Qt.BrushStyle.NoBrush)
+            for ix1, iy1, ix2, iy2 in self._suggestions:
+                painter.drawRect(QRect(
+                    QPoint(int(ix1 * self._scale + self._off_x),
+                           int(iy1 * self._scale + self._off_y)),
+                    QPoint(int(ix2 * self._scale + self._off_x),
+                           int(iy2 * self._scale + self._off_y))))
 
     def _widget_to_img(self, wx, wy):
         """Map widget coordinates to image coordinates."""
@@ -230,6 +261,24 @@ class ImageCanvas(QWidget):
         if event.button() != Qt.MouseButton.LeftButton:
             return
         ix, iy = self._widget_to_img(event.position().x(), event.position().y())
+        if self._suggest_mode:
+            # Smallest-first so a click in nested proposals accepts the
+            # most specific one (matches the suggestion sort order).
+            order = sorted(range(len(self._suggestions)),
+                           key=lambda i: ((self._suggestions[i][2]
+                                           - self._suggestions[i][0])
+                                          * (self._suggestions[i][3]
+                                             - self._suggestions[i][1])))
+            for i in order:
+                x1, y1, x2, y2 = self._suggestions[i]
+                if x1 <= ix <= x2 and y1 <= iy <= y2:
+                    self.suggestion_accepted.emit(i)
+                    return
+            if self._frame is not None:
+                hh, ww = self._frame.shape[:2]
+                if 0 <= ix < ww and 0 <= iy < hh:
+                    self.point_clicked.emit(int(ix), int(iy))
+            return
         for i, det in enumerate(self._dets):
             if det["x1"] <= ix <= det["x2"] and det["y1"] <= iy <= det["y2"]:
                 self.box_toggled.emit(i)

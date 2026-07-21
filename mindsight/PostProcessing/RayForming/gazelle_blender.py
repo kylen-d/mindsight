@@ -95,6 +95,35 @@ def _heatmap_centroid_pixel(hm: np.ndarray,
     return np.array([cx / _GRID * frame_w, cy / _GRID * frame_h], dtype=float)
 
 
+_TOPP_MASS = 0.5
+"""Mass fraction kept by the top-p extraction (W3Z 3b).
+
+Not user-tunable: the extraction MODE is the knob (--rf-endpoint-extract);
+0.5 keeps the dominant mode of a bimodal map while ignoring diffuse tails.
+"""
+
+
+def _heatmap_topp_pixel(hm: np.ndarray,
+                        frame_h: int, frame_w: int) -> np.ndarray:
+    """Mass centroid of the highest-valued cells holding _TOPP_MASS of the
+    total -- a diffuse or multi-modal heatmap no longer drags the endpoint
+    toward the global mass center (the measured under-reach mechanism)."""
+    s = float(hm.sum())
+    if s < 1e-12:
+        return np.array([frame_w * 0.5, frame_h * 0.5], dtype=float)
+    flat = hm.astype(np.float32).ravel()
+    order = np.argsort(flat)[::-1]
+    csum = np.cumsum(flat[order])
+    k = int(np.searchsorted(csum, _TOPP_MASS * s)) + 1
+    idx = order[:k]
+    w = flat[idx]
+    ws = float(w.sum())
+    ys, xs = np.unravel_index(idx, hm.shape)
+    cx = float((xs * w).sum()) / ws
+    cy = float((ys * w).sum()) / ws
+    return np.array([cx / _GRID * frame_w, cy / _GRID * frame_h], dtype=float)
+
+
 class GazeLLEBlender:
     """Per-track Gaze-LLE blender with scheduler-driven trust.
 
@@ -113,6 +142,16 @@ class GazeLLEBlender:
         last accepted inference
       - ``_latch_age_s[tid]``: seconds since that latch; drives the slow
         exp(-age/len_hold_tau) decay of length back toward the PY baseline
+      - ``_len_slew[tid]``: (start_effective, steps_done) while a
+        re-latch is slewing the EFFECTIVE length target old -> new over
+        cfg.rf_len_slew updates (W4B rework; empty when rf_len_slew is
+        0 -- re-latches snap instantly).  The hold decay is PAUSED for
+        the duration: the W3Z version slewed the LATCH while the decay
+        kept pulling the target, and the two mechanisms fighting read
+        as ~3Hz length bounce on real footage (user eyes-on, w3z-8).
+      - ``_last_eff_len[tid]``: last update's pre-gain effective length
+        target -- the slew's start value, so a re-latch ramps from the
+        reach the ray actually showed
       - ``_dir_x_filter / _dir_y_filter / _len_filter``: One Euro filters
         for the output channels
     """
@@ -123,6 +162,8 @@ class GazeLLEBlender:
         self._prev_grid: dict[int, tuple[float, float]] = {}
         self._latched_lle_length: dict[int, float] = {}
         self._latch_age_s: dict[int, float] = {}
+        self._len_slew: dict[int, tuple[float, int]] = {}
+        self._last_eff_len: dict[int, float] = {}
         # OneEuroFilter is 1D; direction needs two (x, y).
         self._dir_x_filter: dict[int, OneEuroFilter] = {}
         self._dir_y_filter: dict[int, OneEuroFilter] = {}
@@ -159,15 +200,14 @@ class GazeLLEBlender:
         if accept_heatmap and gazelle_hm is not None:
             belief = belief * (gazelle_hm.astype(np.float32) + 1e-6)
             belief = _normalize(belief)
-            # Re-latch length from the raw heatmap centroid (not the
-            # belief centroid -- avoids past-frame contamination).
-            lle_pixel = _heatmap_centroid_pixel(
+            # Re-latch length from the raw heatmap (not the belief map --
+            # avoids past-frame contamination); extraction mode per cfg.
+            lle_pixel = self._extract_pixel(
                 gazelle_hm.astype(np.float32), frame_h, frame_w)
             lle_vec = lle_pixel - origin
             lle_norm = float(np.linalg.norm(lle_vec))
             if lle_norm > 1e-6:
-                self._latched_lle_length[track_id] = lle_norm
-                self._latch_age_s[track_id] = 0.0
+                self._set_latch(track_id, lle_norm)
 
         self._beliefs[track_id] = belief
         self._prev_grid[track_id] = (gx, gy)
@@ -218,13 +258,38 @@ class GazeLLEBlender:
         if latched is None:
             raw_length_target = py_length
         else:
-            age = self._latch_age_s.get(track_id, 0.0)
-            if not accept_heatmap:
-                age += max(dt, 0.0)
-                self._latch_age_s[track_id] = age
-            tau = max(float(cfg.len_hold_tau), 1e-6)
-            hold = float(np.exp(-age / tau))
-            raw_length_target = py_length + hold * (latched - py_length)
+            slew = self._len_slew.get(track_id)
+            if slew is not None:
+                # W4B slew rework: ramp the EFFECTIVE target from the
+                # reach the ray last showed to the fresh latch, with the
+                # hold decay PAUSED (age stays at the 0 the latch set --
+                # decay resumes only after arrival).  The W3Z version
+                # slewed the latch while decay kept pulling; the two
+                # fighting read as ~3Hz bounce on real footage.
+                start, done = slew
+                done += 1
+                k = max(int(cfg.rf_len_slew or 0), 1)
+                if done >= k:
+                    raw_length_target = latched
+                    self._len_slew.pop(track_id, None)
+                else:
+                    raw_length_target = start + (latched - start) * (done / k)
+                    self._len_slew[track_id] = (start, done)
+            else:
+                age = self._latch_age_s.get(track_id, 0.0)
+                if not accept_heatmap:
+                    age += max(dt, 0.0)
+                    self._latch_age_s[track_id] = age
+                tau = max(float(cfg.len_hold_tau), 1e-6)
+                hold = float(np.exp(-age / tau))
+                raw_length_target = py_length + hold * (latched - py_length)
+        self._last_eff_len[track_id] = float(raw_length_target)
+        # W3Z 3a: global length-gain correction for the measured systematic
+        # under-reach.  Applied to the TARGET (pre One Euro) so snap and hit
+        # detection downstream see the corrected reach.  1.0 = off; guarded
+        # so the default path stays byte-identical to the goldens.
+        if cfg.rf_len_gain != 1.0:
+            raw_length_target *= float(cfg.rf_len_gain)
 
         # === One Euro smoothing ===
         if track_id not in self._dir_x_filter:
@@ -249,6 +314,60 @@ class GazeLLEBlender:
 
         return origin + smoothed_dir * smoothed_length
 
+    def _extract_pixel(self, hm: np.ndarray,
+                       frame_h: int, frame_w: int) -> np.ndarray:
+        """Heatmap -> endpoint pixel per cfg.rf_endpoint_extract (W3Z 3b)."""
+        if self._cfg.rf_endpoint_extract == "topp":
+            return _heatmap_topp_pixel(hm, frame_h, frame_w)
+        return _heatmap_centroid_pixel(hm, frame_h, frame_w)
+
+    def _set_latch(self, track_id: int, new_value: float) -> None:
+        """Latch a new LLE length; slew the EFFECTIVE target when
+        configured (W4B rework of the W3Z latch-slew).
+
+        The latch itself always snaps to the new value and the age clock
+        resets.  With cfg.rf_len_slew = K > 0 and a previous effective
+        length on record, the OUTPUT target ramps linearly from that
+        previous effective value to the new latch over the next K
+        ``update()`` calls, with the hold decay paused for the duration
+        (see ``update``).  A re-latch arriving mid-slew restarts the ramp
+        from the value the ray currently shows, so it never jumps.
+        First-ever latches snap (nothing to slew from).
+        """
+        k = int(self._cfg.rf_len_slew or 0)
+        had_latch = track_id in self._latched_lle_length
+        prev_eff = self._last_eff_len.get(track_id)
+        self._latched_lle_length[track_id] = float(new_value)
+        self._latch_age_s[track_id] = 0.0
+        if k > 0 and had_latch and prev_eff is not None \
+                and prev_eff != float(new_value):
+            self._len_slew[track_id] = (float(prev_eff), 0)
+        else:
+            self._len_slew.pop(track_id, None)
+
+    def refresh_length(self, *, track_id: int, gazelle_hm: np.ndarray,
+                       origin: np.ndarray,
+                       frame_h: int, frame_w: int) -> bool:
+        """Re-latch the length channel from a cheap (fp16) heatmap.
+
+        v1.1 W3Y: the length-refresh channel fires on a bare frame counter,
+        bypassing the fixation gating that protects direction -- so it may
+        only REFRESH an existing latch, never create one (an unlatched
+        track's length authority stays with the fixation-gated fp32
+        channel).  The belief map and direction are never touched.
+
+        Returns True iff the latch was refreshed.
+        """
+        if track_id not in self._latched_lle_length:
+            return False
+        lle_pixel = self._extract_pixel(
+            gazelle_hm.astype(np.float32), frame_h, frame_w)
+        lle_norm = float(np.linalg.norm(lle_pixel - np.asarray(origin, float)))
+        if lle_norm <= 1e-6:
+            return False
+        self._set_latch(track_id, lle_norm)
+        return True
+
     def prune(self, active_tids: set[int]) -> None:
         """Remove state for tracks no longer present."""
         for tid in list(self._beliefs):
@@ -257,6 +376,8 @@ class GazeLLEBlender:
                 self._prev_grid.pop(tid, None)
                 self._latched_lle_length.pop(tid, None)
                 self._latch_age_s.pop(tid, None)
+                self._len_slew.pop(tid, None)
+                self._last_eff_len.pop(tid, None)
                 self._dir_x_filter.pop(tid, None)
                 self._dir_y_filter.pop(tid, None)
                 self._len_filter.pop(tid, None)

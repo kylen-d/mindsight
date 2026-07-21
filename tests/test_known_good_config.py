@@ -87,7 +87,8 @@ def test_runtime_weight_names_are_bare_filenames():
     for attr, expected in (
         ("model", "yolov8n.pt"),
         ("mgaze_model", "resnet50"),
-        ("rf_gazelle_model", "gazelle_dinov2_vitb14.pt"),
+        ("rf_gazelle_model",
+         "gazelle_hgnetv2_pico_inout_distill_1x3x640x640_1xNx4.onnx"),
     ):
         val = getattr(ns, attr)
         assert val == expected
@@ -106,7 +107,8 @@ def test_low_power_preset_values():
     assert getattr(ns, "detect_scale") == 0.75
     assert getattr(ns, "fast") is True
     assert resolve_min_call_gap(ns) == 40
-    assert getattr(ns, "rf_gazelle_model") == "gazelle_dinov2_vitb14.pt"
+    assert getattr(ns, "rf_gazelle_model") == (
+        "gazelle_hgnetv2_pico_inout_distill_1x3x640x640_1xNx4.onnx")
     full_ns = load_pipeline(LOW_POWER, build_parser().parse_args([]))
     cfg = PhenomenaConfig.from_namespace(full_ns)
     assert len(init_phenomena_trackers(cfg)) == 8

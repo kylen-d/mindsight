@@ -116,6 +116,7 @@ class GazeConfig:
     forward_gaze_threshold: float = 5.0
     smooth_snap: str = "off"              # "off", "objects", "gaze_tips", or "all"
     smooth_snap_alpha: float = 0.20
+    face_eye_origin: bool = True    # rays anchor at eye midpoint (W3X; 3.8 default ON)
 
     @classmethod
     def from_namespace(cls, ns) -> GazeConfig:
@@ -147,6 +148,8 @@ class GazeConfig:
             forward_gaze_threshold=ns.forward_gaze_threshold,
             smooth_snap=getattr(ns, 'smooth_snap', 'off'),
             smooth_snap_alpha=getattr(ns, 'smooth_snap_alpha', 0.20),
+            face_eye_origin=(getattr(ns, 'face_eye_origin', True)
+                             and not getattr(ns, 'no_face_eye_origin', False)),
         )
 
 
@@ -197,6 +200,8 @@ class TrackerConfig:
     snap_engage_frames: int = 0
     reid_grace_seconds: float = 1.0
     reid_max_dist: int = 200
+    mgaze_reuse_eps: float = 0.0   # 0 = off; mean-abs thumb diff gate (W2.2)
+    face_reid_sim: float = 0.0     # 0 = off; embedding-verified revival (W3X)
 
     @classmethod
     def from_namespace(cls, ns) -> TrackerConfig:
@@ -211,6 +216,8 @@ class TrackerConfig:
             snap_engage_frames=getattr(ns, 'snap_engage_frames', 0),
             reid_grace_seconds=ns.reid_grace_seconds,
             reid_max_dist=getattr(ns, 'reid_max_dist', 200),
+            mgaze_reuse_eps=getattr(ns, 'mgaze_reuse_eps', 0.0),
+            face_reid_sim=getattr(ns, 'face_reid_sim', 0.0),
         )
 
 

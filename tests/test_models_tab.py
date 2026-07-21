@@ -55,7 +55,8 @@ def _join_and_drain(tab):
 
 
 def _state_text(tab, row):
-    return tab._table.item(row, 4).text()
+    from mindsight.GUI.models_tab import _COL_STATE
+    return tab._table.item(row, _COL_STATE).text()
 
 
 # ── Rendering ────────────────────────────────────────────────────────────────
@@ -188,9 +189,52 @@ def test_optimal_for_device_tag(qapp, tmp_path):
     ModelsTab._device_class_cache = "cpu"
     try:
         tab = ModelsTab(manifest_path=manifest, weights_root=wroot)
-        tags = {tab._table.item(r, 0).text(): tab._table.item(r, 2).text()
+        from mindsight.GUI.models_tab import _COL_REQUIRED
+        tags = {tab._table.item(r, 0).text():
+                tab._table.item(r, _COL_REQUIRED).text()
                 for r in range(tab._table.rowCount())}
         assert tags["MGaze match_gaze.onnx"] == "required, optimal for this device"
         assert tags["MGaze other.pt"] == ""
     finally:
         ModelsTab._device_class_cache = None
+
+
+def test_license_column_last_with_summary_and_details_popup(qapp, tmp_path,
+                                                            monkeypatch):
+    """W4C rework (user request): License is the LAST column; the cell shows
+    a short summary (SPDX id, '(research-only)' tag when the note says so)
+    and a 'details' link that pops the full license_note -- the
+    paragraph-length notes no longer render inline."""
+    from mindsight.GUI.models_tab import _COL_LICENSE, _COLS, ModelsTab
+    assert _COLS[-1] == "License" and _COL_LICENSE == len(_COLS) - 1
+
+    plain = _entry("MGaze", "plain.onnx", b"a")
+    noted = _entry("MGaze", "noted.onnx", b"b")
+    noted["license_note"] = "weights: research use only - trained on X"
+    manifest = _write_manifest(tmp_path, [plain, noted])
+    wroot = tmp_path / "Weights"
+    (wroot / "MGaze").mkdir(parents=True)
+
+    tab = ModelsTab(manifest_path=manifest, weights_root=wroot)
+    rows = {tab._table.item(r, 0).text(): r
+            for r in range(tab._table.rowCount())}
+
+    # Plain id: ordinary short cell, no link widget.
+    r = rows["MGaze plain.onnx"]
+    assert tab._table.item(r, _COL_LICENSE).text() == "MIT"
+    assert tab._table.cellWidget(r, _COL_LICENSE) is None
+
+    # Noted: summary + details link; full note lives in tooltip + popup.
+    r = rows["MGaze noted.onnx"]
+    label = tab._table.cellWidget(r, _COL_LICENSE)
+    assert label is not None
+    assert "MIT (research-only)" in label.text() and "details" in label.text()
+    assert "research use only" in label.toolTip()
+
+    popped = {}
+    monkeypatch.setattr(
+        "PyQt6.QtWidgets.QMessageBox.information",
+        lambda _parent, title, text: popped.update(title=title, text=text))
+    label.linkActivated.emit("#")
+    assert "noted.onnx" in popped["title"]
+    assert "research use only - trained on X" in popped["text"]

@@ -39,7 +39,7 @@ from PyQt6.QtWidgets import (
 )
 
 from mindsight import weights
-from .workers import WeightsDownloadWorker
+from .workers import WeightsDownloadWorker, WeightsVerifyWorker
 
 # Row state -> (display text, colour).
 _STATE_STYLE = {
@@ -51,7 +51,13 @@ _STATE_STYLE = {
     "unmanaged": ("unmanaged (custom weight)", "#888"),
 }
 
-_COLS = ["Model", "Backend", "Required", "Needed now", "State", "On disk", "Actions"]
+# License sits LAST (user request): the notes ran long and pushed the
+# working columns off-screen; the cell now carries a short summary with
+# a details link popping the full note.
+_COLS = ["Model", "Backend", "Required", "Needed now", "State",
+         "On disk", "Actions", "License"]
+(_COL_MODEL, _COL_BACKEND, _COL_REQUIRED, _COL_NEEDED, _COL_STATE,
+ _COL_DISK, _COL_ACTIONS, _COL_LICENSE) = range(len(_COLS))
 
 
 class ModelsTab(QWidget):
@@ -84,6 +90,24 @@ class ModelsTab(QWidget):
         note.setWordWrap(True)
         note.setStyleSheet("color: #888;")
         lay.addWidget(note)
+
+        # W3Y item 4: NVIDIA GPU present but CPU-only torch wheel installed
+        # -- without this, the tab quietly marks the ONNX/CPU weights
+        # "optimal" on a CUDA lab machine and nobody knows why.
+        self._cuda_note = QLabel("")
+        self._cuda_note.setWordWrap(True)
+        self._cuda_note.setStyleSheet(
+            "color: #b58900; font-weight: bold;")
+        self._cuda_note.setVisible(False)
+        try:
+            from mindsight.utils.device import cuda_support_note
+            cuda_note = cuda_support_note()
+        except Exception:
+            cuda_note = None
+        if cuda_note:
+            self._cuda_note.setText(cuda_note)
+            self._cuda_note.setVisible(True)
+        lay.addWidget(self._cuda_note)
 
         self._table = QTableWidget(0, len(_COLS))
         self._table.setHorizontalHeaderLabels(_COLS)
@@ -177,29 +201,61 @@ class ModelsTab(QWidget):
     def _render_row(self, row: int, info: dict, needed: set[str]):
         if info["kind"] == "unmanaged":
             name = info["name"]
-            self._set(row, 0, name)
-            self._set(row, 1, "custom")
-            self._set(row, 2, "")
-            self._set(row, 3, "yes")
+            self._set(row, _COL_MODEL, name)
+            self._set(row, _COL_BACKEND, "custom")
+            self._set(row, _COL_REQUIRED, "")
+            self._set(row, _COL_NEEDED, "yes")
             self._set_state(row, "unmanaged")
-            self._set(row, 5, "")
-            self._table.removeCellWidget(row, 6)
+            self._set(row, _COL_DISK, "")
+            self._table.removeCellWidget(row, _COL_ACTIONS)
+            self._set(row, _COL_LICENSE, "")
+            self._table.removeCellWidget(row, _COL_LICENSE)
             return
 
         entry = info["entry"]
         self._entry_row[(entry["backend"], entry["filename"])] = row
-        self._set(row, 0, entry.get("label", entry["filename"]))
-        self._set(row, 1, entry["backend"])
+        self._set(row, _COL_MODEL, entry.get("label", entry["filename"]))
+        self._set(row, _COL_BACKEND, entry["backend"])
         tags = []
         if entry.get("required"):
             tags.append("required")
         if self._device_class() in (entry.get("optimal") or ()):
             tags.append("optimal for this device")
-        self._set(row, 2, ", ".join(tags))
-        self._set(row, 3, "yes" if entry["filename"] in needed else "")
+        self._set(row, _COL_REQUIRED, ", ".join(tags))
+        self._set(row, _COL_NEEDED,
+                  "yes" if entry["filename"] in needed else "")
         self._set_state(row, info["state"])
-        self._set(row, 5, self._disk_text(info["dest"]))
+        self._set(row, _COL_DISK, self._disk_text(info["dest"]))
         self._set_actions(row, info)
+        self._set_license(row, entry)
+
+    def _set_license(self, row: int, entry: dict):
+        """Last column: a SHORT license summary; when the manifest carries a
+        license_note the cell gains a 'details' link that pops the full
+        text (the notes are paragraph-length -- inline they swamped the
+        table)."""
+        lic = entry.get("license") or ""
+        note = entry.get("license_note")
+        summary = (f"{lic} (research-only)"
+                   if note and "research" in note.lower() else lic)
+        if not note:
+            self._table.removeCellWidget(row, _COL_LICENSE)
+            self._set(row, _COL_LICENSE, summary)
+            return
+        label = QLabel(f'{summary} · <a href="#">details</a>')
+        label.setToolTip(f"{lic}\n{note}")
+        label.setContentsMargins(4, 0, 4, 0)
+        label.linkActivated.connect(
+            lambda _href, e=entry: self._show_license(e))
+        self._set(row, _COL_LICENSE, "")      # keep an item for sizing
+        self._table.setCellWidget(row, _COL_LICENSE, label)
+
+    def _show_license(self, entry: dict):
+        from PyQt6.QtWidgets import QMessageBox
+        QMessageBox.information(
+            self, f"License — {entry.get('label', entry['filename'])}",
+            f"License: {entry.get('license') or 'unknown'}\n\n"
+            f"{entry.get('license_note') or ''}".strip())
 
     @staticmethod
     def _device_class() -> str:
@@ -245,7 +301,7 @@ class ModelsTab(QWidget):
                 rbtn.clicked.connect(lambda _=False, r=row: self._start_download(r))
                 hb.addWidget(rbtn)
         hb.addStretch(1)
-        self._table.setCellWidget(row, 6, holder)
+        self._table.setCellWidget(row, _COL_ACTIONS, holder)
 
     def _update_disk(self):
         root = self._weights_root or weights.WEIGHTS_ROOT
@@ -269,7 +325,7 @@ class ModelsTab(QWidget):
 
     def _set_state(self, row, state):
         text, colour = _STATE_STYLE.get(state, (state, "#888"))
-        self._set(row, 4, text, colour)
+        self._set(row, _COL_STATE, text, colour)
         if row < len(self._row_info):
             self._row_info[row]["state"] = state
 
@@ -286,27 +342,20 @@ class ModelsTab(QWidget):
             self._status.setText("No present weights to verify.")
             return
         self._status.setText(f"Verifying {len(rows)} weight(s)...")
-        t = threading.Thread(target=self._verify_worker, args=(rows,), daemon=True)
-        self._threads.append(t)
-        t.start()
-        self._ensure_timer()
+        self._start_verify(rows)
 
     def _verify_row(self, row: int):
         info = self._row_info[row]
         if info["kind"] != "managed":
             return
         self._status.setText(f"Verifying {info['entry']['filename']}...")
-        t = threading.Thread(target=self._verify_worker, args=([row],), daemon=True)
-        self._threads.append(t)
-        t.start()
-        self._ensure_timer()
+        self._start_verify([row])
 
-    def _verify_worker(self, rows):
-        for row in rows:
-            info = self._row_info[row]
-            state = weights.verify(info["dest"], info["entry"])
-            self._q.put(("vstate", row, state))
-        self._q.put(("vdone", None, None))
+    def _start_verify(self, rows):
+        worker = WeightsVerifyWorker(rows, self._row_info, self._q)
+        self._threads.append(worker)
+        worker.start()
+        self._ensure_timer()
 
     # ── Download (async) ─────────────────────────────────────────────────────
 
@@ -314,7 +363,7 @@ class ModelsTab(QWidget):
         info = self._row_info[row]
         entry = info["entry"]
         self._set_state(row, "present")  # optimistic "working" cue
-        self._set(row, 4, "downloading...", "#888")
+        self._set(row, _COL_NEEDED, "downloading...", "#888")
         self._status.setStyleSheet("")
         self._status.setText(f"Downloading {entry['filename']} ...")
         worker = WeightsDownloadWorker(
@@ -360,7 +409,7 @@ class ModelsTab(QWidget):
         info = self._row_info[row]
         state = weights.verify(info["dest"], entry)   # small: just-fetched file
         self._set_state(row, state)
-        self._set(row, 5, self._disk_text(info["dest"]))
+        self._set(row, _COL_DISK, self._disk_text(info["dest"]))
         self._set_actions(row, info)
         self._status.setText(f"{entry['filename']}: downloaded and {state}.")
         self._update_disk()

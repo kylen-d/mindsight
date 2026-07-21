@@ -16,7 +16,7 @@ There are two ways to install MindSight:
 ## One-click install (recommended)
 
 1. **Download the release zip** for your platform --
-   `MindSight-1.0.0-mac.zip` or `MindSight-1.0.0-win.zip` -- from the
+   `MindSight-1.3.0-mac.zip` or `MindSight-1.3.0-win.zip` -- from the
    [GitHub Releases page](https://github.com/kylen-d/mindsight/releases).
 2. **Extract** it somewhere you can find again (Desktop or Downloads is fine).
 3. **Run the installer:**
@@ -119,7 +119,7 @@ Weights live in `Weights/{backend}/` and are managed by a checksummed manifest
 (`weights_manifest.json`) -- the same one the GUI's Models tab uses:
 
 ```bash
-mindsight-weights                     # the 4 required weights (default)
+mindsight-weights                     # the 6 required weights (default)
 mindsight-weights --all               # every downloadable weight
 mindsight-weights --backend MGaze     # one backend (repeatable)
 mindsight-weights --verify-only       # check checksums, download nothing
@@ -135,8 +135,10 @@ where the console command is not on PATH.)
 |---------|--------------|-------|
 | **YOLO / YOLOE** | `yolov8n.pt` | Larger YOLOv8 and YOLOE variants are optional, fetched with `--all` or on demand |
 | **MobileGaze** | `resnet50_gaze.onnx`, `mobileone_s0_gaze.onnx` | PyTorch variants optional, in `Weights/MGaze/` |
-| **Gaze-LLE** | `gazelle_dinov2_vitb14.pt` | The larger `vitl14` checkpoint is optional, in `Weights/Gazelle/` |
+| **Gaze-LLE** | `gazelle_hgnetv2_pico_inout_distill_1x3x640x640_1xNx4.onnx` (default blend engine), `gazelle_dinov2_vitb14.pt` (torch fallback + standalone backend) | The larger `vitl14` checkpoint and the DINOv3 ViT tiny-plus / ViT-S/16 quality tiers (incl. single-face exports for Apple-GPU CoreML) are optional, in `Weights/Gazelle/` |
 | **MobileClip** | -- | `mobileclip_blt.ts` is auto-fetched by Ultralytics on first visual-prompt use |
+| **MediaPipe** | -- | `face_landmarker.task` (468-point landmarker feeding the head-pose-normalized gaze backends) is optional, in `Weights/Mediapipe/`; fetch with `mindsight-weights --backend Mediapipe` |
+| **MPIIFaceGaze / Adas** | -- | `mpiifacegaze_resnet_simple.pth` (research-provenance) and `gaze-estimation-adas-0002.onnx` (Apache-2.0) power the opt-in head-pose-normalized backends; in `Weights/MPIIFaceGaze/` and `Weights/AdasGaze/` |
 
 ### Verify the installation
 

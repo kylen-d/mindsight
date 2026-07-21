@@ -29,11 +29,12 @@ fills with:
 - **Runs table** -- one row per recording, with participants, condition, status,
   and a resume **plan** (what Run will do to each row). Planned sessions show as
   *awaiting recording*.
-- **Study setup panel** -- study-wide settings: the pipeline preset in use, a
-  project-wide participant map, and an **Anonymize Footage** toggle (blurs or
-  blacks out faces in the annotated video and heatmap backgrounds).
-
-    ![The Study setup panel expanded](../assets/tutorial/study-setup.png)
+- **Study setup lives on the Projects tab** -- the pipeline in use, the
+  project-wide participant map, and per-video conditions are edited in the
+  project overview (Projects tab) *before* running, and saved to
+  `project.yaml`. Per-run tweaks stay here: right-click a run for **Edit
+  run...**. Anonymization is a processing option in **Inference
+  Settings...** like everything else.
 
 Press **▶ Run** on the project card to process the batch. The output panel
 (bottom right) has four tabs:

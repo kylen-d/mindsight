@@ -40,10 +40,10 @@ P_ACCEPT: float = 0.6
 """fixation_likelihood threshold at which a face is deemed to want inference.
 
 Lowered from 0.7 after footage review (2026-07-05): 0.7 left the scheduler
-eligible on only ~38% of frames on KITCO-like footage, and inference gaps
-during softer fixations were visible as un-extended rays.  0.6 admits
-moderately stable gaze while the min-refresh and call-gap limits still
-bound the inference rate.
+eligible on only ~38% of frames on multi-participant lab footage, and
+inference gaps during softer fixations were visible as un-extended rays.
+0.6 admits moderately stable gaze while the min-refresh and call-gap
+limits still bound the inference rate.
 """
 
 MIN_FACE_REFRESH: int = 5
@@ -69,10 +69,27 @@ class InferenceScheduler:
     """Per-face fixation gating + global rate limit for Gaze-LLE calls."""
 
     def __init__(self, *, v_threshold: float, d_threshold: float,
-                 min_call_gap: int):
+                 min_call_gap: int, onset_samples: int = 0,
+                 onset_gap: int = 0, length_refresh_gap: int = 0):
         self.v_threshold = float(v_threshold)
         self.d_threshold = float(d_threshold)
         self.min_call_gap = int(min_call_gap)
+        # v1.1 W3X onset knobs (both 0 = off = 1.0.0 behavior).
+        # onset_samples: compute fixation likelihood once a new track has
+        # this many samples instead of the half-buffer default (5) --
+        # bootstrap-only by construction, since buffers never shrink.
+        # onset_gap: when a never-latched track wants inference, relax the
+        # global call gap to min(min_call_gap, onset_gap) so a new face is
+        # not stuck behind another track's recent fire.
+        self.onset_samples = max(0, int(onset_samples))
+        self.onset_gap = max(0, int(onset_gap))
+        # v1.1 W3Y length-refresh channel (0 = off).  A second, cheap
+        # (half-precision) Gaze-LLE pass may fire every N frames, gated by
+        # nothing but this counter -- its output refreshes ray LENGTH only,
+        # so the fixation gating that protects direction does not apply.
+        # Any accepted full-precision fire also resets the counter (it just
+        # re-latched length for its wanting tracks).
+        self.length_refresh_gap = max(0, int(length_refresh_gap))
 
         self._buffers: dict[int, PYHistoryBuffer] = {}
         self._detectors: dict[int, FixationDetector] = {}
@@ -82,12 +99,16 @@ class InferenceScheduler:
         self._has_latched: dict[int, bool] = {}
         self._observed_this_frame: set[int] = set()
         self._frames_since_last_global_call: int = 10**9  # allow first fire
+        self._frames_since_length_refresh: int = 10**9    # allow first fire
 
     def observe(self, *, track_id: int, py_dir: np.ndarray,
                 py_conf: float) -> None:
         """Push one PY observation for a face this frame."""
         if track_id not in self._buffers:
-            self._buffers[track_id] = PYHistoryBuffer(size=PY_HISTORY_SIZE)
+            self._buffers[track_id] = PYHistoryBuffer(
+                size=PY_HISTORY_SIZE,
+                min_stable=(max(2, self.onset_samples)
+                            if self.onset_samples else None))
             # FixationDetector is currently stateless (recomputes from the
             # buffer); kept per-face so future per-face adaptive state has
             # a home without an API change.
@@ -119,8 +140,12 @@ class InferenceScheduler:
                     continue
             wanting.add(tid)
 
+        required_gap = self.min_call_gap
+        if self.onset_gap and any(not self._has_latched.get(tid, False)
+                                  for tid in wanting):
+            required_gap = min(self.min_call_gap, self.onset_gap)
         should_fire = bool(wanting) and (
-            self._frames_since_last_global_call >= self.min_call_gap)
+            self._frames_since_last_global_call >= required_gap)
         return should_fire, wanting if should_fire else set()
 
     def record_accepted(self, wanting: set[int]) -> None:
@@ -133,6 +158,24 @@ class InferenceScheduler:
             self._frames_since_last_accept[tid] = 0
             self._has_latched[tid] = True
         self._frames_since_last_global_call = 0
+        # A full-precision accept just re-latched length for its wanting
+        # tracks -- restart the cheap-channel countdown so the two channels
+        # never fire back-to-back for no information gain.
+        self._frames_since_length_refresh = 0
+
+    def tick_length_refresh(self) -> bool:
+        """Cheap-channel decision: fire a length-only pass this frame?
+
+        Purely counter-driven -- the caller supplies face presence (no
+        faces, no pass).  Inert while ``length_refresh_gap`` is 0.
+        """
+        if self.length_refresh_gap <= 0:
+            return False
+        return self._frames_since_length_refresh >= self.length_refresh_gap
+
+    def record_length_refresh(self) -> None:
+        """Caller notifies that a length-only pass just ran."""
+        self._frames_since_length_refresh = 0
 
     def advance_frame(self) -> None:
         """Increment all rate-limit counters by one frame.  Call once per
@@ -140,6 +183,7 @@ class InferenceScheduler:
         for tid in list(self._frames_since_last_accept):
             self._frames_since_last_accept[tid] += 1
         self._frames_since_last_global_call += 1
+        self._frames_since_length_refresh += 1
         self._observed_this_frame.clear()
 
     def forget(self, inactive_tids: set[int]) -> None:

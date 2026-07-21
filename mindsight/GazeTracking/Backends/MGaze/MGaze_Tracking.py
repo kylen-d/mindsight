@@ -82,7 +82,28 @@ class GazeEstimationTorch:
 
 
 class _GazeONNXWithConf(GazeEstimationONNX):
-    """ONNX gaze backend extended with a confidence score."""
+    """ONNX gaze backend extended with a confidence score.
+
+    Also honors non-gaze360 bin geometry (v1.1 W3X): the vendored
+    ``GazeEstimationONNX`` hardcodes 90 bins x 4° - 180°, so an MPIIGaze
+    export (28 bins x 3° - 42°, trainable with the vendored library)
+    would mis-decode through it.  ``dataset`` selects the decode geometry
+    from ``DATA_CONFIG`` exactly like the PyTorch backend; the default
+    reproduces the hardcoded constants bit-identically.
+    """
+
+    def __init__(self, model_path=None, session=None, dataset="gaze360"):
+        super().__init__(model_path, session=session)
+        if dataset and dataset != "gaze360":
+            if dataset not in DATA_CONFIG:
+                raise ValueError(
+                    f"Unknown --mgaze-dataset {dataset!r}; "
+                    f"known: {sorted(DATA_CONFIG)}")
+            cfg = DATA_CONFIG[dataset]
+            self._bins = cfg["bins"]
+            self._binwidth = cfg["binwidth"]
+            self._angle_offset = cfg["angle"]
+            self.idx_tensor = np.arange(self._bins, dtype=np.float32)
 
     def estimate(self, face_bgr):
         out        = self.session.run(self.output_names, {"input": self.preprocess(face_bgr)})
@@ -174,9 +195,12 @@ class MGazePlugin(GazePlugin):
             ]
             prov = [p for p in prefs if p in avail] or ["CPUExecutionProvider"]
             print(f"Backend: MGaze ONNX  {prov}")
+            if dataset != "gaze360":
+                print(f"MGaze ONNX dataset config: {dataset}")
             engine = _GazeONNXWithConf(
                 model_path=None,
                 session=ort.InferenceSession(str(model), providers=prov),
+                dataset=dataset,
             )
         return cls(engine)
 

@@ -1,8 +1,10 @@
 """
 GUI/settings_manager.py — Save and load user presets and last-used settings.
 
-Stores settings as JSON files in ~/.mindsight/. Presets are named files in
-~/.mindsight/presets/. The last-used session is auto-saved on close and
+Stores settings as JSON files in the settings dir (see ``_settings_dir``):
+``$MINDSIGHT_STATE_DIR`` when set, else ``$MINDSIGHT_HOME/.mindsight`` for
+relocated installs, else ``~/.mindsight``.  Presets are named files in its
+``presets/`` subfolder. The last-used session is auto-saved on close and
 auto-restored on next launch.
 """
 from __future__ import annotations
@@ -10,6 +12,19 @@ from __future__ import annotations
 import json
 from argparse import Namespace
 from pathlib import Path
+
+
+def _settings_dir() -> Path:
+    """Resolve the settings dir, honoring the install-relocation env seams.
+
+    v1.1 W0.7: settings were previously hard-keyed to ``Path.home()``, so two
+    installs with different ``MINDSIGHT_HOME``s shared (and clobbered) one
+    ``~/.mindsight`` -- the cross-install stale-weight-path crash.  The
+    resolution itself lives in :func:`mindsight.constants.state_dir` (shared
+    with the persistent weight-hash cache).
+    """
+    from mindsight.constants import state_dir
+    return state_dir()
 
 
 def _is_aux_stream(x) -> bool:
@@ -37,7 +52,7 @@ def _aux_stream_to_dict(a) -> dict:
 class SettingsManager:
     """Manages persistent user settings (presets and last-used session)."""
 
-    SETTINGS_DIR = Path.home() / ".mindsight"
+    SETTINGS_DIR = _settings_dir()
     LAST_USED = SETTINGS_DIR / "last_used.json"
     PRESETS_DIR = SETTINGS_DIR / "presets"
     RECENT_PROJECTS = SETTINGS_DIR / "recent_projects.json"

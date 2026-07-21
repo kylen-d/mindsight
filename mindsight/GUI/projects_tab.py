@@ -66,10 +66,12 @@ class ProjectsTab(QWidget):
     """Landing <-> overview; emits ``open_in_analyze(path)`` for main_window."""
 
     open_in_analyze = pyqtSignal(str)
+    setup_saved = pyqtSignal(str)   # project.yaml saved here (path) -- W3Y item 8
 
-    def __init__(self, settings=None, parent=None):
+    def __init__(self, settings=None, gaze_tab=None, parent=None):
         super().__init__(parent)
         self._settings = settings
+        self._gaze_tab = gaze_tab
         self._current: Path | None = None
         self._run_outputs_map: dict = {}
         self._stack = QStackedWidget()
@@ -165,14 +167,18 @@ class ProjectsTab(QWidget):
         self.show_overview(path)
 
     def _browse_open(self):
-        path = QFileDialog.getExistingDirectory(self, "Open a project folder")
+        from mindsight.GUI.path_picker import projects_default_dir
+        path = QFileDialog.getExistingDirectory(
+            self, "Open a project folder", projects_default_dir())
         if path:
             self.show_overview(Path(path))
 
     def _create_blank(self):
         from mindsight.project.runner import create_project
+        from mindsight.GUI.path_picker import projects_default_dir
         parent_dir = QFileDialog.getExistingDirectory(
-            self, "Folder to create the project inside")
+            self, "Folder to create the project inside",
+            projects_default_dir())
         if not parent_dir:
             return
         name, ok = QInputDialog.getText(self, "Create Blank Project",
@@ -270,10 +276,28 @@ class ProjectsTab(QWidget):
         self._runs_table.itemSelectionChanged.connect(self._on_run_selected)
         lay.addWidget(self._runs_table, 1)
 
+        # Study setup (W3Y item 8): project-level pipeline / participants /
+        # conditions / output root, edited HERE before running -- the pane
+        # this replaces lived in Analyze Footage and silently overrode the
+        # Inference Settings dialog. Per-run edits stay on the runs table
+        # in Analyze Footage ("Edit run...").
+        from .project_setup_panel import ProjectSetupPanel
+        from .widgets import CollapsibleGroupBox
+        setup_grp = CollapsibleGroupBox("Study setup")
+        self._setup_panel = ProjectSetupPanel(gaze_tab=self._gaze_tab)
+        self._setup_panel.saved.connect(self._on_setup_saved)
+        self._setup_panel.message.connect(self._show_setup_message)
+        setup_grp.set_content(self._setup_panel)
+        lay.addWidget(setup_grp)
+        self._setup_status = QLabel("")
+        self._setup_status.setStyleSheet("color: #888; font-style: italic;")
+        self._setup_status.setVisible(False)
+        lay.addWidget(self._setup_status)
+
         edit_hint = QLabel(
-            "Participants, conditions, and run editing live in Analyze "
-            "Footage -- open the project there to change them or view "
-            "results in the app.")
+            "Per-run editing and processing live in Analyze Footage -- "
+            "right-click a run there for Edit run..., and use Inference "
+            "Settings for processing options (anonymize included).")
         edit_hint.setStyleSheet("color: #888; font-style: italic;")
         edit_hint.setWordWrap(True)
         lay.addWidget(edit_hint)
@@ -319,6 +343,17 @@ class ProjectsTab(QWidget):
         self.refresh_landing()
         self._stack.setCurrentIndex(0)
 
+    def _on_setup_saved(self):
+        """project.yaml written from the setup panel: refresh the runs list
+        and let the main window resync an open Analyze Footage view."""
+        self._refresh_runs()
+        if self._current:
+            self.setup_saved.emit(str(self._current))
+
+    def _show_setup_message(self, text: str):
+        self._setup_status.setText(text)
+        self._setup_status.setVisible(bool(text))
+
     def show_overview(self, project: Path):
         self._current = Path(project)
         self._data_pane.setVisible(False)
@@ -326,6 +361,11 @@ class ProjectsTab(QWidget):
         self._remember(self._current)
         self._ov_name.setText(self._current.name)
         self._ov_path.setText(str(self._current))
+        try:
+            self._setup_panel.open_project(self._current)
+        except Exception as exc:  # pragma: no cover - GUI resilience
+            print(f"[WARN] could not load study setup: {exc}")
+        self._show_setup_message("")
         notes = self._current / "notes.md"
         self._ov_notes.setText(
             notes.read_text().strip() if notes.is_file() else "")
