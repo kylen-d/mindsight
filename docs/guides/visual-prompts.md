@@ -96,6 +96,37 @@ Made a mess, or starting the next prompt? **Start Fresh** on the toolbar
 clears the whole session -- images, boxes, and classes -- after a
 confirmation, without restarting the app.
 
+---
+
+## Condition-specific prompts (v1.3.1)
+
+Studies with multiple conditions rarely show the same objects in every
+session. One visual prompt file can now carry the whole study:
+
+1. **Conditions...** on the VP Builder toolbar opens the condition editor:
+   define the condition tags (the same tags your project's videos carry) and
+   tick, per class, the conditions it appears in. A class with **no** ticks
+   stays active in every video. Conditioned classes show an `@tag` badge in
+   the class list.
+2. **In project mode it just works**: each video's condition tags (from the
+   Build-Project wizard, `project.yaml`, or `run.yaml`) select the matching
+   classes -- the detector is rebuilt automatically whenever the active
+   condition set changes between videos. Untagged videos get only the
+   always-active classes, and the preflight report calls out untagged
+   videos, unmatched tags, and videos whose conditions match nothing.
+3. **Preview per condition**: the Test Inference row's **Condition** combo
+   runs the test with exactly the subset a condition's videos will see.
+4. **Overrides**: the *Use full visual prompt* checkbox in Inference
+   Settings (or `--vp-ignore-conditions`) prompts every class everywhere;
+   `--vp-condition warm` runs a single video (or a whole batch) as one
+   condition.
+
+Files without condition tags are byte-identical to the previous format, so
+existing `.vp.json` files, archives, and eval tooling are untouched; tagged
+files save as format version 2 (older MindSight versions cannot read those).
+Changing condition tags reprocesses affected project videos on the next
+resume (the prompt file's content is part of the run identity).
+
 ![The VP Builder with classes and drawn boxes](../assets/tutorial/vp-builder-annotated.png)
 
 !!! example "🎬 Demo coming soon -- SHOT:vp-annotate"

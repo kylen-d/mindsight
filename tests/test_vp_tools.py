@@ -310,6 +310,110 @@ def test_popup_class_choice_lists_classes_and_selects(qapp, tmp_path,
     assert captured["texts"] == ["[0] bowl", "New class…"]
 
 
+# ── Conditions creator UX (v1.3.1 item 3c) ───────────────────────────────────
+
+def test_conditions_dialog_matrix_and_cascades(qapp, monkeypatch):
+    from PyQt6.QtCore import Qt
+    from PyQt6.QtWidgets import QInputDialog
+
+    from mindsight.GUI.vp_conditions_dialog import VPConditionsDialog
+    classes = [{"id": 0, "name": "bowl", "conditions": ["warm"]},
+               {"id": 1, "name": "spoon"}]
+    dlg = VPConditionsDialog(classes, ["warm", "cold"])
+    assert dlg._table.rowCount() == 2 and dlg._table.columnCount() == 2
+    assert dlg._table.item(0, 0).checkState() == Qt.CheckState.Checked
+    assert dlg._table.item(1, 0).checkState() == Qt.CheckState.Unchecked
+    dlg._table.item(1, 1).setCheckState(Qt.CheckState.Checked)  # spoon@cold
+    dlg._table.setCurrentCell(0, 0)
+    monkeypatch.setattr(QInputDialog, "getText",
+                        lambda *a, **k: ("hot", True))
+    dlg._rename_condition()                    # warm -> hot, cascades
+    assert dlg._vocab == ["hot", "cold"]
+    dlg.accept()
+    assert dlg.result_vocabulary == ["hot", "cold"]
+    assert dlg.result_class_tags[0] == ["hot"]
+    assert dlg.result_class_tags[1] == ["cold"]
+
+
+def test_tab_conditions_roundtrip_badges_and_combo(qapp, tmp_path,
+                                                   monkeypatch):
+    from PyQt6.QtWidgets import QFileDialog, QMessageBox
+
+    from mindsight.GUI.vp_builder_tab import VisualPromptBuilderTab
+    tab = VisualPromptBuilderTab()
+    img = _make_image(tmp_path / "r.jpg")
+    tab.add_images([img])
+    tab._classes = [{"id": 0, "name": "bowl", "conditions": ["warm"]},
+                    {"id": 1, "name": "spoon"}]
+    tab._conditions = ["warm", "cold"]
+    tab._images[str(img)]["annotations"] = [
+        {"cls_id": 0, "cls_name": "bowl", "bbox": [1, 1, 9, 9]},
+        {"cls_id": 1, "cls_name": "spoon", "bbox": [2, 2, 8, 8]}]
+    tab._refresh_class_list()
+    tab._refresh_condition_combo()
+    assert "@warm" in tab._class_list.item(0).text()
+    assert "@" not in tab._class_list.item(1).text()
+    combo = tab._test_condition
+    assert [combo.itemText(i) for i in range(combo.count())] == \
+        ["(all)", "warm", "cold"]
+
+    dest = tmp_path / "study.vp.json"
+    monkeypatch.setattr(QFileDialog, "getSaveFileName",
+                        lambda *a, **k: (str(dest), ""))
+    monkeypatch.setattr(QMessageBox, "information", lambda *a, **k: None)
+    tab._save_vp_file()
+    data = json.loads(dest.read_text())
+    assert data["version"] == 2 and data["conditions"] == ["warm", "cold"]
+
+    tab2 = VisualPromptBuilderTab()
+    monkeypatch.setattr(QFileDialog, "getOpenFileName",
+                        lambda *a, **k: (str(dest), ""))
+    tab2._load_vp_file()
+    assert tab2._conditions == ["warm", "cold"]
+    assert "@warm" in tab2._class_list.item(0).text()
+    assert tab2._test_condition.count() == 3
+
+    # Start Fresh clears the vocabulary + combo too.
+    monkeypatch.setattr(QMessageBox, "question",
+                        lambda *a, **k: QMessageBox.StandardButton.Yes)
+    tab2._start_fresh()
+    assert tab2._conditions == [] and tab2._test_condition.count() == 1
+
+
+def test_run_test_filters_temp_vp_by_condition(qapp, tmp_path, monkeypatch):
+    import mindsight.GUI.vp_builder_tab as vbt
+    tab = vbt.VisualPromptBuilderTab()
+    img = _make_image(tmp_path / "r.jpg")
+    tab.add_images([img])
+    tab._classes = [{"id": 0, "name": "bowl", "conditions": ["warm"]},
+                    {"id": 1, "name": "spoon"},
+                    {"id": 2, "name": "ice", "conditions": ["cold"]}]
+    tab._conditions = ["warm", "cold"]
+    tab._images[str(img)]["annotations"] = [
+        {"cls_id": 0, "cls_name": "bowl", "bbox": [1, 1, 9, 9]},
+        {"cls_id": 1, "cls_name": "spoon", "bbox": [2, 2, 8, 8]},
+        {"cls_id": 2, "cls_name": "ice", "bbox": [3, 3, 7, 7]}]
+    tab._refresh_condition_combo()
+    tab._test_condition.setCurrentText("warm")
+
+    captured = {}
+
+    class FakeWorker:
+        def __init__(self, **kw):
+            captured.update(kw)
+
+        def start(self):
+            pass
+
+    monkeypatch.setattr(vbt, "VPInferenceWorker", FakeWorker)
+    tab._run_test()
+    tab._poll_timer.stop()
+    payload = json.loads(Path(captured["vp_file"]).read_text())
+    assert [c["name"] for c in payload["classes"]] == ["bowl", "spoon"]
+    assert [a["cls_id"] for a in
+            payload["references"][0]["annotations"]] == [0, 1]
+
+
 def test_suggest_point_checkbox_gate_and_messages(qapp, tmp_path, monkeypatch):
     import time
 

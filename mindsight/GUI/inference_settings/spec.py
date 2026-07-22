@@ -108,6 +108,11 @@ _TAB_MODELS = SpecTab(
             SpecField("vp_file", "Visual prompt file",
                       "The .vp.json from the VP Builder describing your study's "
                       "objects. Empty = standard classes only."),
+            SpecField("vp_ignore_conditions", "Use full visual prompt",
+                      "Prompt every class in the visual prompt file, ignoring "
+                      "its condition tags and each video's conditions. Off = "
+                      "condition-tagged classes apply only to matching "
+                      "videos."),
             SpecField("mgaze_model", "Gaze model (MobileGaze)",
                       "The per-face gaze direction model. Family name (e.g. "
                       "\"resnet50\") auto-selects the right build for your "

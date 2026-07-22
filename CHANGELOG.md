@@ -9,6 +9,28 @@
   app to begin a new prompt. Loading a VP file now also fully resets the
   previous session's leftovers first.
 
+### Added (Condition-specific visual prompts)
+- **One VP file can now serve a whole multi-condition study**: the VP
+  Builder's new **Conditions...** dialog defines condition tags and ticks,
+  per class, the conditions it appears in (no ticks = active everywhere;
+  conditioned classes get an `@tag` badge in the class list). In project
+  mode each video's condition tags select the matching classes and the
+  detector is rebuilt automatically whenever the active set changes
+  between videos; untagged videos get only the always-active classes.
+- **Preview and overrides**: the Test Inference row gains a Condition
+  combo (test exactly what one condition's videos will see); Inference
+  Settings gains "Use full visual prompt" (`--vp-ignore-conditions`);
+  `--vp-condition <tags>` runs anything as a single condition.
+- **Safety rails**: the preflight report cross-checks the prompt against
+  the project (untagged videos, unused tags, videos whose conditions match
+  no classes fail loudly), and condition selection is part of the run
+  identity, so tag changes reprocess affected videos on resume. VP-mode
+  projects reprocess once after this upgrade.
+- **Format**: condition-less files stay byte-identical to the old format
+  (version 1); tagged files save as version 2. The format version is now
+  actually validated on load, with a plain-English error for files from a
+  newer MindSight.
+
 ### Changed (VP Builder suggest & tagging UX)
 - **One canvas grammar, no modes**: drag draws a box, clicking a box
   deletes it, and clicking an empty spot proposes boxes (FastSAM). The

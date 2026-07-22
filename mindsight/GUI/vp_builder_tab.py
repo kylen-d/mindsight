@@ -92,7 +92,8 @@ class VisualPromptBuilderTab(QWidget):
         # {path_str: {"frame": ndarray|None, "annotations": [{"cls_id":int, "cls_name":str, "bbox":[x1,y1,x2,y2]}, ...]}}
         self._images: dict[str, dict] = {}
         self._current_path: str | None = None
-        self._classes: list[dict] = []   # [{"id": int, "name": str}, ...]
+        self._classes: list[dict] = []   # [{"id", "name", "conditions"?}, ...]
+        self._conditions: list[str] = []  # declared condition vocabulary
         self._last_saved_vp: str | None = None
         self._test_dets: dict[str, list] = {}   # inference results per image
         self._vp_worker: VPInferenceWorker | None = None
@@ -157,6 +158,14 @@ class VisualPromptBuilderTab(QWidget):
         tbl.addWidget(load_vp_btn)
         tbl.addWidget(self._save_vp_btn)
         tbl.addWidget(export_btn)
+
+        cond_btn = QPushButton("Conditions…")
+        cond_btn.setToolTip(
+            "Tag classes with study conditions so project videos are "
+            "prompted only with their condition's objects (untagged classes "
+            "stay active everywhere)")
+        cond_btn.clicked.connect(self._edit_conditions)
+        tbl.addWidget(cond_btn)
 
         tbl.addWidget(QFrame(frameShape=QFrame.Shape.VLine))
 
@@ -317,6 +326,14 @@ class VisualPromptBuilderTab(QWidget):
         self._test_conf.setFixedWidth(64)
         test_lay.addWidget(self._test_conf)
 
+        test_lay.addWidget(QLabel("Condition:"))
+        self._test_condition = QComboBox()
+        self._test_condition.setToolTip(
+            "Preview what a condition's videos will see: the test prompt "
+            "keeps only that condition's classes (plus always-active ones)")
+        test_lay.addWidget(self._test_condition)
+        self._refresh_condition_combo()
+
         test_lay.addWidget(QFrame(frameShape=QFrame.Shape.VLine))
         self._test_run_btn = QPushButton("\u25b6  Test")
         self._test_run_btn.setStyleSheet(
@@ -417,7 +434,8 @@ class VisualPromptBuilderTab(QWidget):
         if not path.endswith(VP_ARCHIVE_EXT):
             path += VP_ARCHIVE_EXT
         try:
-            export_vp_archive(path, self._classes, refs)
+            export_vp_archive(path, self._classes, refs,
+                              conditions=self._conditions)
         except (ValueError, OSError) as exc:
             QMessageBox.critical(self, "Export failed", str(exc))
             return
@@ -463,12 +481,14 @@ class VisualPromptBuilderTab(QWidget):
         the remembered VP folder (tool state, not prompt content)."""
         self._images.clear()
         self._classes.clear()
+        self._conditions = []
         self._test_dets.clear()
         self._current_path = None
         self._pending_suggestions = []
         self._last_saved_vp = None
         self._file_list.clear()
         self._refresh_class_list()
+        self._refresh_condition_combo()
         self._class_list.setCurrentRow(-1)
         self._canvas.set_image_data(None, [], [])
         self._canvas.set_suggestions([])
@@ -575,9 +595,49 @@ class VisualPromptBuilderTab(QWidget):
         self._class_list.clear()
         for c in self._classes:
             col = _palette_hex(c["id"])
-            item = QListWidgetItem(f"  [{c['id']}]  {c['name']}")
+            badge = (f"   @{','.join(c['conditions'])}"
+                     if c.get("conditions") else "")
+            item = QListWidgetItem(f"  [{c['id']}]  {c['name']}{badge}")
             item.setForeground(QColor(col))
             self._class_list.addItem(item)
+
+    # -- Conditions (v1.3.1 item 3c) ---------------------------------------
+
+    def _edit_conditions(self):
+        if not self._classes:
+            QMessageBox.information(
+                self, "No classes",
+                "Define at least one class first -- conditions are assigned "
+                "per class.")
+            return
+        from .vp_conditions_dialog import VPConditionsDialog
+        dlg = VPConditionsDialog(self._classes, self._conditions, self)
+        if not dlg.exec():
+            return
+        self._conditions = dlg.result_vocabulary
+        for c in self._classes:
+            tags = dlg.result_class_tags.get(c["id"], [])
+            if tags:
+                c["conditions"] = tags
+            else:
+                c.pop("conditions", None)
+        self._refresh_class_list()
+        self._refresh_condition_combo()
+        self._update_active_chip()
+        tagged = sum(1 for c in self._classes if c.get("conditions"))
+        self._set_status(
+            f"Conditions: {len(self._conditions)} tag(s), {tagged} "
+            f"conditioned class(es).")
+
+    def _refresh_condition_combo(self):
+        combo = self._test_condition
+        combo.blockSignals(True)
+        combo.clear()
+        combo.addItem("(all)")
+        for tag in self._conditions:
+            combo.addItem(tag)
+        combo.setEnabled(bool(self._conditions))
+        combo.blockSignals(False)
 
     # -- Canvas / annotation management ------------------------------------
 
@@ -873,7 +933,8 @@ class VisualPromptBuilderTab(QWidget):
             for img_path, info in self._images.items()
             if info["annotations"]
         ]
-        save_vp_file(path, self._classes, refs)
+        save_vp_file(path, self._classes, refs,
+                     conditions=self._conditions)
         self._last_saved_vp = path
         self._set_status(f"Saved \u2192 {Path(path).name}")
         QMessageBox.information(
@@ -901,7 +962,12 @@ class VisualPromptBuilderTab(QWidget):
 
         self._reset_all()
         self._classes = list(data.get("classes", []))
+        from mindsight.ObjectDetection.object_detection import (
+            vp_declared_conditions,
+        )
+        self._conditions = vp_declared_conditions(data)
         self._refresh_class_list()
+        self._refresh_condition_combo()
 
         for ref in data.get("references", []):
             img_path = ref["image"]
@@ -947,9 +1013,23 @@ class VisualPromptBuilderTab(QWidget):
             for img_path, info in self._images.items()
             if info["annotations"]
         ]
+        from mindsight.ObjectDetection.object_detection import (
+            build_vp_payload,
+            filter_vp_for_conditions,
+        )
+        payload = build_vp_payload(self._classes, refs,
+                                   conditions=self._conditions)
+        sel = self._test_condition.currentText()
+        if sel and sel != "(all)":
+            payload = filter_vp_for_conditions(payload, [sel])
+            if not payload["classes"] or not payload["references"]:
+                QMessageBox.warning(
+                    self, "Empty condition",
+                    f"No annotated classes match condition '{sel}' -- "
+                    "nothing to test.")
+                return
         tmp = tempfile.NamedTemporaryFile(suffix=VP_EXT, delete=False, mode="w")
-        tmp.write(json.dumps({"version": 1, "classes": self._classes,
-                              "references": refs}, indent=2))
+        tmp.write(json.dumps(payload, indent=2))
         tmp.close()
         self._tmp_vp = tmp.name
 
