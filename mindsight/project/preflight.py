@@ -229,9 +229,16 @@ def _check_weights(work_ns) -> CheckResult:
     return CheckResult("weights", label, _OK, msg)
 
 
-def _check_vp_file(project: Path, work_ns) -> CheckResult:
+def _check_vp_file(project: Path, work_ns, runs=None) -> CheckResult:
     label = "Visual prompt"
     import json
+
+    from mindsight.ObjectDetection.object_detection import (
+        ensure_vp_version,
+        filter_vp_for_conditions,
+        vp_declared_conditions,
+        vp_has_conditions,
+    )
     vp = discover_vp_file(project)
     # VP (YOLOE visual-prompt) detection is active only when a vp_file is
     # configured -- vp_model carries a non-None auto-download default and does
@@ -249,14 +256,54 @@ def _check_vp_file(project: Path, work_ns) -> CheckResult:
         return CheckResult("vp_file", label, _FAIL,
                            f"{Path(vp).name} is not valid JSON: {exc}",
                            "re-export the visual prompt from VP Builder")
+    try:
+        ensure_vp_version(data, source=Path(vp).name)
+    except ValueError as exc:
+        return CheckResult("vp_file", label, _FAIL, str(exc),
+                           "update MindSight, or re-save the prompt with "
+                           "this version's VP Builder")
     refs = data.get("references") or []
     has_annot = any(isinstance(r, dict) and r.get("annotations") for r in refs)
     if not refs or not has_annot:
         return CheckResult("vp_file", label, _FAIL,
                            f"{Path(vp).name} has no reference with annotations",
                            "add at least one annotated reference in VP Builder")
-    return CheckResult("vp_file", label, _OK,
-                       f"{Path(vp).name} parses ({len(refs)} reference(s))")
+    base = f"{Path(vp).name} parses ({len(refs)} reference(s))"
+    if not vp_has_conditions(data):
+        return CheckResult("vp_file", label, _OK, base)
+
+    # v1.3.1 item 3: condition-tagged prompt -- cross-check the project.
+    declared = vp_declared_conditions(data)
+    base += f"; condition tags: {', '.join(declared)}"
+    if getattr(work_ns, "vp_ignore_conditions", False):
+        return CheckResult("vp_file", label, _OK,
+                           base + " -- IGNORED (--vp-ignore-conditions)")
+    warns, fails, used = [], [], set()
+    for r in (runs or []):
+        tags = set(r.get("tags") or [])
+        used |= tags
+        if not filter_vp_for_conditions(data, tags)["classes"]:
+            tag_label = "|".join(sorted(tags)) or "untagged"
+            fails.append(f"{r['run_id']} ({tag_label}) matches NO "
+                         "visual-prompt classes")
+        elif not tags:
+            warns.append(f"{r['run_id']} is untagged (gets only the "
+                         "always-active classes)")
+    unused = [t for t in declared if t not in used]
+    if runs and unused:
+        warns.append(f"unused VP condition tag(s): {', '.join(unused)}")
+    if fails:
+        return CheckResult("vp_file", label, _FAIL,
+                           base + " -- " + " | ".join(fails),
+                           "tag the video(s) in project.yaml/run.yaml, add "
+                           "always-active classes, or use "
+                           "--vp-ignore-conditions")
+    if warns:
+        return CheckResult("vp_file", label, _WARN,
+                           base + " -- " + " | ".join(warns),
+                           "optional: tag the videos / align the condition "
+                           "vocabularies")
+    return CheckResult("vp_file", label, _OK, base)
 
 
 def _resolve_pid_maps(project: Path, project_cfg):
@@ -294,7 +341,8 @@ def _collect_runs(project: Path, project_cfg, layout: str) -> list[dict]:
                 csv_pid.get(rid) if csv_pid else None)
             tags = info.meta.conditions or cfg_cond.get(rid, [])
             runs.append({"run_id": rid, "has_pid": bool(pid),
-                         "has_cond": bool(tags), "info": info})
+                         "has_cond": bool(tags), "tags": list(tags),
+                         "info": info})
     elif layout != AMBIGUOUS:
         pid_maps = _resolve_pid_maps(project, project_cfg)
         conditions = (project_cfg.conditions
@@ -304,6 +352,7 @@ def _collect_runs(project: Path, project_cfg, layout: str) -> list[dict]:
             runs.append({"run_id": s.name,
                          "has_pid": bool(pid_maps and pid_maps.get(s.name)),
                          "has_cond": bool(conditions.get(s.name)),
+                         "tags": list(conditions.get(s.name, [])),
                          "info": None})
     return runs
 
@@ -630,7 +679,7 @@ def run_preflight(project_dir, project_cfg=None, ns=None, *,
         _safe("weights_verify", "Weight verification",
               lambda: _check_weights_verify(work_ns)),
         _safe("vp_file", "Visual prompt",
-              lambda: _check_vp_file(project, work_ns)),
+              lambda: _check_vp_file(project, work_ns, runs)),
         _safe("runs_discovered", "Runs discovered",
               lambda: _check_runs(runs, project, layout)),
     ]

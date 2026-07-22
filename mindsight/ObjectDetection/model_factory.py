@@ -41,6 +41,8 @@ def create_yolo_detector(
     vp_file: str | None = None,
     vp_model: str = "yoloe-26l-seg.pt",
     device: str = "auto",
+    vp_condition: str | None = None,
+    vp_data: dict | None = None,
 ):
     """
     Create a YOLO (or YOLOE VP) detector and resolve class/blacklist config.
@@ -49,17 +51,42 @@ def create_yolo_detector(
     so that auto-downloaded models are stored there rather than in the
     project root directory.
 
+    v1.3.1: *vp_condition* (comma-separated tags) narrows a condition-tagged
+    VP to the matching classes; *vp_data* supplies an already-loaded (possibly
+    pre-filtered) payload, as the project runner does per video.
+
     Returns ``(yolo, class_ids, blacklist_set)``.
     """
     from mindsight.utils.device import resolve_device
     resolved_dev = str(resolve_device(device))
 
     if vp_file:
-        if not Path(vp_file).exists():
-            raise FileNotFoundError(f"VP file not found: {vp_file}")
+        if vp_data is None:
+            if not Path(vp_file).exists():
+                raise FileNotFoundError(f"VP file not found: {vp_file}")
+            from mindsight.ObjectDetection.object_detection import (
+                filter_vp_for_conditions,
+                load_vp_data,
+                vp_declared_conditions,
+            )
+            vp_data = load_vp_data(vp_file)
+            if vp_condition:
+                tags = [t.strip() for t in str(vp_condition).split(",")
+                        if t.strip()]
+                full = vp_data
+                vp_data = filter_vp_for_conditions(full, tags)
+                if not vp_data["classes"]:
+                    known = ", ".join(vp_declared_conditions(full)) or "none"
+                    raise ValueError(
+                        f"--vp-condition {vp_condition!r} matches no classes "
+                        f"in {Path(vp_file).name} (its condition tags: "
+                        f"{known}).")
+                print(f"VP condition [{', '.join(tags)}]: "
+                      f"{len(vp_data['classes'])} class(es) active")
         resolved_vp_model = _resolve_yolo_path(vp_model)
         print(f"Loading YOLOE VP detector: {resolved_vp_model}  +  {vp_file}")
-        yolo = YOLOEVPDetector(resolved_vp_model, vp_file, device=resolved_dev)
+        yolo = YOLOEVPDetector(resolved_vp_model, vp_file,
+                               device=resolved_dev, vp_data=vp_data)
         return yolo, None, set()
 
     from ultralytics import YOLO

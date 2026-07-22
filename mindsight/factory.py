@@ -111,6 +111,16 @@ def build_from_namespace(ns):
         yolo, class_ids, blacklist = NullDetector(), None, set()
         args.model = None
     else:
+        if getattr(args, "vp_condition", None):
+            if getattr(args, "vp_ignore_conditions", False):
+                raise ValueError(
+                    "--vp-condition and --vp-ignore-conditions are mutually "
+                    "exclusive: pick one condition's subset OR the full "
+                    "prompt.")
+            if not args.vp_file:
+                raise ValueError(
+                    "--vp-condition needs --vp-file (a condition-tagged "
+                    "visual prompt to select from).")
         yolo, class_ids, blacklist = create_yolo_detector(
             model_path=args.model,
             classes=args.classes or None,
@@ -118,6 +128,7 @@ def build_from_namespace(ns):
             vp_file=args.vp_file,
             vp_model=args.vp_model,
             device=getattr(args, "device", "auto"),
+            vp_condition=getattr(args, "vp_condition", None),
         )
     face_det = create_face_detector(
         conf_thresh=getattr(args, 'face_conf', 0.5),

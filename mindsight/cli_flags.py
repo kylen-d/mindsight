@@ -107,6 +107,8 @@ CORE_FLAGS: tuple[FlagSpec, ...] = (
     FlagSpec(flag='--detect-scale', dest='detect_scale', schema_path='detection.detect_scale', help='Detection scale for Object Recognition'),
     FlagSpec(flag='--vp-file', dest='vp_file', schema_path=None, default=None, help='Path to visual prompt file for use with YOLOE object detection models'),
     FlagSpec(flag='--vp-model', dest='vp_model', schema_path=None, default='yoloe-26l-seg.pt', help='YOLOE model to use alongside visual prompting for object detection'),
+    FlagSpec(flag='--vp-condition', dest='vp_condition', schema_path=None, default=None, help='Comma-separated condition tag(s): prompt only the visual-prompt classes tagged for them, plus always-active classes. Needs a condition-tagged --vp-file; in project mode this overrides per-video condition matching.'),
+    FlagSpec(flag='--vp-ignore-conditions', dest='vp_ignore_conditions', schema_path=None, default=False, kind='store_true', help='Use the FULL visual prompt everywhere, ignoring condition tags in the VP file and on project videos.'),
     FlagSpec(flag='--no-detector', dest='no_detector', schema_path=None, default=False, kind='store_true', help='Run without any object-detection model: faces, gaze rays, and gaze-tip phenomena only (no object hits or lock-on). Not compatible with --vp-file.'),
     FlagSpec(flag='--obj-persistence', dest='obj_persistence', schema_path='tracker.obj_persistence', metavar='N', help='Dead-reckon object bboxes for N frames after they disappear (default 0).'),
     FlagSpec(flag='--merge-overlaps', dest='merge_overlaps', schema_path='detection.merge_overlaps', kind='store_true', help='Merge or filter overlapping same-class detections.'),

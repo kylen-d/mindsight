@@ -725,6 +725,38 @@
     },
     {
       "option_strings": [
+        "--vp-condition"
+      ],
+      "dest": "vp_condition",
+      "action": "_StoreAction",
+      "default": null,
+      "type": null,
+      "nargs": null,
+      "const": null,
+      "choices": null,
+      "required": false,
+      "metavar": null,
+      "help": "Comma-separated condition tag(s): prompt only the visual-prompt classes tagged for them, plus always-active classes. Needs a condition-tagged --vp-file; in project mode this overrides per-video condition matching.",
+      "group": "options"
+    },
+    {
+      "option_strings": [
+        "--vp-ignore-conditions"
+      ],
+      "dest": "vp_ignore_conditions",
+      "action": "_StoreTrueAction",
+      "default": false,
+      "type": null,
+      "nargs": 0,
+      "const": true,
+      "choices": null,
+      "required": false,
+      "metavar": null,
+      "help": "Use the FULL visual prompt everywhere, ignoring condition tags in the VP file and on project videos.",
+      "group": "options"
+    },
+    {
+      "option_strings": [
         "--no-detector"
       ],
       "dest": "no_detector",
