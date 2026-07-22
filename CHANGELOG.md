@@ -1,5 +1,30 @@
 # Changelog
 
+## [Unreleased]
+
+### Added (VP Builder)
+- **Start Fresh** toolbar button: clears the whole VP Builder session
+  (reference images, boxes, classes, test-inference results, and the
+  saved-file association) after a confirmation -- no more restarting the
+  app to begin a new prompt. Loading a VP file now also fully resets the
+  previous session's leftovers first.
+
+### Changed (VP Builder suggest & tagging UX)
+- **One canvas grammar, no modes**: drag draws a box, clicking a box
+  deletes it, and clicking an empty spot proposes boxes (FastSAM). The
+  modal "Suggest mode" button is replaced by a **Suggest on click**
+  checkbox that is on by default once the FastSAM-s weight is installed.
+- **Proposals are numbered**, highlight on hover, and dismiss with Esc or
+  right-click; the canvas shows a wait cursor while FastSAM runs, with an
+  explicit one-time "loading" message on first use.
+- **Fast class switching**: an "Active class" chip lives under the canvas;
+  number keys 0-9 over the image pick a class by its ID (the same key
+  again clears), Ctrl/Cmd+Left/Right cycles through all classes, and
+  tagging with no active class pops a class picker at the cursor (with
+  "New class..." built in) instead of a warning dialog.
+- Clearer suggest feedback: "no region found" is now distinguished from
+  "regions found but too large/small to be useful".
+
 ## [1.3.0] - 2026-07-21
 
 ### Changed (W4C GUI-checklist fixes -- user eyes-on feedback)
