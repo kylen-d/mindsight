@@ -87,6 +87,7 @@ class VisualPromptBuilderTab(QWidget):
         self._images: dict[str, dict] = {}
         self._current_path: str | None = None
         self._classes: list[dict] = []   # [{"id": int, "name": str}, ...]
+        self._last_saved_vp: str | None = None
         self._test_dets: dict[str, list] = {}   # inference results per image
         self._vp_worker: VPInferenceWorker | None = None
         self._result_q: queue.Queue = queue.Queue()
@@ -147,6 +148,15 @@ class VisualPromptBuilderTab(QWidget):
         tbl.addWidget(load_vp_btn)
         tbl.addWidget(self._save_vp_btn)
         tbl.addWidget(export_btn)
+
+        tbl.addWidget(QFrame(frameShape=QFrame.Shape.VLine))
+
+        fresh_btn = QPushButton("Start Fresh")
+        fresh_btn.setToolTip(
+            "Clear all reference images, annotations and classes and start "
+            "a new visual prompt from scratch")
+        fresh_btn.clicked.connect(self._start_fresh)
+        tbl.addWidget(fresh_btn)
 
         tbl.addStretch(1)
         outer.addWidget(tb)
@@ -398,8 +408,44 @@ class VisualPromptBuilderTab(QWidget):
             del self._images[path]
         self._file_list.takeItem(row)
         self._current_path = None
-        self._canvas.set_image_data(None, [], []) if hasattr(self._canvas, '_frame') else None
+        self._canvas.set_image_data(None, [], [])
         self._refresh_annotations_panel()
+
+    # -- Start fresh --------------------------------------------------------
+
+    def _start_fresh(self):
+        """Clear the whole session (images, annotations, classes) in one go."""
+        if self._vp_worker is not None and self._vp_worker.is_alive():
+            self._set_status("Stop the test inference before starting fresh.")
+            return
+        if self._images or self._classes:
+            reply = QMessageBox.question(
+                self, "Start Fresh",
+                "Start fresh? This clears all reference images, annotations "
+                "and classes.\nUnsaved work is lost.",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+            if reply != QMessageBox.StandardButton.Yes:
+                return
+        self._reset_all()
+        self._set_status("Started fresh.")
+
+    def _reset_all(self):
+        """Reset all session content; keeps the loaded FastSAM suggester and
+        the remembered VP folder (tool state, not prompt content)."""
+        self._images.clear()
+        self._classes.clear()
+        self._test_dets.clear()
+        self._current_path = None
+        self._pending_suggestions = []
+        self._last_saved_vp = None
+        self._file_list.clear()
+        self._refresh_class_list()
+        self._canvas.set_image_data(None, [], [])
+        self._canvas.set_suggestions([])
+        self._suggest_btn.setChecked(False)
+        self._canvas.set_suggest_mode(False)
+        self._refresh_annotations_panel()
+        self._canvas_status.setText("Load reference images to begin.")
 
     def _path_at_row(self, row: int) -> str | None:
         if row < 0 or row >= self._file_list.count():
@@ -727,12 +773,9 @@ class VisualPromptBuilderTab(QWidget):
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Cannot load VP file:\n{e}"); return
 
+        self._reset_all()
         self._classes = list(data.get("classes", []))
         self._refresh_class_list()
-
-        self._images.clear()
-        self._file_list.clear()
-        self._test_dets.clear()
 
         for ref in data.get("references", []):
             img_path = ref["image"]
@@ -856,4 +899,4 @@ class VisualPromptBuilderTab(QWidget):
 
     def current_vp_path(self) -> str | None:
         """Return the last saved VP file path (for passing to GazeTab)."""
-        return getattr(self, "_last_saved_vp", None)
+        return self._last_saved_vp

@@ -160,3 +160,98 @@ def test_vp_tab_add_images_and_export(qapp, tmp_path, monkeypatch):
                         lambda *a, **k: infos.append(a))
     tab._export_portable()
     assert dest.is_file() and infos
+
+
+# ── Start Fresh (v1.3.1 item 1) ──────────────────────────────────────────────
+
+def _seeded_tab(tmp_path):
+    """A tab with one image + class + annotation and stale session extras."""
+    from mindsight.GUI.vp_builder_tab import VisualPromptBuilderTab
+    tab = VisualPromptBuilderTab()
+    img = _make_image(tmp_path / "ref.jpg")
+    tab.add_images([img])                    # selects row 0, loads the frame
+    tab._classes = [{"id": 0, "name": "bowl"}]
+    tab._refresh_class_list()
+    tab._images[str(img)]["annotations"] = [
+        {"cls_id": 0, "cls_name": "bowl", "bbox": [1, 1, 9, 9]}]
+    tab._test_dets[str(img)] = [{"cls_id": 0}]
+    tab._last_saved_vp = str(tmp_path / "old.vp.json")
+    tab._pending_suggestions = [[1, 1, 5, 5]]
+    tab._canvas.set_suggestions([[1, 1, 5, 5]])
+    return tab
+
+
+def test_start_fresh_clears_everything(qapp, tmp_path, monkeypatch):
+    from PyQt6.QtWidgets import QMessageBox
+    tab = _seeded_tab(tmp_path)
+    suggester = object()
+    tab._suggester = suggester
+    monkeypatch.setattr(QMessageBox, "question",
+                        lambda *a, **k: QMessageBox.StandardButton.Yes)
+    tab._start_fresh()
+    assert not tab._images and not tab._classes and not tab._test_dets
+    assert tab._current_path is None
+    assert tab._pending_suggestions == []
+    assert tab.current_vp_path() is None
+    assert tab._file_list.count() == 0
+    assert tab._class_list.count() == 0
+    assert tab._canvas._suggestions == []
+    assert not tab._suggest_btn.isChecked()
+    assert tab._suggester is suggester       # FastSAM cache survives
+
+
+def test_start_fresh_declined_is_noop(qapp, tmp_path, monkeypatch):
+    from PyQt6.QtWidgets import QMessageBox
+    tab = _seeded_tab(tmp_path)
+    monkeypatch.setattr(QMessageBox, "question",
+                        lambda *a, **k: QMessageBox.StandardButton.No)
+    tab._start_fresh()
+    assert len(tab._images) == 1 and len(tab._classes) == 1
+    assert tab.current_vp_path() is not None
+    assert tab._file_list.count() == 1
+
+
+def test_start_fresh_blocked_while_test_running(qapp, tmp_path, monkeypatch):
+    from PyQt6.QtWidgets import QMessageBox
+    tab = _seeded_tab(tmp_path)
+
+    class FakeWorker:
+        def is_alive(self):
+            return True
+
+    tab._vp_worker = FakeWorker()
+    monkeypatch.setattr(
+        QMessageBox, "question",
+        lambda *a, **k: pytest.fail("no confirm while worker runs"))
+    tab._start_fresh()
+    assert len(tab._images) == 1 and len(tab._classes) == 1
+    assert "test inference" in tab._status.text().lower()
+
+
+def test_load_vp_file_resets_stale_session_state(qapp, tmp_path, monkeypatch):
+    import mindsight.GUI.region_suggest as region_suggest
+    from PyQt6.QtWidgets import QFileDialog
+    tab = _seeded_tab(tmp_path)
+    # Suggest mode genuinely ON (weight check stubbed out).
+    monkeypatch.setattr(region_suggest, "fastsam_path",
+                        lambda: str(tmp_path / "FastSAM-s.pt"))
+    tab._suggest_btn.setChecked(True)
+    assert tab._canvas._suggest_mode is True
+
+    img = _make_image(tmp_path / "kitchen.jpg")
+    vp = tmp_path / "kitchen.vp.json"
+    vp.write_text(json.dumps({
+        "version": 1,
+        "classes": [{"id": 0, "name": "cup"}],
+        "references": [{"image": str(img),
+                        "annotations": [{"cls_id": 0, "bbox": [1, 1, 8, 8]}]}],
+    }))
+    monkeypatch.setattr(QFileDialog, "getOpenFileName",
+                        lambda *a, **k: (str(vp), ""))
+    tab._load_vp_file()
+    assert [c["name"] for c in tab._classes] == ["cup"]
+    assert list(tab._images) == [str(img)]
+    assert tab.current_vp_path() is None     # stale save path cleared
+    assert tab._pending_suggestions == []
+    assert not tab._suggest_btn.isChecked()
+    assert tab._canvas._suggest_mode is False
