@@ -1,6 +1,6 @@
 # Changelog
 
-## [Unreleased]
+## [1.3.1] - 2026-07-21
 
 ### Added (VP Builder)
 - **Start Fresh** toolbar button: clears the whole VP Builder session
