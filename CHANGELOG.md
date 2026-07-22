@@ -1,5 +1,13 @@
 # Changelog
 
+## [Unreleased]
+
+### Fixed (post-release)
+- Installer launchers now default to the v1.3.1 release assets (the baked
+  URLs still pointed at v1.0.0); the v1.3.1 GitHub release carries the
+  installer zips, wheel, weights manifest, and pipeline preset, so the
+  documented download-and-run install path works again.
+
 ## [1.3.1] - 2026-07-21
 
 ### Added (VP Builder)
