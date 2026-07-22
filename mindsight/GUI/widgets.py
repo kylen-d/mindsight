@@ -68,23 +68,29 @@ def _bgr_to_pixmap(bgr, max_w: int = 0, max_h: int = 0) -> QPixmap:
 # Visual Prompt file utilities
 # ══════════════════════════════════════════════════════════════════════════════
 
-def save_vp_file(path: str, classes: list, references: list) -> None:
+def save_vp_file(path: str, classes: list, references: list,
+                 conditions: list | None = None) -> None:
     """
     Save a Visual Prompt file.
 
     classes    : [{"id": int, "name": str}, ...]   IDs must be sequential from 0.
+                 Optionally {"conditions": [tag, ...]} per class (v1.3.1).
     references : [{"image": str,
                    "annotations": [{"cls_id": int, "bbox": [x1,y1,x2,y2]}, ...]
                   }, ...]
+    conditions : declared condition vocabulary (v1.3.1).
+
+    Files without condition data keep the version-1 byte layout.
     """
-    Path(path).write_text(json.dumps({"version": 1,
-                                      "classes": classes,
-                                      "references": references}, indent=2))
+    from mindsight.ObjectDetection.object_detection import build_vp_payload
+    Path(path).write_text(json.dumps(
+        build_vp_payload(classes, references, conditions), indent=2))
 
 
 def load_vp_file(path: str) -> dict:
-    """Load and return the contents of a Visual Prompt file."""
-    return json.loads(Path(path).read_text())
+    """Load a Visual Prompt file (with the format-version guard applied)."""
+    from mindsight.ObjectDetection.object_detection import load_vp_data
+    return load_vp_data(path)
 
 
 def vp_to_yoloe_args(vp_data: dict):

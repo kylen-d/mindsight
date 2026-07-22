@@ -21,14 +21,17 @@ from pathlib import Path
 VP_ARCHIVE_EXT = ".vp.zip"
 
 
-def export_vp_archive(zip_path, classes: list, references: list) -> Path:
+def export_vp_archive(zip_path, classes: list, references: list,
+                      conditions: list | None = None) -> Path:
     """Write a self-contained ``.vp.zip`` from in-memory VP data.
 
     ``references`` entries carry absolute image paths (the builder's format);
     each image is stored under ``images/<idx>_<name>`` so same-named files
     from different folders never collide.  Raises ``ValueError`` when a
-    referenced image is missing on disk.
+    referenced image is missing on disk.  Condition tags/vocabulary ride
+    along (v1.3.1); archives without condition data keep the v1 payload.
     """
+    from mindsight.ObjectDetection.object_detection import build_vp_payload
     zip_path = Path(zip_path)
     with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zf:
         new_refs = []
@@ -41,8 +44,7 @@ def export_vp_archive(zip_path, classes: list, references: list) -> Path:
             new_refs.append({"image": arcname,
                              "annotations": ref["annotations"]})
         zf.writestr("vp.json", json.dumps(
-            {"version": 1, "classes": classes, "references": new_refs},
-            indent=2))
+            build_vp_payload(classes, new_refs, conditions), indent=2))
     return zip_path
 
 
@@ -73,6 +75,8 @@ def import_vp_archive(zip_path, dest_dir=None) -> Path:
             raise ValueError(
                 f"not a valid VP archive (no readable vp.json): {zip_path}"
             ) from exc
+        from mindsight.ObjectDetection.object_detection import ensure_vp_version
+        ensure_vp_version(data, source=zip_path.name)
         (dest / "images").mkdir(parents=True, exist_ok=True)
         for member in zf.namelist():
             # Only the flat images/ payload; refuse traversal shenanigans.
