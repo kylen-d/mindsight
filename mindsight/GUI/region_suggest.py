@@ -1,15 +1,16 @@
 """GUI/region_suggest.py -- FastSAM click-to-suggest for the VP Builder.
 
-v1.1 W3Z item 8.  In the VP Builder's Suggest mode a click on the reference
-image runs a FastSAM point-prompt and proposes the small set of regions
-containing that point (typically 1-3 nested candidates: the part, the whole
-object, sometimes a surrounding surface).  The user accepts one into the
-selected class -- the vp.json format is untouched, so the runtime VP path
-needs zero changes.
+v1.1 W3Z item 8; hybrid canvas since v1.3.1 item 2.  In the VP Builder a
+click on an empty spot of the reference image runs a FastSAM point-prompt
+and proposes the small set of regions containing that point (typically 1-3
+nested candidates: the part, the whole object, sometimes a surrounding
+surface).  The user accepts one into the active class -- the vp.json format
+is untouched, so the runtime VP path needs zero changes.
 
 The FastSAM-s weight is manifest-managed (Weights/SAM/FastSAM-s.pt,
 non-required); :func:`fastsam_path` reports None until it is downloaded
-from the Models tab, and the Suggest button explains that in plain English.
+from the Models tab, and the "Suggest on click" checkbox explains that in
+plain English.
 
 No Qt in this module -- the suggester is a plain object so it stays
 testable headless and callable from a worker thread.
@@ -62,13 +63,23 @@ class RegionSuggester:
     def __init__(self, model_factory=None):
         self._factory = model_factory or _default_factory
         self._loaded = None
+        self.last_raw_count = 0   # FastSAM candidates BEFORE filtering
+
+    @property
+    def loaded(self) -> bool:
+        """True once the FastSAM model has been constructed."""
+        return self._loaded is not None
 
     def suggest(self, frame_bgr, x: int, y: int) -> list[list[int]]:
         """Candidate boxes ``[x1, y1, x2, y2]`` containing image point (x, y).
 
         Most-specific (smallest) first, capped at :data:`MAX_SUGGESTIONS`.
-        Raises whatever the model raises (the caller shows it as status).
+        ``last_raw_count`` records how many candidates FastSAM returned before
+        area/point filtering, so the caller can distinguish "nothing found"
+        from "everything filtered".  Raises whatever the model raises (the
+        caller shows it as status).
         """
+        self.last_raw_count = 0
         if self._loaded is None:
             self._loaded = self._factory()
         model, device = self._loaded
@@ -76,6 +87,7 @@ class RegionSuggester:
                     labels=[1], verbose=False)[0]
         if res.boxes is None or len(res.boxes) == 0:
             return []
+        self.last_raw_count = len(res.boxes)
         h, w = frame_bgr.shape[:2]
         area_img = float(h * w)
         cands = []
@@ -109,7 +121,7 @@ def _default_factory():
     if path is None:
         raise FileNotFoundError(
             "FastSAM-s.pt is not downloaded -- fetch it from the Models tab "
-            "(SAM backend) to use Suggest mode.")
+            "(SAM backend) to use Suggest on click.")
     from ultralytics import FastSAM
 
     from mindsight.utils.device import resolve_device

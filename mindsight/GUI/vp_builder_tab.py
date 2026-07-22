@@ -24,9 +24,10 @@ import tempfile
 import threading
 from pathlib import Path
 
-from PyQt6.QtCore import Qt, QTimer
-from PyQt6.QtGui import QColor
+from PyQt6.QtCore import QEvent, Qt, QTimer
+from PyQt6.QtGui import QColor, QCursor, QIcon, QPixmap
 from PyQt6.QtWidgets import (
+    QCheckBox,
     QComboBox,
     QDoubleSpinBox,
     QFileDialog,
@@ -38,6 +39,7 @@ from PyQt6.QtWidgets import (
     QLineEdit,
     QListWidget,
     QListWidgetItem,
+    QMenu,
     QMessageBox,
     QPushButton,
     QScrollArea,
@@ -69,8 +71,12 @@ class VisualPromptBuilderTab(QWidget):
     1. Load reference images (folder or individual files).
     2. Define classes in the Classes panel (right).  Each class gets the next
        sequential ID automatically.
-    3. Select a class in the list, then drag on the image canvas to draw a box.
-       Click an existing box to delete it.
+    3. Tag objects on the canvas (hybrid grammar, v1.3.1): drag to draw a
+       box, click an existing box to delete it, click an EMPTY spot to get
+       FastSAM box proposals (numbered; click one to accept, Esc or
+       right-click to dismiss).  The active class is switched with digits
+       0-9 / Ctrl(Cmd)+Left/Right over the image, or by clicking the class
+       list; accepting with no active class pops a class menu at the cursor.
     4. [Save VP File]  ->  saves a .vp.json file.
        [Load VP File]  ->  restores a previously saved file for editing.
 
@@ -86,20 +92,25 @@ class VisualPromptBuilderTab(QWidget):
         # {path_str: {"frame": ndarray|None, "annotations": [{"cls_id":int, "cls_name":str, "bbox":[x1,y1,x2,y2]}, ...]}}
         self._images: dict[str, dict] = {}
         self._current_path: str | None = None
-        self._classes: list[dict] = []   # [{"id": int, "name": str}, ...]
+        self._classes: list[dict] = []   # [{"id", "name", "conditions"?}, ...]
+        self._conditions: list[str] = []  # declared condition vocabulary
+        self._last_saved_vp: str | None = None
         self._test_dets: dict[str, list] = {}   # inference results per image
         self._vp_worker: VPInferenceWorker | None = None
         self._result_q: queue.Queue = queue.Queue()
         self._log_q:    queue.Queue = queue.Queue()
         self._poll_timer = QTimer()
         self._poll_timer.timeout.connect(self._poll_worker)
-        # Suggest mode (W3Z): lazy FastSAM suggester + its own poll loop.
+        # Suggest-on-click (W3Z, hybrid since v1.3.1): lazy FastSAM suggester
+        # + its own poll loop.
         self._suggester = None
         self._suggest_q: queue.Queue = queue.Queue()
         self._suggest_busy = False
+        self._suggest_for_path: str | None = None
         self._pending_suggestions: list = []
         self._suggest_timer = QTimer()
         self._suggest_timer.timeout.connect(self._poll_suggest)
+        self._class_press_was_current = False
         self._build_ui()
 
     # -- UI ----------------------------------------------------------------
@@ -148,6 +159,23 @@ class VisualPromptBuilderTab(QWidget):
         tbl.addWidget(self._save_vp_btn)
         tbl.addWidget(export_btn)
 
+        cond_btn = QPushButton("Conditions…")
+        cond_btn.setToolTip(
+            "Tag classes with study conditions so project videos are "
+            "prompted only with their condition's objects (untagged classes "
+            "stay active everywhere)")
+        cond_btn.clicked.connect(self._edit_conditions)
+        tbl.addWidget(cond_btn)
+
+        tbl.addWidget(QFrame(frameShape=QFrame.Shape.VLine))
+
+        fresh_btn = QPushButton("Start Fresh")
+        fresh_btn.setToolTip(
+            "Clear all reference images, annotations and classes and start "
+            "a new visual prompt from scratch")
+        fresh_btn.clicked.connect(self._start_fresh)
+        tbl.addWidget(fresh_btn)
+
         tbl.addStretch(1)
         outer.addWidget(tb)
 
@@ -169,24 +197,39 @@ class VisualPromptBuilderTab(QWidget):
 
         # Centre: canvas
         canvas_grp = QGroupBox(
-            "Image  [select class \u2192 drag to draw box \u00b7 click box to delete]")
+            "Image  [drag = draw box \u00b7 click box = delete \u00b7 "
+            "click empty spot = suggest]")
         canvas_lay = QVBoxLayout(canvas_grp)
         self._canvas = ImageCanvas()
+        self._canvas.set_hybrid_mode(True)
         self._canvas.box_toggled.connect(self._on_box_delete)
         self._canvas.crop_drawn.connect(self._on_box_drawn)
         self._canvas.point_clicked.connect(self._on_suggest_point)
         self._canvas.suggestion_accepted.connect(self._on_suggestion_accepted)
+        self._canvas.suggestions_cleared.connect(self._on_suggestions_cleared)
+        self._canvas.digit_pressed.connect(self._on_class_digit)
+        self._canvas.cycle_pressed.connect(self._on_class_cycle)
         canvas_lay.addWidget(self._canvas)
         suggest_row = QHBoxLayout()
-        self._suggest_btn = QPushButton("Suggest mode")
-        self._suggest_btn.setCheckable(True)
-        self._suggest_btn.setToolTip(
-            "Click an object in the image and accept a proposed box instead "
-            "of drawing it by hand (FastSAM segmentation). Needs the "
-            "FastSAM-s weight from the Models tab.")
-        self._suggest_btn.toggled.connect(self._on_suggest_toggled)
-        suggest_row.addWidget(self._suggest_btn)
+        self._active_chip = QLabel()
+        self._active_chip.setTextFormat(Qt.TextFormat.RichText)
+        self._active_chip.setStyleSheet("font-size:11px;")
+        self._active_chip.setToolTip(
+            "The class new boxes are tagged with. Over the image: press a "
+            "class's number (0-9) to pick it, the same number again to "
+            "clear, Ctrl/Cmd+Left/Right to cycle. Clicking the selected "
+            "class in the list also clears it.")
+        suggest_row.addWidget(self._active_chip)
         suggest_row.addStretch(1)
+        self._suggest_chk = QCheckBox("Suggest on click")
+        self._suggest_chk.setToolTip(
+            "Click an empty spot on the image to get FastSAM box proposals "
+            "instead of drawing by hand. Needs the FastSAM-s weight (24 MB) "
+            "from the Models tab.")
+        from mindsight.GUI.region_suggest import fastsam_path
+        self._suggest_chk.setChecked(fastsam_path() is not None)
+        self._suggest_chk.toggled.connect(self._on_suggest_toggled)
+        suggest_row.addWidget(self._suggest_chk)
         canvas_lay.addLayout(suggest_row)
         self._canvas_status = QLabel("Load reference images to begin.")
         self._canvas_status.setStyleSheet("color:#aaa;font-size:11px;")
@@ -200,10 +243,14 @@ class VisualPromptBuilderTab(QWidget):
         right_vlay.setSpacing(4)
         right_vbox.setMinimumWidth(180)
 
-        cls_grp = QGroupBox("Classes  (select before drawing)")
+        cls_grp = QGroupBox("Classes  (pick by number key over the image)")
         cls_lay = QVBoxLayout(cls_grp)
         self._class_list = QListWidget()
         self._class_list.setMinimumHeight(100)
+        self._class_list.currentRowChanged.connect(
+            lambda _row: self._update_active_chip())
+        self._class_list.itemClicked.connect(self._on_class_item_clicked)
+        self._class_list.viewport().installEventFilter(self)
         cls_lay.addWidget(self._class_list)
         cls_btn_row = _hrow()
         add_cls_btn = QPushButton("+ Add")
@@ -279,6 +326,14 @@ class VisualPromptBuilderTab(QWidget):
         self._test_conf.setFixedWidth(64)
         test_lay.addWidget(self._test_conf)
 
+        test_lay.addWidget(QLabel("Condition:"))
+        self._test_condition = QComboBox()
+        self._test_condition.setToolTip(
+            "Preview what a condition's videos will see: the test prompt "
+            "keeps only that condition's classes (plus always-active ones)")
+        test_lay.addWidget(self._test_condition)
+        self._refresh_condition_combo()
+
         test_lay.addWidget(QFrame(frameShape=QFrame.Shape.VLine))
         self._test_run_btn = QPushButton("\u25b6  Test")
         self._test_run_btn.setStyleSheet(
@@ -297,6 +352,7 @@ class VisualPromptBuilderTab(QWidget):
         self._status = QLabel("Ready.")
         self._status.setStyleSheet("color:#888;font-size:11px;padding:2px;")
         outer.addWidget(self._status)
+        self._update_active_chip()
 
     # -- Image loading -----------------------------------------------------
 
@@ -378,7 +434,8 @@ class VisualPromptBuilderTab(QWidget):
         if not path.endswith(VP_ARCHIVE_EXT):
             path += VP_ARCHIVE_EXT
         try:
-            export_vp_archive(path, self._classes, refs)
+            export_vp_archive(path, self._classes, refs,
+                              conditions=self._conditions)
         except (ValueError, OSError) as exc:
             QMessageBox.critical(self, "Export failed", str(exc))
             return
@@ -398,8 +455,46 @@ class VisualPromptBuilderTab(QWidget):
             del self._images[path]
         self._file_list.takeItem(row)
         self._current_path = None
-        self._canvas.set_image_data(None, [], []) if hasattr(self._canvas, '_frame') else None
+        self._canvas.set_image_data(None, [], [])
         self._refresh_annotations_panel()
+
+    # -- Start fresh --------------------------------------------------------
+
+    def _start_fresh(self):
+        """Clear the whole session (images, annotations, classes) in one go."""
+        if self._vp_worker is not None and self._vp_worker.is_alive():
+            self._set_status("Stop the test inference before starting fresh.")
+            return
+        if self._images or self._classes:
+            reply = QMessageBox.question(
+                self, "Start Fresh",
+                "Start fresh? This clears all reference images, annotations "
+                "and classes.\nUnsaved work is lost.",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+            if reply != QMessageBox.StandardButton.Yes:
+                return
+        self._reset_all()
+        self._set_status("Started fresh.")
+
+    def _reset_all(self):
+        """Reset all session content; keeps the loaded FastSAM suggester and
+        the remembered VP folder (tool state, not prompt content)."""
+        self._images.clear()
+        self._classes.clear()
+        self._conditions = []
+        self._test_dets.clear()
+        self._current_path = None
+        self._pending_suggestions = []
+        self._last_saved_vp = None
+        self._file_list.clear()
+        self._refresh_class_list()
+        self._refresh_condition_combo()
+        self._class_list.setCurrentRow(-1)
+        self._canvas.set_image_data(None, [], [])
+        self._canvas.set_suggestions([])
+        self._refresh_annotations_panel()
+        self._canvas_status.setText("Load reference images to begin.")
+        self._update_active_chip()
 
     def _path_at_row(self, row: int) -> str | None:
         if row < 0 or row >= self._file_list.count():
@@ -500,9 +595,49 @@ class VisualPromptBuilderTab(QWidget):
         self._class_list.clear()
         for c in self._classes:
             col = _palette_hex(c["id"])
-            item = QListWidgetItem(f"  [{c['id']}]  {c['name']}")
+            badge = (f"   @{','.join(c['conditions'])}"
+                     if c.get("conditions") else "")
+            item = QListWidgetItem(f"  [{c['id']}]  {c['name']}{badge}")
             item.setForeground(QColor(col))
             self._class_list.addItem(item)
+
+    # -- Conditions (v1.3.1 item 3c) ---------------------------------------
+
+    def _edit_conditions(self):
+        if not self._classes:
+            QMessageBox.information(
+                self, "No classes",
+                "Define at least one class first -- conditions are assigned "
+                "per class.")
+            return
+        from .vp_conditions_dialog import VPConditionsDialog
+        dlg = VPConditionsDialog(self._classes, self._conditions, self)
+        if not dlg.exec():
+            return
+        self._conditions = dlg.result_vocabulary
+        for c in self._classes:
+            tags = dlg.result_class_tags.get(c["id"], [])
+            if tags:
+                c["conditions"] = tags
+            else:
+                c.pop("conditions", None)
+        self._refresh_class_list()
+        self._refresh_condition_combo()
+        self._update_active_chip()
+        tagged = sum(1 for c in self._classes if c.get("conditions"))
+        self._set_status(
+            f"Conditions: {len(self._conditions)} tag(s), {tagged} "
+            f"conditioned class(es).")
+
+    def _refresh_condition_combo(self):
+        combo = self._test_condition
+        combo.blockSignals(True)
+        combo.clear()
+        combo.addItem("(all)")
+        for tag in self._conditions:
+            combo.addItem(tag)
+        combo.setEnabled(bool(self._conditions))
+        combo.blockSignals(False)
 
     # -- Canvas / annotation management ------------------------------------
 
@@ -512,12 +647,10 @@ class VisualPromptBuilderTab(QWidget):
         if self._current_path is None:
             QMessageBox.warning(self, "No image", "Load a reference image first.")
             return
-        row = self._class_list.currentRow()
-        if row < 0 or row >= len(self._classes):
-            QMessageBox.warning(self, "No class selected",
-                                "Add and select a class before drawing boxes.")
+        cls = self._require_class()
+        if cls is None:
+            self._set_status("Pick a class to tag the box, then redraw it.")
             return
-        cls = self._classes[row]
         self._images[self._current_path]["annotations"].append({
             "cls_id":   cls["id"],
             "cls_name": cls["name"],
@@ -536,7 +669,91 @@ class VisualPromptBuilderTab(QWidget):
             self._refresh_canvas()
             self._refresh_annotations_panel()
 
-    # -- Suggest mode (W3Z: FastSAM click-to-suggest) ----------------------
+    # -- Active class (v1.3.1 item 2: keys + chip + fallback popup) --------
+
+    def eventFilter(self, obj, event):
+        # Track whether a class-list click landed on the ALREADY-selected row
+        # (that click deselects; a selection-changing click must not).
+        if (obj is self._class_list.viewport()
+                and event.type() == QEvent.Type.MouseButtonPress):
+            item = self._class_list.itemAt(event.position().toPoint())
+            row = self._class_list.row(item) if item is not None else -1
+            self._class_press_was_current = (
+                row >= 0 and row == self._class_list.currentRow())
+        return super().eventFilter(obj, event)
+
+    def _on_class_item_clicked(self, item):
+        row = self._class_list.row(item)
+        if self._class_press_was_current and row == self._class_list.currentRow():
+            self._class_list.setCurrentRow(-1)
+        self._class_press_was_current = False
+
+    def _on_class_digit(self, digit: int):
+        """Digit key over the canvas: pick class by its shown ID; same digit
+        again clears the selection."""
+        if not (0 <= digit < len(self._classes)):
+            return
+        if self._class_list.currentRow() == digit:
+            self._class_list.setCurrentRow(-1)
+        else:
+            self._class_list.setCurrentRow(digit)
+
+    def _on_class_cycle(self, step: int):
+        n = len(self._classes)
+        if n == 0:
+            return
+        cur = self._class_list.currentRow()
+        self._class_list.setCurrentRow(0 if cur < 0 else (cur + step) % n)
+
+    def _update_active_chip(self):
+        row = self._class_list.currentRow()
+        if 0 <= row < len(self._classes):
+            c = self._classes[row]
+            col = _palette_hex(c["id"])
+            self._active_chip.setText(
+                f'Active class: <span style="color:{col}"><b>&#9632; '
+                f'[{c["id"]}] {c["name"]}</b></span>')
+        else:
+            self._active_chip.setText(
+                'Active class: <i>none</i> — press its number over the '
+                'image, or click a class')
+
+    def _require_class(self) -> dict | None:
+        """The active class, or a cursor popup to pick/create one."""
+        row = self._class_list.currentRow()
+        if 0 <= row < len(self._classes):
+            return self._classes[row]
+        return self._popup_class_choice()
+
+    def _popup_class_choice(self) -> dict | None:
+        menu = QMenu(self)
+        acts = []
+        for c in self._classes:
+            pm = QPixmap(12, 12)
+            pm.fill(QColor(_palette_hex(c["id"])))
+            acts.append((menu.addAction(QIcon(pm),
+                                        f'[{c["id"]}] {c["name"]}'), c))
+        if self._classes:
+            menu.addSeparator()
+        new_act = menu.addAction("New class…")
+        chosen = menu.exec(QCursor.pos())
+        if chosen is None:
+            return None
+        if chosen is new_act:
+            before = len(self._classes)
+            self._add_class()
+            if len(self._classes) > before:
+                row = self._class_list.currentRow()
+                if 0 <= row < len(self._classes):
+                    return self._classes[row]
+            return None
+        for act, c in acts:
+            if act is chosen:
+                self._class_list.setCurrentRow(c["id"])
+                return c
+        return None
+
+    # -- Suggest on click (W3Z FastSAM, hybrid since v1.3.1) ---------------
 
     def _on_suggest_toggled(self, checked: bool):
         if checked:
@@ -544,18 +761,24 @@ class VisualPromptBuilderTab(QWidget):
             if fastsam_path() is None:
                 QMessageBox.information(
                     self, "Weight needed",
-                    "Suggest mode needs the FastSAM-s segmentation weight "
-                    "(24 MB).\n\nDownload it on the Models tab (SAM row), "
-                    "then turn Suggest mode on again.")
-                self._suggest_btn.setChecked(False)
+                    "Suggest on click needs the FastSAM-s segmentation "
+                    "weight (24 MB).\n\nDownload it on the Models tab (SAM "
+                    "row), then turn Suggest on click back on.")
+                self._suggest_chk.setChecked(False)
                 return
             self._set_status(
-                "Suggest mode: click an object to get box proposals.")
+                "Suggest on click: click an empty spot on the image to get "
+                "box proposals.")
         else:
             self._pending_suggestions = []
-        self._canvas.set_suggest_mode(checked)
+            self._canvas.set_suggestions([])
+
+    def _on_suggestions_cleared(self):
+        self._pending_suggestions = []
 
     def _on_suggest_point(self, ix: int, iy: int):
+        if not self._suggest_chk.isChecked():
+            return
         if self._suggest_busy or self._current_path is None:
             return
         info = self._images.get(self._current_path)
@@ -566,7 +789,11 @@ class VisualPromptBuilderTab(QWidget):
             self._suggester = RegionSuggester()
         frame, suggester = info["frame"], self._suggester
         self._suggest_busy = True
-        self._set_status("Suggesting…")
+        self._suggest_for_path = self._current_path
+        self._canvas.set_busy(True)
+        self._set_status(
+            "Suggesting…" if suggester.loaded
+            else "Loading FastSAM (first use, one-time)…")
 
         def work():
             try:
@@ -584,32 +811,37 @@ class VisualPromptBuilderTab(QWidget):
             return
         self._suggest_timer.stop()
         self._suggest_busy = False
+        self._canvas.set_busy(False)
         if kind == "err":
             self._set_status(f"Suggest failed: {payload}")
             return
+        if self._suggest_for_path != self._current_path:
+            return   # image changed (or session reset) while inferring
         self._pending_suggestions = payload
         self._canvas.set_suggestions(payload)
         if payload:
             self._set_status(
-                f"{len(payload)} proposal(s) — click one to accept, or "
-                "click elsewhere to re-suggest.")
+                f"{len(payload)} proposal(s) — click one to accept, Esc "
+                "to dismiss, or click elsewhere to re-suggest.")
+        elif getattr(self._suggester, "last_raw_count", 0):
+            self._set_status(
+                "FastSAM only found regions too large or too small to be "
+                "useful here — draw the box by hand.")
         else:
             self._set_status(
-                "No region found there — try another point or draw the "
-                "box by hand.")
+                "No region found at that point — try another spot or "
+                "draw the box by hand.")
 
     def _on_suggestion_accepted(self, idx: int):
         boxes = self._pending_suggestions
         if not (0 <= idx < len(boxes)) or self._current_path is None:
             return
-        row = self._class_list.currentRow()
-        if row < 0 or row >= len(self._classes):
-            QMessageBox.warning(self, "No class selected",
-                                "Add and select a class before accepting a "
-                                "suggestion.")
+        cls = self._require_class()
+        if cls is None:
+            self._set_status(
+                "Pick a class to tag the proposal (it is still shown).")
             return
         x1, y1, x2, y2 = boxes[idx]
-        cls = self._classes[row]
         self._images[self._current_path]["annotations"].append({
             "cls_id":   cls["id"],
             "cls_name": cls["name"],
@@ -701,7 +933,8 @@ class VisualPromptBuilderTab(QWidget):
             for img_path, info in self._images.items()
             if info["annotations"]
         ]
-        save_vp_file(path, self._classes, refs)
+        save_vp_file(path, self._classes, refs,
+                     conditions=self._conditions)
         self._last_saved_vp = path
         self._set_status(f"Saved \u2192 {Path(path).name}")
         QMessageBox.information(
@@ -727,12 +960,14 @@ class VisualPromptBuilderTab(QWidget):
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Cannot load VP file:\n{e}"); return
 
+        self._reset_all()
         self._classes = list(data.get("classes", []))
+        from mindsight.ObjectDetection.object_detection import (
+            vp_declared_conditions,
+        )
+        self._conditions = vp_declared_conditions(data)
         self._refresh_class_list()
-
-        self._images.clear()
-        self._file_list.clear()
-        self._test_dets.clear()
+        self._refresh_condition_combo()
 
         for ref in data.get("references", []):
             img_path = ref["image"]
@@ -778,9 +1013,23 @@ class VisualPromptBuilderTab(QWidget):
             for img_path, info in self._images.items()
             if info["annotations"]
         ]
+        from mindsight.ObjectDetection.object_detection import (
+            build_vp_payload,
+            filter_vp_for_conditions,
+        )
+        payload = build_vp_payload(self._classes, refs,
+                                   conditions=self._conditions)
+        sel = self._test_condition.currentText()
+        if sel and sel != "(all)":
+            payload = filter_vp_for_conditions(payload, [sel])
+            if not payload["classes"] or not payload["references"]:
+                QMessageBox.warning(
+                    self, "Empty condition",
+                    f"No annotated classes match condition '{sel}' -- "
+                    "nothing to test.")
+                return
         tmp = tempfile.NamedTemporaryFile(suffix=VP_EXT, delete=False, mode="w")
-        tmp.write(json.dumps({"version": 1, "classes": self._classes,
-                              "references": refs}, indent=2))
+        tmp.write(json.dumps(payload, indent=2))
         tmp.close()
         self._tmp_vp = tmp.name
 
@@ -856,4 +1105,4 @@ class VisualPromptBuilderTab(QWidget):
 
     def current_vp_path(self) -> str | None:
         """Return the last saved VP file path (for passing to GazeTab)."""
-        return getattr(self, "_last_saved_vp", None)
+        return self._last_saved_vp

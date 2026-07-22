@@ -71,7 +71,7 @@ GUIDES = (
      "changelog.md"),
 )
 
-_TAGLINE = "Gaze-based social attention analysis for developmental research."
+_TAGLINE = "Gaze-Based Attention Estimation for Cognitive Science Research"
 
 
 def repo_root() -> Path:

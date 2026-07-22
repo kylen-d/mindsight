@@ -19,6 +19,109 @@ import numpy as np
 from mindsight.ObjectDetection.detection import Detection
 
 # ══════════════════════════════════════════════════════════════════════════════
+# VP file format (v1 plain, v2 adds condition tags -- v1.3.1 item 3)
+# ══════════════════════════════════════════════════════════════════════════════
+
+VP_FORMAT_VERSION_MAX = 2
+
+
+def ensure_vp_version(data: dict, source: str = "VP file") -> int:
+    """Validate the payload's ``version`` key (absent = 1) and return it."""
+    raw = data.get("version", 1)
+    try:
+        v = int(raw)
+    except (TypeError, ValueError):
+        raise ValueError(
+            f"{source} has an unreadable format version: {raw!r}") from None
+    if v > VP_FORMAT_VERSION_MAX:
+        raise ValueError(
+            f"{source} uses VP format version {v}; this MindSight "
+            f"understands up to version {VP_FORMAT_VERSION_MAX}. Update "
+            "MindSight to open it.")
+    return v
+
+
+def load_vp_data(vp_file) -> dict:
+    """Read a ``.vp.json`` with the format-version guard applied."""
+    data = json.loads(Path(vp_file).read_text())
+    ensure_vp_version(data, source=Path(vp_file).name)
+    return data
+
+
+def build_vp_payload(classes: list, references: list,
+                     conditions: list | None = None) -> dict:
+    """The serializable VP payload for *classes*/*references*.
+
+    Emits version 1 -- byte-stable with pre-1.3.1 files -- unless any class
+    carries condition tags or a *conditions* vocabulary is given, in which
+    case version 2 adds a top-level ``conditions`` vocabulary (declared
+    entries first, then any class tags missing from it).  Empty per-class
+    ``conditions`` keys are stripped either way.
+    """
+    cleaned = [{k: v for k, v in c.items() if k != "conditions" or v}
+               for c in classes]
+    vocab = [str(t) for t in (conditions or [])]
+    if not vocab and not any(c.get("conditions") for c in cleaned):
+        return {"version": 1, "classes": cleaned, "references": references}
+    for c in cleaned:
+        for t in c.get("conditions", []):
+            if t not in vocab:
+                vocab.append(str(t))
+    return {"version": 2, "conditions": vocab, "classes": cleaned,
+            "references": references}
+
+
+def vp_has_conditions(data: dict) -> bool:
+    """True when any class is condition-tagged (the v2 feature in use)."""
+    return any(c.get("conditions") for c in data.get("classes", []))
+
+
+def vp_declared_conditions(data: dict) -> list[str]:
+    """The condition vocabulary: declared list + any undeclared class tags."""
+    declared = [str(t) for t in data.get("conditions", [])]
+    for c in data.get("classes", []):
+        for t in c.get("conditions") or []:
+            if t not in declared:
+                declared.append(str(t))
+    return declared
+
+
+def filter_vp_for_conditions(data: dict, tags) -> dict:
+    """Effective VP payload for a video carrying condition *tags*.
+
+    Classes with no condition tags are always active; a conditioned class is
+    active when it shares at least one tag with the video (multi-tag videos
+    therefore get the union).  A VP without condition tags is returned
+    UNCHANGED (same object -- the v1 fast path).  Kept classes are
+    renumbered contiguously, annotations remapped, and references left with
+    no annotations dropped; class NAMES carry through, so downstream CSVs
+    are unaffected by the renumbering.
+    """
+    if not vp_has_conditions(data):
+        return data
+    tag_set = {str(t) for t in (tags or [])}
+    keep = [c for c in data.get("classes", [])
+            if not c.get("conditions") or tag_set & set(c["conditions"])]
+    id_map = {c["id"]: i for i, c in enumerate(keep)}
+    classes = [{**{k: v for k, v in c.items() if k != "conditions"},
+                "id": id_map[c["id"]]} for c in keep]
+    refs = []
+    for ref in data.get("references", []):
+        anns = [{**a, "cls_id": id_map[a["cls_id"]]}
+                for a in ref.get("annotations", [])
+                if a.get("cls_id") in id_map]
+        if anns:
+            refs.append({**ref, "annotations": anns})
+    return {"version": 1, "classes": classes, "references": refs}
+
+
+def vp_content_digest(vp_file) -> str:
+    """sha256 of the VP file's bytes (run-identity input since v1.3.1)."""
+    import hashlib
+    return hashlib.sha256(Path(vp_file).read_bytes()).hexdigest()
+
+
+# ══════════════════════════════════════════════════════════════════════════════
 # YOLOE Visual-Prompt detector
 # ══════════════════════════════════════════════════════════════════════════════
 
@@ -113,21 +216,27 @@ class YOLOEVPDetector:
     mean-pool the per-reference class embeddings (v1.1 W3.7).
     """
 
-    def __init__(self, model_path: str, vp_file: str, device: str | None = None):
-        from ultralytics import YOLOE
-        from ultralytics.models.yolo.yoloe import YOLOEVPSegPredictor
-
+    def __init__(self, model_path: str, vp_file: str | None,
+                 device: str | None = None, vp_data: dict | None = None):
         self._device = device
-        data = json.loads(Path(vp_file).read_text())
+        # Parse the prompt BEFORE any model construction so a bad file (or
+        # unsupported format version) fails with the format error, not a
+        # model-load error.  *vp_data* takes an already-loaded (possibly
+        # condition-filtered) payload -- no temp files needed (v1.3.1).
+        data = vp_data if vp_data is not None else load_vp_data(vp_file)
         self._references = parse_vp_references(data)
 
         # Legacy single-reference fields (native priming path).
         ref = self._references[0]
         self._refer_image = ref["image"]
         self._visual_prompts = {"bboxes": ref["bboxes"], "cls": ref["cls"]}
-        self._predictor_cls = YOLOEVPSegPredictor
         self._vp_names = {c["id"]: c["name"] for c in data.get("classes", [])}
         self.names = dict(self._vp_names)
+
+        from ultralytics import YOLOE
+        from ultralytics.models.yolo.yoloe import YOLOEVPSegPredictor
+
+        self._predictor_cls = YOLOEVPSegPredictor
         self._model = YOLOE(model_path)
         if device and device != "cpu":
             try:

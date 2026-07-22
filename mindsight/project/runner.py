@@ -442,11 +442,32 @@ def iter_project_runs(project_dir: str | Path, ns, *, project_cfg=None,
         ns.vp_file = vp
         print(f"Using project VP file: {vp}")
 
+    # v1.3.1 item 3: condition-specific visual prompts.  When the VP carries
+    # condition tags (and neither --vp-ignore-conditions nor a global
+    # --vp-condition override is set), each video's tags pick its effective
+    # class subset and the YOLOE detector is rebuilt whenever that subset
+    # changes (LRU-1 -- videos keep their discovery order).
+    vp_data_full = None
+    if (getattr(ns, 'vp_file', None)
+            and not getattr(ns, 'vp_ignore_conditions', False)
+            and not getattr(ns, 'vp_condition', None)):
+        from mindsight.ObjectDetection.object_detection import (
+            load_vp_data,
+            vp_has_conditions,
+        )
+        candidate = load_vp_data(ns.vp_file)
+        if vp_has_conditions(candidate):
+            vp_data_full = candidate
+
     # Build models once for the whole project (14-tuple contract, T4)
     (yolo, face_det, gaze_eng, gaze_cfg, det_cfg, tracker_cfg, output_cfg,
      active_plugins, phenomena_cfg, detection_plugins,
      depth_cfg, depth_backend,
      gazelle_provider, ray_cfg) = build_from_namespace(ns)
+    # The batch-level build primed the FULL prompt; per-video swaps below key
+    # on the effective class-name tuple.
+    vp_active_key = (tuple(c["name"] for c in vp_data_full["classes"])
+                     if vp_data_full is not None else None)
 
     # SP3.1 Q5 (Option A): active DataCollection plugins seeded into every
     # video's Pipeline (finalize_run consumes ctx['data_plugins']).  Empty for
@@ -612,6 +633,35 @@ def iter_project_runs(project_dir: str | Path, ns, *, project_cfg=None,
             anonymize=getattr(ns, 'anonymize', None),
             anonymize_padding=getattr(ns, 'anonymize_padding', 0.3),
         )
+
+        # Condition-specific VP (v1.3.1 item 3): swap in this video's
+        # effective class subset when it differs from the one currently
+        # primed.  An empty subset is a project-config error -- fail fast
+        # with plain English (preflight warns about this earlier).
+        if vp_data_full is not None:
+            from mindsight.ObjectDetection.model_factory import (
+                create_yolo_detector,
+            )
+            from mindsight.ObjectDetection.object_detection import (
+                filter_vp_for_conditions,
+            )
+            video_tags = [t for t in conditions_str.split("|") if t]
+            effective = filter_vp_for_conditions(vp_data_full, video_tags)
+            key = tuple(c["name"] for c in effective["classes"])
+            if not key:
+                tag_label = "|".join(video_tags) or "no condition tags"
+                raise ValueError(
+                    f"Video {run_id} ({tag_label}) matches no visual-prompt "
+                    f"classes in {Path(ns.vp_file).name}. Tag the video in "
+                    "project.yaml/run.yaml, add always-active classes to the "
+                    "prompt, or run with --vp-ignore-conditions.")
+            if key != vp_active_key:
+                yolo, _, _ = create_yolo_detector(
+                    vp_file=ns.vp_file, vp_model=ns.vp_model,
+                    device=getattr(ns, 'device', 'auto'), vp_data=effective)
+                vp_active_key = key
+                print(f"Condition VP [{conditions_str or 'untagged'}]: "
+                      f"{len(key)} class(es) -- {', '.join(key)}")
 
         # Per-video state reset (SP3.1 Q4/D9): a video's numbers must not depend
         # on its batch position.  Rebuild the cheap stateful objects that are

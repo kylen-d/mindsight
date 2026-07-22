@@ -3,7 +3,7 @@
 import sys as _sys
 from importlib.abc import MetaPathFinder as _MetaPathFinder
 
-__version__ = "1.3.0"
+__version__ = "1.3.1"
 
 
 class _MsMigrationHintFinder(_MetaPathFinder):

@@ -65,22 +65,67 @@ The **VP Builder** tab produces valid `.vp.json` files by pointing and clicking:
    detect. Sampling from your actual study footage works far better than stock
    photos.
 2. **Add a class** for each object category your study cares about.
-3. **Draw bounding boxes** by click-and-drag on the canvas. Each box is assigned
-   to whichever class is currently selected.
-4. **Save VP File...** writes the `.vp.json`.
-5. **Test Inference** -- point a YOLOE model at a folder of test images and
+3. **Tag objects on the canvas** (one grammar, no modes to switch):
+   *drag* to draw a box, *click a box* to delete it, and *click an empty
+   spot* to get suggested boxes (see below). Every new box is tagged with
+   the **active class**, shown in the colored chip under the canvas.
+4. **Switch classes without leaving the image**: press a class's number
+   (`0`-`9`) while the mouse is over the canvas (press it again to clear),
+   cycle with `Ctrl`/`Cmd` + `Left`/`Right`, or click a class in the list
+   (clicking the selected one clears it). If you tag a box with *no* active
+   class, a small class menu pops up right at the cursor -- pick one there,
+   or create a new class on the spot.
+5. **Save VP File...** writes the `.vp.json`.
+6. **Test Inference** -- point a YOLOE model at a folder of test images and
    preview the detections before committing to a full run (this runs
    asynchronously, so the UI stays responsive).
 
-!!! tip "Suggest mode: click instead of drawing"
-    Turn on **Suggest mode** under the canvas and simply *click* an object:
-    MindSight segments the region under your cursor (FastSAM) and shows up to
-    four dashed box proposals, most specific first. Click a proposal to accept
-    it into the selected class -- exactly as if you had drawn it -- or click
-    elsewhere to get new proposals. It needs the small **FastSAM-s** weight
-    (24 MB, AGPL-3.0): download it once from the **Models** tab (SAM row).
+!!! tip "Suggest on click: click instead of drawing"
+    With **Suggest on click** enabled (it is, by default, once the weight is
+    installed), *click an empty spot on an object*: MindSight segments the
+    region under your cursor (FastSAM) and shows up to four numbered box
+    proposals, most specific first, highlighting the one you hover. Click a
+    proposal to accept it into the active class -- exactly as if you had
+    drawn it -- press `Esc` (or right-click) to dismiss, or click elsewhere
+    to get new proposals. It needs the small **FastSAM-s** weight (24 MB,
+    AGPL-3.0): download it once from the **Models** tab (SAM row).
     Suggestions are a drawing aid only; the saved `.vp.json` is identical to
     a hand-drawn one.
+
+Made a mess, or starting the next prompt? **Start Fresh** on the toolbar
+clears the whole session -- images, boxes, and classes -- after a
+confirmation, without restarting the app.
+
+---
+
+## Condition-specific prompts (v1.3.1)
+
+Studies with multiple conditions rarely show the same objects in every
+session. One visual prompt file can now carry the whole study:
+
+1. **Conditions...** on the VP Builder toolbar opens the condition editor:
+   define the condition tags (the same tags your project's videos carry) and
+   tick, per class, the conditions it appears in. A class with **no** ticks
+   stays active in every video. Conditioned classes show an `@tag` badge in
+   the class list.
+2. **In project mode it just works**: each video's condition tags (from the
+   Build-Project wizard, `project.yaml`, or `run.yaml`) select the matching
+   classes -- the detector is rebuilt automatically whenever the active
+   condition set changes between videos. Untagged videos get only the
+   always-active classes, and the preflight report calls out untagged
+   videos, unmatched tags, and videos whose conditions match nothing.
+3. **Preview per condition**: the Test Inference row's **Condition** combo
+   runs the test with exactly the subset a condition's videos will see.
+4. **Overrides**: the *Use full visual prompt* checkbox in Inference
+   Settings (or `--vp-ignore-conditions`) prompts every class everywhere;
+   `--vp-condition warm` runs a single video (or a whole batch) as one
+   condition.
+
+Files without condition tags are byte-identical to the previous format, so
+existing `.vp.json` files, archives, and eval tooling are untouched; tagged
+files save as format version 2 (older MindSight versions cannot read those).
+Changing condition tags reprocesses affected project videos on the next
+resume (the prompt file's content is part of the run identity).
 
 ![The VP Builder with classes and drawn boxes](../assets/tutorial/vp-builder-annotated.png)
 

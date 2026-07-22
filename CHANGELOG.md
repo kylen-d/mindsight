@@ -1,5 +1,52 @@
 # Changelog
 
+## [1.3.1] - 2026-07-21
+
+### Added (VP Builder)
+- **Start Fresh** toolbar button: clears the whole VP Builder session
+  (reference images, boxes, classes, test-inference results, and the
+  saved-file association) after a confirmation -- no more restarting the
+  app to begin a new prompt. Loading a VP file now also fully resets the
+  previous session's leftovers first.
+
+### Added (Condition-specific visual prompts)
+- **One VP file can now serve a whole multi-condition study**: the VP
+  Builder's new **Conditions...** dialog defines condition tags and ticks,
+  per class, the conditions it appears in (no ticks = active everywhere;
+  conditioned classes get an `@tag` badge in the class list). In project
+  mode each video's condition tags select the matching classes and the
+  detector is rebuilt automatically whenever the active set changes
+  between videos; untagged videos get only the always-active classes.
+- **Preview and overrides**: the Test Inference row gains a Condition
+  combo (test exactly what one condition's videos will see); Inference
+  Settings gains "Use full visual prompt" (`--vp-ignore-conditions`);
+  `--vp-condition <tags>` runs anything as a single condition.
+- **Safety rails**: the preflight report cross-checks the prompt against
+  the project (untagged videos, unused tags, videos whose conditions match
+  no classes fail loudly), and condition selection is part of the run
+  identity, so tag changes reprocess affected videos on resume. VP-mode
+  projects reprocess once after this upgrade.
+- **Format**: condition-less files stay byte-identical to the old format
+  (version 1); tagged files save as version 2. The format version is now
+  actually validated on load, with a plain-English error for files from a
+  newer MindSight.
+
+### Changed (VP Builder suggest & tagging UX)
+- **One canvas grammar, no modes**: drag draws a box, clicking a box
+  deletes it, and clicking an empty spot proposes boxes (FastSAM). The
+  modal "Suggest mode" button is replaced by a **Suggest on click**
+  checkbox that is on by default once the FastSAM-s weight is installed.
+- **Proposals are numbered**, highlight on hover, and dismiss with Esc or
+  right-click; the canvas shows a wait cursor while FastSAM runs, with an
+  explicit one-time "loading" message on first use.
+- **Fast class switching**: an "Active class" chip lives under the canvas;
+  number keys 0-9 over the image pick a class by its ID (the same key
+  again clears), Ctrl/Cmd+Left/Right cycles through all classes, and
+  tagging with no active class pops a class picker at the cursor (with
+  "New class..." built in) instead of a warning dialog.
+- Clearer suggest feedback: "no region found" is now distinguished from
+  "regions found but too large/small to be useful".
+
 ## [1.3.0] - 2026-07-21
 
 ### Changed (W4C GUI-checklist fixes -- user eyes-on feedback)

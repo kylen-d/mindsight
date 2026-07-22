@@ -292,6 +292,15 @@ def run_identity(ns, *, config, weights) -> str:
         if dest == "vp_model" and not vp_file:
             continue
         wiring[dest] = getattr(ns, dest, None)
+    if vp_file:
+        # v1.3.1 item 3: condition selection changes what the detector is
+        # primed with.  VP-mode only, so non-VP identities are byte-unchanged
+        # (VP-mode projects reprocess once on upgrade -- ruled).  The VP
+        # file's CONTENT already reaches the hash via collect_weights'
+        # (None, "vp_file") row, so editing the prompt reprocesses too.
+        wiring["vp_condition"] = getattr(ns, "vp_condition", None)
+        wiring["vp_ignore_conditions"] = bool(
+            getattr(ns, "vp_ignore_conditions", False))
     for dest in _PLUGIN_DESTS:
         wiring[dest] = getattr(ns, dest, None)
 
