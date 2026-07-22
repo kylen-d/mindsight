@@ -185,3 +185,130 @@ def test_canvas_mode_off_clears_suggestions(qapp):
     c.set_suggestions([[10, 10, 60, 60]])
     c.set_suggest_mode(False)
     assert c._suggestions == []
+
+
+# ── Suggester introspection (v1.3.1 item 2) ──────────────────────────────────
+
+def test_loaded_property_and_raw_count_filtered_vs_empty():
+    s, _ = _suggester([[0, 0, 640, 480]])    # one box, > max area frac
+    assert s.loaded is False
+    assert s.suggest(FRAME, 10, 10) == []
+    assert s.loaded is True
+    assert s.last_raw_count == 1             # found but ALL filtered
+    s2, _ = _suggester([])
+    assert s2.suggest(FRAME, 10, 10) == []
+    assert s2.last_raw_count == 0            # genuinely nothing found
+
+
+# ── Hybrid canvas grammar (v1.3.1 item 2) ────────────────────────────────────
+
+def _mouse(canvas, kind, wx, wy, button=None):
+    from PyQt6.QtCore import QPoint, QPointF, Qt
+    from PyQt6.QtGui import QMouseEvent
+    button = button or Qt.MouseButton.LeftButton
+    ev = QMouseEvent(kind, QPointF(wx, wy),
+                     canvas.mapToGlobal(QPoint(int(wx), int(wy))).toPointF(),
+                     button, button, Qt.KeyboardModifier.NoModifier)
+    if kind == QMouseEvent.Type.MouseButtonPress:
+        canvas.mousePressEvent(ev)
+    elif kind == QMouseEvent.Type.MouseButtonRelease:
+        canvas.mouseReleaseEvent(ev)
+    else:
+        canvas.mouseMoveEvent(ev)
+
+
+def _hybrid_click(canvas, wx, wy):
+    from PyQt6.QtGui import QMouseEvent
+    _mouse(canvas, QMouseEvent.Type.MouseButtonPress, wx, wy)
+    _mouse(canvas, QMouseEvent.Type.MouseButtonRelease, wx, wy)
+
+
+def _key(canvas, key, mods=None):
+    from PyQt6.QtCore import Qt
+    from PyQt6.QtGui import QKeyEvent
+    ev = QKeyEvent(QKeyEvent.Type.KeyPress, key,
+                   mods or Qt.KeyboardModifier.NoModifier)
+    canvas.keyPressEvent(ev)
+
+
+def _hybrid_canvas(qapp, dets=()):
+    c = _canvas_with_frame(qapp)
+    c.set_hybrid_mode(True)
+    c._dets = list(dets)
+    return c
+
+
+def test_hybrid_click_empty_emits_point(qapp):
+    c = _hybrid_canvas(qapp)
+    got = []
+    c.point_clicked.connect(lambda x, y: got.append((x, y)))
+    _hybrid_click(c, 123, 45)
+    assert got == [(123, 45)] and c._drag_start is None
+
+
+def test_hybrid_click_on_box_toggles_and_drag_draws(qapp):
+    from PyQt6.QtGui import QMouseEvent
+    det = {"cls_id": 0, "cls_name": "bowl", "x1": 10, "y1": 10,
+           "x2": 80, "y2": 80, "conf": 1.0}
+    c = _hybrid_canvas(qapp, dets=[det])
+    toggled, points, crops = [], [], []
+    c.box_toggled.connect(toggled.append)
+    c.point_clicked.connect(lambda x, y: points.append((x, y)))
+    c.crop_drawn.connect(lambda *b: crops.append(b))
+    _hybrid_click(c, 40, 40)                     # inside the box
+    assert toggled == [0] and points == []
+    _mouse(c, QMouseEvent.Type.MouseButtonPress, 100, 100)
+    _mouse(c, QMouseEvent.Type.MouseButtonRelease, 220, 240)
+    assert crops == [(100, 100, 220, 240)] and toggled == [0]
+
+
+def test_hybrid_click_proposal_beats_box_and_point(qapp):
+    det = {"cls_id": 0, "cls_name": "bowl", "x1": 90, "y1": 90,
+           "x2": 320, "y2": 320, "conf": 1.0}
+    c = _hybrid_canvas(qapp, dets=[det])
+    accepted, toggled, points = [], [], []
+    c.suggestion_accepted.connect(accepted.append)
+    c.box_toggled.connect(toggled.append)
+    c.point_clicked.connect(lambda x, y: points.append((x, y)))
+    c.set_suggestions([[50, 50, 400, 400], [100, 100, 200, 200]])
+    _hybrid_click(c, 150, 150)   # inside det AND both proposals
+    assert accepted == [1] and toggled == [] and points == []
+
+
+def test_escape_and_right_click_dismiss_suggestions(qapp):
+    from PyQt6.QtCore import Qt
+    from PyQt6.QtGui import QMouseEvent
+    c = _hybrid_canvas(qapp)
+    cleared = []
+    c.suggestions_cleared.connect(lambda: cleared.append(1))
+    c.set_suggestions([[10, 10, 60, 60]])
+    _key(c, Qt.Key.Key_Escape)
+    assert c._suggestions == [] and cleared == [1]
+    c.set_suggestions([[10, 10, 60, 60]])
+    _mouse(c, QMouseEvent.Type.MouseButtonPress, 300, 300,
+           button=Qt.MouseButton.RightButton)
+    assert c._suggestions == [] and cleared == [1, 1]
+
+
+def test_digit_and_cycle_key_signals(qapp):
+    from PyQt6.QtCore import Qt
+    c = _hybrid_canvas(qapp)
+    digits, cycles = [], []
+    c.digit_pressed.connect(digits.append)
+    c.cycle_pressed.connect(cycles.append)
+    _key(c, Qt.Key.Key_3)
+    _key(c, Qt.Key.Key_0)
+    _key(c, Qt.Key.Key_Left, Qt.KeyboardModifier.ControlModifier)
+    _key(c, Qt.Key.Key_Right, Qt.KeyboardModifier.ControlModifier)
+    _key(c, Qt.Key.Key_Left)                 # no modifier: not a cycle
+    assert digits == [3, 0] and cycles == [-1, 1]
+
+
+def test_hover_highlights_proposal_under_cursor(qapp):
+    from PyQt6.QtGui import QMouseEvent
+    c = _hybrid_canvas(qapp)
+    c.set_suggestions([[100, 100, 200, 200]])
+    _mouse(c, QMouseEvent.Type.MouseMove, 150, 150)
+    assert c._hover_idx == 0
+    _mouse(c, QMouseEvent.Type.MouseMove, 400, 400)
+    assert c._hover_idx is None

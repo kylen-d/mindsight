@@ -174,7 +174,8 @@ def _seeded_tab(tmp_path):
     tab._refresh_class_list()
     tab._images[str(img)]["annotations"] = [
         {"cls_id": 0, "cls_name": "bowl", "bbox": [1, 1, 9, 9]}]
-    tab._test_dets[str(img)] = [{"cls_id": 0}]
+    tab._test_dets[str(img)] = [{"cls_id": 0, "cls_name": "bowl", "x1": 0,
+                                 "y1": 0, "x2": 4, "y2": 4, "conf": 0.5}]
     tab._last_saved_vp = str(tmp_path / "old.vp.json")
     tab._pending_suggestions = [[1, 1, 5, 5]]
     tab._canvas.set_suggestions([[1, 1, 5, 5]])
@@ -196,7 +197,7 @@ def test_start_fresh_clears_everything(qapp, tmp_path, monkeypatch):
     assert tab._file_list.count() == 0
     assert tab._class_list.count() == 0
     assert tab._canvas._suggestions == []
-    assert not tab._suggest_btn.isChecked()
+    assert tab._canvas._hybrid is True       # interaction grammar survives
     assert tab._suggester is suggester       # FastSAM cache survives
 
 
@@ -229,14 +230,9 @@ def test_start_fresh_blocked_while_test_running(qapp, tmp_path, monkeypatch):
 
 
 def test_load_vp_file_resets_stale_session_state(qapp, tmp_path, monkeypatch):
-    import mindsight.GUI.region_suggest as region_suggest
     from PyQt6.QtWidgets import QFileDialog
     tab = _seeded_tab(tmp_path)
-    # Suggest mode genuinely ON (weight check stubbed out).
-    monkeypatch.setattr(region_suggest, "fastsam_path",
-                        lambda: str(tmp_path / "FastSAM-s.pt"))
-    tab._suggest_btn.setChecked(True)
-    assert tab._canvas._suggest_mode is True
+    assert tab._canvas._suggestions        # seeded proposals visible
 
     img = _make_image(tmp_path / "kitchen.jpg")
     vp = tmp_path / "kitchen.vp.json"
@@ -253,5 +249,111 @@ def test_load_vp_file_resets_stale_session_state(qapp, tmp_path, monkeypatch):
     assert list(tab._images) == [str(img)]
     assert tab.current_vp_path() is None     # stale save path cleared
     assert tab._pending_suggestions == []
-    assert not tab._suggest_btn.isChecked()
-    assert tab._canvas._suggest_mode is False
+    assert tab._canvas._suggestions == []    # stale proposals cleared
+
+
+# ── Active class: keys + chip + fallback popup (v1.3.1 item 2) ───────────────
+
+def test_class_digit_keys_and_cycle(qapp, tmp_path):
+    tab = _seeded_tab(tmp_path)
+    tab._classes = [{"id": 0, "name": "bowl"}, {"id": 1, "name": "spoon"},
+                    {"id": 2, "name": "plate"}]
+    tab._refresh_class_list()
+    tab._on_class_digit(1)
+    assert tab._class_list.currentRow() == 1
+    assert "spoon" in tab._active_chip.text()
+    tab._on_class_digit(1)                    # same digit clears
+    assert tab._class_list.currentRow() == -1
+    assert "none" in tab._active_chip.text()
+    tab._on_class_digit(9)                    # out of range: no-op
+    assert tab._class_list.currentRow() == -1
+    tab._on_class_cycle(1)                    # from none -> first
+    assert tab._class_list.currentRow() == 0
+    tab._on_class_cycle(-1)                   # wraps backwards
+    assert tab._class_list.currentRow() == 2
+
+
+def test_accept_without_class_pops_menu(qapp, tmp_path, monkeypatch):
+    from mindsight.GUI.vp_builder_tab import VisualPromptBuilderTab
+    tab = _seeded_tab(tmp_path)
+    img = next(iter(tab._images))
+    tab._class_list.setCurrentRow(-1)
+    tab._pending_suggestions = [[2, 2, 20, 20]]
+    tab._canvas.set_suggestions([[2, 2, 20, 20]])
+    monkeypatch.setattr(VisualPromptBuilderTab, "_popup_class_choice",
+                        lambda self: None)    # menu dismissed
+    tab._on_suggestion_accepted(0)
+    assert len(tab._images[img]["annotations"]) == 1      # unchanged
+    assert tab._pending_suggestions == [[2, 2, 20, 20]]   # proposal kept
+    monkeypatch.setattr(VisualPromptBuilderTab, "_popup_class_choice",
+                        lambda self: self._classes[0])
+    tab._on_suggestion_accepted(0)
+    anns = tab._images[img]["annotations"]
+    assert len(anns) == 2 and anns[-1]["bbox"] == [2, 2, 20, 20]
+    assert tab._pending_suggestions == []
+
+
+def test_popup_class_choice_lists_classes_and_selects(qapp, tmp_path,
+                                                      monkeypatch):
+    from PyQt6.QtWidgets import QMenu
+    tab = _seeded_tab(tmp_path)
+    tab._class_list.setCurrentRow(-1)
+    captured = {}
+
+    def fake_exec(menu, *_a):
+        captured["texts"] = [a.text() for a in menu.actions()
+                             if not a.isSeparator()]
+        return menu.actions()[0]              # pick the first class
+    monkeypatch.setattr(QMenu, "exec", fake_exec)
+    assert tab._popup_class_choice() == tab._classes[0]
+    assert tab._class_list.currentRow() == 0  # popup also sets active class
+    assert captured["texts"] == ["[0] bowl", "New class…"]
+
+
+def test_suggest_point_checkbox_gate_and_messages(qapp, tmp_path, monkeypatch):
+    import time
+
+    import mindsight.GUI.region_suggest as region_suggest
+    tab = _seeded_tab(tmp_path)
+    tab._suggest_chk.setChecked(False)
+    tab._on_suggest_point(5, 5)
+    assert not tab._suggest_busy              # checkbox off: inert
+
+    monkeypatch.setattr(region_suggest, "fastsam_path", lambda: "present")
+    tab._suggest_chk.setChecked(True)
+
+    class FakeSuggester:
+        loaded = False
+        last_raw_count = 0
+
+        def __init__(self, result, raw):
+            self._result, self._raw = result, raw
+
+        def suggest(self, frame, x, y):
+            self.last_raw_count = self._raw
+            self.loaded = True
+            return self._result
+
+    def run_round(suggester, x, arm_msg=None):
+        tab._suggester = suggester
+        tab._on_suggest_point(x, 5)
+        assert tab._suggest_busy
+        if arm_msg is not None:
+            assert arm_msg in tab._status.text()
+        for _ in range(100):
+            tab._poll_suggest()
+            if not tab._suggest_busy:
+                return
+            time.sleep(0.02)
+        pytest.fail("suggest round never completed")
+
+    run_round(FakeSuggester([[1, 1, 5, 5]], 3), 5,
+              arm_msg="Loading FastSAM")       # first use: load message
+    assert tab._pending_suggestions == [[1, 1, 5, 5]]
+    assert "proposal(s)" in tab._status.text()
+
+    run_round(FakeSuggester([], 2), 6)         # found but all filtered
+    assert "too large or too small" in tab._status.text()
+
+    run_round(FakeSuggester([], 0), 7)         # genuinely nothing
+    assert "No region found" in tab._status.text()

@@ -144,23 +144,35 @@ class ImageCanvas(QWidget):
     """Displays a BGR frame with detection overlays; supports click-to-toggle
     and drag-to-draw interaction.
 
-    Suggest mode (v1.1 W3Z, VP Builder): while enabled, clicks stop toggling
-    boxes / starting drags.  A click inside a suggestion box emits
+    Suggest mode (v1.1 W3Z, validation wizard): while enabled, clicks stop
+    toggling boxes / starting drags.  A click inside a suggestion box emits
     ``suggestion_accepted(index)``; any other click on the image emits
     ``point_clicked(ix, iy)`` in image coordinates.  Suggestions render as
     dashed overlays on top of the pixmap.
+
+    Hybrid mode (v1.3.1 item 2, VP Builder): one always-on grammar decided on
+    mouse RELEASE (<10 px movement = click): click a suggestion = accept,
+    click a detection box = toggle, click empty image = ``point_clicked``,
+    drag = ``crop_drawn``.  Esc or right-click dismisses suggestions
+    (``suggestions_cleared``); hovering highlights the proposal under the
+    cursor; digits and Ctrl/Cmd+arrows are re-emitted for the host widget's
+    class switching (``digit_pressed`` / ``cycle_pressed``).
     """
 
     box_toggled = pyqtSignal(int)
     crop_drawn  = pyqtSignal(int, int, int, int)
     point_clicked       = pyqtSignal(int, int)
     suggestion_accepted = pyqtSignal(int)
+    suggestions_cleared = pyqtSignal()
+    digit_pressed       = pyqtSignal(int)   # 0-9
+    cycle_pressed       = pyqtSignal(int)   # -1 / +1
 
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setMinimumSize(400, 300)
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         self.setMouseTracking(True)
+        self.setFocusPolicy(Qt.FocusPolicy.ClickFocus)
 
         self._frame        = None
         self._dets         = []
@@ -171,16 +183,34 @@ class ImageCanvas(QWidget):
         self._drag_start   = None
         self._drag_current = None
         self._suggest_mode = False
+        self._hybrid       = False
+        self._busy         = False
+        self._hover_idx: int | None = None
         self._suggestions: list = []   # [[x1, y1, x2, y2], ...] image coords
 
     def set_suggest_mode(self, on: bool):
         self._suggest_mode = bool(on)
         if not on:
             self._suggestions = []
+            self._hover_idx = None
         self.update()
+
+    def set_hybrid_mode(self, on: bool):
+        """Enable the release-based click/drag/suggest grammar (VP Builder)."""
+        self._hybrid = bool(on)
+        self.update()
+
+    def set_busy(self, on: bool):
+        """Show a wait cursor while the host runs background inference."""
+        self._busy = bool(on)
+        if on:
+            self.setCursor(Qt.CursorShape.WaitCursor)
+        else:
+            self.unsetCursor()
 
     def set_suggestions(self, boxes):
         self._suggestions = [list(b) for b in (boxes or [])]
+        self._hover_idx = None
         self.update()
 
     def set_image_data(self, frame, dets, manual_crops):
@@ -241,15 +271,22 @@ class ImageCanvas(QWidget):
             painter.drawRect(QRect(QPoint(min(x0, x1), min(y0, y1)),
                                    QPoint(max(x0, x1), max(y0, y1))))
         if self._suggestions and self._pixmap:
-            pen = QPen(QColor("#ffb454"), 2, Qt.PenStyle.DashLine)
-            painter.setPen(pen)
-            painter.setBrush(Qt.BrushStyle.NoBrush)
-            for ix1, iy1, ix2, iy2 in self._suggestions:
-                painter.drawRect(QRect(
-                    QPoint(int(ix1 * self._scale + self._off_x),
-                           int(iy1 * self._scale + self._off_y)),
-                    QPoint(int(ix2 * self._scale + self._off_x),
-                           int(iy2 * self._scale + self._off_y))))
+            for i, (ix1, iy1, ix2, iy2) in enumerate(self._suggestions):
+                hovered = (i == self._hover_idx)
+                pen = QPen(QColor("#ffb454"), 3 if hovered else 2,
+                           Qt.PenStyle.SolidLine if hovered
+                           else Qt.PenStyle.DashLine)
+                painter.setPen(pen)
+                painter.setBrush(Qt.BrushStyle.NoBrush)
+                x1 = int(ix1 * self._scale + self._off_x)
+                y1 = int(iy1 * self._scale + self._off_y)
+                x2 = int(ix2 * self._scale + self._off_x)
+                y2 = int(iy2 * self._scale + self._off_y)
+                painter.drawRect(QRect(QPoint(x1, y1), QPoint(x2, y2)))
+                badge = QRect(x1, y1, 18, 16)
+                painter.fillRect(badge, QColor("#ffb454"))
+                painter.setPen(QColor("#1a1a2e"))
+                painter.drawText(badge, Qt.AlignmentFlag.AlignCenter, str(i + 1))
 
     def _widget_to_img(self, wx, wy):
         """Map widget coordinates to image coordinates."""
@@ -257,27 +294,66 @@ class ImageCanvas(QWidget):
             return 0, 0
         return (wx - self._off_x) / self._scale, (wy - self._off_y) / self._scale
 
+    def _suggestion_order(self):
+        """Indices smallest-area-first so nested clicks pick the most
+        specific proposal (matches the suggestion sort order)."""
+        return sorted(range(len(self._suggestions)),
+                      key=lambda i: ((self._suggestions[i][2]
+                                      - self._suggestions[i][0])
+                                     * (self._suggestions[i][3]
+                                        - self._suggestions[i][1])))
+
+    def _suggestion_at(self, ix, iy) -> int | None:
+        for i in self._suggestion_order():
+            x1, y1, x2, y2 = self._suggestions[i]
+            if x1 <= ix <= x2 and y1 <= iy <= y2:
+                return i
+        return None
+
+    def _dismiss_suggestions(self):
+        if not self._suggestions:
+            return
+        self._suggestions = []
+        self._hover_idx = None
+        self.update()
+        self.suggestions_cleared.emit()
+
+    def keyPressEvent(self, event):
+        key = event.key()
+        if key == Qt.Key.Key_Escape and self._suggestions:
+            self._dismiss_suggestions()
+            return
+        if Qt.Key.Key_0 <= key <= Qt.Key.Key_9:
+            self.digit_pressed.emit(key - Qt.Key.Key_0)
+            return
+        if (key in (Qt.Key.Key_Left, Qt.Key.Key_Right)
+                and event.modifiers() & Qt.KeyboardModifier.ControlModifier):
+            self.cycle_pressed.emit(-1 if key == Qt.Key.Key_Left else 1)
+            return
+        super().keyPressEvent(event)
+
     def mousePressEvent(self, event):
+        if event.button() == Qt.MouseButton.RightButton:
+            self._dismiss_suggestions()
+            return
         if event.button() != Qt.MouseButton.LeftButton:
             return
         ix, iy = self._widget_to_img(event.position().x(), event.position().y())
         if self._suggest_mode:
-            # Smallest-first so a click in nested proposals accepts the
-            # most specific one (matches the suggestion sort order).
-            order = sorted(range(len(self._suggestions)),
-                           key=lambda i: ((self._suggestions[i][2]
-                                           - self._suggestions[i][0])
-                                          * (self._suggestions[i][3]
-                                             - self._suggestions[i][1])))
-            for i in order:
-                x1, y1, x2, y2 = self._suggestions[i]
-                if x1 <= ix <= x2 and y1 <= iy <= y2:
-                    self.suggestion_accepted.emit(i)
-                    return
+            i = self._suggestion_at(ix, iy)
+            if i is not None:
+                self.suggestion_accepted.emit(i)
+                return
             if self._frame is not None:
                 hh, ww = self._frame.shape[:2]
                 if 0 <= ix < ww and 0 <= iy < hh:
                     self.point_clicked.emit(int(ix), int(iy))
+            return
+        if self._hybrid:
+            # Click vs drag is decided on release (<10 px = click).
+            self._drag_start   = (int(event.position().x()),
+                                  int(event.position().y()))
+            self._drag_current = self._drag_start
             return
         for i, det in enumerate(self._dets):
             if det["x1"] <= ix <= det["x2"] and det["y1"] <= iy <= det["y2"]:
@@ -290,6 +366,33 @@ class ImageCanvas(QWidget):
         if self._drag_start is not None:
             self._drag_current = (int(event.position().x()), int(event.position().y()))
             self.update()
+            return
+        if self._suggestions and not self._busy:
+            ix, iy = self._widget_to_img(event.position().x(),
+                                         event.position().y())
+            hover = self._suggestion_at(ix, iy)
+            if hover != self._hover_idx:
+                self._hover_idx = hover
+                self.setCursor(Qt.CursorShape.PointingHandCursor
+                               if hover is not None
+                               else Qt.CursorShape.ArrowCursor)
+                self.update()
+
+    def _hybrid_click(self, wx: int, wy: int):
+        """Resolve a short press in hybrid mode: proposal > box > empty."""
+        ix, iy = self._widget_to_img(wx, wy)
+        i = self._suggestion_at(ix, iy)
+        if i is not None:
+            self.suggestion_accepted.emit(i)
+            return
+        for j, det in enumerate(self._dets):
+            if det["x1"] <= ix <= det["x2"] and det["y1"] <= iy <= det["y2"]:
+                self.box_toggled.emit(j)
+                return
+        if self._frame is not None:
+            hh, ww = self._frame.shape[:2]
+            if 0 <= ix < ww and 0 <= iy < hh:
+                self.point_clicked.emit(int(ix), int(iy))
 
     def mouseReleaseEvent(self, event):
         if self._drag_start is None:
@@ -300,6 +403,8 @@ class ImageCanvas(QWidget):
         self._drag_start = self._drag_current = None
         self.update()
         if abs(x1c - x0) < 10 or abs(y1c - y0) < 10:
+            if self._hybrid:
+                self._hybrid_click(x0, y0)
             return
         ix0, iy0 = self._widget_to_img(min(x0, x1c), min(y0, y1c))
         ix1, iy1 = self._widget_to_img(max(x0, x1c), max(y0, y1c))
