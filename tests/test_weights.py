@@ -39,6 +39,20 @@ def test_committed_manifest_required_set_is_exactly_six():
     assert required == REQUIRED_FILENAMES
 
 
+def test_fast_hgnetv2_gazelle_tiers_present():
+    """v1.3.2 item 2: the fast DINOv3-distilled HGNetV2 Gaze-LLE tiers
+    (n-640 / femto-416 / atto-320) are selectable (present, optional, ONNX)."""
+    by_name = {e["filename"]: e for e in weights.manifest_entries()}
+    for stem in ("gazelle_hgnetv2_n_inout_distill_1x3x640x640_1xNx4.onnx",
+                 "gazelle_hgnetv2_femto_inout_distill_1x3x416x416_1xNx4.onnx",
+                 "gazelle_hgnetv2_atto_inout_distill_1x3x320x320_1xNx4.onnx"):
+        e = by_name.get(stem)
+        assert e is not None, f"{stem} missing from the manifest"
+        assert e["backend"] == "Gazelle" and e["required"] is False
+        assert e["source"] == weights.SOURCE_GITHUB
+        assert "research" in e["license_note"]
+
+
 def test_committed_manifest_entry_shape():
     for e in weights.manifest_entries():
         for field in ("backend", "filename", "label", "url", "sha256",
