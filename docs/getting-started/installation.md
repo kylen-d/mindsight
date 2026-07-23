@@ -16,7 +16,7 @@ There are two ways to install MindSight:
 ## One-click install (recommended)
 
 1. **Download the release zip** for your platform --
-   `MindSight-1.3.1-mac.zip` or `MindSight-1.3.1-win.zip` -- from the
+   `MindSight-1.3.2-mac.zip` or `MindSight-1.3.2-win.zip` -- from the
    [GitHub Releases page](https://github.com/kylen-d/mindsight/releases).
 2. **Extract** it somewhere you can find again (Desktop or Downloads is fine).
 3. **Run the installer:**

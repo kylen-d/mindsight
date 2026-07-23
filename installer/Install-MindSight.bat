@@ -33,9 +33,9 @@ REM  until v1.0 assets ship.
 REM  Release-mode assets (wheel, weights manifest, pipeline preset) live on the
 REM  GitHub Release; RELEASE_BASE_URL is that tag's download base. All three URLs
 REM  are overridable via env so a future release can point at a new tag.
-if not defined MINDSIGHT_RELEASE_BASE_URL set "MINDSIGHT_RELEASE_BASE_URL=https://github.com/kylen-d/mindsight/releases/download/v1.3.1"
+if not defined MINDSIGHT_RELEASE_BASE_URL set "MINDSIGHT_RELEASE_BASE_URL=https://github.com/kylen-d/mindsight/releases/download/v1.3.2"
 set "RELEASE_BASE_URL=%MINDSIGHT_RELEASE_BASE_URL%"
-if not defined MINDSIGHT_RELEASE_WHEEL_URL set "MINDSIGHT_RELEASE_WHEEL_URL=%RELEASE_BASE_URL%/mindsight-1.3.1-py3-none-any.whl"
+if not defined MINDSIGHT_RELEASE_WHEEL_URL set "MINDSIGHT_RELEASE_WHEEL_URL=%RELEASE_BASE_URL%/mindsight-1.3.2-py3-none-any.whl"
 set "RELEASE_WHEEL_URL=%MINDSIGHT_RELEASE_WHEEL_URL%"
 if not defined MINDSIGHT_RELEASE_MANIFEST_URL set "MINDSIGHT_RELEASE_MANIFEST_URL=%RELEASE_BASE_URL%/weights_manifest.json"
 set "RELEASE_MANIFEST_URL=%MINDSIGHT_RELEASE_MANIFEST_URL%"

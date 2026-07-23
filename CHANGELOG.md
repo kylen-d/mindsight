@@ -1,12 +1,49 @@
 # Changelog
 
-## [Unreleased]
+## [1.3.2] - 2026-07-23
 
-### Fixed (post-release)
-- Installer launchers now default to the v1.3.1 release assets (the baked
-  URLs still pointed at v1.0.0); the v1.3.1 GitHub release carries the
-  installer zips, wheel, weights manifest, and pipeline preset, so the
-  documented download-and-run install path works again.
+### Added (fast Gaze-LLE model tiers)
+- **Three faster DINOv3-distilled Gaze-LLE models** join the weights list as
+  optional, selectable tiers (the default stays the pico ONNX): **n-640**
+  (same size/cost as pico but a higher hit rate), **femto-416** (~3x faster,
+  a low-power tier), and **atto-320** (the fastest -- every-frame correction
+  becomes affordable -- but weaker on small/distant faces, best for large near
+  faces). Download any of them on the Models tab; they appear in the Gaze-LLE
+  model dropdown.
+
+### Changed (Inference Settings clarity)
+- The advanced **Model variants / dataset keys** section is no longer
+  confusing: the "Gaze-LLE variant" knob is relabelled **Gaze-LLE
+  torch-fallback variant** and spells out that it only affects the legacy
+  torch checkpoint and is **ignored by the default ONNX model** -- to change
+  the model, use the "Gaze-LLE model" field, not this one. The MobileGaze
+  architecture/dataset knobs now say they are advanced overrides that are
+  normally auto-detected.
+- The **Gaze-LLE model** field shows friendly names in its dropdown and a
+  "(default: fast Gaze-LLE pico ONNX)" placeholder, so it is clear which model
+  a run will actually use.
+
+### Fixed (Live Camera)
+- **Live camera failures are now legible.** A camera that will not open (the
+  common macOS permission case) or that opens but streams no video used to
+  read as "Start does nothing" -- the error only went to the log. It now
+  raises a plain-English, permission-aware message ("grant camera access in
+  System Settings > Privacy & Security > Camera, then reopen MindSight") in a
+  prominent dialog, and a warm-up check catches the "opens but no frames"
+  case up front.
+- The macOS app bundle now declares Continuity-Camera support, so an
+  iPhone/Continuity Camera can be opened.
+
+### Fixed (VP Builder)
+- Picking a class from the pop-up class menu (shown when you tag a box with no
+  active class) no longer silently changes the persistent active class -- it
+  tags just that one box.
+
+### Fixed (post-release, installer)
+- Installer launchers now default to the current release assets (the baked
+  URLs still pointed at v1.0.0); the release carries the installer zips,
+  wheel, weights manifest, and pipeline preset, so the documented
+  download-and-run install path works.
 
 ## [1.3.1] - 2026-07-21
 
