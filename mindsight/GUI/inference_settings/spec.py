@@ -119,12 +119,29 @@ _TAB_MODELS = SpecTab(
                       "device."),
             SpecField("rf_gazelle_model", "Gaze-LLE model",
                       "The scene-aware model used by Gaze-LLE Correction (Gaze "
-                      "Estimation tab) to periodically correct gaze rays."),
-            SpecField("mgaze_arch", "MobileGaze architecture", tier="A"),
-            SpecField("mgaze_dataset", "MobileGaze dataset key", tier="A"),
-            SpecField("rf_gazelle_name", "Gaze-LLE variant", tier="A"),
-        ), caption="Model variants / dataset keys: MobileGaze arch + dataset "
-                   "key, Gaze-LLE variant name."),
+                      "Estimation tab) to periodically correct gaze rays. This "
+                      "is where you pick the model; leave it empty to use the "
+                      "default fast pico ONNX. Installed Gaze-LLE models appear "
+                      "in the dropdown (download more on the Models tab)."),
+            SpecField("mgaze_arch", "MobileGaze architecture", tier="A",
+                      description="Advanced override: force the MobileGaze "
+                      "network architecture instead of inferring it from the "
+                      "model file. Leave blank unless a custom MobileGaze "
+                      "checkpoint fails to auto-detect."),
+            SpecField("mgaze_dataset", "MobileGaze dataset key", tier="A",
+                      description="Advanced override: which training dataset's "
+                      "gaze-decode geometry the MobileGaze model uses "
+                      "(e.g. gaze360 vs mpiigaze). Leave blank to match the "
+                      "model; only change it for a custom checkpoint."),
+            SpecField("rf_gazelle_name", "Gaze-LLE torch-fallback variant",
+                      description="Advanced: names the torch (.pt) checkpoint "
+                      "used ONLY when 'Gaze-LLE model' above is left on the "
+                      "torch fallback. The default ONNX Gaze-LLE model IGNORES "
+                      "this -- to change the model, use 'Gaze-LLE model' above, "
+                      "not this field.", tier="A"),
+        ), caption="Advanced overrides for the legacy/torch engines -- normally "
+                   "auto-detected from the model. This is NOT where you pick "
+                   "the Gaze-LLE or gaze model (use the fields above)."),
     ),
 )
 

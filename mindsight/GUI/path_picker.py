@@ -58,6 +58,25 @@ def known_candidates(dest: str) -> list[str]:
         return []
 
 
+def known_candidate_labels(dest: str) -> dict[str, str]:
+    """Friendly dropdown labels (the weights-manifest ``label``) for *dest*'s
+    installed candidates.  Filenames with no manifest entry are omitted, so
+    the combo falls back to the bare filename for those."""
+    backend = _DEST_BACKEND.get(dest)
+    if backend is None:
+        return {}
+    from mindsight.weights import find_entry
+    out: dict[str, str] = {}
+    for name in known_candidates(dest):
+        try:
+            entry = find_entry(name, backend=backend)
+        except Exception:
+            entry = None
+        if entry and entry.get("label"):
+            out[name] = entry["label"]
+    return out
+
+
 def default_browse_dir(dest: str) -> str:
     """Directory the Browse dialog should open in ('' = Qt default)."""
     if dest == "vp_file":
@@ -110,14 +129,26 @@ class KnownPathCombo(QComboBox):
 
     textChanged = pyqtSignal(str)
 
-    def __init__(self, candidates: list[str] | None = None, parent=None):
+    def __init__(self, candidates: list[str] | None = None, parent=None,
+                 labels: dict[str, str] | None = None):
         super().__init__(parent)
         self.setEditable(True)
         self.setInsertPolicy(QComboBox.InsertPolicy.NoInsert)
-        if candidates:
-            self.addItems(candidates)
+        labels = labels or {}
+        for name in (candidates or []):
+            # Show a friendly label in the dropdown but store the bare
+            # filename as item data, so text() stays a valid path.
+            self.addItem(labels.get(name, name), name)
         self.setEditText("")
+        # Picking a labelled item sets the edit text to the filename (data),
+        # not the friendly display -- keeps the stored value a real path.
+        self.activated.connect(self._on_activated)
         self.editTextChanged.connect(self.textChanged.emit)
+
+    def _on_activated(self, index: int) -> None:
+        data = self.itemData(index)
+        if data is not None and data != self.currentText():
+            self.setEditText(str(data))
 
     # -- QLineEdit-compatible surface ----------------------------------------
 
