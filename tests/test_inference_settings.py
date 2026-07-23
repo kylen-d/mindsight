@@ -51,6 +51,19 @@ def test_spec_shape_is_stable():
     assert len(all_dests()) == sum(counts.values()) - 1 == 148
 
 
+def test_advanced_variant_knob_is_disambiguated():
+    """v1.3.2 item 4: the advanced 'Gaze-LLE variant' knob must make clear it
+    only affects the torch fallback and is NOT where the model is picked."""
+    from mindsight.GUI.inference_settings.spec import iter_fields
+    by_dest = {f.dest: f for f in iter_fields()}
+    gz = by_dest["rf_gazelle_name"]
+    assert "torch" in gz.description.lower()
+    assert "ignore" in gz.description.lower()          # ONNX default ignores it
+    assert "torch-fallback" in gz.label.lower()
+    # The real picker's help now names the default so 'is pico used?' is clear.
+    assert "pico" in by_dest["rf_gazelle_model"].description.lower()
+
+
 def test_every_field_has_label_and_description_or_tooltip():
     from mindsight.GUI.inference_settings.spec import field_meta, iter_fields
     for f in iter_fields():

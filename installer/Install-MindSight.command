@@ -37,8 +37,8 @@ DESKTOP_LINK="$HOME/Desktop/MindSight.app"
 # the GitHub Release; RELEASE_BASE_URL is the download base for that tag and the
 # wheel/manifest/preset URLs derive from it. All three are overridable via env so
 # a future release can point at a new tag without editing this script.
-RELEASE_BASE_URL="${MINDSIGHT_RELEASE_BASE_URL:-https://github.com/kylen-d/mindsight/releases/download/v1.3.1}"
-RELEASE_WHEEL_URL="${MINDSIGHT_RELEASE_WHEEL_URL:-$RELEASE_BASE_URL/mindsight-1.3.1-py3-none-any.whl}"
+RELEASE_BASE_URL="${MINDSIGHT_RELEASE_BASE_URL:-https://github.com/kylen-d/mindsight/releases/download/v1.3.2}"
+RELEASE_WHEEL_URL="${MINDSIGHT_RELEASE_WHEEL_URL:-$RELEASE_BASE_URL/mindsight-1.3.2-py3-none-any.whl}"
 RELEASE_MANIFEST_URL="${MINDSIGHT_RELEASE_MANIFEST_URL:-$RELEASE_BASE_URL/weights_manifest.json}"
 RELEASE_PRESET_URL="${MINDSIGHT_RELEASE_PRESET_URL:-$RELEASE_BASE_URL/pipeline_known_good.yaml}"
 RELEASE_LOWPOWER_URL="${MINDSIGHT_RELEASE_LOWPOWER_URL:-$RELEASE_BASE_URL/pipeline_low_power.yaml}"
@@ -148,7 +148,9 @@ EOF
     # ---- Info.plist ----
     # NSCameraUsageDescription is REQUIRED: the GUI records live study sessions
     # from the camera, and without this key macOS denies camera access to the
-    # bundled app. CFBundleIconFile names the .icns above (extension implied).
+    # bundled app. NSCameraUseContinuityCameraDeviceType lets the app open an
+    # iPhone/Continuity Camera (macOS warns and refuses the device without it).
+    # CFBundleIconFile names the .icns above (extension implied).
     cat > "$contents/Info.plist" <<EOF
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -174,6 +176,8 @@ EOF
     <true/>
     <key>NSCameraUsageDescription</key>
     <string>MindSight uses the camera to record live study sessions.</string>
+    <key>NSCameraUseContinuityCameraDeviceType</key>
+    <true/>
 </dict>
 </plist>
 EOF

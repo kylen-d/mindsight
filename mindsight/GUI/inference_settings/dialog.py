@@ -281,6 +281,16 @@ class InferenceSettingsDialog(QDialog):
             return combo
         if meta.widget == "path":
             from mindsight.GUI.path_picker import KnownPathCombo, known_candidates
+            if f.dest == "rf_gazelle_model":
+                # Show friendly manifest labels + make the default legible, so
+                # it is obvious the fast pico ONNX is what runs by default.
+                from mindsight.GUI.path_picker import known_candidate_labels
+                combo = KnownPathCombo(
+                    known_candidates(f.dest),
+                    labels=known_candidate_labels(f.dest))
+                combo.setPlaceholderText(
+                    "(default: fast Gaze-LLE pico ONNX — recommended)")
+                return combo
             return KnownPathCombo(known_candidates(f.dest))
         # line
         return QLineEdit()

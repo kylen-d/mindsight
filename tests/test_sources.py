@@ -5,15 +5,29 @@ string (cv2.VideoCapture("0") does not open a webcam) while leaving file-path
 strings untouched.  No real capture is opened -- cv2.VideoCapture is stubbed.
 """
 
+import numpy as np
+import pytest
+
 import mindsight.io.sources as sources
 
 
 class _FakeCapture:
-    def __init__(self, arg):
+    def __init__(self, arg, *, opened=True, frames=True):
         self.arg = arg
+        self._opened = opened
+        self._frames = frames
+        self.released = False
 
     def isOpened(self):
-        return True
+        return self._opened
+
+    def read(self):
+        if self._frames:
+            return True, np.zeros((4, 4, 3), np.uint8)
+        return False, None
+
+    def release(self):
+        self.released = True
 
     def get(self, _prop):
         return 30.0
@@ -61,11 +75,47 @@ def test_int_source_passed_through_unchanged(monkeypatch):
 
 
 def test_unopenable_source_raises_runtimeerror(monkeypatch):
-    class _Closed(_FakeCapture):
-        def isOpened(self):
-            return False
-
-    monkeypatch.setattr(sources.cv2, "VideoCapture", lambda arg: _Closed(arg))
-    import pytest
+    monkeypatch.setattr(sources.cv2, "VideoCapture",
+                        lambda arg: _FakeCapture(arg, opened=False))
     with pytest.raises(RuntimeError):
         sources.open_video_source("3")
+
+
+def test_camera_open_failure_is_actionable(monkeypatch):
+    """A camera (int) that won't open gets a permission-aware message and the
+    capture is released."""
+    cap = _FakeCapture(0, opened=False)
+    monkeypatch.setattr(sources.cv2, "VideoCapture", lambda arg: cap)
+    with pytest.raises(RuntimeError, match="camera 0"):
+        sources.open_video_source("0")
+    assert "Privacy" in _last_error(monkeypatch, sources, "0")
+    assert cap.released
+
+
+def test_camera_opens_but_no_frames_fails_loudly(monkeypatch):
+    """The macOS 'opened but streams nothing' case raises instead of silently
+    ending with zero frames."""
+    cap = _FakeCapture(0, opened=True, frames=False)
+    monkeypatch.setattr(sources.cv2, "VideoCapture", lambda arg: cap)
+    with pytest.raises(RuntimeError, match="no video"):
+        sources.open_video_source(0)
+    assert cap.released
+
+
+def test_file_source_is_not_warmup_probed(monkeypatch):
+    """A file source that opens is returned WITHOUT a warm-up read (no frame
+    consumed), so file/smoke behavior stays byte-identical."""
+    cap = _FakeCapture("clip.mp4", opened=True, frames=True)
+    reads = []
+    cap.read = lambda: (reads.append(1), (True, None))[1]
+    monkeypatch.setattr(sources.cv2, "VideoCapture", lambda arg: cap)
+    got, fps = sources.open_video_source("clip.mp4")
+    assert got is cap and fps == 30.0 and reads == []
+
+
+def _last_error(monkeypatch, sources, src):
+    try:
+        sources.open_video_source(src)
+    except RuntimeError as exc:
+        return str(exc)
+    return ""

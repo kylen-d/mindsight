@@ -52,6 +52,25 @@ def test_known_path_combo_is_lineedit_compatible(qapp):
     assert [w.itemText(i) for i in range(w.count())] == ["a.pt", "b.pt"]
 
 
+def test_known_path_combo_labels_store_bare_filename(qapp):
+    from mindsight.GUI.path_picker import KnownPathCombo
+    w = KnownPathCombo(["pico.onnx", "n640.onnx"],
+                       labels={"pico.onnx": "Gaze-LLE pico (fast)"})
+    # The dropdown shows the friendly label...
+    assert w.itemText(0) == "Gaze-LLE pico (fast)"
+    assert w.itemText(1) == "n640.onnx"           # no label -> bare name
+    # ...but selecting it stores the bare filename, not the display text.
+    w.setCurrentIndex(0)
+    w._on_activated(0)
+    assert w.text() == "pico.onnx"
+
+
+def test_gazelle_candidate_labels_from_manifest():
+    from mindsight.GUI import path_picker
+    labels = path_picker.known_candidate_labels("source")   # no backend
+    assert labels == {}
+
+
 def test_vp_dir_memory_roundtrip(monkeypatch, tmp_path):
     from mindsight.GUI import path_picker
     from mindsight.GUI.settings_manager import SettingsManager

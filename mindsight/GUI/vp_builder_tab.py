@@ -726,6 +726,10 @@ class VisualPromptBuilderTab(QWidget):
         return self._popup_class_choice()
 
     def _popup_class_choice(self) -> dict | None:
+        """A cursor menu to pick or create a class for ONE box.  It NEVER
+        changes the persistent active-class (palette) selection -- the pick
+        tags only the box that triggered it, leaving the palette as it was."""
+        prior_row = self._class_list.currentRow()
         menu = QMenu(self)
         acts = []
         for c in self._classes:
@@ -743,13 +747,14 @@ class VisualPromptBuilderTab(QWidget):
             before = len(self._classes)
             self._add_class()
             if len(self._classes) > before:
-                row = self._class_list.currentRow()
-                if 0 <= row < len(self._classes):
-                    return self._classes[row]
+                created = self._classes[-1]
+                # _add_class() selects the new row; restore the prior palette
+                # selection so the popup does not promote the new class.
+                self._class_list.setCurrentRow(prior_row)
+                return created
             return None
         for act, c in acts:
             if act is chosen:
-                self._class_list.setCurrentRow(c["id"])
                 return c
         return None
 

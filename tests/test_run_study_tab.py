@@ -74,6 +74,53 @@ def test_decisions_skip_when_ledger_matches(tmp_path, monkeypatch):
 
 # ── Tab: preflight checklist + runs table ────────────────────────────────────
 
+def test_finish_run_surfaces_worker_error(qapp, monkeypatch):
+    """v1.3.2 item 1: a one-off run that died (e.g. camera won't open) pops a
+    prominent dialog instead of only a buried [ERROR] log line."""
+    from PyQt6.QtWidgets import QMessageBox
+
+    from mindsight.GUI.run_study_tab import RunStudyTab
+    tab = RunStudyTab()
+
+    class _DeadWorker:
+        error = "Cannot open camera 0. ... System Settings > Privacy ..."
+
+        def is_alive(self):
+            return False
+
+    tab._one_off_worker = _DeadWorker()
+    tab._run_kind = "quick"
+    tab._running = True
+    tab._stop_requested = False
+    shown = []
+    monkeypatch.setattr(QMessageBox, "critical",
+                        lambda *a, **k: shown.append(a[2]))
+    tab._finish_run()
+    assert shown and "camera 0" in shown[0]
+    assert tab._one_off_worker is None            # cleared for a fresh start
+
+
+def test_finish_run_cancelled_shows_no_error_dialog(qapp, monkeypatch):
+    from PyQt6.QtWidgets import QMessageBox
+
+    from mindsight.GUI.run_study_tab import RunStudyTab
+    tab = RunStudyTab()
+
+    class _DeadWorker:
+        error = "boom"
+
+        def is_alive(self):
+            return False
+
+    tab._one_off_worker = _DeadWorker()
+    tab._run_kind = "quick"
+    tab._running = True
+    tab._stop_requested = True                     # user cancelled
+    monkeypatch.setattr(QMessageBox, "critical",
+                        lambda *a, **k: pytest.fail("no dialog on cancel"))
+    tab._finish_run()
+
+
 def test_checklist_renders_all_checks(qapp, tmp_path):
     from mindsight.GUI.run_study_tab import RunStudyTab
     proj = _make_project(tmp_path)
