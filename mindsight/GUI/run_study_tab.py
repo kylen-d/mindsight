@@ -2019,14 +2019,21 @@ class RunStudyTab(QWidget):
         self._poll_timer.stop()
         self._dashboard_panel.stop()   # B6: live dashboard stops with the run
         was_quick = self._run_kind == "quick"
+        # Capture a one-off worker's failure BEFORE clearing it, so a run that
+        # dies (e.g. a camera that won't open / streams nothing) surfaces a
+        # prominent dialog instead of only a buried [ERROR] log line.
+        worker_error = getattr(self._one_off_worker, "error", None)
+        was_stopped = self._stop_requested
         self._running = False
         self._run_kind = None
         self._update_go_buttons()
-        if self._stop_requested:
+        if was_stopped:
             self._append_log("Cancelled.")
         self._stop_requested = False
         self._worker = None
         self._one_off_worker = None
+        if worker_error and not was_stopped:
+            QMessageBox.critical(self, "Run failed", worker_error)
         if self._project:
             self._refresh_runs_table()
             self._refresh_output_panels()

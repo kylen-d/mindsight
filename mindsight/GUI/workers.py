@@ -115,6 +115,7 @@ class GazeWorker(threading.Thread):
         self.log_q        = log_q
         self.dashboard_q  = dashboard_q
         self._stop_event  = threading.Event()
+        self.error: str | None = None   # set on failure; surfaced by the tab
 
     def stop(self):
         self._stop_event.set()
@@ -127,6 +128,9 @@ class GazeWorker(threading.Thread):
             self._main()
         except Exception as exc:
             import traceback
+            # The clean message drives a prominent dialog; the traceback still
+            # goes to the log for diagnosis.
+            self.error = str(exc)
             self._log(f"[ERROR] {exc}\n{traceback.format_exc()}")
         finally:
             self.frame_q.put(None)  # sentinel: worker is done

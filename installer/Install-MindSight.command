@@ -148,7 +148,9 @@ EOF
     # ---- Info.plist ----
     # NSCameraUsageDescription is REQUIRED: the GUI records live study sessions
     # from the camera, and without this key macOS denies camera access to the
-    # bundled app. CFBundleIconFile names the .icns above (extension implied).
+    # bundled app. NSCameraUseContinuityCameraDeviceType lets the app open an
+    # iPhone/Continuity Camera (macOS warns and refuses the device without it).
+    # CFBundleIconFile names the .icns above (extension implied).
     cat > "$contents/Info.plist" <<EOF
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -174,6 +176,8 @@ EOF
     <true/>
     <key>NSCameraUsageDescription</key>
     <string>MindSight uses the camera to record live study sessions.</string>
+    <key>NSCameraUseContinuityCameraDeviceType</key>
+    <true/>
 </dict>
 </plist>
 EOF

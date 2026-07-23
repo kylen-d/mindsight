@@ -9,6 +9,37 @@ aux-stream helpers are moved verbatim, so behavior is byte-identical.
 
 import cv2
 
+#: How many quick warm-up reads a camera gets to deliver its first frame
+#: before we call it dead.  A working camera returns on the first try; some
+#: (Continuity / cold AVFoundation) need a couple.  cv2.read() returns fast
+#: on failure, so this never blocks a truly dead device for long.
+_CAMERA_WARMUP_READS = 8
+
+
+def _camera_open_error(index) -> str:
+    return (
+        f"Cannot open camera {index}. On macOS, grant camera access in "
+        "System Settings > Privacy & Security > Camera, then quit and reopen "
+        "MindSight. If this is an iPhone/Continuity Camera, keep it nearby "
+        "and unlocked. Also make sure no other app is using the camera.")
+
+
+def _camera_no_frames_error(index) -> str:
+    return (
+        f"Camera {index} opened but delivered no video. Grant camera access "
+        "in System Settings > Privacy & Security > Camera and reopen "
+        "MindSight, close any other app using the camera, and (for an "
+        "iPhone/Continuity Camera) keep it nearby and unlocked.")
+
+
+def _camera_delivers_frames(cap) -> bool:
+    """True if the camera yields a frame within a few warm-up reads."""
+    for _ in range(_CAMERA_WARMUP_READS):
+        ok, frame = cap.read()
+        if ok and frame is not None:
+            return True
+    return False
+
 
 def open_video_source(source):
     """Open the primary video/webcam capture; return ``(cap, fps)``.
@@ -21,12 +52,23 @@ def open_video_source(source):
     only ``cv2.VideoCapture(0)`` does.  File paths are passed through unchanged
     (they never satisfy ``str.isdigit``), so this is the single seam that makes
     a GUI/CLI ``source = "0"`` open camera 0.
+
+    Camera (int) sources get an actionable, permission-aware error and a
+    warm-up frame check so a device that opens but streams nothing (the common
+    macOS "opened but denied" case) fails loudly instead of silently ending
+    with zero frames.  File/image sources are untouched (byte-identical).
     """
     if isinstance(source, str) and source.isdigit():
         source = int(source)
+    is_camera = isinstance(source, int)
     cap = cv2.VideoCapture(source)
     if not cap.isOpened():
-        raise RuntimeError(f"Cannot open source: {source}")
+        cap.release()
+        raise RuntimeError(_camera_open_error(source) if is_camera
+                           else f"Cannot open source: {source}")
+    if is_camera and not _camera_delivers_frames(cap):
+        cap.release()
+        raise RuntimeError(_camera_no_frames_error(source))
     fps = cap.get(cv2.CAP_PROP_FPS) or 30.0
     return cap, fps
 
