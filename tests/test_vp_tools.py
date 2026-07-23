@@ -293,21 +293,37 @@ def test_accept_without_class_pops_menu(qapp, tmp_path, monkeypatch):
     assert tab._pending_suggestions == []
 
 
-def test_popup_class_choice_lists_classes_and_selects(qapp, tmp_path,
-                                                      monkeypatch):
+def test_popup_class_choice_tags_without_promoting(qapp, tmp_path, monkeypatch):
     from PyQt6.QtWidgets import QMenu
     tab = _seeded_tab(tmp_path)
-    tab._class_list.setCurrentRow(-1)
+    tab._class_list.setCurrentRow(-1)         # no active class
     captured = {}
 
     def fake_exec(menu, *_a):
         captured["texts"] = [a.text() for a in menu.actions()
                              if not a.isSeparator()]
-        return menu.actions()[0]              # pick the first class
+        return menu.actions()[0]              # pick the first existing class
     monkeypatch.setattr(QMenu, "exec", fake_exec)
     assert tab._popup_class_choice() == tab._classes[0]
-    assert tab._class_list.currentRow() == 0  # popup also sets active class
+    # The popup pick tags the box but must NOT become the persistent active
+    # class -- the palette selection stays exactly where it was (none).
+    assert tab._class_list.currentRow() == -1
     assert captured["texts"] == ["[0] bowl", "New class…"]
+
+
+def test_popup_new_class_does_not_promote(qapp, tmp_path, monkeypatch):
+    from PyQt6.QtWidgets import QInputDialog, QMenu
+    tab = _seeded_tab(tmp_path)
+    tab._class_list.setCurrentRow(-1)
+
+    def fake_exec(menu, *_a):
+        return menu.actions()[-1]             # the "New class…" action
+    monkeypatch.setattr(QMenu, "exec", fake_exec)
+    monkeypatch.setattr(QInputDialog, "getText", lambda *a, **k: ("spoon", True))
+    created = tab._popup_class_choice()
+    assert created["name"] == "spoon"         # returned for this one box
+    assert created in tab._classes            # the class was created
+    assert tab._class_list.currentRow() == -1  # but the palette is untouched
 
 
 # ── Conditions creator UX (v1.3.1 item 3c) ───────────────────────────────────
