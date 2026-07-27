@@ -149,6 +149,7 @@ the whole tree, so an in-tree `.sif` would be embedded into the next build.
 | `could not load the Qt platform plugin "xcb"` | Missing X libraries — should not happen with this image. Check you used `ssh -X` and `$DISPLAY` is set; `could not connect to display` means X forwarding, not the image. |
 | `torch.cuda.is_available()` → `False` | Forgot `--nv`, or the job isn't on a GPU node. |
 | `note: MINDSIGHT_HOME ... is not writable` | You're using the baked read-only home. Run `mindsight-seed-home` and export `MINDSIGHT_HOME` (see Per-user setup). |
+| `OSError: [Errno 30] Read-only file system: '/opt/mindsight/home/.mindsight'` (GUI crashes at launch) | Same cause: `MINDSIGHT_HOME` is unset, so the GUI tries to create its settings dir inside the read-only image. Seed a home and `export MINDSIGHT_HOME` first — see Per-user setup. |
 | `Permission denied` under `/arc` or `/scratch` | Missing `--bind /arc,/scratch`. |
 | Weight download fails mid-job | Expected — compute nodes have no internet. Download on a login node (shared dir or your home) first. |
 
