@@ -11,7 +11,9 @@
 # See apptainer/README.md for the full Sockeye runbook.
 
 Bootstrap: docker
-From: ubuntu:24.04@sha256:4fbb8e6a8395de5a7550b33509421a2bafbc0aab6c06ba2cef9ebffbc7092d90
+# ubuntu:24.04 (noble) pinned by digest -- apptainer rejects tag@digest
+# references ("both a tag and digest ... not supported"), so digest only.
+From: ubuntu@sha256:4fbb8e6a8395de5a7550b33509421a2bafbc0aab6c06ba2cef9ebffbc7092d90
 
 %files
     . /opt/mindsight/src
