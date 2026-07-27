@@ -1,0 +1,116 @@
+# MindSight v1.3.2 -- reproducible Apptainer image for UBC ARC (Sockeye).
+#
+# Build OUTSIDE the source tree (the %files stanza copies the whole tree):
+#     apptainer build ~/mindsight-v1.3.2.sif apptainer/mindsight.def
+# Run (GPU node):
+#     apptainer exec --nv --bind /arc,/scratch mindsight-v1.3.2.sif mindsight --source clip.mp4
+#
+# Reproducibility: digest-pinned base, pinned uv, `uv sync --frozen` against
+# the committed uv.lock (CUDA-12 torch wheel set on linux/x86_64), and the 6
+# required weights baked in sha256-verified against weights_manifest.json.
+# See apptainer/README.md for the full Sockeye runbook.
+
+Bootstrap: docker
+From: ubuntu:24.04@sha256:4fbb8e6a8395de5a7550b33509421a2bafbc0aab6c06ba2cef9ebffbc7092d90
+
+%files
+    . /opt/mindsight/src
+
+%post
+    set -eu
+    export DEBIAN_FRONTEND=noninteractive
+
+    apt-get update
+    # Qt xcb stack: libxcb-cursor0 is REQUIRED by Qt >= 6.5's xcb plugin --
+    # its absence is exactly what broke the GUI in the hand-rolled ARC
+    # attempt (2026-07-27). imageio-ffmpeg bundles ffmpeg; no apt ffmpeg.
+    apt-get install -y --no-install-recommends \
+        python3.12 python3.12-venv \
+        ca-certificates curl git \
+        libgl1 libegl1 libopengl0 \
+        libglib2.0-0t64 fontconfig libfontconfig1 libfreetype6 \
+        libdbus-1-3 \
+        libx11-6 libx11-xcb1 libxext6 libxrender1 libxi6 libsm6 libice6 \
+        libxkbcommon0 libxkbcommon-x11-0 \
+        libxcb1 libxcb-cursor0 libxcb-icccm4 libxcb-image0 libxcb-keysyms1 \
+        libxcb-randr0 libxcb-render0 libxcb-render-util0 libxcb-shape0 \
+        libxcb-shm0 libxcb-sync1 libxcb-xfixes0 libxcb-xinerama0 libxcb-xkb1 \
+        libxcb-glx0
+    rm -rf /var/lib/apt/lists/*
+
+    # ---- uv, pinned + checksummed ----
+    UV_VERSION=0.11.32
+    UV_SHA256=aab924fd522efd06f1c5f3b93a243864fc453132c94b2dc49f1371b528a4b967
+    curl -LsSf -o /tmp/uv.tar.gz \
+        "https://github.com/astral-sh/uv/releases/download/${UV_VERSION}/uv-x86_64-unknown-linux-gnu.tar.gz"
+    echo "${UV_SHA256}  /tmp/uv.tar.gz" | sha256sum -c -
+    tar -xzf /tmp/uv.tar.gz -C /tmp
+    install -m 0755 /tmp/uv-x86_64-unknown-linux-gnu/uv /usr/local/bin/uv
+    rm -rf /tmp/uv.tar.gz /tmp/uv-x86_64-unknown-linux-gnu
+
+    # ---- locked dependency install (no resolution at build time) ----
+    cd /opt/mindsight/src
+    export UV_CACHE_DIR=/tmp/uv-cache
+    export UV_PYTHON_DOWNLOADS=never
+    uv venv --python /usr/bin/python3.12 /opt/mindsight/venv
+    UV_PROJECT_ENVIRONMENT=/opt/mindsight/venv uv sync --frozen --no-dev --no-editable
+    rm -rf /tmp/uv-cache
+
+    # ---- baked home: manifest + the 6 required weights, sha256-verified ----
+    mkdir -p /opt/mindsight/home
+    cp /opt/mindsight/src/weights_manifest.json /opt/mindsight/home/
+    export MINDSIGHT_HOME=/opt/mindsight/home
+    /opt/mindsight/venv/bin/mindsight-weights --required
+
+    # ---- helpers + provenance ----
+    install -m 0755 /opt/mindsight/src/apptainer/bin/mindsight-seed-home \
+        /usr/local/bin/mindsight-seed-home
+    COMMIT=$(git -C /opt/mindsight/src rev-parse HEAD 2>/dev/null || echo unknown)
+    printf 'commit=%s\nbuilt=%s\n' "$COMMIT" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+        > /opt/mindsight/BUILD_INFO
+    # Source tree not needed at runtime: the package is installed non-editable.
+    rm -rf /opt/mindsight/src
+
+%environment
+    export PATH=/opt/mindsight/venv/bin:$PATH
+    # Defensive default: with MINDSIGHT_HOME unset, mindsight/constants.py
+    # falls back to a path INSIDE the venv and misses the baked weights.
+    # ${VAR:-default} keeps a user's own export winning.
+    export MINDSIGHT_HOME="${MINDSIGHT_HOME:-/opt/mindsight/home}"
+
+%runscript
+    if [ ! -w "$MINDSIGHT_HOME" ]; then
+        echo "note: MINDSIGHT_HOME ($MINDSIGHT_HOME) is not writable (outputs will fail)." >&2
+        echo "      Seed a per-user home first:" >&2
+        echo "        mindsight-seed-home /path/to/home [--shared-weights DIR]" >&2
+        echo "        export MINDSIGHT_HOME=/path/to/home" >&2
+    fi
+    exec mindsight "$@"
+
+%test
+    python -c "import torch, torchvision, cv2, mediapipe; print('torch', torch.__version__, '| built for CUDA', torch.version.cuda)"
+    QT_QPA_PLATFORM=offscreen python -c "from PyQt6.QtWidgets import QApplication; QApplication([]); print('Qt offscreen OK')"
+    mindsight --help > /dev/null
+    mindsight-weights --verify-only --required
+
+%labels
+    org.opencontainers.image.title MindSight
+    org.opencontainers.image.version 1.3.2
+    org.opencontainers.image.source https://github.com/kylen-d/mindsight
+    org.opencontainers.image.licenses AGPL-3.0-or-later
+    org.opencontainers.image.base.name docker.io/library/ubuntu:24.04@sha256:4fbb8e6a8395de5a7550b33509421a2bafbc0aab6c06ba2cef9ebffbc7092d90
+    ca.ubc.arc.target Sockeye (x86_64; GPU via --nv, CUDA 12 wheel set)
+
+%help
+    MindSight v1.3.2 -- multi-person gaze tracking (github.com/kylen-d/mindsight)
+
+    One-time per user:
+        apptainer exec <sif> mindsight-seed-home $HOME_DIR --shared-weights <lab-weights-dir>
+        export MINDSIGHT_HOME=$HOME_DIR
+    Batch (GPU node):
+        apptainer exec --nv --bind /arc,/scratch <sif> mindsight --source clip.mp4 --save
+        apptainer exec --nv --bind /arc,/scratch <sif> mindsight --project <study-dir>
+    GUI (login node, ssh -X):
+        apptainer exec --bind /arc,/scratch <sif> mindsight-gui
+
+    Full runbook: apptainer/README.md in the source repo.
