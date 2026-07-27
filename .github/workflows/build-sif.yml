@@ -1,0 +1,84 @@
+# Builds the MindSight Apptainer image, smoke-tests it, and pushes it to
+# GHCR as an ORAS artifact (release assets cap at 2 GiB; the .sif is ~8-10 GB).
+# Pull on a Sockeye LOGIN node (compute nodes have no internet):
+#     apptainer pull oras://ghcr.io/kylen-d/mindsight:v1.3.2
+name: build-sif
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "Git ref to build (branch, tag, or SHA); empty = default branch"
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Free runner disk (the CUDA image needs ~20 GB headroom)
+        run: |
+          sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc \
+                      /usr/local/.ghcup /usr/local/share/boost
+          sudo docker image prune -af || true
+          df -h /
+
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref || github.ref }}
+
+      - name: Install Apptainer
+        uses: eWaterCycle/setup-apptainer@v2
+        with:
+          apptainer-version: 1.5.3
+
+      - name: Build .sif
+        run: |
+          sudo mkdir -p /mnt/aptmp && sudo chmod 1777 /mnt/aptmp
+          export APPTAINER_TMPDIR=/mnt/aptmp
+          apptainer build mindsight.sif apptainer/mindsight.def
+
+      - name: Test image (%test + CPU smoke)
+        run: |
+          apptainer test mindsight.sif
+          apptainer exec mindsight.sif mindsight --help > /dev/null
+          # Regression check for the ARC GUI failure (missing libxcb-cursor0):
+          # with xcb forced and no DISPLAY, Qt must fail with "could not
+          # connect to display" -- "could not load the Qt platform plugin"
+          # means the xcb system-library stack is incomplete.
+          set +e
+          out=$(apptainer exec --env QT_QPA_PLATFORM=xcb mindsight.sif \
+                python -c "from PyQt6.QtWidgets import QApplication; QApplication([])" 2>&1)
+          set -e
+          echo "$out"
+          if echo "$out" | grep -qi "could not load the Qt platform plugin"; then
+            echo "xcb platform plugin failed to load -- system libs incomplete"
+            exit 1
+          fi
+          echo "xcb plugin loads (fails only on missing DISPLAY, as expected)"
+
+      - name: Push to GHCR (ORAS)
+        run: |
+          echo "${{ secrets.GITHUB_TOKEN }}" | \
+            apptainer registry login -u "${{ github.actor }}" --password-stdin oras://ghcr.io
+          if [ "${{ github.ref_type }}" = "tag" ]; then
+            TAG="${{ github.ref_name }}"
+          else
+            TAG="dev-${{ github.run_id }}"
+          fi
+          apptainer push mindsight.sif "oras://ghcr.io/${{ github.repository }}:${TAG}"
+          echo "Pushed: \`oras://ghcr.io/${{ github.repository }}:${TAG}\`" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Record artifact identity
+        run: |
+          {
+            echo '```'
+            sha256sum mindsight.sif
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
