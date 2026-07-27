@@ -51,20 +51,37 @@ jobs:
         run: |
           apptainer test mindsight.sif
           apptainer exec mindsight.sif mindsight --help > /dev/null
-          # Regression check for the ARC GUI failure (missing libxcb-cursor0):
-          # with xcb forced and no DISPLAY, Qt must fail with "could not
-          # connect to display" -- "could not load the Qt platform plugin"
-          # means the xcb system-library stack is incomplete.
+          # Regression checks for the ARC GUI failure (missing libxcb-cursor0).
+          # NOTE: Qt prints "xcb-cursor0 ... is needed" + "Could not load the
+          # Qt platform plugin" as generic advice on ANY xcb init failure,
+          # including the expected no-DISPLAY case -- so we test the failure
+          # mode directly instead of parsing that banner (run 30313407253
+          # false-alarmed on it).
+          # 1) The library Qt >= 6.5 requires must dlopen inside the image.
+          apptainer exec mindsight.sif python -c \
+            "import ctypes; ctypes.CDLL('libxcb-cursor.so.0'); print('libxcb-cursor0 OK')"
+          # 2) Every shared-lib dependency of Qt's xcb plugin must resolve.
+          apptainer exec mindsight.sif bash -c '
+            plug=$(python -c "import PyQt6, os; print(os.path.join(os.path.dirname(PyQt6.__file__), \"Qt6\", \"plugins\", \"platforms\", \"libqxcb.so\"))")
+            missing=$(ldd "$plug" | grep "not found" || true)
+            if [ -n "$missing" ]; then
+              echo "$missing"
+              echo "unresolved shared libs for the Qt xcb plugin"
+              exit 1
+            fi
+            echo "all libqxcb.so deps resolve"'
+          # 3) With xcb forced and no DISPLAY, the failure must be the display
+          #    connection -- proof the plugin loaded and got that far.
           set +e
           out=$(apptainer exec --env QT_QPA_PLATFORM=xcb mindsight.sif \
                 python -c "from PyQt6.QtWidgets import QApplication; QApplication([])" 2>&1)
           set -e
           echo "$out"
-          if echo "$out" | grep -qi "could not load the Qt platform plugin"; then
-            echo "xcb platform plugin failed to load -- system libs incomplete"
+          if ! echo "$out" | grep -qi "could not connect to display"; then
+            echo "xcb plugin never reached the display-connect stage -- libs incomplete"
             exit 1
           fi
-          echo "xcb plugin loads (fails only on missing DISPLAY, as expected)"
+          echo "xcb plugin loads and reaches display connect (no DISPLAY in CI, as expected)"
 
       - name: Push to GHCR (ORAS)
         run: |
