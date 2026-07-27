@@ -67,3 +67,6 @@ localref/
 # Wheel-build resource staging (scripts/sync_bundled_resources.py)
 mindsight/_bundled/
 eval_data/
+
+# Apptainer build artifacts (build OUTSIDE the tree; %files copies everything)
+*.sif
