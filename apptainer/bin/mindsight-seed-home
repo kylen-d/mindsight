@@ -1,0 +1,69 @@
+#!/bin/bash
+# mindsight-seed-home -- create/refresh a per-user writable MINDSIGHT_HOME for
+# the MindSight Apptainer image.
+#
+#   usage: mindsight-seed-home <home-dir> [--shared-weights <dir>]
+#
+# Symlinks the image's baked weights and manifest (from $MINDSIGHT_BAKED_HOME,
+# default /opt/mindsight/home) into <home-dir>/Weights, optionally merging a
+# lab-shared weights directory the same way. Existing real files are never
+# replaced (a user's own downloads win); stale symlinks are refreshed, so
+# re-running after an image upgrade is safe and idempotent.
+set -euo pipefail
+
+BAKED="${MINDSIGHT_BAKED_HOME:-/opt/mindsight/home}"
+
+usage() {
+    echo "usage: mindsight-seed-home <home-dir> [--shared-weights <dir>]" >&2
+    exit 2
+}
+
+HOME_DIR=""
+SHARED=""
+while [ $# -gt 0 ]; do
+    case "$1" in
+        --shared-weights) [ $# -ge 2 ] || usage; SHARED="$2"; shift 2 ;;
+        -h|--help) usage ;;
+        -*) usage ;;
+        *) [ -z "$HOME_DIR" ] || usage; HOME_DIR="$1"; shift ;;
+    esac
+done
+[ -n "$HOME_DIR" ] || usage
+
+# link_tree <weights-dir>: symlink every <backend>/<file> into the home.
+link_tree() {
+    local src="$1" backend b f dst
+    [ -d "$src" ] || return 0
+    for backend in "$src"/*/; do
+        [ -d "$backend" ] || continue
+        b="$(basename "$backend")"
+        mkdir -p "$HOME_DIR/Weights/$b"
+        for f in "$backend"*; do
+            [ -f "$f" ] || continue
+            dst="$HOME_DIR/Weights/$b/$(basename "$f")"
+            if [ -e "$dst" ] && [ ! -L "$dst" ]; then
+                echo "  keep (real file): Weights/$b/$(basename "$f")"
+                continue
+            fi
+            ln -sfn "$f" "$dst"
+        done
+    done
+}
+
+mkdir -p "$HOME_DIR/Weights" "$HOME_DIR/Outputs"
+
+if [ -e "$HOME_DIR/weights_manifest.json" ] && [ ! -L "$HOME_DIR/weights_manifest.json" ]; then
+    echo "  keep (real file): weights_manifest.json"
+else
+    ln -sfn "$BAKED/weights_manifest.json" "$HOME_DIR/weights_manifest.json"
+fi
+
+link_tree "$BAKED/Weights"
+# NOT `[ -n ] && link_tree`: under set -e the failed test would kill the
+# script whenever --shared-weights is omitted.
+if [ -n "$SHARED" ]; then
+    link_tree "$SHARED"
+fi
+
+echo "MindSight home seeded at: $HOME_DIR"
+echo "  export MINDSIGHT_HOME=\"$HOME_DIR\""
