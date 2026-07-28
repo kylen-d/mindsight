@@ -53,9 +53,9 @@ with results rsynced back (the sbatch template does this).
 
    ```bash
    export MINDSIGHT_HOME=/arc/project/st-<alloc>-1/mindsight/weights-tmp-home
-   apptainer exec --bind /arc mindsight-v1.3.2.sif \
+   apptainer exec --env MINDSIGHT_HOME="$MINDSIGHT_HOME" --bind /arc mindsight-v1.3.2.sif \
        mindsight-seed-home "$MINDSIGHT_HOME"
-   apptainer exec --bind /arc mindsight-v1.3.2.sif \
+   apptainer exec --env MINDSIGHT_HOME="$MINDSIGHT_HOME" --bind /arc mindsight-v1.3.2.sif \
        mindsight-weights --all          # or: --backend Gazelle --backend YOLO
    # real files land next to the symlinks; move them into the shared dir:
    mkdir -p weights-shared
@@ -74,10 +74,22 @@ with results rsynced back (the sbatch template does this).
 
 ```bash
 export MINDSIGHT_HOME=/scratch/st-<alloc>-1/$USER/mindsight-home   # or project space
-apptainer exec --bind /arc,/scratch /arc/project/st-<alloc>-1/mindsight/mindsight-v1.3.2.sif \
+apptainer exec --env MINDSIGHT_HOME="$MINDSIGHT_HOME" --bind /arc,/scratch \
+    /arc/project/st-<alloc>-1/mindsight/mindsight-v1.3.2.sif \
     mindsight-seed-home "$MINDSIGHT_HOME" \
     --shared-weights /arc/project/st-<alloc>-1/mindsight/weights-shared
 ```
+
+> **Always pass `--env MINDSIGHT_HOME="$MINDSIGHT_HOME"`** (every example here
+> does): HPC Apptainer installs often enable `cleanenv`, which strips host
+> environment variables — a plain `export` then never reaches the container
+> and MindSight falls back to its read-only baked home (verified live on
+> Sockeye, 2026-07-27). For set-and-forget, add BOTH lines to `~/.bashrc`:
+>
+> ```bash
+> export MINDSIGHT_HOME=/scratch/st-<alloc>-1/$USER/mindsight-home
+> export APPTAINERENV_MINDSIGHT_HOME=$MINDSIGHT_HOME   # auto-injected into every container
+> ```
 
 `mindsight-seed-home` symlinks the baked + shared weights and the manifest
 into your home and creates a writable `Outputs/`. It never replaces a real
@@ -107,7 +119,7 @@ Start from [`sbatch/gpu-example.sh`](sbatch/gpu-example.sh) — replace
 
 ```bash
 ssh -X sockeye.arc.ubc.ca          # from a machine with an X server
-apptainer exec --bind /arc,/scratch $SIF mindsight-gui
+apptainer exec --env MINDSIGHT_HOME="$MINDSIGHT_HOME" --bind /arc,/scratch $SIF mindsight-gui
 ```
 
 Runs CPU-only on the login node — fine for configuration, project setup, and
@@ -149,7 +161,7 @@ the whole tree, so an in-tree `.sif` would be embedded into the next build.
 | `could not load the Qt platform plugin "xcb"` | Missing X libraries — should not happen with this image. Check you used `ssh -X` and `$DISPLAY` is set; `could not connect to display` means X forwarding, not the image. |
 | `torch.cuda.is_available()` → `False` | Forgot `--nv`, or the job isn't on a GPU node. |
 | `note: MINDSIGHT_HOME ... is not writable` | You're using the baked read-only home. Run `mindsight-seed-home` and export `MINDSIGHT_HOME` (see Per-user setup). |
-| `OSError: [Errno 30] Read-only file system: '/opt/mindsight/home/.mindsight'` (GUI crashes at launch) | Same cause: `MINDSIGHT_HOME` is unset, so the GUI tries to create its settings dir inside the read-only image. Seed a home and `export MINDSIGHT_HOME` first — see Per-user setup. |
+| `OSError: [Errno 30] Read-only file system: '/opt/mindsight/home/.mindsight'` (GUI crashes at launch) | `MINDSIGHT_HOME` never reached the container, so it fell back to the read-only baked home. Either it was never exported, or the cluster's `cleanenv` apptainer config stripped it — pass it explicitly with `--env MINDSIGHT_HOME="$MINDSIGHT_HOME"` (or export `APPTAINERENV_MINDSIGHT_HOME`). Verify with `apptainer exec $SIF sh -c 'echo $MINDSIGHT_HOME'`. See Per-user setup. |
 | `Permission denied` under `/arc` or `/scratch` | Missing `--bind /arc,/scratch`. |
 | Weight download fails mid-job | Expected — compute nodes have no internet. Download on a login node (shared dir or your home) first. |
 

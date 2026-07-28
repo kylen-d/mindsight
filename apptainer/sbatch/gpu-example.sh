@@ -20,16 +20,18 @@ SIF="$LAB_DIR/mindsight-v1.3.2.sif"
 SHARED_WEIGHTS="$LAB_DIR/weights-shared"
 
 # Per-user writable home on scratch (fast + large); results copied back below.
+# MINDSIGHT_HOME is passed with --env on every exec: HPC apptainer configs
+# often strip host env vars (cleanenv), and --env survives that.
 export MINDSIGHT_HOME=/scratch/st-<alloc>-1/$USER/mindsight-home
-apptainer exec --bind /arc,/scratch "$SIF" \
+apptainer exec --env MINDSIGHT_HOME="$MINDSIGHT_HOME" --bind /arc,/scratch "$SIF" \
     mindsight-seed-home "$MINDSIGHT_HOME" --shared-weights "$SHARED_WEIGHTS"
 
 # --- Single video ---
-apptainer exec --nv --bind /arc,/scratch "$SIF" \
+apptainer exec --nv --env MINDSIGHT_HOME="$MINDSIGHT_HOME" --bind /arc,/scratch "$SIF" \
     mindsight --source /arc/project/st-<alloc>-1/videos/session01.mp4 --save
 
 # --- Or project mode: process every staged video in a study directory ---
-# apptainer exec --nv --bind /arc,/scratch "$SIF" \
+# apptainer exec --nv --env MINDSIGHT_HOME="$MINDSIGHT_HOME" --bind /arc,/scratch "$SIF" \
 #     mindsight --project /arc/project/st-<alloc>-1/studies/study-A
 
 # Keep results: copy outputs to backed-up project space.
